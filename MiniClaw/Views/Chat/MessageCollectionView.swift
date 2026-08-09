@@ -285,7 +285,7 @@ struct MessageCollectionView: UIViewRepresentable {
 
             // 滚动中（deferSelfSizing=true）或进入稳定窗口（P7）：仅延迟「缩小/稳定」的高度
             // 变化（滚动中保持视觉稳定）；增长与首次测量放行实时生效——
-            // OpenMinis 对齐（MessageListLayout defer 语义：`preferred <= original + 0.5`
+            // 参考实现对齐（MessageListLayout defer 语义：`preferred <= original + 0.5`
             // 才入 deferredHeights，grow 放行走 REJECT 重排，避免「滚动中内容被裁、
             // 停止瞬间一次性弹高」）。
             if deferSelfSizing || Date() < enterStabilizeUntil {
@@ -418,7 +418,7 @@ struct MessageCollectionView: UIViewRepresentable {
         private var onNearBottom: (() -> Void)?
         private var onNearBottomChanged: ((Bool) -> Void)?
         private var lastNearBottom: Bool?
-        /// OpenMinis 对齐：settle 落实延迟高度期间抑制 KVO（isFlushing），
+        /// 参考实现对齐：settle 落实延迟高度期间抑制 KVO（isFlushing），
         /// 防止 applyDeferredHeights→contentSize 变化立即触发贴底/Clamp 与
         /// restoreAnchor 竞争（「停止时跳一下」根因）
         private var isFlushing = false
@@ -522,7 +522,7 @@ struct MessageCollectionView: UIViewRepresentable {
             // 同一 pass 贴底或保持 offset，替代旧「invalidateLayout + 事后追滚」的抖动路径。
             contentSizeObservation = cv.observe(\.contentSize, options: [.new, .old]) { [weak self] cv, change in
                 guard let self else { return }
-                // OpenMinis 对齐：settle 落实延迟高度期间抑制 KVO（isFlushing）
+                // 参考实现对齐：settle 落实延迟高度期间抑制 KVO（isFlushing）
                 guard !self.isFlushing else { return }
                 let newH = change.newValue?.height ?? 0
                 let oldH = change.oldValue?.height ?? 0
@@ -927,7 +927,7 @@ struct MessageCollectionView: UIViewRepresentable {
             // 重配流式 cell → self-sizing 重测新高度）。这里不需要任何直接 mutation
             // （diffable dataSource 禁止 reloadItems/reloadData 等直接调用）。
             // 静止时若有残留的延迟高度修正(滚动中 defer 的),立即 flush 并重排
-            // （OpenMinis 对齐：isFlushing 抑制 KVO 重入，与 settleAfterInteraction 一致）
+            // （参考实现对齐：isFlushing 抑制 KVO 重入，与 settleAfterInteraction 一致）
             if let layout = messageListLayout, layout.deferredHeightCount > 0, !isUserScrolling {
                 isFlushing = true
                 layout.applyDeferredHeights()
@@ -1103,7 +1103,7 @@ struct MessageCollectionView: UIViewRepresentable {
             guard let layout = messageListLayout, layout.deferredHeightCount > 0 else { return }
             // 停止瞬间锚定（P6）：落实延迟高度前先捕获锚点，布局更新后恢复原位置，
             // 避免 contentSize 突变把当前视野内容推走（「停止时跳一下」）。
-            // OpenMinis 对齐：isFlushing 抑制期间 KVO 不介入，杜绝与 restoreAnchor 竞争。
+            // 参考实现对齐：isFlushing 抑制期间 KVO 不介入，杜绝与 restoreAnchor 竞争。
             captureAnchor(cv)
             anchorWindowEnd = Date().addingTimeInterval(0.8)
             isFlushing = true

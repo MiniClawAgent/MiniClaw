@@ -1,6 +1,6 @@
 import Foundation
 import SwiftUI
-import OpenMinisPort
+import MiniClawKit
 import SwiftData
 import UIKit
 
@@ -1024,12 +1024,12 @@ struct ChatView: View {
 
     // MARK: - Message List
 
-    /// OM 列表数据桥(2026-08-09 会话页 1:1 移植):OpenMinis 列表组件的数据适配层
-    @StateObject private var omBridge = OMChatViewModelBridge()
+    /// 适配列表数据桥(2026-08-09 会话页 1:1 重构):移植列表组件的数据适配层
+    @StateObject private var chatBridge = MiniClawChatBridge()
 
-    /// OM 列表调试开关:miniclaw.debug.omList(UserDefaults,默认关)
-    private var UseOMList: Bool {
-        UserDefaults.standard.bool(forKey: "miniclaw.debug.omList")
+    /// 适配列表调试开关:miniclaw.debug.chatList(UserDefaults,默认关)
+    private var UseAdaptedList: Bool {
+        UserDefaults.standard.bool(forKey: "miniclaw.debug.chatList")
     }
 
     /// 受控展开状态（2026-08-09）：思考块/工具卡/错误详情的展开集合。
@@ -1148,8 +1148,8 @@ struct ChatView: View {
 
     private var messageListView: some View {
         Group {
-            if UseOMList {
-                omListContent
+            if UseAdaptedList {
+                adaptedListContent
             } else {
                 legacyListContent
             }
@@ -1300,8 +1300,8 @@ struct ChatView: View {
                 .padding(.bottom, 6)
                 .frame(maxWidth: .infinity, alignment: .leading))
             },
-            // OM 列表开关:miniclaw.debug.omList(UserDefaults,默认关)
-            // 开启后使用 OpenMinis 消息列表组件(阶段 3 适配层验证入口)
+            // 适配列表开关:miniclaw.debug.chatList(UserDefaults,默认关)
+            // 开启后使用移植的消息列表组件(阶段 3 适配层验证入口)
             bannerView: AnyView(
                 !appState.hasConfiguredModel
                     ? AnyView(ModelWarningBannerView(onConfigure: {
@@ -1334,28 +1334,29 @@ struct ChatView: View {
         )
     }
 
-    /// OM 列表(OpenMinis 组件,miniclaw.debug.omList 开启时使用)
+    /// 适配列表(自研移植组件,miniclaw.debug.chatList 开启时使用)
 
-    private var omListContent: some View {
+    private var adaptedListContent: some View {
         CollectionViewMessageListV3(
-            vm: omBridge.vm,
+            vm: chatBridge.vm,
             inputFocused: isInputFocused,
             onRetryMessage: nil,
-            onResume: { omBridge.onResume?() },
-            onStop: { omBridge.onStop?() },
+            onResume: { chatBridge.onResume?() },
+            onStop: { chatBridge.onStop?() },
             maxContentWidth: 0,
             floatingBarHeight: 0,
             inputBarHeight: floatingBarTopInset
         )
         .ignoresSafeArea(edges: .bottom)
         .onAppear {
-            omBridge.attach(session: session, appState: appState)
-            omBridge.onResume = { resumeGeneration() }
-            omBridge.onStop = { stopGeneration() }
+            chatBridge.attach(session: session, appState: appState)
+            // 值类型捕获:ChatView 为 struct,闭包捕获的是值副本,无保留环风险
+            chatBridge.onResume = { resumeGeneration() }
+            chatBridge.onStop = { stopGeneration() }
         }
-        .onChange(of: session.messages.count) { _, _ in omBridge.refresh() }
-        .onChange(of: session.messages.last?.content.count ?? 0) { _, _ in omBridge.refresh() }
-        .onChange(of: session.messages.last?.isStreaming ?? false) { _, _ in omBridge.refresh(force: true) }
+        .onChange(of: session.messages.count) { _, _ in chatBridge.refresh() }
+        .onChange(of: session.messages.last?.content.count ?? 0) { _, _ in chatBridge.refresh() }
+        .onChange(of: session.messages.last?.isStreaming ?? false) { _, _ in chatBridge.refresh(force: true) }
     }
     // MARK: - 子代理悬浮头像（输入框上方）
 

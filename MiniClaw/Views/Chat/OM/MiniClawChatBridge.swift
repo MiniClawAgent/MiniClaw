@@ -1,16 +1,16 @@
 import Foundation
 import SwiftUI
-import OpenMinisPort
+import MiniClawKit
 
-// MARK: - OM 数据桥(2026-08-09)
+// MARK: - 数据桥(2026-08-09)
 // 把 MiniClaw 会话数据(SwiftData 消息 + runtime 流式状态)桥接进
-// OpenMinis 消息列表组件所需的 AIChatViewModel。宿主(ChatView)在
+// 移植消息列表组件所需的 AIChatViewModel。宿主(ChatView)在
 // 数据变化点调用 refresh(),内部按内容指纹节流,避免流式高频重建。
 
 @MainActor
-final class OMChatViewModelBridge: ObservableObject {
-    /// OM 列表直接消费的视图模型
-    let vm = OpenMinisPort.AIChatViewModel()
+final class MiniClawChatBridge: ObservableObject {
+    /// 适配列表直接消费的视图模型
+    let vm = MiniClawKit.AIChatViewModel()
 
     private weak var session: ChatSession?
     private weak var appState: AppState?
@@ -28,8 +28,22 @@ final class OMChatViewModelBridge: ObservableObject {
     func refresh(force: Bool = false) {
         guard let session else { return }
 
-        let messages = session.messages.map { OMChatAdapter.convert($0) }
-        let fp = messages.reduce("") { $0 + "\($1.content.count)|\($1.blocks.count)|" }
+        let sorted = session.messages.sorted { $0.createdAt < $1.createdAt }
+        let messages = sorted.map { MiniClawChatAdapter.convert($0) }
+        // 指纹纳入思考段与工具状态(同 blocks 数内的状态流转不再被节流吞掉)
+        var fp = ""
+        for m in messages {
+            fp += "\(m.content.count)|\(m.blocks.count)|"
+            for b in m.blocks {
+                if case .thinking = b.kind {
+                    fp += "t:\(b.content.count)|"
+                } else if b.toolStatus != nil {
+                    fp += "u:\(String(describing: b.toolStatus))|\(b.content.count)|"
+                } else {
+                    fp += "x|"
+                }
+            }
+        }
         let now = Date()
         let throttled = now.timeIntervalSince(lastRefreshAt) < 0.25 && !force
         if fp == lastFingerprint || (throttled && !force) { return }

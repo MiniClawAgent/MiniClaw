@@ -18,7 +18,7 @@ enum LogLevel: String, CustomStringConvertible {
 
 // MARK: - App Logger
 
-/// 按天写入 `Documents/MiniClaw/logs/MiniClow-YYYY-MM-DD.log`，格式对齐 Apple Unified Log：
+/// 按天写入 `Documents/MiniClaw/logs/MiniClaw-YYYY-MM-DD.log`，格式对齐 Apple Unified Log：
 /// `[HH:MM:SS] yyyy-MM-dd HH:mm:ss.sss MiniClaw[pid:tid] [Category] [LEVEL] [Subsystem] message`
 ///
 /// 用于真机 debug：检测会话期间的报错 / 卡死 / 死循环 / 闪退，并可在
@@ -79,7 +79,7 @@ final class AppLogger: @unchecked Sendable {
     /// 不能算卡死。只有停在处理事件的阶段（sources/timers）超时才是真卡死。
     private let runLoopActivityLock = OSAllocatedUnfairLock<CFRunLoopActivity>(initialState: .entry)
 
-    /// 默认日志分类(OpenMinis 适配:AppLogger(category:) 兼容构造)
+    /// 默认日志分类(移植适配:AppLogger(category:) 兼容构造)
     private let defaultCategory: String
 
     init(category: String = "App") {
@@ -124,7 +124,7 @@ final class AppLogger: @unchecked Sendable {
     func warn(_ message: String, category: String? = nil, subsystem: String? = nil) {
         log(category: category ?? defaultCategory, subsystem: subsystem, level: .warn, message: message)
     }
-    /// OpenMinis 适配:warning 别名(warn)
+    /// 移植适配:warning 别名(warn)
     func warning(_ message: String, category: String? = nil, subsystem: String? = nil) {
         log(category: category ?? defaultCategory, subsystem: subsystem, level: .warn, message: message)
     }
@@ -187,7 +187,7 @@ final class AppLogger: @unchecked Sendable {
     // MARK: - File append
 
     private func currentLogFileURL() -> URL {
-        let name = "MiniClow-\(dateFormatter.string(from: Date())).log"
+        let name = "MiniClaw-\(dateFormatter.string(from: Date())).log"
         return logsDir.appendingPathComponent(name)
     }
 
@@ -231,7 +231,7 @@ final class AppLogger: @unchecked Sendable {
 
     /// 当天运行日志路径，供崩溃报告「Log file」字段引用（AppLogger 与 CrashReporter 共用）。
     func crashLogPath() -> String {
-        logsDir.appendingPathComponent("MiniClow-\(dateFormatter.string(from: Date())).log").path
+        logsDir.appendingPathComponent("MiniClaw-\(dateFormatter.string(from: Date())).log").path
     }
 
     /// 崩溃报告文件路径：`crash-YYYYMMDD-HHMMSS.log`（供信号处理器低层写入）。
@@ -448,7 +448,7 @@ final class AppLogger: @unchecked Sendable {
 
     var logsDirectory: URL { logsDir }
 
-    /// 返回所有 `MiniClow-YYYY-MM-DD.log`，按日期倒序。
+    /// 返回所有 `MiniClaw-YYYY-MM-DD.log`，按日期倒序。
     func listLogFiles() -> [LogFileEntry] {
         guard let urls = try? fileManager.contentsOfDirectory(
             at: logsDir,
@@ -462,7 +462,7 @@ final class AppLogger: @unchecked Sendable {
                 let vals = try? url.resourceValues(forKeys: [.fileSizeKey])
                 let size = Int64(vals?.fileSize ?? 0)
                 let date = url.deletingPathExtension().lastPathComponent
-                    .replacingOccurrences(of: "MiniClow-", with: "")
+                    .replacingOccurrences(of: "MiniClaw-", with: "")
                 return LogFileEntry(url: url, date: date, size: size)
             }
             .sorted { $0.date > $1.date }
