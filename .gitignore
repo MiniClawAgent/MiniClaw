@@ -1,0 +1,22 @@
+# Xcode
+*.xcuserdata
+*.xcworkspace/xcuserdata
+DerivedData/
+build/
+*.xcresult
+
+# CocoaPods
+Pods/
+
+# Swift Package Manager
+.build/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project specific
+/var/MiniClaw/
+
+# Xcode user state (xcuserdatad 目录)
+xcuserdata/

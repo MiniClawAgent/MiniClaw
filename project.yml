@@ -1,0 +1,209 @@
+name: MiniClaw
+options:
+  bundleIdPrefix: com.neartop
+  deploymentTarget:
+    iOS: "17.0"
+    iPadOS: "17.0"
+  xcodeVersion: "16.0"
+
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    CODE_SIGN_STYLE: Automatic
+    # --- iSH (AArch64 / asbestos) integration ---
+    # C/ObjC preprocessor flags (must match how the static libs were built)
+    GCC_PREPROCESSOR_DEFINITIONS:
+      - "GUEST_ARM64=1"
+      - "ENGINE_ASBESTOS=1"
+      - "LOG_HANDLER_DPRINTF=1"
+      - "ISH_ENABLED=1"
+    # Swift compilation condition for #if ISH_ENABLED
+    SWIFT_ACTIVE_COMPILATION_CONDITIONS:
+      - "ISH_ENABLED"
+    # Header search paths: iSH source root, vdso/arm64 generated headers,
+    # the meson build dir (cpu-offsets.h), and our own bridge dir.
+    HEADER_SEARCH_PATHS:
+      - "$(SRCROOT)/MiniClaw/Services/iSH"
+      - "$(SRCROOT)/../第三方源码/ish-arm64"
+      - "$(SRCROOT)/../第三方源码/ish-arm64/app"
+      - "$(SRCROOT)/../第三方源码/ish-arm64/vdso/arm64"
+      - "$(SRCROOT)/../第三方源码/ish-arm64/build-arm64-ios"
+    # Link the three prebuilt iSH static libraries + sqlite3.
+    OTHER_LDFLAGS:
+      - "$(SRCROOT)/../第三方源码/ish-arm64/build-arm64-ios/libish.a"
+      - "$(SRCROOT)/../第三方源码/ish-arm64/build-arm64-ios/libish_emu.a"
+      - "$(SRCROOT)/../第三方源码/ish-arm64/build-arm64-ios/libfakefs.a"
+      - "-lsqlite3"
+      - "-lresolv"
+    SWIFT_OBJC_BRIDGING_HEADER: "MiniClaw/MiniClaw-Bridging-Header.h"
+
+targets:
+  MiniClaw:
+    type: application
+    platform: iOS
+    sources:
+      - path: MiniClaw
+        type: group
+        excludes:
+          - Resources/BundledRules
+          - Resources/BundledSkills
+          - AppIntents
+      # AppIntents 单独编译为 Swift 5 模式：规避 iOS 26 SDK 的 AppIntent Sendable / @MainActor 严格并发冲突
+      # （详见 MiniClaw/AppIntents/MiniClawIntents.swift 顶部注释）。
+      - path: MiniClaw/AppIntents/MiniClawIntents.swift
+        compilerFlags: "-swift-version 5"
+      - path: MiniClaw/Resources/BundledRules
+        type: folder
+        buildPhase: resources
+      - path: MiniClaw/Resources/BundledSkills
+        type: folder
+        buildPhase: resources
+      - path: MiniClaw/Resources/BundledSubAgentProfiles
+        type: folder
+        buildPhase: resources
+      # iSH shell-executor source (kept in 第三方源码, not copied into MiniClaw)
+      # 必须用 ARC，否则 autorelease 的 NSMutableSet 等会在运行时被释放，
+      # 导致 context/active-set 指针变成野指针而崩溃。
+      - path: ../第三方源码/ish-arm64/app/ISHShellExecutor.m
+        compilerFlags: "-fobjc-arc"
+      # Prebuilt Alpine aarch64 rootfs (deployed to sandbox on first launch)
+      - path: ../第三方源码/ish-arm64/rootfs
+        type: folder
+        buildPhase: resources
+      # Privacy Manifest（iOS 17+ 上架强制要求：声明所需理由 API + 数据收集类型）
+      - path: PrivacyInfo.xcprivacy
+        buildPhase: resources
+    settings:
+      base:
+        PRODUCT_NAME: "$(TARGET_NAME)"
+        PRODUCT_BUNDLE_IDENTIFIER: com.neartop.miniclaw.app
+        TARGETED_DEVICE_FAMILY: "1,2"
+        INFOPLIST_FILE: MiniClaw/Resources/Info.plist
+        CODE_SIGN_ENTITLEMENTS: MiniClaw/MiniClaw.entitlements
+        GENERATE_INFOPLIST_FILE: NO
+        # 明确指定 App 图标资源集，否则 actool 不会把 AppIcon 编进 Assets.car，
+        # 也不会往 Info.plist 注入 CFBundleIconName，导致主屏图标不显示。
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        INFOPLIST_KEY_CFBundleDisplayName: "MiniClaw"
+        INFOPLIST_KEY_NSAppTransportSecurity_NSAllowsLocalNetworking: YES
+        INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents: YES
+        INFOPLIST_KEY_UILaunchStoryboardName: ""
+        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: "UIInterfaceOrientationPortrait"
+        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad:
+          - "UIInterfaceOrientationPortrait"
+          - "UIInterfaceOrientationPortraitUpsideDown"
+          - "UIInterfaceOrientationLandscapeLeft"
+          - "UIInterfaceOrientationLandscapeRight"
+        INFOPLIST_KEY_UIRequiredDeviceCapabilities:
+          - "arm64"
+        INFOPLIST_KEY_NSLocationWhenInUseUsageDescription: "MiniClaw 需要使用您的位置信息来提供基于位置的服务，如天气查询、地图导航和定位相关功能。"
+        INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription: "MiniClaw 需要使用蓝牙来扫描和连接附近的蓝牙设备。"
+        INFOPLIST_KEY_NSHealthShareUsageDescription: "MiniClaw 需要读取健康数据以提供健康分析和建议。"
+        INFOPLIST_KEY_NSHealthUpdateUsageDescription: "MiniClaw 需要写入健康数据以记录您的健康信息。"
+        INFOPLIST_KEY_NSHomeKitUsageDescription: "MiniClaw 需要访问 HomeKit 以控制您的智能家居设备。"
+        INFOPLIST_KEY_NSCalendarsUsageDescription: "MiniClaw 需要访问日历以管理和创建日程事件。"
+        INFOPLIST_KEY_NSRemindersUsageDescription: "MiniClaw 需要访问提醒事项以创建和管理提醒。"
+        INFOPLIST_KEY_NSMicrophoneUsageDescription: "MiniClaw 需要使用麦克风进行语音输入和语音识别。"
+        INFOPLIST_KEY_NSSpeechRecognitionUsageDescription: "MiniClaw 需要使用语音识别将您的语音转换为文字。"
+        INFOPLIST_KEY_NSCameraUsageDescription: "MiniClaw 需要使用相机拍照或扫描二维码。"
+        INFOPLIST_KEY_NSPhotoLibraryUsageDescription: "MiniClaw 需要访问照片库以读取和保存图片。"
+        INFOPLIST_KEY_NSUserNotificationsUsageDescription: "MiniClaw 需要发送通知来提醒您重要信息。"
+        INFOPLIST_KEY_NFCReaderUsageDescription: "MiniClaw 需要使用 NFC 读取标签信息。"
+        INFOPLIST_KEY_NSAppleMusicUsageDescription: "MiniClaw 需要访问媒体库以播放和控制音乐。"
+        INFOPLIST_KEY_NSLocalNetworkUsageDescription: "MiniClaw 需要访问本地网络以发现和连接本地设备与服务。"
+        INFOPLIST_KEY_UIBackgroundModes:
+          - "audio"
+          - "fetch"
+          - "processing"
+          - "remote-notification"
+          - "location"
+        INFOPLIST_KEY_NSSupportsLiveActivities: YES
+        INFOPLIST_KEY_NSSupportsLiveActivitiesFrequentUpdates: YES
+        INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO
+    dependencies:
+      - sdk: Security.framework
+      - sdk: HealthKit.framework
+      - sdk: EventKit.framework
+      - sdk: Photos.framework
+      - sdk: CoreLocation.framework
+      - sdk: ActivityKit.framework
+      - sdk: AppIntents.framework
+      - target: MiniClawWidget
+      - target: ShareExtension
+    preBuildScripts: []
+    postBuildScripts: []
+
+  MiniClawWidget:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: MiniClawWidget
+      # 共享 Live Activity 属性结构：主 App 与 Widget 扩展各编译一份（同名同字段）。
+      - path: MiniClaw/Services/Background/MiniClawLiveActivityAttributes.swift
+    settings:
+      base:
+        PRODUCT_NAME: MiniClawWidget
+        PRODUCT_MODULE_NAME: MiniClawWidget
+        PRODUCT_BUNDLE_IDENTIFIER: com.neartop.miniclaw.app.widget
+        INFOPLIST_FILE: MiniClawWidget/Info.plist
+        GENERATE_INFOPLIST_FILE: NO
+        SWIFT_VERSION: "6.0"
+        CODE_SIGN_STYLE: Automatic
+        APPLICATION_EXTENSION_API_ONLY: YES
+        TARGETED_DEVICE_FAMILY: "1,2"
+    dependencies:
+      - sdk: WidgetKit.framework
+      - sdk: SwiftUI.framework
+      - sdk: ActivityKit.framework
+      # 桌面「一键任务」小组件用 AppIntentConfiguration 做可配置 prompt
+      - sdk: AppIntents.framework
+
+  ShareExtension:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: ShareExtension
+    settings:
+      base:
+        PRODUCT_NAME: ShareExtension
+        PRODUCT_MODULE_NAME: ShareExtension
+        PRODUCT_BUNDLE_IDENTIFIER: com.neartop.miniclaw.app.shareext
+        INFOPLIST_FILE: ShareExtension/Info.plist
+        GENERATE_INFOPLIST_FILE: NO
+        SWIFT_VERSION: "6.0"
+        CODE_SIGN_STYLE: Automatic
+        APPLICATION_EXTENSION_API_ONLY: YES
+        TARGETED_DEVICE_FAMILY: "1,2"
+    dependencies:
+      - sdk: UIKit.framework
+
+  MiniClawTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: MiniClawTests
+    dependencies:
+      - target: MiniClaw
+    settings:
+      base:
+        PRODUCT_NAME: MiniClawTests
+        PRODUCT_BUNDLE_IDENTIFIER: com.neartop.miniclaw.app.tests
+        SWIFT_VERSION: "6.0"
+        CODE_SIGN_STYLE: Automatic
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/MiniClaw.app/MiniClaw"
+        BUNDLE_LOADER: "$(TEST_HOST)"
+        # 让测试目标能找到主 App 编译出的 MiniClaw.swiftmodule（沙盒无签名时尤其需要显式指明）
+        SWIFT_INCLUDE_PATHS: "$(BUILT_PRODUCTS_DIR)"
+        INFOPLIST_FILE: MiniClawTests/Info.plist
+        GENERATE_INFOPLIST_FILE: NO
+
+schemes:
+  MiniClaw:
+    build:
+      targets:
+        MiniClaw: all
+        MiniClawWidget: all
+        ShareExtension: all
+    test:
+      targets:
+        - MiniClawTests

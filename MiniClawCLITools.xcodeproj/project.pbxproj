@@ -1,0 +1,579 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 50;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		0710400412D9DC77AFA39187508D0F66 /* ChatMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CA6A1563759E883003447352FE3C707 /* ChatMessage.swift */; };
+		079B4654E6FB5EBE9D819297DB9ACBE8 /* CLICommon.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA195E1BCF34A8D7A5D3296876682081 /* CLICommon.swift */; };
+		1E02D98742D56956A27C95292826EEE2 /* CLICommon.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA195E1BCF34A8D7A5D3296876682081 /* CLICommon.swift */; };
+		306C960AB0261AC42207FD38BE67270E /* ArtifactStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9795F0BEC8D239B30B9F0247330817C2 /* ArtifactStore.swift */; };
+		3406AD47FF4875B45CD256258A941D0E /* AgentRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68C9ACCEA428E002D0C9864D861FA832 /* AgentRuntime.swift */; };
+		3A39E5DF9D8C9B64A5834EC0862DE2AA /* CLICommon.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA195E1BCF34A8D7A5D3296876682081 /* CLICommon.swift */; };
+		3F0A7FE5566109ADB7CCCBA2AE77BEC5 /* CLICommon.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA195E1BCF34A8D7A5D3296876682081 /* CLICommon.swift */; };
+		3F64EBD0BF94839402F6C83D704B8172 /* CLICommon.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA195E1BCF34A8D7A5D3296876682081 /* CLICommon.swift */; };
+		518ADC368E10CAA99663921D996409EE /* CLICommon.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA195E1BCF34A8D7A5D3296876682081 /* CLICommon.swift */; };
+		7BCD150DA0B7BA23C8815E3CB6CA82AA /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BA43AE0D1E48200F7A1076C788B696B /* main.swift */; };
+		83644205D820A35F5C0DF723A3E294DE /* SessionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9672559F45E9B2C23E51A27889545A5F /* SessionService.swift */; };
+		86F7F67B170F90CAD1C5E4EB37414D16 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = FECDCEDD03FB99F677378BCBDB8C4C12 /* main.swift */; };
+		8E6D1ACE9A1BB203A3AAA05903B90A40 /* HostExecutor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E89BD573A778DC9C4C0B8BC48551ACB /* HostExecutor.swift */; };
+		9BE4EE12578CE725B1294CEE7064B94C /* HostExecutor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E89BD573A778DC9C4C0B8BC48551ACB /* HostExecutor.swift */; };
+		9DF5883945B8E463D8A3F60EEC527190 /* ChatSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3ADCF077567DC80FC73F4E2ADB9A56F5 /* ChatSession.swift */; };
+		B398DF521DC1C06384239D0BEEC60139 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7704D881ABBFC81AC4721E0F2FF15D79 /* main.swift */; };
+		B3A8AE9632E8D8C36C850FF6AB9A73F5 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 706AAD1A11572673CA4D497441FCFE46 /* main.swift */; };
+		B82B177B85D8C8CAD293CF7D904EBCCF /* SessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CED4FADC528A189635B4849B9CC03E7 /* SessionStore.swift */; };
+		BB4A15DB30DAB27EE3B59FC48975883E /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 70DBCC3D0501F928047EAB864D7D4D01 /* main.swift */; };
+		C22BBEFDBF7A80C9E9DFBE07D48E2EE0 /* HostExecutor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E89BD573A778DC9C4C0B8BC48551ACB /* HostExecutor.swift */; };
+		E6C43F705C3ACA03B8B6E3E3EC4794DD /* HostExecutor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E89BD573A778DC9C4C0B8BC48551ACB /* HostExecutor.swift */; };
+		E823EAF98E0F3CA3DAF091E471023ED2 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4EFAEBDB59DEEDCF5D2C87F5B9398656 /* main.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		0CED4FADC528A189635B4849B9CC03E7 /* SessionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionStore.swift; sourceTree = "<group>"; };
+		2D3BD7701029DBE3CB169CE853E8354E /* minis-browser-cli */ = {isa = PBXFileReference; includeInIndex = 0; path = "minis-browser-cli"; sourceTree = BUILT_PRODUCTS_DIR; };
+		2E89BD573A778DC9C4C0B8BC48551ACB /* HostExecutor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostExecutor.swift; sourceTree = "<group>"; };
+		3ADCF077567DC80FC73F4E2ADB9A56F5 /* ChatSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatSession.swift; sourceTree = "<group>"; };
+		3EC660BE9CDE33E8F1BF8D81CD6A51CC /* minis-sessions-cli */ = {isa = PBXFileReference; includeInIndex = 0; path = "minis-sessions-cli"; sourceTree = BUILT_PRODUCTS_DIR; };
+		42C6A80B01B593B7FDF5E18C2F8A328E /* minis-config-cli */ = {isa = PBXFileReference; includeInIndex = 0; path = "minis-config-cli"; sourceTree = BUILT_PRODUCTS_DIR; };
+		4EFAEBDB59DEEDCF5D2C87F5B9398656 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
+		66AE976CEB16CE581F990D34B77F0F6D /* minis-ios-cli */ = {isa = PBXFileReference; includeInIndex = 0; path = "minis-ios-cli"; sourceTree = BUILT_PRODUCTS_DIR; };
+		68C9ACCEA428E002D0C9864D861FA832 /* AgentRuntime.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentRuntime.swift; sourceTree = "<group>"; };
+		69BD9900E3AB5BDBD95730723BB5B49F /* minis-fs-cli */ = {isa = PBXFileReference; includeInIndex = 0; path = "minis-fs-cli"; sourceTree = BUILT_PRODUCTS_DIR; };
+		706AAD1A11572673CA4D497441FCFE46 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
+		70DBCC3D0501F928047EAB864D7D4D01 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
+		7704D881ABBFC81AC4721E0F2FF15D79 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
+		8BB4C659F5B1BF87D2736A0EA3BB31BD /* minis-model-cli */ = {isa = PBXFileReference; includeInIndex = 0; path = "minis-model-cli"; sourceTree = BUILT_PRODUCTS_DIR; };
+		8CA6A1563759E883003447352FE3C707 /* ChatMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatMessage.swift; sourceTree = "<group>"; };
+		9672559F45E9B2C23E51A27889545A5F /* SessionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionService.swift; sourceTree = "<group>"; };
+		9795F0BEC8D239B30B9F0247330817C2 /* ArtifactStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArtifactStore.swift; sourceTree = "<group>"; };
+		9BA43AE0D1E48200F7A1076C788B696B /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
+		FA195E1BCF34A8D7A5D3296876682081 /* CLICommon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CLICommon.swift; sourceTree = "<group>"; };
+		FECDCEDD03FB99F677378BCBDB8C4C12 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		20F0F01E8899129BC3CF1A48BA28363B /* Common */ = {
+			isa = PBXGroup;
+			children = (
+				FA195E1BCF34A8D7A5D3296876682081 /* CLICommon.swift */,
+			);
+			name = Common;
+			path = MiniClawCLI/Common;
+			sourceTree = "<group>";
+		};
+		24BE9362578D351DFE5408977A0BE328 /* MiniClawCLI */ = {
+			isa = PBXGroup;
+			children = (
+				68C9ACCEA428E002D0C9864D861FA832 /* AgentRuntime.swift */,
+				9795F0BEC8D239B30B9F0247330817C2 /* ArtifactStore.swift */,
+				70DBCC3D0501F928047EAB864D7D4D01 /* main.swift */,
+				9672559F45E9B2C23E51A27889545A5F /* SessionService.swift */,
+				0CED4FADC528A189635B4849B9CC03E7 /* SessionStore.swift */,
+			);
+			path = MiniClawCLI;
+			sourceTree = "<group>";
+		};
+		2F50620DCA7769A28EB8DE0080C03603 /* Browser */ = {
+			isa = PBXGroup;
+			children = (
+				706AAD1A11572673CA4D497441FCFE46 /* main.swift */,
+			);
+			name = Browser;
+			path = MiniClawCLI/Browser;
+			sourceTree = "<group>";
+		};
+		547434FA28FDEDB0590046E978BE6085 /* Config */ = {
+			isa = PBXGroup;
+			children = (
+				4EFAEBDB59DEEDCF5D2C87F5B9398656 /* main.swift */,
+			);
+			name = Config;
+			path = MiniClawCLI/Config;
+			sourceTree = "<group>";
+		};
+		7CA0E61B00213B65526720BB7EFB0FBD /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				2D3BD7701029DBE3CB169CE853E8354E /* minis-browser-cli */,
+				42C6A80B01B593B7FDF5E18C2F8A328E /* minis-config-cli */,
+				69BD9900E3AB5BDBD95730723BB5B49F /* minis-fs-cli */,
+				66AE976CEB16CE581F990D34B77F0F6D /* minis-ios-cli */,
+				8BB4C659F5B1BF87D2736A0EA3BB31BD /* minis-model-cli */,
+				3EC660BE9CDE33E8F1BF8D81CD6A51CC /* minis-sessions-cli */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		7E86612B92F8036B7AFFABEA29B3A937 /* iOS */ = {
+			isa = PBXGroup;
+			children = (
+				7704D881ABBFC81AC4721E0F2FF15D79 /* main.swift */,
+			);
+			name = iOS;
+			path = MiniClawCLI/iOS;
+			sourceTree = "<group>";
+		};
+		8A2B3FB7E4013C58816A91E1EEBC90CA /* Shared */ = {
+			isa = PBXGroup;
+			children = (
+				2E89BD573A778DC9C4C0B8BC48551ACB /* HostExecutor.swift */,
+			);
+			name = Shared;
+			path = /Users/neartop/Desktop/MiniClowDevelopment/MiniClaw/MiniClaw/Shared;
+			sourceTree = "<group>";
+		};
+		94D7F9F66C43FB32534E8153DA8CE795 = {
+			isa = PBXGroup;
+			children = (
+				2F50620DCA7769A28EB8DE0080C03603 /* Browser */,
+				20F0F01E8899129BC3CF1A48BA28363B /* Common */,
+				547434FA28FDEDB0590046E978BE6085 /* Config */,
+				AE10915F9210F49F37C0B7A4105D1E2B /* FS */,
+				7E86612B92F8036B7AFFABEA29B3A937 /* iOS */,
+				24BE9362578D351DFE5408977A0BE328 /* MiniClawCLI */,
+				BBBDC9B6C75DDCDE0456A11FBE2EF845 /* Model */,
+				9F3A5A5A614B4F8466609AC9AE39B2DE /* Models */,
+				8A2B3FB7E4013C58816A91E1EEBC90CA /* Shared */,
+				7CA0E61B00213B65526720BB7EFB0FBD /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		9F3A5A5A614B4F8466609AC9AE39B2DE /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				8CA6A1563759E883003447352FE3C707 /* ChatMessage.swift */,
+				3ADCF077567DC80FC73F4E2ADB9A56F5 /* ChatSession.swift */,
+			);
+			name = Models;
+			path = /Users/neartop/Desktop/MiniClowDevelopment/MiniClaw/MiniClaw/Models;
+			sourceTree = "<group>";
+		};
+		AE10915F9210F49F37C0B7A4105D1E2B /* FS */ = {
+			isa = PBXGroup;
+			children = (
+				9BA43AE0D1E48200F7A1076C788B696B /* main.swift */,
+			);
+			name = FS;
+			path = MiniClawCLI/FS;
+			sourceTree = "<group>";
+		};
+		BBBDC9B6C75DDCDE0456A11FBE2EF845 /* Model */ = {
+			isa = PBXGroup;
+			children = (
+				FECDCEDD03FB99F677378BCBDB8C4C12 /* main.swift */,
+			);
+			name = Model;
+			path = MiniClawCLI/Model;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		239DE744AA43044811387851F1856C84 /* minis-model-cli */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 4085A65AEBE76AAE14DA687C71767A71 /* Build configuration list for PBXNativeTarget "minis-model-cli" */;
+			buildPhases = (
+				986F6899B9E9F0781D72EC08FDC87287 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "minis-model-cli";
+			productName = "minis-model-cli";
+			productReference = 8BB4C659F5B1BF87D2736A0EA3BB31BD /* minis-model-cli */;
+			productType = "com.apple.product-type.tool";
+		};
+		6916BF78E1DEDE52BDB86F2D4859B432 /* minis-ios-cli */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 16B168F06DADA3C7C64ABB6E852D49C0 /* Build configuration list for PBXNativeTarget "minis-ios-cli" */;
+			buildPhases = (
+				578E1B1DE5E9664F51D6A8DD1489595A /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "minis-ios-cli";
+			productName = "minis-ios-cli";
+			productReference = 66AE976CEB16CE581F990D34B77F0F6D /* minis-ios-cli */;
+			productType = "com.apple.product-type.tool";
+		};
+		9146295D4B8A235F995C765F7506451E /* minis-config-cli */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 7802601927FACDBCBF1C4F162720F628 /* Build configuration list for PBXNativeTarget "minis-config-cli" */;
+			buildPhases = (
+				53EF8D9DB6BFF8DBC15ECBC0EC52DC1A /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "minis-config-cli";
+			productName = "minis-config-cli";
+			productReference = 42C6A80B01B593B7FDF5E18C2F8A328E /* minis-config-cli */;
+			productType = "com.apple.product-type.tool";
+		};
+		A51A5C5CFB1D99887701266399DFF915 /* minis-browser-cli */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 2752579F181620A801AD7CBF79BC8308 /* Build configuration list for PBXNativeTarget "minis-browser-cli" */;
+			buildPhases = (
+				356AD3FB81C8D94F33E5B1DCEBE0727D /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "minis-browser-cli";
+			productName = "minis-browser-cli";
+			productReference = 2D3BD7701029DBE3CB169CE853E8354E /* minis-browser-cli */;
+			productType = "com.apple.product-type.tool";
+		};
+		EBF86F41ECCE2CCA07A07A0F3D158716 /* minis-fs-cli */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 06136566D00036E766500F0AA5CA560C /* Build configuration list for PBXNativeTarget "minis-fs-cli" */;
+			buildPhases = (
+				8115C9AF6223C75551A54FE8690B7F50 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "minis-fs-cli";
+			productName = "minis-fs-cli";
+			productReference = 69BD9900E3AB5BDBD95730723BB5B49F /* minis-fs-cli */;
+			productType = "com.apple.product-type.tool";
+		};
+		FAA1805628AD348825C0596235883E14 /* minis-sessions-cli */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 3FE4D41119B80F0716464CBBD3876937 /* Build configuration list for PBXNativeTarget "minis-sessions-cli" */;
+			buildPhases = (
+				6EE86CF22BFAAB1036C5CC6694D774B9 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "minis-sessions-cli";
+			productName = "minis-sessions-cli";
+			productReference = 3EC660BE9CDE33E8F1BF8D81CD6A51CC /* minis-sessions-cli */;
+			productType = "com.apple.product-type.tool";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		329A556214BBB63ED4E584C7398855ED /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 1000;
+				TargetAttributes = {
+					239DE744AA43044811387851F1856C84 = {
+						DevelopmentTeam = "";
+						ProvisioningStyle = Automatic;
+					};
+					6916BF78E1DEDE52BDB86F2D4859B432 = {
+						DevelopmentTeam = "";
+						ProvisioningStyle = Automatic;
+					};
+					9146295D4B8A235F995C765F7506451E = {
+						DevelopmentTeam = "";
+						ProvisioningStyle = Automatic;
+					};
+					A51A5C5CFB1D99887701266399DFF915 = {
+						DevelopmentTeam = "";
+						ProvisioningStyle = Automatic;
+					};
+					EBF86F41ECCE2CCA07A07A0F3D158716 = {
+						DevelopmentTeam = "";
+						ProvisioningStyle = Automatic;
+					};
+					FAA1805628AD348825C0596235883E14 = {
+						DevelopmentTeam = "";
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = 42ECFC10290BA4F736653CF08B3368DA /* Build configuration list for PBXProject "MiniClawCLITools" */;
+			compatibilityVersion = "Xcode 9.3";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+			);
+			mainGroup = 94D7F9F66C43FB32534E8153DA8CE795;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				A51A5C5CFB1D99887701266399DFF915 /* minis-browser-cli */,
+				9146295D4B8A235F995C765F7506451E /* minis-config-cli */,
+				EBF86F41ECCE2CCA07A07A0F3D158716 /* minis-fs-cli */,
+				6916BF78E1DEDE52BDB86F2D4859B432 /* minis-ios-cli */,
+				239DE744AA43044811387851F1856C84 /* minis-model-cli */,
+				FAA1805628AD348825C0596235883E14 /* minis-sessions-cli */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		356AD3FB81C8D94F33E5B1DCEBE0727D /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				079B4654E6FB5EBE9D819297DB9ACBE8 /* CLICommon.swift in Sources */,
+				C22BBEFDBF7A80C9E9DFBE07D48E2EE0 /* HostExecutor.swift in Sources */,
+				B3A8AE9632E8D8C36C850FF6AB9A73F5 /* main.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		53EF8D9DB6BFF8DBC15ECBC0EC52DC1A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1E02D98742D56956A27C95292826EEE2 /* CLICommon.swift in Sources */,
+				9BE4EE12578CE725B1294CEE7064B94C /* HostExecutor.swift in Sources */,
+				E823EAF98E0F3CA3DAF091E471023ED2 /* main.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		578E1B1DE5E9664F51D6A8DD1489595A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				3F0A7FE5566109ADB7CCCBA2AE77BEC5 /* CLICommon.swift in Sources */,
+				B398DF521DC1C06384239D0BEEC60139 /* main.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		6EE86CF22BFAAB1036C5CC6694D774B9 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				3406AD47FF4875B45CD256258A941D0E /* AgentRuntime.swift in Sources */,
+				306C960AB0261AC42207FD38BE67270E /* ArtifactStore.swift in Sources */,
+				3A39E5DF9D8C9B64A5834EC0862DE2AA /* CLICommon.swift in Sources */,
+				0710400412D9DC77AFA39187508D0F66 /* ChatMessage.swift in Sources */,
+				9DF5883945B8E463D8A3F60EEC527190 /* ChatSession.swift in Sources */,
+				E6C43F705C3ACA03B8B6E3E3EC4794DD /* HostExecutor.swift in Sources */,
+				83644205D820A35F5C0DF723A3E294DE /* SessionService.swift in Sources */,
+				B82B177B85D8C8CAD293CF7D904EBCCF /* SessionStore.swift in Sources */,
+				BB4A15DB30DAB27EE3B59FC48975883E /* main.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		8115C9AF6223C75551A54FE8690B7F50 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				518ADC368E10CAA99663921D996409EE /* CLICommon.swift in Sources */,
+				8E6D1ACE9A1BB203A3AAA05903B90A40 /* HostExecutor.swift in Sources */,
+				7BCD150DA0B7BA23C8815E3CB6CA82AA /* main.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		986F6899B9E9F0781D72EC08FDC87287 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				3F64EBD0BF94839402F6C83D704B8172 /* CLICommon.swift in Sources */,
+				86F7F67B170F90CAD1C5E4EB37414D16 /* main.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		1EF0EF72D81989689C29A54E67BA8D26 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_BUNDLE_IDENTIFIER = com.neartop.miniclaw.cli.fs;
+				PRODUCT_NAME = "minis-fs-cli";
+			};
+			name = Debug;
+		};
+		1EF40ACF75B5DC894D7698F299E5A1A0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_BUNDLE_IDENTIFIER = com.neartop.miniclaw.cli.sessions;
+				PRODUCT_NAME = "minis-sessions-cli";
+			};
+			name = Debug;
+		};
+		218C532D67C1C79C91A4F4B970EC2E89 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_BUNDLE_IDENTIFIER = com.neartop.miniclaw.cli.fs;
+				PRODUCT_NAME = "minis-fs-cli";
+			};
+			name = Release;
+		};
+		29D52D3BB5C9593FBB7EA9522CB5830E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_BUNDLE_IDENTIFIER = com.neartop.miniclaw.cli.browser;
+				PRODUCT_NAME = "minis-browser-cli";
+			};
+			name = Debug;
+		};
+		4A5A244B5A34CB248D7CE59E8EB7E267 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_BUNDLE_IDENTIFIER = com.neartop.miniclaw.cli.sessions;
+				PRODUCT_NAME = "minis-sessions-cli";
+			};
+			name = Release;
+		};
+		4CCA005F7CD7FE74E9A55429E58CACEF /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_BUNDLE_IDENTIFIER = com.neartop.miniclaw.cli.ios;
+				PRODUCT_NAME = "minis-ios-cli";
+			};
+			name = Debug;
+		};
+		69E47550A3530C8199FB340330B8930A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_BUNDLE_IDENTIFIER = com.neartop.miniclaw.cli.model;
+				PRODUCT_NAME = "minis-model-cli";
+			};
+			name = Debug;
+		};
+		70D212766E6118F40168DD0A2A7FD378 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_BUNDLE_IDENTIFIER = com.neartop.miniclaw.cli.config;
+				PRODUCT_NAME = "minis-config-cli";
+			};
+			name = Release;
+		};
+		97323D17770DA5005F8AA0B9CC81963F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_BUNDLE_IDENTIFIER = com.neartop.miniclaw.cli.model;
+				PRODUCT_NAME = "minis-model-cli";
+			};
+			name = Release;
+		};
+		B9EBB8687B2B4489A30D15F8F7D693F4 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_BUNDLE_IDENTIFIER = com.neartop.miniclaw.cli.ios;
+				PRODUCT_NAME = "minis-ios-cli";
+			};
+			name = Release;
+		};
+		C76FC6CE3B5B3FA68AB1FEBF7C006642 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_HARDENED_RUNTIME = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				SDKROOT = macosx;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		F0373F88B8C504F78B75A76C04E56C7F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_HARDENED_RUNTIME = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				SDKROOT = macosx;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+		F4E6EF2539E1B5B57CA4DAB1236D6224 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_BUNDLE_IDENTIFIER = com.neartop.miniclaw.cli.browser;
+				PRODUCT_NAME = "minis-browser-cli";
+			};
+			name = Release;
+		};
+		F91AAD7CC9DBD1A7F9CD61F99127EB20 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_BUNDLE_IDENTIFIER = com.neartop.miniclaw.cli.config;
+				PRODUCT_NAME = "minis-config-cli";
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		06136566D00036E766500F0AA5CA560C /* Build configuration list for PBXNativeTarget "minis-fs-cli" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1EF0EF72D81989689C29A54E67BA8D26 /* Debug */,
+				218C532D67C1C79C91A4F4B970EC2E89 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = "";
+		};
+		16B168F06DADA3C7C64ABB6E852D49C0 /* Build configuration list for PBXNativeTarget "minis-ios-cli" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4CCA005F7CD7FE74E9A55429E58CACEF /* Debug */,
+				B9EBB8687B2B4489A30D15F8F7D693F4 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = "";
+		};
+		2752579F181620A801AD7CBF79BC8308 /* Build configuration list for PBXNativeTarget "minis-browser-cli" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				29D52D3BB5C9593FBB7EA9522CB5830E /* Debug */,
+				F4E6EF2539E1B5B57CA4DAB1236D6224 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = "";
+		};
+		3FE4D41119B80F0716464CBBD3876937 /* Build configuration list for PBXNativeTarget "minis-sessions-cli" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1EF40ACF75B5DC894D7698F299E5A1A0 /* Debug */,
+				4A5A244B5A34CB248D7CE59E8EB7E267 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = "";
+		};
+		4085A65AEBE76AAE14DA687C71767A71 /* Build configuration list for PBXNativeTarget "minis-model-cli" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				69E47550A3530C8199FB340330B8930A /* Debug */,
+				97323D17770DA5005F8AA0B9CC81963F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = "";
+		};
+		42ECFC10290BA4F736653CF08B3368DA /* Build configuration list for PBXProject "MiniClawCLITools" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C76FC6CE3B5B3FA68AB1FEBF7C006642 /* Debug */,
+				F0373F88B8C504F78B75A76C04E56C7F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		7802601927FACDBCBF1C4F162720F628 /* Build configuration list for PBXNativeTarget "minis-config-cli" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F91AAD7CC9DBD1A7F9CD61F99127EB20 /* Debug */,
+				70D212766E6118F40168DD0A2A7FD378 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = "";
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 329A556214BBB63ED4E584C7398855ED /* Project object */;
+}

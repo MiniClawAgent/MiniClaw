@@ -1,0 +1,117 @@
+name: MiniClawCLITools
+options:
+  bundleIdPrefix: com.neartop
+  deploymentTarget:
+    macOS: "14.0"
+
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    DEVELOPMENT_TEAM: ""
+    CODE_SIGN_STYLE: Automatic
+    MACOSX_DEPLOYMENT_TARGET: "14.0"
+    GENERATE_INFOPLIST_FILE: YES
+    ENABLE_HARDENED_RUNTIME: NO
+
+targets:
+  minis-sessions-cli:
+    type: tool
+    platform: macOS
+    sources:
+      - path: ../MiniClaw/Models/ChatSession.swift
+      - path: ../MiniClaw/Models/ChatMessage.swift
+      - path: ../MiniClaw/Shared/HostExecutor.swift
+      - path: MiniClawCLI/Common/CLICommon.swift
+      - path: MiniClawCLI/SessionStore.swift
+      - path: MiniClawCLI/AgentRuntime.swift
+      - path: MiniClawCLI/ArtifactStore.swift
+      - path: MiniClawCLI/SessionService.swift
+      - path: MiniClawCLI/main.swift
+    settings:
+      base:
+        PRODUCT_NAME: minis-sessions-cli
+        PRODUCT_BUNDLE_IDENTIFIER: com.neartop.miniclaw.cli.sessions
+
+  minis-fs-cli:
+    type: tool
+    platform: macOS
+    sources:
+      - path: ../MiniClaw/Shared/HostExecutor.swift
+      - path: MiniClawCLI/Common/CLICommon.swift
+      - path: MiniClawCLI/FS/main.swift
+    settings:
+      base:
+        PRODUCT_NAME: minis-fs-cli
+        PRODUCT_BUNDLE_IDENTIFIER: com.neartop.miniclaw.cli.fs
+
+  minis-config-cli:
+    type: tool
+    platform: macOS
+    sources:
+      - path: ../MiniClaw/Shared/HostExecutor.swift
+      - path: MiniClawCLI/Common/CLICommon.swift
+      - path: MiniClawCLI/Config/main.swift
+    settings:
+      base:
+        PRODUCT_NAME: minis-config-cli
+        PRODUCT_BUNDLE_IDENTIFIER: com.neartop.miniclaw.cli.config
+
+  minis-model-cli:
+    type: tool
+    platform: macOS
+    sources:
+      - path: MiniClawCLI/Common/CLICommon.swift
+      - path: MiniClawCLI/Model/main.swift
+    settings:
+      base:
+        PRODUCT_NAME: minis-model-cli
+        PRODUCT_BUNDLE_IDENTIFIER: com.neartop.miniclaw.cli.model
+
+  minis-browser-cli:
+    type: tool
+    platform: macOS
+    sources:
+      - path: ../MiniClaw/Shared/HostExecutor.swift
+      - path: MiniClawCLI/Common/CLICommon.swift
+      - path: MiniClawCLI/Browser/main.swift
+    settings:
+      base:
+        PRODUCT_NAME: minis-browser-cli
+        PRODUCT_BUNDLE_IDENTIFIER: com.neartop.miniclaw.cli.browser
+
+  minis-ios-cli:
+    type: tool
+    platform: macOS
+    sources:
+      - path: MiniClawCLI/Common/CLICommon.swift
+      - path: MiniClawCLI/iOS/main.swift
+    settings:
+      base:
+        PRODUCT_NAME: minis-ios-cli
+        PRODUCT_BUNDLE_IDENTIFIER: com.neartop.miniclaw.cli.ios
+
+schemes:
+  minis-sessions-cli:
+    build:
+      targets:
+        minis-sessions-cli: all
+  minis-fs-cli:
+    build:
+      targets:
+        minis-fs-cli: all
+  minis-config-cli:
+    build:
+      targets:
+        minis-config-cli: all
+  minis-model-cli:
+    build:
+      targets:
+        minis-model-cli: all
+  minis-browser-cli:
+    build:
+      targets:
+        minis-browser-cli: all
+  minis-ios-cli:
+    build:
+      targets:
+        minis-ios-cli: all
