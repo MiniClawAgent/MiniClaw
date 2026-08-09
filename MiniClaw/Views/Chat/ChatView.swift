@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import OpenMinisPort
 import SwiftData
 import UIKit
 
@@ -1023,6 +1024,14 @@ struct ChatView: View {
 
     // MARK: - Message List
 
+    /// OM 列表数据桥(2026-08-09 会话页 1:1 移植):OpenMinis 列表组件的数据适配层
+    @StateObject private var omBridge = OMChatViewModelBridge()
+
+    /// OM 列表调试开关:miniclaw.debug.omList(UserDefaults,默认关)
+    private var UseOMList: Bool {
+        UserDefaults.standard.bool(forKey: "miniclaw.debug.omList")
+    }
+
     /// 受控展开状态（2026-08-09）：思考块/工具卡/错误详情的展开集合。
     /// 变化时 listReloadToken += 1 触发 cell 重配 → 高度缓存 key 变化 → 重新测量。
     /// 展开的思考段 key 集（"\(消息id)-\(段index)"，2026-08-09：多条思考段各自独立展开）。
@@ -1138,6 +1147,64 @@ struct ChatView: View {
     }
 
     private var messageListView: some View {
+        Group {
+            if UseOMList {
+                omListContent
+            } else {
+                legacyListContent
+            }
+        }
+        .onAppear {
+            shouldAutoFollow = true
+            AppLogger.shared.info("[Chat] onAppear follow=true messages=" + String(session.messages.count)
+                + " scrollToMessageID=" + (appState.scrollToMessageID != nil ? "set" : "nil"), category: "Chat")
+            if let targetID = appState.scrollToMessageID,
+               session.messages.contains(where: { $0.id == targetID }) {
+                // 搜索结果跳转：定位到首个命中关键字的消息（一次性，消费后清空）；
+                // 立即触发一次 apply（不依赖 0.15s 定时器巧合，2026-08-09 修复 P2）
+                pendingScrollToMessageID = targetID
+                scrollRequests += 1
+                AppLogger.shared.info("[Chat] onAppear scrollToMessage target=命中", category: "Chat")
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                    pendingScrollToMessageID = nil
+                }
+            } else {
+                // 初始贴底：延迟到布局完成后滚动一次
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                    // 用户已在延迟窗口内开始上滑 → 放弃初始贴底，避免「上滑被拉回底部」
+                    // （2026-08-09 修复：onAppear 延迟滚动此前无 shouldAutoFollow 守卫）。
+                    AppLogger.shared.info("[Chat] delayedScroll follow=" + (shouldAutoFollow ? "1" : "0"), category: "Chat")
+                    guard shouldAutoFollow else { return }
+                    scrollRequests += 1
+                }
+            }
+            // 无有效目标也清空，避免泄漏到后续进入
+            appState.scrollToMessageID = nil
+        }
+        .onChange(of: session.messages.count) { _, _ in
+            AppLogger.shared.info("[Chat] msgs.count -> " + String(session.messages.count)
+                + " follow=" + (shouldAutoFollow ? "1" : "0"), category: "Chat")
+            guard shouldAutoFollow else { return }
+            scrollRequests += 1
+        }
+        .onChange(of: streamScrollTick) { _, _ in
+            // 流式滚动跟随（按行）：气泡内估算行数增长时上报，此处仅节流后滚动一次；
+            // 仅当用户「钉在底部」时执行，上滑看历史则交还滚动权，避免抖动。
+            AppLogger.shared.info("[Chat] streamTick -> " + String(streamScrollTick)
+                + " follow=" + (shouldAutoFollow ? "1" : "0"), category: "Chat")
+            guard shouldAutoFollow else { return }
+            scrollRequests += 1
+        }
+        .onChange(of: pendingMessages.count) { _, _ in
+            // 新增/删除排队气泡时滚到底部，让虚线气泡可见（仅钉在底部时）
+            AppLogger.shared.info("[Chat] pending -> " + String(pendingMessages.count)
+                + " follow=" + (shouldAutoFollow ? "1" : "0"), category: "Chat")
+            guard shouldAutoFollow else { return }
+            scrollRequests += 1
+        }
+    }
+
+    private var legacyListContent: some View {
         MessageCollectionView(
             items: messageItems,
             scrollSignal: scrollRequests,
@@ -1233,6 +1300,8 @@ struct ChatView: View {
                 .padding(.bottom, 6)
                 .frame(maxWidth: .infinity, alignment: .leading))
             },
+            // OM 列表开关:miniclaw.debug.omList(UserDefaults,默认关)
+            // 开启后使用 OpenMinis 消息列表组件(阶段 3 适配层验证入口)
             bannerView: AnyView(
                 !appState.hasConfiguredModel
                     ? AnyView(ModelWarningBannerView(onConfigure: {
@@ -1263,56 +1332,31 @@ struct ChatView: View {
                 }
             }
         )
-        .onAppear {
-            shouldAutoFollow = true
-            AppLogger.shared.info("[Chat] onAppear follow=true messages=" + String(session.messages.count)
-                + " scrollToMessageID=" + (appState.scrollToMessageID != nil ? "set" : "nil"), category: "Chat")
-            if let targetID = appState.scrollToMessageID,
-               session.messages.contains(where: { $0.id == targetID }) {
-                // 搜索结果跳转：定位到首个命中关键字的消息（一次性，消费后清空）；
-                // 立即触发一次 apply（不依赖 0.15s 定时器巧合，2026-08-09 修复 P2）
-                pendingScrollToMessageID = targetID
-                scrollRequests += 1
-                AppLogger.shared.info("[Chat] onAppear scrollToMessage target=命中", category: "Chat")
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                    pendingScrollToMessageID = nil
-                }
-            } else {
-                // 初始贴底：延迟到布局完成后滚动一次
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-                    // 用户已在延迟窗口内开始上滑 → 放弃初始贴底，避免「上滑被拉回底部」
-                    // （2026-08-09 修复：onAppear 延迟滚动此前无 shouldAutoFollow 守卫）。
-                    AppLogger.shared.info("[Chat] delayedScroll follow=" + (shouldAutoFollow ? "1" : "0"), category: "Chat")
-                    guard shouldAutoFollow else { return }
-                    scrollRequests += 1
-                }
-            }
-            // 无有效目标也清空，避免泄漏到后续进入
-            appState.scrollToMessageID = nil
-        }
-        .onChange(of: session.messages.count) { _, _ in
-            AppLogger.shared.info("[Chat] msgs.count -> " + String(session.messages.count)
-                + " follow=" + (shouldAutoFollow ? "1" : "0"), category: "Chat")
-            guard shouldAutoFollow else { return }
-            scrollRequests += 1
-        }
-        .onChange(of: streamScrollTick) { _, _ in
-            // 流式滚动跟随（按行）：气泡内估算行数增长时上报，此处仅节流后滚动一次；
-            // 仅当用户「钉在底部」时执行，上滑看历史则交还滚动权，避免抖动。
-            AppLogger.shared.info("[Chat] streamTick -> " + String(streamScrollTick)
-                + " follow=" + (shouldAutoFollow ? "1" : "0"), category: "Chat")
-            guard shouldAutoFollow else { return }
-            scrollRequests += 1
-        }
-        .onChange(of: pendingMessages.count) { _, _ in
-            // 新增/删除排队气泡时滚到底部，让虚线气泡可见（仅钉在底部时）
-            AppLogger.shared.info("[Chat] pending -> " + String(pendingMessages.count)
-                + " follow=" + (shouldAutoFollow ? "1" : "0"), category: "Chat")
-            guard shouldAutoFollow else { return }
-            scrollRequests += 1
-        }
     }
 
+    /// OM 列表(OpenMinis 组件,miniclaw.debug.omList 开启时使用)
+
+    private var omListContent: some View {
+        CollectionViewMessageListV3(
+            vm: omBridge.vm,
+            inputFocused: isInputFocused,
+            onRetryMessage: nil,
+            onResume: { omBridge.onResume?() },
+            onStop: { omBridge.onStop?() },
+            maxContentWidth: 0,
+            floatingBarHeight: 0,
+            inputBarHeight: floatingBarTopInset
+        )
+        .ignoresSafeArea(edges: .bottom)
+        .onAppear {
+            omBridge.attach(session: session, appState: appState)
+            omBridge.onResume = { resumeGeneration() }
+            omBridge.onStop = { stopGeneration() }
+        }
+        .onChange(of: session.messages.count) { _, _ in omBridge.refresh() }
+        .onChange(of: session.messages.last?.content.count ?? 0) { _, _ in omBridge.refresh() }
+        .onChange(of: session.messages.last?.isStreaming ?? false) { _, _ in omBridge.refresh(force: true) }
+    }
     // MARK: - 子代理悬浮头像（输入框上方）
 
     /// 输入框上方悬浮的子代理圆形头像：SF 图标占位，点按打开「智能体 ↔ 子代理」对话详情页。

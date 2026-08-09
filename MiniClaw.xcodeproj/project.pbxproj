@@ -56,6 +56,7 @@
 		3163EB5FC3594058B8A0A919E2A3297B /* ChatInputBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4ECC95D820C57555E83AAC68482DB537 /* ChatInputBar.swift */; };
 		3310528A2D8DBC23745637B4A13BC01B /* TerminalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46D0800AF6D6349A223F26B1B6906958 /* TerminalView.swift */; };
 		33F7C4E09E10DB1CF3010A6AEC766BDF /* ChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5031F34D2F244C8908D3C0297B0CF9EF /* ChatView.swift */; };
+		3446182D572A669FAF52275855A5BFB7 /* OMChatViewModelBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32E21577BD8E864F36E6809B48B54C26 /* OMChatViewModelBridge.swift */; };
 		36280AE9C43DAB3625701019399C3337 /* RootfsManagerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7AC8B8C013A3F0E355CA817ECA374373 /* RootfsManagerView.swift */; };
 		36BD6D9F4E381783B3B0510683570007 /* SubAgentProfileStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B02F346E238984842BDC14A7BDB49CD /* SubAgentProfileStore.swift */; };
 		37BB34AFE63371185B3CE0F7F9A2A053 /* AssistantBlockView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23BF80DC5B49494C18A2BF04BD444585 /* AssistantBlockView.swift */; };
@@ -175,6 +176,7 @@
 		B63E78C46273EFE61BA374FE459FF0A6 /* SoulSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CA34BF636ECA7C8A7BFA22BEB198801 /* SoulSettingsView.swift */; };
 		B71B8436956722834B3901A8ADA7B754 /* SubAgentProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5C76925A1A0B68200AF6C42668341A5 /* SubAgentProfile.swift */; };
 		B810400E0DED386323842C1C036429F0 /* core-extensions.c in Sources */ = {isa = PBXBuildFile; fileRef = 8DE186781C6AD7651C7F0F7BC762E88D /* core-extensions.c */; };
+		B880E87D05EB94707A63586D48661F5C /* OMChatAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07F9BE8AF6D80B291380357D073E454B /* OMChatAdapter.swift */; };
 		BAA4C17D3A706F44A4FAD3CD0107283C /* ISHShellExecutor.m in Sources */ = {isa = PBXBuildFile; fileRef = E514A587008FD64C5E8557C8568F8480 /* ISHShellExecutor.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
 		BC678A2D866DC6C79954F7DD44C5C20B /* Photos.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3B2D0B4089BB0C2149493DEBF76E6DCC /* Photos.framework */; };
 		BD451A93C91864A0AE5EF07B454CC17F /* MiniClawLiveActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD55006D9E09FA0FD30B67FD7C280628 /* MiniClawLiveActivityAttributes.swift */; };
@@ -308,6 +310,7 @@
 		01F89B75425ACE5DA25D5AD72AFDC984 /* SubagentLifecycle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubagentLifecycle.swift; sourceTree = "<group>"; };
 		0486C4F3FF29CAB0853873B3F9F2E73E /* TextFadeAnimator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextFadeAnimator.swift; sourceTree = "<group>"; };
 		057F16C1874524D3027FBA0538FF1C5A /* BashismDetectorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BashismDetectorTests.swift; sourceTree = "<group>"; };
+		07F9BE8AF6D80B291380357D073E454B /* OMChatAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OMChatAdapter.swift; sourceTree = "<group>"; };
 		0843901375CED686D5449E5FCC1E5002 /* scanners.c */ = {isa = PBXFileReference; path = scanners.c; sourceTree = "<group>"; };
 		084C47BBABFAF1714DA54F19FE2FD24B /* ChatMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatMessage.swift; sourceTree = "<group>"; };
 		0A2070BA8D3D4C6110877314FCC51733 /* ToolConfirmationBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolConfirmationBridge.swift; sourceTree = "<group>"; };
@@ -355,6 +358,7 @@
 		2E45CE8DF7448E74974100E82F8D341E /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		2EF5022303A10F1BB1DB87610632D6F4 /* MemoryIndexer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoryIndexer.swift; sourceTree = "<group>"; };
 		30A28283B4455262F5E4B79E50C71F91 /* BackgroundTaskCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundTaskCoordinator.swift; sourceTree = "<group>"; };
+		32E21577BD8E864F36E6809B48B54C26 /* OMChatViewModelBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OMChatViewModelBridge.swift; sourceTree = "<group>"; };
 		330221C4BDE012084F833D3E54445800 /* ScenePhaseMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScenePhaseMonitor.swift; sourceTree = "<group>"; };
 		338B331C7C33ECB7F897DB5862AD7770 /* MountPlaceholderSyncer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MountPlaceholderSyncer.swift; sourceTree = "<group>"; };
 		38AECAEC35878A9E1C0F05B5E534E321 /* ToolLoopBreaker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolLoopBreaker.swift; sourceTree = "<group>"; };
@@ -600,6 +604,15 @@
 			path = Tools;
 			sourceTree = "<group>";
 		};
+		11F9D3A85843F116078354969867A525 /* OM */ = {
+			isa = PBXGroup;
+			children = (
+				07F9BE8AF6D80B291380357D073E454B /* OMChatAdapter.swift */,
+				32E21577BD8E864F36E6809B48B54C26 /* OMChatViewModelBridge.swift */,
+			);
+			path = OM;
+			sourceTree = "<group>";
+		};
 		175C7E95FF0D5B4E965BCD76902A2B67 /* Shared */ = {
 			isa = PBXGroup;
 			children = (
@@ -676,6 +689,7 @@
 				AD1192F8B200F065B0B18A7C885A74FE /* SessionFileManagerView.swift */,
 				8239CFED5C712425C4A7D9F259BD88C0 /* SpeechInputView.swift */,
 				D22531BB96BBC231AF3F952B5B83783D /* SubagentChatView.swift */,
+				11F9D3A85843F116078354969867A525 /* OM */,
 			);
 			path = Chat;
 			sourceTree = "<group>";
@@ -1423,6 +1437,8 @@
 				D949BAEBC2D1BF3C98F4AE8328FF9890 /* OAuthKeychainStorage.swift in Sources */,
 				482A1F8321784744C3781DBDC1F824F5 /* OAuthManager.swift in Sources */,
 				F62A1DD71505D09285A99B34AF0BF939 /* OAuthRefreshSingleFlight.swift in Sources */,
+				B880E87D05EB94707A63586D48661F5C /* OMChatAdapter.swift in Sources */,
+				3446182D572A669FAF52275855A5BFB7 /* OMChatViewModelBridge.swift in Sources */,
 				21C9DBF0509503742BDC919CE80DD58C /* OpenAIOAuthManager.swift in Sources */,
 				C8A931AA74B35473C47706857DC6EE77 /* OpenAIProviderAdapter.swift in Sources */,
 				2EB5BAF97288CB1AFD77CEF4E1690FC2 /* PermissionManager.swift in Sources */,
@@ -1685,9 +1701,15 @@
 					"-lsqlite3",
 					"-lresolv",
 				);
+				OTHER_SWIFT_FLAGS = (
+					"-disable-explicit-modules",
+				);
 				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = (
 					ISH_ENABLED,
+				);
+				SWIFT_INCLUDE_PATHS = (
+					"$(SRCROOT)/../第三方源码/swift-cmark/src/include",
 				);
 				SWIFT_OBJC_BRIDGING_HEADER = "MiniClaw/MiniClaw-Bridging-Header.h";
 				SWIFT_VERSION = 6.0;
@@ -1750,9 +1772,15 @@
 					"-lsqlite3",
 					"-lresolv",
 				);
+				OTHER_SWIFT_FLAGS = (
+					"-disable-explicit-modules",
+				);
 				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = (
 					ISH_ENABLED,
+				);
+				SWIFT_INCLUDE_PATHS = (
+					"$(SRCROOT)/../第三方源码/swift-cmark/src/include",
 				);
 				SWIFT_OBJC_BRIDGING_HEADER = "MiniClaw/MiniClaw-Bridging-Header.h";
 				SWIFT_VERSION = 6.0;
