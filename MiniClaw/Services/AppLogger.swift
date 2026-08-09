@@ -79,7 +79,11 @@ final class AppLogger: @unchecked Sendable {
     /// 不能算卡死。只有停在处理事件的阶段（sources/timers）超时才是真卡死。
     private let runLoopActivityLock = OSAllocatedUnfairLock<CFRunLoopActivity>(initialState: .entry)
 
-    private init() {
+    /// 默认日志分类(OpenMinis 适配:AppLogger(category:) 兼容构造)
+    private let defaultCategory: String
+
+    init(category: String = "App") {
+        self.defaultCategory = category
         try? fileManager.createDirectory(at: logsDir, withIntermediateDirectories: true)
     }
 
@@ -114,14 +118,18 @@ final class AppLogger: @unchecked Sendable {
     func debug(_ message: String, category: String = "App", subsystem: String? = nil) {
         log(category: category, subsystem: subsystem, level: .debug, message: message)
     }
-    func info(_ message: String, category: String = "App", subsystem: String? = nil) {
-        log(category: category, subsystem: subsystem, level: .info, message: message)
+    func info(_ message: String, category: String? = nil, subsystem: String? = nil) {
+        log(category: category ?? defaultCategory, subsystem: subsystem, level: .info, message: message)
     }
-    func warn(_ message: String, category: String = "App", subsystem: String? = nil) {
-        log(category: category, subsystem: subsystem, level: .warn, message: message)
+    func warn(_ message: String, category: String? = nil, subsystem: String? = nil) {
+        log(category: category ?? defaultCategory, subsystem: subsystem, level: .warn, message: message)
     }
-    func error(_ message: String, category: String = "App", subsystem: String? = nil) {
-        log(category: category, subsystem: subsystem, level: .error, message: message)
+    /// OpenMinis 适配:warning 别名(warn)
+    func warning(_ message: String, category: String? = nil, subsystem: String? = nil) {
+        log(category: category ?? defaultCategory, subsystem: subsystem, level: .warn, message: message)
+    }
+    func error(_ message: String, category: String? = nil, subsystem: String? = nil) {
+        log(category: category ?? defaultCategory, subsystem: subsystem, level: .error, message: message)
     }
     func fault(_ message: String, category: String = "App", subsystem: String? = nil) {
         guard appLoggerEnabledFlag else { return }

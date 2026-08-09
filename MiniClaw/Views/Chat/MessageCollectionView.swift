@@ -91,6 +91,10 @@ struct MessageCollectionView: UIViewRepresentable {
         layout.itemSpacing = itemSpacing
         let cv = UICollectionView(frame: .zero, collectionViewLayout: layout)
         cv.backgroundColor = .clear
+        // 开源参考实现对齐：禁用 prefetch——prefetch 会在主线程同步测量离屏 cell
+        // （PLAF→systemLayoutSizeFitting ~44ms/个）并写 heightCache → contentSize 突变
+        // → offset 被 UIKit clamp，滚动开头/中途跳动；我们已有全量 premeasure，纯属多余。
+        cv.isPrefetchingEnabled = false
         cv.keyboardDismissMode = .interactive
         cv.alwaysBounceVertical = true
         // P22:显式接管 inset——.automatic 会把 home indicator 安全区(34pt)自动并入
@@ -219,8 +223,11 @@ struct MessageCollectionView: UIViewRepresentable {
         /// 进入会话离屏预测量结果（P8）：写入预置高度表（prepare 直接用真实高度，
         /// 滚动中 cell 不再以 120 估计高度占位）与内容 key 记忆（cell 命中 seed 一致）。
         func notePremeasured(key: String, width: CGFloat, height: CGFloat, index: Int) {
+            // 开源参考实现对齐：probe 值只写 precalcByIndex（prepare 定位用），
+            // 不再写 measuredByContentKey——seed 只应来自「屏内 UIKit 实测」写回，
+            // 否则离屏 probe(+3pt 容差、无屏内安全区)污染 seed → 首测核实 REJECT 重排
+            // → 滚动中跳动（根因 5）。
             precalcByIndex[index] = height
-            measuredByContentKey[key + "-w\(Int(width))"] = height
         }
 
         // MARK: - 布局
@@ -276,19 +283,23 @@ struct MessageCollectionView: UIViewRepresentable {
             let preferredH = preferred.size.height
             let originalH = original.size.height
 
-            // 滚动中（deferSelfSizing=true）或进入稳定窗口（P7）：一切高度变化
-            // （含未测量 cell 的首测）统一延迟——滚动中/进入瞬间布局保持估计高度，
-            // 消除「上滑经过未测量块 cell → 首测高度突变（120→1394）→ contentSize 波动
-            // → 抖动」与「重进会话逐块撑开」的根因（2026-08-09 修复 P6/P7）。
-            // cell clipsToBounds 保证内容只被裁剪不重叠；停止/稳定窗口后统一落实。
+            // 滚动中（deferSelfSizing=true）或进入稳定窗口（P7）：仅延迟「缩小/稳定」的高度
+            // 变化（滚动中保持视觉稳定）；增长与首次测量放行实时生效——
+            // OpenMinis 对齐（MessageListLayout defer 语义：`preferred <= original + 0.5`
+            // 才入 deferredHeights，grow 放行走 REJECT 重排，避免「滚动中内容被裁、
+            // 停止瞬间一次性弹高」）。
             if deferSelfSizing || Date() < enterStabilizeUntil {
-                if abs(preferredH - originalH) > 0.5 {
-                    deferredHeights[index] = preferredH
-                    AppLogger.shared.info("[List] selfSizing DEFER idx=" + String(index)
-                        + " h=" + String(format: "%.1f", preferredH)
-                        + " orig=" + String(format: "%.1f", originalH), category: "List")
+                let isShrinkOrStable = preferredH <= originalH + 0.5
+                if isShrinkOrStable {
+                    if abs(preferredH - originalH) > 0.5 {
+                        deferredHeights[index] = preferredH
+                        AppLogger.shared.info("[List] selfSizing DEFER idx=" + String(index)
+                            + " h=" + String(format: "%.1f", preferredH)
+                            + " orig=" + String(format: "%.1f", originalH), category: "List")
+                    }
+                    return false
                 }
-                return false
+                // grow：放行到下方 REJECT 路径（实时重排）
             }
             let delta = abs(preferredH - originalH)
             // 已实测的 cell 用宽松阈值（>2pt 才重排），未实测的首次测量从紧（>0.5pt）
@@ -407,6 +418,10 @@ struct MessageCollectionView: UIViewRepresentable {
         private var onNearBottom: (() -> Void)?
         private var onNearBottomChanged: ((Bool) -> Void)?
         private var lastNearBottom: Bool?
+        /// OpenMinis 对齐：settle 落实延迟高度期间抑制 KVO（isFlushing），
+        /// 防止 applyDeferredHeights→contentSize 变化立即触发贴底/Clamp 与
+        /// restoreAnchor 竞争（「停止时跳一下」根因）
+        private var isFlushing = false
         private var messageByID: [UUID: ChatMessage] = [:]
         private var pendingByID: [UUID: PendingUserMessage] = [:]
         /// cell 目标宽度（2026-08-09 修复「左半边」）：apply 时按容器实际宽更新，
@@ -507,6 +522,8 @@ struct MessageCollectionView: UIViewRepresentable {
             // 同一 pass 贴底或保持 offset，替代旧「invalidateLayout + 事后追滚」的抖动路径。
             contentSizeObservation = cv.observe(\.contentSize, options: [.new, .old]) { [weak self] cv, change in
                 guard let self else { return }
+                // OpenMinis 对齐：settle 落实延迟高度期间抑制 KVO（isFlushing）
+                guard !self.isFlushing else { return }
                 let newH = change.newValue?.height ?? 0
                 let oldH = change.oldValue?.height ?? 0
                 guard newH != oldH else { return }
@@ -910,10 +927,13 @@ struct MessageCollectionView: UIViewRepresentable {
             // 重配流式 cell → self-sizing 重测新高度）。这里不需要任何直接 mutation
             // （diffable dataSource 禁止 reloadItems/reloadData 等直接调用）。
             // 静止时若有残留的延迟高度修正(滚动中 defer 的),立即 flush 并重排
+            // （OpenMinis 对齐：isFlushing 抑制 KVO 重入，与 settleAfterInteraction 一致）
             if let layout = messageListLayout, layout.deferredHeightCount > 0, !isUserScrolling {
+                isFlushing = true
                 layout.applyDeferredHeights()
                 layout.invalidateLayout()
                 cv.layoutIfNeeded()
+                isFlushing = false
             }
             if let targetID = scrollToMessageID, targetID != lastScrollToMessageID {
                 lastScrollToMessageID = targetID
@@ -1083,11 +1103,14 @@ struct MessageCollectionView: UIViewRepresentable {
             guard let layout = messageListLayout, layout.deferredHeightCount > 0 else { return }
             // 停止瞬间锚定（P6）：落实延迟高度前先捕获锚点，布局更新后恢复原位置，
             // 避免 contentSize 突变把当前视野内容推走（「停止时跳一下」）。
+            // OpenMinis 对齐：isFlushing 抑制期间 KVO 不介入，杜绝与 restoreAnchor 竞争。
             captureAnchor(cv)
             anchorWindowEnd = Date().addingTimeInterval(0.8)
+            isFlushing = true
             layout.applyDeferredHeights()
             layout.invalidateLayout()
             cv.layoutIfNeeded()
+            isFlushing = false
             restoreAnchor(cv)
         }
 
@@ -1097,7 +1120,10 @@ struct MessageCollectionView: UIViewRepresentable {
         private func checkNearBottom(_ scrollView: UIScrollView) {
             let maxY = max(0, scrollView.contentSize.height - scrollView.bounds.height)
             let isNear = scrollView.contentOffset.y >= maxY - 24
-            if isNear {
+            // 开源参考实现对齐：恢复 autoScrolling 的阈值收紧到 4pt（原 24pt 过宽，
+            // 用户停在离底 5-24pt 处被 KVO 贴底拉回 →「上滑被拽回/回弹」）；
+            // 24pt 仍用于浮动按钮显隐（isNear）。
+            if scrollView.contentOffset.y >= maxY - 4 {
                 scrollMode = .autoScrolling
                 onNearBottom?()
             }

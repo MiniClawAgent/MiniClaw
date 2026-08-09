@@ -9,6 +9,7 @@ options:
 settings:
   base:
     SWIFT_VERSION: "6.0"
+    SWIFT_OBJC_BRIDGING_HEADER: "MiniClaw/MiniClaw-Bridging-Header.h"
     CODE_SIGN_STYLE: Automatic
     # --- iSH (AArch64 / asbestos) integration ---
     # C/ObjC preprocessor flags (must match how the static libs were built)
@@ -35,7 +36,6 @@ settings:
       - "$(SRCROOT)/../第三方源码/ish-arm64/build-arm64-ios/libfakefs.a"
       - "-lsqlite3"
       - "-lresolv"
-    SWIFT_OBJC_BRIDGING_HEADER: "MiniClaw/MiniClaw-Bridging-Header.h"
 
 targets:
   MiniClaw:
@@ -128,10 +128,48 @@ targets:
       - sdk: CoreLocation.framework
       - sdk: ActivityKit.framework
       - sdk: AppIntents.framework
+      - target: OpenMinisPort
       - target: MiniClawWidget
       - target: ShareExtension
     preBuildScripts: []
     postBuildScripts: []
+
+  OpenMinisPort:
+    type: framework
+    platform: iOS
+    deploymentTarget: "17.0"
+    settings:
+      base:
+        SWIFT_VERSION: "5.0"
+        PRODUCT_NAME: OpenMinisPort
+        PRODUCT_BUNDLE_IDENTIFIER: com.neartop.OpenMinisPort
+        DEFINES_MODULE: YES
+        GENERATE_INFOPLIST_FILE: YES
+        CURRENT_PROJECT_VERSION: 1
+        MARKETING_VERSION: 1.0
+        SWIFT_OBJC_BRIDGING_HEADER: ""
+        HEADER_SEARCH_PATHS:
+          - "$(SRCROOT)/../第三方源码/swift-cmark/src/include"
+          - "$(SRCROOT)/../第三方源码/swift-cmark/extensions"
+        SWIFT_INCLUDE_PATHS:
+          - "$(SRCROOT)/../第三方源码/swift-cmark/src/include"
+        OTHER_LDFLAGS:
+          - "-lsqlite3"
+          - "-lresolv"
+    sources:
+      - path: ../第三方源码/OpenMinisPort
+        excludes:
+          - KaTeX
+      # cmark-gfm C 源码(vendored,swift-cmark 0.8.0)
+      - path: ../第三方源码/swift-cmark/src
+        buildPhase: sources
+        excludes:
+          - include
+      - path: ../第三方源码/swift-cmark/extensions
+        buildPhase: sources
+    resources:
+      - path: ../第三方源码/OpenMinisPort/KaTeX
+        type: folder
 
   MiniClawWidget:
     type: app-extension
