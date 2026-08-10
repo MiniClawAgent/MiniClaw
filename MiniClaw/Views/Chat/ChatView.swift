@@ -813,7 +813,7 @@ struct ChatView: View {
                     }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
-        .safeAreaPadding(isInputFocused ? 0 : nil, .bottom)
+        .safeAreaPadding(.bottom, isInputFocused ? 0.0 : nil)
     }
 
     var body: some View {
