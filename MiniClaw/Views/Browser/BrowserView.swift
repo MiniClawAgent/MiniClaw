@@ -5,7 +5,7 @@ import UIKit
 struct BrowserView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(AppState.self) private var appState
-    @StateObject private var controller = BrowserController.shared
+    @StateObject private var controller = BrowserEngineAdapter.shared
 
     @State private var urlString: String = ""
     @State private var showShare: Bool = false
@@ -22,7 +22,7 @@ struct BrowserView: View {
     /// 标签页概览（点击底部标签页按钮进入：一行两个网页缩略图 + 标签名）。
     @State private var showTabOverview: Bool = false
     /// 概览用快照缓存：TabInfo.id → 网页缩略图（进入概览时异步生成）。
-    @State private var tabSnapshots: [UUID: UIImage] = [:]
+    @State private var tabSnapshots: [Int: UIImage] = [:]
     /// 地址栏是否正在编辑（编辑中不覆盖用户输入；退出编辑/导航完成后同步实际网址）。
     @State private var isEditingURL: Bool = false
 
@@ -356,30 +356,7 @@ struct BrowserView: View {
                             showTabOverview = false
                         }
                     } label: {
-                        VStack(spacing: 6) {
-                            Group {
-                                if let img = tabSnapshots[info.id] {
-                                    Image(uiImage: img)
-                                        .resizable()
-                                        .scaledToFill()
-                                } else {
-                                    Rectangle().fill(Color(.secondarySystemBackground))
-                                }
-                            }
-                            .frame(height: 140)
-                            .frame(maxWidth: .infinity)
-                            .clipShape(RoundedRectangle(cornerRadius: 12))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .strokeBorder(index == controller.activeIndex ? Color.accentColor : Color(.separator),
-                                                  lineWidth: index == controller.activeIndex ? 2 : 0.5)
-                            )
-
-                            Text(displayTabTitle(info))
-                                .font(.caption)
-                                .foregroundStyle(.primary)
-                                .lineLimit(1)
-                        }
+                        tabCardLabel(index: index, info: info)
                     }
                     .buttonStyle(.plain)
                 }
@@ -449,7 +426,35 @@ struct BrowserView: View {
         }
     }
 
-    private func displayTabTitle(_ info: BrowserController.TabInfo) -> String {
+    /// 标签卡 label(2026-08-10 拆分:编译器超时表达式)
+    private func tabCardLabel(index: Int, info: BrowserEngineAdapter.TabInfo) -> some View {
+        VStack(spacing: 6) {
+            Group {
+                if let img = tabSnapshots[info.id] {
+                    Image(uiImage: img)
+                        .resizable()
+                        .scaledToFill()
+                } else {
+                    Rectangle().fill(Color(.secondarySystemBackground))
+                }
+            }
+            .frame(height: 140)
+            .frame(maxWidth: .infinity)
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .strokeBorder(index == controller.activeIndex ? Color.accentColor : Color(.separator),
+                                  lineWidth: index == controller.activeIndex ? 2 : 0.5)
+            )
+
+            Text(displayTabTitle(info))
+                .font(.caption)
+                .foregroundStyle(.primary)
+                .lineLimit(1)
+        }
+    }
+
+    private func displayTabTitle(_ info: BrowserEngineAdapter.TabInfo) -> String {
         if !info.title.isEmpty { return info.title }
         if let host = URL(string: info.url)?.host { return host }
         return L10n.tr("新标签页")
@@ -459,7 +464,7 @@ struct BrowserView: View {
 // MARK: - 把控制器管理的 WKWebView 嵌入容器
 
 struct ControllerWebView: UIViewRepresentable {
-    @ObservedObject var controller: BrowserController
+    @ObservedObject var controller: BrowserEngineAdapter
 
     func makeUIView(context: Context) -> UIView {
         let view = UIView()
@@ -517,7 +522,7 @@ struct BrowserToolbarButton: View {
 
 /// 「历史记录」面板：展示当前标签的内部 Safari 历史（后退列表 + 当前 + 前进列表），点按跳转到对应页面。
 struct BrowserHistoryView: View {
-    let items: [BrowserController.BrowserHistoryItem]
+    let items: [BrowserEngineAdapter.BrowserHistoryItem]
     let onSelect: (URL) -> Void
 
     var body: some View {

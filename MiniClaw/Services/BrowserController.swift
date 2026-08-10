@@ -1,4 +1,5 @@
 import Foundation
+import MiniClawKit
 import WebKit
 import UIKit
 import SwiftUI
@@ -245,6 +246,47 @@ final class BrowserController: NSObject, ObservableObject {
     /// 通过 scopedSessionID 临时覆盖 activeContext 的解析目标，调用结束后恢复。
     /// - Parameter tabID: 稳定标签 id（list_tabs 返回的 tab_id；标签增删后索引漂移但 id 稳定）。
     ///   优先于 tabIndex 解析，换算成当前索引后走原链路；nil 则仅用 tabIndex。
+    /// 2026-08-10:动作参数 → 引擎 BrowserActionInput(引擎优先路径)
+    private static func engineInput(action: String, params: [String: Any]) -> MiniClawKit.BrowserActionInput? {
+        guard let browserAction = MiniClawKit.BrowserAction(rawValue: action) else { return nil }
+        return MiniClawKit.BrowserActionInput(
+            action: browserAction,
+            url: params["url"] as? String,
+            selector: params["selector"] as? String,
+            text: params["text"] as? String,
+            coordinateX: params["x"] as? Int,
+            coordinateY: params["y"] as? Int,
+            direction: (params["direction"] as? String).flatMap(MiniClawKit.BrowserActionInput.ScrollDirection.init),
+            amount: params["amount"] as? Int,
+            script: params["script"] as? String,
+            userAgent: (params["user_agent"] as? String).flatMap(MiniClawKit.UserAgentProfile.init),
+            maxDepth: params["max_depth"] as? Int,
+            tabId: params["tab_id"] as? Int,
+            scrollCount: params["scroll_count"] as? Int,
+            itemSelector: params["item_selector"] as? String,
+            keywords: params["keywords"] as? [String],
+            fuzzy: params["fuzzy"] as? Bool,
+            timeout: params["timeout"] as? Int,
+            viewportWidth: params["width"] as? Int,
+            viewportHeight: params["height"] as? Int,
+            viewportReset: params["reset"] as? Bool,
+            fullPage: params["full_page"] as? Bool,
+            cookies: params["cookies"] as? [[String: Any]]
+        )
+    }
+
+    /// 2026-08-10:引擎执行(共用池:UI 与工具同一引擎,标签同步)
+    private func engineExecute(input: MiniClawKit.BrowserActionInput, sessionID: UUID?) async throws -> String {
+        let pool = enginePool(for: sessionID)
+        let result = try await pool.execute(action: input, singleTab: false)
+        return result.text
+    }
+
+    /// 引擎标签池(2026-08-10:与 UI 适配桥共用同一池,标签同步)
+    private func enginePool(for sessionID: UUID?) -> MiniClawKit.BrowserTabPool {
+        BrowserEngineAdapter.shared.pool(for: sessionID)
+    }
+
     func run(action: String, paramsData: Data, tabIndex: Int?, tabID: String?, sessionID: UUID?) async throws -> String {
         // 用户已取消托管（点「取消托管」按钮或手动操作过浏览器）：智能体的浏览器操作立即被拒，
         // 工具返回错误文本给模型，模型据此停止操作浏览器。
@@ -264,6 +306,12 @@ final class BrowserController: NSObject, ObservableObject {
         defer { scheduleAgentOperationEnd() }
         scopedSessionID = sessionID
         defer { scopedSessionID = nil }
+        // 2026-08-10:引擎优先——照搬引擎执行;引擎不识别/执行异常时回退旧实现。
+        let params = (try? JSONSerialization.jsonObject(with: paramsData)) as? [String: Any] ?? [:]
+        if let engineInput = Self.engineInput(action: action, params: params),
+           let engineText = try? await engineExecute(input: engineInput, sessionID: sessionID) {
+            return engineText
+        }
         let result = try await run(action: action, paramsData: paramsData, tabIndex: tabIndex, tabID: tabID)
         // Cookie 保活：每个动作成功后节流快照；检测到登录 Cookie 被系统清除时自动重注入（对抗 ITP）。
         await keepAliveCookies()
