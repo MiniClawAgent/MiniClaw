@@ -100,10 +100,6 @@ struct ChatView: View {
     /// 是否允许自动跟随最新内容。默认开启；用户只要手动拖动会话列表就立即关闭，
     /// 后续 词元 / 工具事件不再抢回滚动控制，直到用户主动发送消息或重新进入会话。
     @State private var shouldAutoFollow: Bool = true
-    /// 流式「按行」滚动跟随：气泡上报行数增长 → tick+1（节流 0.3s）→ ScrollViewReader onChange 滚动。
-    @State private var streamScrollTick: Int = 0
-    /// 流式「按行」滚动跟随的节流时间戳（气泡上报后至少间隔 0.3s 才滚动一次）。
-    @State private var lastStreamScrollAt: Date = .distantPast
     @FocusState private var isInputFocused: Bool
     /// 键盘高度(P15:列表延伸到底部后,键盘弹出时顶起最后内容)
     @State private var keyboardInset: CGFloat = 0
@@ -201,65 +197,6 @@ struct ChatView: View {
     /// 词元只重绘那一个气泡，历史消息不再随词元重绘（防上滑卡顿）。
     /// 气泡流式「行数增长」上报入口：节流 0.3s 后驱动 ScrollViewReader 滚动。
     @MainActor
-    private func streamGrown() {
-        let now = Date()
-        guard now.timeIntervalSince(lastStreamScrollAt) >= 0.3 else { return }
-        lastStreamScrollAt = now
-        streamScrollTick += 1
-        AppLogger.shared.info("[Chat] streamGrown tick=" + String(streamScrollTick), category: "Chat")
-    }
-
-    /// 单条消息气泡（含流式实时内容）。
-    @MainActor
-    /// 单条消息气泡（含流式实时内容）。返回裸 MessageBubbleView（无 .id：列表容器按 diffable
-    /// item 定位，不再需要 ScrollViewReader 的 scrollTo id）。
-    private func messageBubble(_ message: ChatMessage) -> MessageBubbleView {
-        MessageBubbleView(
-            message: message,
-            agentName: appState.agentName,
-            showThinking: SettingsStore.shared.settings.chat.showThinking,
-            onOpenURL: { url in
-                // 设置类深链（miniclaw://settings/environments 等）→ 设置页路由；
-                // 其余（http/https 链接、miniclaw:// 资源）→ 浏览器（现有语义）。
-                if url.scheme?.lowercased() == "miniclaw",
-                   appState.routeSettingsDeepLink(url) {
-                    return
-                }
-                self.browserURL = url
-            },
-            onImageTap: { url in fullscreenImageItem = FullscreenImageItem(url: url) },
-            sessionID: session.id,
-            runtime: runtime,
-            onStreamContentGrown: { self.streamGrown() },
-            expandedReasoning: Set(expandedReasoningKeys.filter { $0.hasPrefix("\(message.id)-") }
-                .compactMap { Int($0.split(separator: "-").last ?? "") }),
-            onToggleReasoning: { segIndex in
-                let key = "\(message.id)-\(segIndex)"
-                if expandedReasoningKeys.contains(key) {
-                    expandedReasoningKeys.remove(key)
-                } else {
-                    expandedReasoningKeys.insert(key)
-                }
-            },
-            expandedTools: expandedToolIDs,
-            onToggleTool: { toolID in
-                if expandedToolIDs.contains(toolID) {
-                    expandedToolIDs.remove(toolID)
-                } else {
-                    expandedToolIDs.insert(toolID)
-                }
-            },
-            expandedError: expandedErrorIDs.contains(message.id),
-            onToggleError: {
-                if expandedErrorIDs.contains(message.id) {
-                    expandedErrorIDs.remove(message.id)
-                } else {
-                    expandedErrorIDs.insert(message.id)
-                }
-            }
-        )
-    }
-
     /// 本会话排队中的用户消息
     private var pendingMessages: [PendingUserMessage] { appState.pendingUserMessages[session.id] ?? [] }
 
@@ -767,7 +704,7 @@ struct ChatView: View {
                         // 点击回到底部；贴底自动隐藏）
                         if !isNearBottom {
                             Button {
-                                scrollRequests += 1
+                                chatBridge.vm.scrollToBottomSignal.send()
                             } label: {
                                 Image(systemName: "chevron.down")
                                     .font(.system(size: 14, weight: .semibold))
@@ -876,7 +813,7 @@ struct ChatView: View {
             if focused && shouldAutoFollow {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                     guard shouldAutoFollow else { return }
-                    scrollRequests += 1
+                    chatBridge.vm.scrollToBottomSignal.send()
                 }
             }
         }
@@ -885,7 +822,7 @@ struct ChatView: View {
             // P24:键盘收起后重贴底(输入栏下移 → maxOff 增大,但无 KVO/信号触发)
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
                 guard shouldAutoFollow else { return }
-                scrollRequests += 1
+                chatBridge.vm.scrollToBottomSignal.send()
             }
         }
         .onChange(of: appState.pendingBrowserURL) { _, url in
@@ -984,7 +921,7 @@ struct ChatView: View {
                 // 最后消息停在输入框后面。0.15s 等块级拆分/落盘布局稳定。
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
                     guard shouldAutoFollow else { return }
-                    scrollRequests += 1
+                    chatBridge.vm.scrollToBottomSignal.send()
                 }
             }
         }
@@ -1027,315 +964,33 @@ struct ChatView: View {
     /// 适配列表数据桥(2026-08-09 会话页 1:1 重构):移植列表组件的数据适配层
     @StateObject private var chatBridge = MiniClawChatBridge()
 
-    /// 适配列表开关:默认 ON(2026-08-10 用户要求:搬过来的移植组件就是默认路径,
-    /// 不再使用旧 legacy 列表;保留 UserDefaults 覆盖便于回退调试)。
-    private var UseAdaptedList: Bool {
-        (UserDefaults.standard.object(forKey: "miniclaw.debug.chatList") as? Bool) ?? true
-    }
-
     /// 受控展开状态（2026-08-09）：思考块/工具卡/错误详情的展开集合。
-    /// 变化时 listReloadToken += 1 触发 cell 重配 → 高度缓存 key 变化 → 重新测量。
-    /// 展开的思考段 key 集（"\(消息id)-\(段index)"，2026-08-09：多条思考段各自独立展开）。
-    @State private var expandedReasoningKeys: Set<String> = []
-    @State private var expandedToolIDs: Set<UUID> = []
-    @State private var expandedErrorIDs: Set<UUID> = []
 
     /// 贴底状态（开源参考实现对齐：控制浮动「回到底部」按钮显隐）
     @State private var isNearBottom = false
 
-    /// 滚动请求信号：消息增删 / 流式按行上报 / 排队变化 → 递增，驱动容器 scrollToBottom。
-    @State private var scrollRequests = 0
-    /// 搜索定位目标消息（onAppear 消费，一次性）。
-    @State private var pendingScrollToMessageID: UUID?
-    /// 恢复路径强制重配信号（重建 runtime 后递增，cell 重新取 runtime 引用）。
-    @State private var listReloadToken = 0
-
-    /// 流式有效内容长度表：消息 id → runtime.streamingContent.count（高度 key 用）。
-    private var streamingLengths: [UUID: Int] {
-        guard let runtime, let mid = runtime.streamingMessageID else { return [:] }
-        return [mid: runtime.streamingContent.count]
-    }
-
-    /// 块级拆分开关（2026-08-09 定稿）：true=块级（header+block+footer 多 cell）。
-    /// 默认开启——思考/工具块是独立 cell，展开/折叠只重配该块（局部性），
-    /// 绕开「整条消息重配 → 首次测量不完整 → 两段跳/跳位」问题。
-    /// 可用 lldb / UserDefaults 修改：`defaults write` 对应键 miniclaw.debug.blockMode false。
-    private var blockModeEnabled: Bool {
-        UserDefaults.standard.object(forKey: "miniclaw.debug.blockMode") as? Bool ?? true
-    }
-
-    /// 列表项：banner（未配置模型）+ 会话消息 + 排队气泡。
-    /// 非流式智能体消息展开为 header + block* + footer（块级虚拟化，2026-08-09）。
-    private var messageItems: [MessageListItem] {
-        var items: [MessageListItem] = []
-        if !appState.hasConfiguredModel { items.append(.banner) }
-        for m in session.messages.sorted(by: { $0.createdAt < $1.createdAt }) {
-            // 直接调 segments(for:)（内部自算+写缓存），不依赖参数求值顺序（2026-08-09 修复 P0）
-            if blockModeEnabled, m.role == .assistant, !m.isStreaming, !segments(for: m).isEmpty {
-                let segs = segments(for: m)
-                items.append(.header(m.id))
-                for i in 0..<segs.count {
-                    // 块级展开指纹：思考段按 rs.index、工具段按 ev.id 查展开集合
-                    let fp: String
-                    switch segs[i] {
-                    case .reasoning(let rs):
-                        fp = expandedReasoningKeys.contains("\(m.id)-\(rs.index)") ? "r1" : "r0"
-                    case .tool(let ev):
-                        fp = expandedToolIDs.contains(ev.id) ? "t1" : "t0"
-                    case .text:
-                        fp = "x"
-                    }
-                    items.append(.block(m.id, i, fp))
-                }
-                items.append(.footer(m.id))
-            } else {
-                // 展开指纹进 item 身份：展开/折叠 → diffable apply 重新配置该 cell
-                // （渲染及时）。滚动位置由 contentSize KVO 按模式管理。
-                // s: 流式长度（流式增长 → 指纹变 → apply 重配流式 cell → 高度更新）。
-                // 注意：不做「二次 apply 修正测量」——实测会让 contentSize 横跳
-                // （6103→1509→3886），offset 被 clamp → 点击瞬间跳到会话其他位置。
-                let rCnt = expandedReasoningKeys.filter { $0.hasPrefix("\(m.id)-") }.count
-                let tCnt = m.toolCalls.filter { expandedToolIDs.contains($0.id) }.count
-                let eCnt = expandedErrorIDs.contains(m.id) ? 1 : 0
-                let slen = streamingLengths[m.id] ?? 0
-                items.append(.message(m.id, "r\(rCnt)-t\(tCnt)-e\(eCnt)-s\(slen)"))
-            }
-        }
-        items += pendingMessages.map { .pending($0.id) }
-        return items
-    }
-
-    /// 块级段缓存（纯性能 memo，不驱动视图更新）。
-    /// 2026-08-09 修复：从 @State 移出改为 static + 锁——body 求值路径（messageItems
-    /// 块级分支）写 @State 持有对象的内容在 iOS 18 触发「Modifying state during view
-    /// update」→ 视图重入 → 主线程被占死（Watchdog MAIN THREAD BLOCKED 实锤）。
-    private static let segmentCacheLock = NSLock()
-    private static var segmentCacheTable: [UUID: [AssistantSegment]] = [:]
-
-    /// 计算/读取消息的穿插段（缓存避免每次 body 重算重复切分）。
-    private func segments(for m: ChatMessage) -> [AssistantSegment] {
-        Self.segmentCacheLock.lock()
-        if let c = Self.segmentCacheTable[m.id] {
-            Self.segmentCacheLock.unlock()
-            return c
-        }
-        Self.segmentCacheLock.unlock()
-        // 旧数据兜底（2026-08-09 修复 P1）：只有单串 reasoning、无 reasoningSegments 时，
-        // 构造一个顶部思考段（position 0），与消息级路径 effectiveReasoningSegments 行为一致。
-        var reasoning = m.reasoningSegments
-        if reasoning.isEmpty, let r = m.reasoning, !r.isEmpty {
-            reasoning = [ReasoningSegment(index: 1, text: r, position: 0, timelineOrder: 1)]
-        }
-        let segs = MessageBubbleView.assistantSegments(
-            content: m.content,
-            toolCalls: m.toolCalls,
-            reasoningSegments: reasoning,
-            showThinking: SettingsStore.shared.settings.chat.showThinking
-        )
-        Self.segmentCacheLock.lock()
-        Self.segmentCacheTable[m.id] = segs
-        Self.segmentCacheLock.unlock()
-        return segs
-    }
-
-    /// 块级段表：传给容器（含缓存，避免重复切分）。
-    private var blockSegmentsTable: [UUID: [AssistantSegment]] {
-        var table: [UUID: [AssistantSegment]] = [:]
-        for m in session.messages where m.role == .assistant && !m.isStreaming {
-            table[m.id] = segments(for: m)
-        }
-        return table
-    }
-
     private var messageListView: some View {
-        Group {
-            if UseAdaptedList {
-                adaptedListContent
-            } else {
-                legacyListContent
-            }
-        }
+        adaptedListContent
         .onAppear {
             shouldAutoFollow = true
             AppLogger.shared.info("[Chat] onAppear follow=true messages=" + String(session.messages.count)
                 + " scrollToMessageID=" + (appState.scrollToMessageID != nil ? "set" : "nil"), category: "Chat")
-            if let targetID = appState.scrollToMessageID,
-               session.messages.contains(where: { $0.id == targetID }) {
-                // 搜索结果跳转：定位到首个命中关键字的消息（一次性，消费后清空）；
-                // 立即触发一次 apply（不依赖 0.15s 定时器巧合，2026-08-09 修复 P2）
-                pendingScrollToMessageID = targetID
-                scrollRequests += 1
-                AppLogger.shared.info("[Chat] onAppear scrollToMessage target=命中", category: "Chat")
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                    pendingScrollToMessageID = nil
-                }
-            } else {
-                // 初始贴底：延迟到布局完成后滚动一次
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-                    // 用户已在延迟窗口内开始上滑 → 放弃初始贴底，避免「上滑被拉回底部」
-                    // （2026-08-09 修复：onAppear 延迟滚动此前无 shouldAutoFollow 守卫）。
-                    AppLogger.shared.info("[Chat] delayedScroll follow=" + (shouldAutoFollow ? "1" : "0"), category: "Chat")
-                    guard shouldAutoFollow else { return }
-                    scrollRequests += 1
-                }
+            // 初始贴底：延迟到布局完成后滚动一次（用户已上滑则放弃）
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                AppLogger.shared.info("[Chat] delayedScroll follow=" + (shouldAutoFollow ? "1" : "0"), category: "Chat")
+                guard shouldAutoFollow else { return }
+                chatBridge.vm.scrollToBottomSignal.send()
             }
             // 无有效目标也清空，避免泄漏到后续进入
             appState.scrollToMessageID = nil
         }
-        .onChange(of: session.messages.count) { _, _ in
-            AppLogger.shared.info("[Chat] msgs.count -> " + String(session.messages.count)
-                + " follow=" + (shouldAutoFollow ? "1" : "0"), category: "Chat")
-            guard shouldAutoFollow else { return }
-            scrollRequests += 1
-        }
-        .onChange(of: streamScrollTick) { _, _ in
-            // 流式滚动跟随（按行）：气泡内估算行数增长时上报，此处仅节流后滚动一次；
-            // 仅当用户「钉在底部」时执行，上滑看历史则交还滚动权，避免抖动。
-            AppLogger.shared.info("[Chat] streamTick -> " + String(streamScrollTick)
-                + " follow=" + (shouldAutoFollow ? "1" : "0"), category: "Chat")
-            guard shouldAutoFollow else { return }
-            scrollRequests += 1
-        }
-        .onChange(of: pendingMessages.count) { _, _ in
-            // 新增/删除排队气泡时滚到底部，让虚线气泡可见（仅钉在底部时）
-            AppLogger.shared.info("[Chat] pending -> " + String(pendingMessages.count)
-                + " follow=" + (shouldAutoFollow ? "1" : "0"), category: "Chat")
-            guard shouldAutoFollow else { return }
-            scrollRequests += 1
+        // 贴底状态同步（浮动「回到底部」按钮显隐,2026-08-10 OM 路径）
+        .onChange(of: chatBridge.vm.isNearBottom) { _, near in
+            isNearBottom = near
         }
     }
 
-    private var legacyListContent: some View {
-        MessageCollectionView(
-            items: messageItems,
-            scrollSignal: scrollRequests,
-            scrollToMessageID: pendingScrollToMessageID,
-            streamingLengths: streamingLengths,
-            reloadToken: listReloadToken,
-            messages: session.messages.sorted(by: { $0.createdAt < $1.createdAt }),
-            pending: pendingMessages,
-            expandedReasoningKeys: expandedReasoningKeys,
-            expandedToolIDs: expandedToolIDs,
-            expandedErrorIDs: expandedErrorIDs,
-            segments: blockSegmentsTable,
-            itemSpacing: blockModeEnabled ? 8 : 0,
-            keyboardInset: keyboardInset,
-            // P20:贴底补偿 = 输入框顶边到屏幕底的距离(实测,自动含键盘/小横条抬升)
-            bottomAnchorInset: floatingBarTopInset,
-            makeBubble: { message in messageBubble(message) },
-            makePending: { pending in
-                PendingMessageBubble(
-                    text: pending.text,
-                    onSend: { sendQueuedMessage(pending.id) },
-                    onDelete: { deletePendingMessage(pending.id) }
-                )
-            },
-            makeHeader: { message in
-                // 与消息级整体 .padding(.horizontal, 16) 对齐（2026-08-09 修复 P1）
-                // 块级 cell 经 UIHostingConfiguration 默认按 intrinsic 尺寸居中，
-                // 必须显式 maxWidth infinity + leading 才靠左（2026-08-09 修复 P2）。
-                AnyView(AssistantHeaderView(agentName: appState.agentName)
-                    .padding(.horizontal, 16)
-                    .padding(.top, 6)
-                    .frame(maxWidth: .infinity, alignment: .leading))
-            },
-            makeBlock: { message, seg in
-                switch seg {
-                case .text(let t):
-                    return AnyView(MarkdownContentView(
-                        content: t,
-                        isStreaming: false,
-                        onOpenURL: { url in
-                            if url.scheme?.lowercased() == "miniclaw", appState.routeSettingsDeepLink(url) { return }
-                            self.browserURL = url
-                        },
-                        onImageTap: { url in fullscreenImageItem = FullscreenImageItem(url: url) },
-                        sessionID: session.id
-                    )
-                    .padding(.horizontal, 16)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    // P27:底部 +4pt 呼吸——吸收行高渲染差异,防 cell 高度不足裁掉末行
-                    .padding(.bottom, 4))
-                case .tool(let ev):
-                    return AnyView(ToolCallCardView(
-                        event: ev,
-                        isExpanded: expandedToolIDs.contains(ev.id),
-                        onToggle: { [self] in
-                            if expandedToolIDs.contains(ev.id) {
-                                expandedToolIDs.remove(ev.id)
-                            } else {
-                                expandedToolIDs.insert(ev.id)
-                            }
-                        }
-                    )
-                    .padding(.horizontal, 16)
-                    .frame(maxWidth: .infinity, alignment: .leading))
-                case .reasoning(let rs):
-                    return AnyView(ReasoningBlockView(
-                        text: rs.text,
-                        // 块级模式只承载非流式消息：无自动展开/折叠
-                        isStreaming: false,
-                        isExpanded: expandedReasoningKeys.contains("\(message.id)-\(rs.index)"),
-                        onToggle: { [self] in
-                            let key = "\(message.id)-\(rs.index)"
-                            if expandedReasoningKeys.contains(key) {
-                                expandedReasoningKeys.remove(key)
-                            } else {
-                                expandedReasoningKeys.insert(key)
-                            }
-                        }
-                    )
-                    .padding(.horizontal, 16)
-                    .frame(maxWidth: .infinity, alignment: .leading))
-                }
-            },
-            makeFooter: { message in
-                AnyView(AssistantStatusRow(
-                    wasStopped: message.wasStopped ?? false,
-                    wasInterrupted: message.wasInterrupted,
-                    taskElapsedSeconds: message.taskElapsedSeconds,
-                    isStreaming: false,
-                    isPaused: false
-                )
-                .padding(.horizontal, 16)
-                .padding(.bottom, 6)
-                .frame(maxWidth: .infinity, alignment: .leading))
-            },
-            // 适配列表开关:miniclaw.debug.chatList(UserDefaults,默认关)
-            // 开启后使用移植的消息列表组件(阶段 3 适配层验证入口)
-            bannerView: AnyView(
-                !appState.hasConfiguredModel
-                    ? AnyView(ModelWarningBannerView(onConfigure: {
-                        // 点击横幅先申请网络访问，再跳转到「智能体服务商」配置页填写模型与 API Key。
-                        PermissionManager.shared.requestNetworkAccess()
-                        PermissionManager.shared.requestLocalNetwork()
-                        appState.settingsDeepLink = "providers"
-                        appState.showSettings = true
-                    }))
-                    : AnyView(EmptyView())
-            ),
-            onUserDrag: {
-                // 用户一旦主动拖动，本轮立即停止自动跟随（异步避免视图更新期改状态警告）。
-                AppLogger.shared.info("[Chat] userDrag -> async follow=false", category: "Chat")
-                DispatchQueue.main.async { shouldAutoFollow = false }
-            },
-            onNearBottom: {
-                // 用户手动滚回接近底部 = 重新钉住，恢复自动跟随（2026-08-09 修复
-                // 「拉到最底部也不自动跟随」：流式内容增长无滚动补偿 → 消息一直弹）。
-                if !shouldAutoFollow {
-                    AppLogger.shared.info("[Chat] nearBottom -> follow=true", category: "Chat")
-                }
-                shouldAutoFollow = true
-            },
-            onNearBottomChanged: { isNear in
-                if isNearBottom != isNear {
-                    withAnimation(.easeInOut(duration: 0.2)) { isNearBottom = isNear }
-                }
-            }
-        )
-    }
-
-    /// 适配列表(自研移植组件,miniclaw.debug.chatList 开启时使用)
+    /// 适配列表(OpenMinis 移植组件,默认路径),miniclaw.debug.chatList 开启时使用)
 
     private var adaptedListContent: some View {
         CollectionViewMessageListV3(
@@ -1647,8 +1302,6 @@ struct ChatView: View {
         )
         // 断点恢复（冷启动续跑）：计时起点不可靠，按用户规则不显示耗时。
         runtime.taskTimingInvalid = true
-        // 恢复路径：强制列表重配全部 cell（拿新 runtime 引用，2026-08-09 修复 P1）
-        listReloadToken += 1
         // 重建完整性（2026-08-08 修复）：把已落盘的工具卡/思考段/时间线序号回填进新 runtime，
         // 否则渲染时 effectiveToolCalls 优先取 runtime 空数组 → 已完成的工具卡/思考块被遮蔽消失。
         runtime.streamingToolCalls = bubble.toolCalls
