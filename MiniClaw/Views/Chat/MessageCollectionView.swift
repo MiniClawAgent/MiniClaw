@@ -248,9 +248,13 @@ struct MessageCollectionView: UIViewRepresentable {
             for i in 0..<count {
                 let attrs = UICollectionViewLayoutAttributes(forCellWith: IndexPath(item: i, section: 0))
                 let h: CGFloat
-                // P34:存储均为内容纯高,布局时统一 + 屏内安全区加成(= 真实渲染需求)
+                // P34:heightCache 存储为内容纯高(实测−安全区),布局 + 屏内安全区
+                // 加成 = 真实渲染需求;precalc(premeasure probe 无 window,safeArea=0)
+                // 本身就是内容纯高+3pt 容差——**布局时不再加安全区**:否则中部 cell
+                // (safeArea=0,实测=内容)与布局(内容+34)差 34pt,滚动中被 DEFER
+                // 冻结 → 每个块下方 34pt 空白(2026-08-10 日志实证 orig=pre+34)。
                 if let cached = heightCacheByIndex[i] { h = cached + safeAreaPad }
-                else if let pre = precalcByIndex[i] { h = pre + safeAreaPad }
+                else if let pre = precalcByIndex[i] { h = pre }
                 else { h = estimatedItemHeight }
                 attrs.frame = CGRect(x: 0, y: y, width: width, height: h)
                 itemAttributes.append(attrs)
@@ -291,13 +295,20 @@ struct MessageCollectionView: UIViewRepresentable {
             if deferSelfSizing || Date() < enterStabilizeUntil {
                 let isShrinkOrStable = preferredH <= originalH + 0.5
                 if isShrinkOrStable {
-                    if abs(preferredH - originalH) > 0.5 {
+                    // 2026-08-10:|Δ|>30pt 的大缩小(内容过期信号,如 precalc 曾带
+                    // 34pt 安全区补偿)滚动中直接放行重排贴紧,仅小修正 defer 到离手
+                    // (否则中部 cell 每块下方 34pt 空白,离手才突然刷新)。
+                    if abs(preferredH - originalH) > 30 {
+                        // 放行到下方 REJECT 路径(实时重排)
+                    } else if abs(preferredH - originalH) > 0.5 {
                         deferredHeights[index] = preferredH
                         AppLogger.shared.info("[List] selfSizing DEFER idx=" + String(index)
                             + " h=" + String(format: "%.1f", preferredH)
                             + " orig=" + String(format: "%.1f", originalH), category: "List")
+                        return false
+                    } else {
+                        return false
                     }
-                    return false
                 }
                 // grow：放行到下方 REJECT 路径（实时重排）
             }
