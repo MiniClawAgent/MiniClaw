@@ -120,6 +120,10 @@ targets:
         INFOPLIST_KEY_NSSupportsLiveActivities: YES
         INFOPLIST_KEY_NSSupportsLiveActivitiesFrequentUpdates: YES
         INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO
+        # @rpath 解析到 app 内 Frameworks(embed 的 MiniClawKit.framework)
+        LD_RUNPATH_SEARCH_PATHS:
+          - "$(inherited)"
+          - "@executable_path/Frameworks"
         # --- cmark-gfm vendored 集成(仅主 target 需要) ---
         # 传递依赖:MiniClawKit.swiftmodule 内 import cmark_gfm,MiniClaw 编译时需可解析。
         # 注意:不可用 -disable-explicit-modules(Xcode 26 driver 已移除该 flag,
@@ -150,6 +154,10 @@ targets:
         SWIFT_VERSION: "5.0"
         PRODUCT_NAME: MiniClawKit
         PRODUCT_BUNDLE_IDENTIFIER: com.neartop.MiniClawKit
+        # 必须显式 @rpath:Xcode 默认 INSTALL_PATH=/Library/Frameworks,
+        # 未设 DYLIB_INSTALL_NAME_BASE 时 install name 退化为 /Library/Frameworks/...,
+        # 真机 dyld 找不到 → 启动即 SIGABRT(abort_with_payload)
+        DYLIB_INSTALL_NAME_BASE: "@rpath"
         DEFINES_MODULE: YES
         GENERATE_INFOPLIST_FILE: YES
         CURRENT_PROJECT_VERSION: 1
