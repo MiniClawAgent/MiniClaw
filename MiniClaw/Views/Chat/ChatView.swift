@@ -101,17 +101,11 @@ struct ChatView: View {
     /// 后续 词元 / 工具事件不再抢回滚动控制，直到用户主动发送消息或重新进入会话。
     @State private var shouldAutoFollow: Bool = true
     @FocusState private var isInputFocused: Bool
-    /// 键盘高度(P15:列表延伸到底部后,键盘弹出时顶起最后内容)
-    @State private var keyboardInset: CGFloat = 0
-    /// 底部安全区高度(小横条/home indicator):悬浮输入框抬升基准
-    private var bottomSafeInset: CGFloat {
-        UIApplication.shared.windows.first?.safeAreaInsets.bottom ?? 0
-    }
-    /// 输入框顶边到屏幕底的距离(P20,抄旧版「布局天然锚定」的等价实现):
-    /// 由 GeometryReader 直接读输入框顶边的全局 Y 坐标计算——键盘抬升/小横条/语音态
-    /// 全部自动包含,零分支零估算。默认 117 = 常规输入栏 79 + 小横条 34 + 间距 4,
-    /// 保证进入会话首帧(测量就绪前)锚点就正确。
-    @State private var floatingBarTopInset: CGFloat = 117
+    /// 输入栏高度(2026-08-11 重建,onGeometryChange 测输入栏自身高度,不含键盘)。
+    @State private var inputBarHeight: CGFloat = 0
+    @State private var inputBarHeightDebounce: Task<Void, Never>?
+    @State private var latestInputBarFrameH: CGFloat = 0
+    @State private var didSeedInputBarHeight = false
 
     /// 本会话的进行中运行时（含引擎与流式缓冲区），存活于 AppState、跨视图重建可认领。
     /// nil 表示当前没有活跃回复。
@@ -199,6 +193,16 @@ struct ChatView: View {
     @MainActor
     /// 本会话排队中的用户消息
     private var pendingMessages: [PendingUserMessage] { appState.pendingUserMessages[session.id] ?? [] }
+
+    /// 悬浮层内容总高度(输入栏上方叠加元素):子代理头像区(约 44)+ 附件提示(约 40)
+    /// + 队列消息(每条 40)+ 间距。计入列表底部 inset,键盘抬起/消息回落不遮挡。
+    private var floatingOverlayHeight: CGFloat {
+        var h: CGFloat = 0
+        if !SubagentStore.shared.avatars(for: session.id).isEmpty { h += 44 }
+        if attachmentNotice != nil { h += 40 }
+        h += CGFloat(pendingMessages.count) * 40 + 4
+        return h
+    }
 
     // MARK: - 持久化（草稿 / 排队队列跨会话与杀后台）
 
@@ -700,26 +704,19 @@ struct ChatView: View {
             // P15:输入栏改悬浮层(ZStack 靠底)——输入框外不再有背景、不再顶开列表,
             // 聊天内容可滚到输入框下面、透过半透明输入框(.bar)可见(用户要求的悬浮态)。
             VStack(spacing: 0) {
-                        // 浮动「回到底部」按钮（开源参考实现对齐：36×36 圆，非贴底时显示，
-                        // 点击回到底部；贴底自动隐藏）
-                        if !isNearBottom {
-                            Button {
-                                chatBridge.vm.scrollToBottomSignal.send()
-                            } label: {
-                                Image(systemName: "chevron.down")
-                                    .font(.system(size: 14, weight: .semibold))
-                                    .foregroundStyle(.secondary)
-                                    .frame(width: 36, height: 36)
-                                    .background(Color(UIColor { $0.userInterfaceStyle == .dark
-                                        ? UIColor(white: 0, alpha: 0.8)
-                                        : UIColor(white: 1, alpha: 0.92) }), in: Circle())
-                                    .overlay(Circle().strokeBorder(Color.gray.opacity(0.35), lineWidth: 0.5))
-                                    .shadow(color: .black.opacity(0.18), radius: 5, y: 2)
+                        // 「回到底部」按钮已按用户要求从源码剔除(2026-08-10)。
+
+                        // 排队消息:显示在输入框上方悬浮层(2026-08-10 用户要求,
+                        // 不再注入消息列表内容里)。每条含删除叉 + 立即发送按钮。
+                        let queue = pendingMessages
+                        if !queue.isEmpty {
+                            VStack(alignment: .leading, spacing: 4) {
+                                ForEach(queue) { item in
+                                    queuedMessageRow(item)
+                                }
                             }
-                            .padding(.trailing, 16)
-                            .padding(.bottom, 8)
-                            .frame(maxWidth: .infinity, alignment: .trailing)
-                            .transition(.opacity.combined(with: .scale(scale: 0.8)))
+                            .padding(.horizontal, 16)
+                            .padding(.bottom, 4)
                         }
 
                         // 子代理：在输入框上方悬浮显示圆形头像（常驻，任务完成后也不消失）。
@@ -775,56 +772,56 @@ struct ChatView: View {
                             thinkingLevels: availableThinkingLevels,
                             focused: $isInputFocused
                         )
-                        // P21:读输入框【顶边】(minY)的全局 Y → 顶边到屏幕底 = 贴底锚点补偿。
-                        // 之前误读 maxY(底边):日志 anchor=38 = 底边到屏幕底,最后消息
-                        // 锚到输入框底部 → 整个输入框遮住消息。顶边 = minY。
-                        // 悬浮层抬升(小横条/键盘)会整体移动输入框,全局坐标自动跟随,
-                        // 无需任何分支公式(等价旧版「列表可视区底天然 = 输入框顶」)。
-                        .background(
-                            GeometryReader { geo in
-                                Color.clear
-                                    .onAppear { floatingBarTopInset = UIScreen.main.bounds.height - geo.frame(in: .global).minY }
-                                    .onChange(of: geo.frame(in: .global).minY) { minY in
-                                        floatingBarTopInset = UIScreen.main.bounds.height - minY
+                        // 输入栏高度(2026-08-11 重建):onGeometryChange 测输入栏【自身高度】。
+                        .onGeometryChange(for: CGRect.self) { proxy in
+                            proxy.frame(in: .global)
+                        } action: { frame in
+                            let newH = frame.size.height
+                            guard newH > 0 else { return }
+                            let hostWindow = inputBarWindowBounds()
+                            let paneW = frame.width > 1 ? frame.width : hostWindow.width
+                            let tolerance = paneW * 0.25
+                            let onscreen = frame.minX >= hostWindow.minX - tolerance
+                                && frame.maxX <= hostWindow.maxX + tolerance
+                            if onscreen { latestInputBarFrameH = newH }
+                            if !didSeedInputBarHeight, onscreen {
+                                didSeedInputBarHeight = true
+                                inputBarHeightDebounce?.cancel()
+                                inputBarHeight = newH
+                                inputBarHeightDebounce = Task { @MainActor in
+                                    try? await Task.sleep(for: .milliseconds(380))
+                                    guard !Task.isCancelled else { return }
+                                    let settled = latestInputBarFrameH
+                                    if settled > 0, abs(settled - newH) > 0.5 {
+                                        inputBarHeight = settled
                                     }
+                                }
+                                return
                             }
-                        )
+                            guard onscreen else { return }
+                            inputBarHeightDebounce?.cancel()
+                            inputBarHeightDebounce = Task { @MainActor in
+                                try? await Task.sleep(for: .milliseconds(380))
+                                guard !Task.isCancelled else { return }
+                                let committed = latestInputBarFrameH > 0 ? latestInputBarFrameH : newH
+                                inputBarHeight = committed
+                                try? await Task.sleep(for: .milliseconds(320))
+                                guard !Task.isCancelled else { return }
+                                let settled = latestInputBarFrameH
+                                if settled > 0, abs(settled - committed) > 0.5 {
+                                    inputBarHeight = settled
+                                }
+                            }
+                        }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
-            .animation(.easeInOut(duration: 0.2), value: isNearBottom)
-            // P17:ZStack 延伸到屏幕底后,悬浮层手动抬升——无键盘时抬到小横条上方,
-            // 键盘弹出时抬到键盘上方(键盘高度已含底部安全区,取两者较大值)。
-            .padding(.bottom, max(keyboardInset, bottomSafeInset) + 4)
+            .safeAreaPadding(isInputFocused ? 0 : nil, .bottom)
         }
-        // P17:整个 ZStack 延伸到屏幕底部——聊天内容可以滚到小横条旁边,
-        // 底部不再有安全区空白带遮挡(悬浮层已自行抬升,不受影响)。
-        .ignoresSafeArea(edges: .bottom)
+        // 根 ZStack 延伸到底:列表+悬浮层覆盖到小横条,底部无背景条。
+        // 键盘高度由列表 Coordinator.keyboardHeight 手动注入(2026-08-11),不依赖 .automatic。
+        .ignoresSafeArea(.container, edges: .bottom)
         .background(Color(.systemBackground))
-        // P23:键盘高度用 WillShow/WillHide 双通知——keyboardWillChangeFrame 在交互式
-        // 收起时可能不归零(截图:输入框卡在屏幕中间 51.8% 处,keyboardInset 残留 336pt)。
-        // WillHide 确定性归零;WillShow 才取高度。
-        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { note in
-            let h = (note.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect)?.height ?? 0
-            keyboardInset = max(0, h)
-        }
-        // P24:键盘弹出 → 最后消息跟随抬高(对应旧版 onChange(isInputFocused) 贴底)。
-        // inset 变化不会触发 contentSize KVO、也不递增 scrollSignal,必须主动重贴。
-        .onChange(of: isInputFocused) { _, focused in
-            if focused && shouldAutoFollow {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    guard shouldAutoFollow else { return }
-                    chatBridge.vm.scrollToBottomSignal.send()
-                }
-            }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
-            keyboardInset = 0
-            // P24:键盘收起后重贴底(输入栏下移 → maxOff 增大,但无 KVO/信号触发)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
-                guard shouldAutoFollow else { return }
-                chatBridge.vm.scrollToBottomSignal.send()
-            }
-        }
+        // 键盘高度监听已移至列表 Coordinator(keyboardHeight),此处不再手动桥接。
         .onChange(of: appState.pendingBrowserURL) { _, url in
             if let url { browserURL = url; appState.pendingBrowserURL = nil }
         }
@@ -1001,7 +998,7 @@ struct ChatView: View {
             onStop: { chatBridge.onStop?() },
             maxContentWidth: 0,
             floatingBarHeight: 0,
-            inputBarHeight: floatingBarTopInset
+            inputBarHeight: inputBarHeight + floatingOverlayHeight
         )
         .ignoresSafeArea(edges: .bottom)
         .onAppear {
@@ -1015,6 +1012,78 @@ struct ChatView: View {
         .onChange(of: session.messages.last?.isStreaming ?? false) { _, _ in chatBridge.refresh(force: true) }
     }
     // MARK: - 子代理悬浮头像（输入框上方）
+
+    /// 排队消息行(输入框上方悬浮层):虚线气泡 + 删除叉 + 立即发送按钮 + 长按菜单。
+    /// 2026-08-10 用户要求排队消息显示在输入框上方而非消息列表内容里。
+    private func queuedMessageRow(_ item: PendingUserMessage) -> some View {
+        HStack(spacing: 6) {
+            // 立即发送:中断当前回复并立即发送该条。
+            Button {
+                appState.pendingUserMessages[session.id, default: []].removeAll { $0.id == item.id }
+                sendQueuedMessage(item.id)
+            } label: {
+                Image(systemName: "arrow.up.circle.fill")
+                    .font(.system(size: 22))
+                    .foregroundStyle(.green)
+            }
+            Text(item.text)
+                .font(.system(size: 14))
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+            Spacer(minLength: 0)
+            // 删除叉:取消该条排队消息。
+            Button {
+                appState.pendingUserMessages[session.id, default: []].removeAll { $0.id == item.id }
+                persistQueue()
+                chatBridge.refresh()
+            } label: {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.system(size: 18))
+                    .foregroundStyle(.red)
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .strokeBorder(style: StrokeStyle(lineWidth: 1.5, dash: [6, 4]))
+                .foregroundStyle(Color.gray.opacity(0.5))
+        )
+        .contentShape(RoundedRectangle(cornerRadius: 12))
+        .contextMenu {
+            Button {
+                UIPasteboard.general.string = item.text
+            } label: {
+                Label(L10n.tr("复制"), systemImage: "doc.on.doc")
+            }
+            Button {
+                injectInput(item.text)
+                appState.pendingUserMessages[session.id, default: []].removeAll { $0.id == item.id }
+                persistQueue()
+                chatBridge.refresh()
+            } label: {
+                Label(L10n.tr("编辑"), systemImage: "square.and.pencil")
+            }
+            Button(role: .destructive) {
+                appState.pendingUserMessages[session.id, default: []].removeAll { $0.id == item.id }
+                persistQueue()
+                chatBridge.refresh()
+            } label: {
+                Label(L10n.tr("删除"), systemImage: "trash")
+            }
+        }
+    }
+
+    /// 输入栏测高用的宿主窗口 bounds。
+    private func inputBarWindowBounds() -> CGRect {
+        let window = UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .flatMap(\.windows)
+            .first(where: \.isKeyWindow)
+        guard let window else { return UIScreen.main.bounds }
+        return window.bounds
+    }
 
     /// 输入框上方悬浮的子代理圆形头像：SF 图标占位，点按打开「智能体 ↔ 子代理」对话详情页。
     /// 横向排布、最多铺满宽度；状态用颜色区分（运行中=强调色，出错=红色）。
