@@ -31,7 +31,6 @@
 		0F18455C96C213BFC7FABCF42E2BB2F9 /* CloseSubagentTool.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23C95B8BDCEDE7D7F4C399C232512B8E /* CloseSubagentTool.swift */; };
 		105B2D7B9A0E40C6070226E567D3D64A /* SkillLoadTool.swift in Sources */ = {isa = PBXBuildFile; fileRef = A095DD6B9F5B953F4090FF8C8B502F54 /* SkillLoadTool.swift */; };
 		10ABCB5618E02CBEED403F3851D59381 /* MiniClawChatBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5781D8E943C8B425B3684787CCAABBCA /* MiniClawChatBridge.swift */; };
-		11B7FD5C3A81419622E85356D65F5358 /* WebLoadError.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4C5EEC0D33C72418B163B19DCF0EED1 /* WebLoadError.swift */; };
 		1273EE10C2154088FC2ADD500B9510F7 /* pre-applypatch.sample in Resources */ = {isa = PBXBuildFile; fileRef = 1210B8BD60734050DA5417CBD63748AB /* pre-applypatch.sample */; };
 		12AAD16B19095AA5FE50D0C997BCF1B4 /* SubagentRuntimeRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28FF43DC6C5BEBDFEA105A9B94321657 /* SubagentRuntimeRegistry.swift */; };
 		12E8A4E27D68FDD3F56B27B465738BF6 /* syntax_extension.c in Sources */ = {isa = PBXBuildFile; fileRef = E85E3B31A71D783C4AEA33DBB19C32BD /* syntax_extension.c */; };
@@ -45,7 +44,6 @@
 		1B73794470A71C3BAB831A5ED43B087C /* cmark-gfm-core-extensions.h in Sources */ = {isa = PBXBuildFile; fileRef = 8DB9089A23673E56D6A6B6A09235AA7D /* cmark-gfm-core-extensions.h */; };
 		1CB7CB46BCE10679250F8478147D5271 /* core-extensions.c in Sources */ = {isa = PBXBuildFile; fileRef = 8DE186781C6AD7651C7F0F7BC762E88D /* core-extensions.c */; };
 		1E85A6848B2DD80C3A733564FF3A2F9E /* MiniClawLiveActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD55006D9E09FA0FD30B67FD7C280628 /* MiniClawLiveActivityAttributes.swift */; };
-		1F03564EF92C2F3DD4E9DCA7313BD411 /* BrowserTabPool.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EEE1CD50DC3230716A13F6F0DCE5DF9 /* BrowserTabPool.swift */; };
 		1FC8FC180B9F0F7B6390F183E03D665F /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B084FFFFF84BE48B9955CAEF32AE20E2 /* Security.framework */; };
 		202C26351B609EBBBE77B249C8A8850B /* Localizable.json in Resources */ = {isa = PBXBuildFile; fileRef = C246AB81AFE4609A70180EADB35F88C6 /* Localizable.json */; };
 		21C9DBF0509503742BDC919CE80DD58C /* OpenAIOAuthManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 208025688B257E60634572797EF445A6 /* OpenAIOAuthManager.swift */; };
@@ -61,7 +59,6 @@
 		29503CBCD90039D5DDA15A3FDE6E4568 /* SubagentLifecycle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01F89B75425ACE5DA25D5AD72AFDC984 /* SubagentLifecycle.swift */; };
 		2A425C48D4B4557DD5BF877374622309 /* RWLock.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7573B9194B9F1B7EC718E072C86D322 /* RWLock.swift */; };
 		2E51072F165F7B1A55B70BF39057F8D5 /* pre-merge-commit.sample in Resources */ = {isa = PBXBuildFile; fileRef = B66B397EEEB85C632E922CFC0F08A562 /* pre-merge-commit.sample */; };
-		2E948F47E0F1557C3B844535BFA81F42 /* BrowserUseManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51F2A3A9115E91B2D224335616836F71 /* BrowserUseManager.swift */; };
 		2EB5BAF97288CB1AFD77CEF4E1690FC2 /* PermissionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A581D43F3D14E0A22FA3C0FC6E7517C5 /* PermissionManager.swift */; };
 		3163EB5FC3594058B8A0A919E2A3297B /* ChatInputBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4ECC95D820C57555E83AAC68482DB537 /* ChatInputBar.swift */; };
 		3299E92DEAC4F1CEBE4B09BE2537D161 /* CMakeLists.txt in Sources */ = {isa = PBXBuildFile; fileRef = B4D2EBE5F892C17E4A10A35AD12C3318 /* CMakeLists.txt */; };
@@ -76,7 +73,6 @@
 		3A21ED19A31BFC612A601D19674CCDE7 /* OMHostStubs.swift in Sources */ = {isa = PBXBuildFile; fileRef = F036B0C223365C937934BE05B0FFD73B /* OMHostStubs.swift */; };
 		3AC485F29F6AD441D47A9DF773DCE50D /* HealthKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 193F2ABC880D1234D15E39854C90C085 /* HealthKit.framework */; };
 		3AFE481AD79826E2708E9F383D950501 /* BrowserHistoryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF09553AEF1C89F185055FB27242092A /* BrowserHistoryStore.swift */; };
-		3B30EAC97E3E5A418B99F68F7F31FE2A /* BrowserUseJavaScript.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAD5534D5AF87A9591D1A92E31ACBDDA /* BrowserUseJavaScript.swift */; };
 		3B80068234DC9402FDF69907CCA6CE0B /* ext_scanners.h in Sources */ = {isa = PBXBuildFile; fileRef = B52EC659F1F0402C5538F8951D95269D /* ext_scanners.h */; };
 		3BA4FD1BB022CDEF606D6946B0431513 /* ReadSubagentResultTool.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3CD8496255BA172E7BAB50754D4D1A9F /* ReadSubagentResultTool.swift */; };
 		3DD83821642DB748B651FE9425EA5056 /* BackgroundSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C94E17D51065395FF79A4A3098EAE66D /* BackgroundSettingsView.swift */; };
@@ -95,13 +91,14 @@
 		49C4A1CA5E0CF1E77E8F26A03C6C5F48 /* MTUnicode.swift in Sources */ = {isa = PBXBuildFile; fileRef = CCB3FAD36EC20DA8C6442FCDB5F1EB33 /* MTUnicode.swift */; };
 		4A307DD656CB9C1461DDC7FD74303A87 /* SettingsModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A87EDDCA2317E383333895DAE980E72 /* SettingsModels.swift */; };
 		4A407795FC831226DDECBB9FC9C9AEB2 /* SwiftMathRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 87D272729DE28B80F3DF1D7026123814 /* SwiftMathRenderer.swift */; };
+		4E057CC5C2D99067FD86833BFD80C133 /* MiniClawResourceMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3CD1C0D7B63C9A53F8535768B86884E /* MiniClawResourceMonitor.swift */; };
 		4FA5A294DB7436F5FAD86B4108D3B4D8 /* tasklist.h in Sources */ = {isa = PBXBuildFile; fileRef = BFFEB106AA00A20F61A47507A16B5FB9 /* tasklist.h */; };
 		5090CB503C8AA0801629F51702B888BD /* blocks.c in Sources */ = {isa = PBXBuildFile; fileRef = 1607180BB66B8F2B0454641E64175B21 /* blocks.c */; };
 		50EE1A8FFA35B58D197007A6798C57FC /* MTMathAtomFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6126C727330C11B38EFF23AD361D93B2 /* MTMathAtomFactory.swift */; };
 		519D4ED0A6B0D99D53F0FF0896215ADC /* XiaomiProviderAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0AFFA74BB103DC2C66EA5926F7903140 /* XiaomiProviderAdapter.swift */; };
+		521EF948CEFA5E231F5F17B7CD6276C4 /* MiniClawEngineWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9DF1F7FA01630C22FD9E591D42151C35 /* MiniClawEngineWebView.swift */; };
 		5250C5018E80BC9E163586873E9E3F76 /* AppIntents.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 881DFE4C50E81C96DC16C2FF463C9047 /* AppIntents.framework */; };
 		529432335516E63FA9F3642FC85BFBF9 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C1430B08C0843C0CA182B05CE6098BF9 /* SwiftUI.framework */; };
-		52F6BE7412F4E7A10245AA5693D25910 /* BrowserWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7100B39EA38DF02F5B27B33CD1A931CD /* BrowserWebView.swift */; };
 		5426ABCB220DD591B7FED278F8DCC70C /* tasklist.c in Sources */ = {isa = PBXBuildFile; fileRef = 1FA4016C04A3D135F486FD5F4E92FAA0 /* tasklist.c */; };
 		55548529CDBAEB22CBE92CEAC7BA4229 /* BrowserEngineAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C6EF3B1270F2A8D952F00D542597C77 /* BrowserEngineAdapter.swift */; };
 		559FB92323799CB23F577998841053D8 /* entities.inc in Sources */ = {isa = PBXBuildFile; fileRef = B443AF8DF0B279455E4E072BD1539560 /* entities.inc */; };
@@ -126,6 +123,7 @@
 		667DC0F2D119465BDF2B5A3BA736D64A /* iterator.c in Sources */ = {isa = PBXBuildFile; fileRef = 5593D7C834124C86B5BBCF2ED6DF5CD4 /* iterator.c */; };
 		6780DC202D2EEC7DC8326C16C1871A3E /* ToolLiveSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2AD6A61BF3C5B3B8138B399C1DB359E2 /* ToolLiveSheet.swift */; };
 		6A04F3548240A1AD01E53925778FFCBC /* MTBezierPath.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91C4CE1AE62C20067A2E020C0DB561F2 /* MTBezierPath.swift */; };
+		6E98AB308B1E67B863EBE88F630B0AEE /* MiniClawCookieAudit.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC118FBE4D048C0903D51BC258374B2F /* MiniClawCookieAudit.swift */; };
 		6F16D9BD8C77EA79C2B4895E8144DE65 /* GeminiProviderAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61752417A4675A607393B59C5391C685 /* GeminiProviderAdapter.swift */; };
 		6F27008E7937ACA5AE34398349ACD4FA /* FileSystemManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2199633966B57839F0F34C91D9466876 /* FileSystemManager.swift */; };
 		6F712D1A626776C819288DEA0E533DBB /* InfraTools.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5ABE3D8C3CE6799EF62441953AF4E2C9 /* InfraTools.swift */; };
@@ -174,6 +172,7 @@
 		91C584DFD997609BB0D27DFB0C0C0FAF /* module.modulemap in Sources */ = {isa = PBXBuildFile; fileRef = B501E82A11DCA104036647C669F735E0 /* module.modulemap */; };
 		91FCC54F0F69A22103055C8BB1761EC3 /* ModelEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BBCE839F170333B83E3BE461E27D7CA /* ModelEntry.swift */; };
 		9242184791F78ABD267F2F39A3984F77 /* houdini_html_u.c in Sources */ = {isa = PBXBuildFile; fileRef = BC45DEE45B2F047F1F4CBB55C1A43EA8 /* houdini_html_u.c */; };
+		9380426C3351A0D42F6ABB92A61CE6C1 /* MiniClawBrowserEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFA93FA4E8216316B6DA37E419F2AAF3 /* MiniClawBrowserEngine.swift */; };
 		93FC6C980E26C4F30DAD7842C7218D0E /* SessionsTool.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE0A5CDE0A328180E6155E0C8D9AF22C /* SessionsTool.swift */; };
 		94A14DC0ED050A32C714B21B0F2E5857 /* writer.md in Resources */ = {isa = PBXBuildFile; fileRef = 898844BBD6A56A10CF606C34DC265F17 /* writer.md */; };
 		9509EC4635D858D3CD5A57C483799440 /* general.md in Resources */ = {isa = PBXBuildFile; fileRef = 1982F3A5991E2CEF61B177A0F9E570B1 /* general.md */; };
@@ -189,29 +188,28 @@
 		9F177D516BA2059DDAED6A0E705DE63E /* MountPlaceholderSyncer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 338B331C7C33ECB7F897DB5862AD7770 /* MountPlaceholderSyncer.swift */; };
 		9F1C0104EAEB1503AD5F56090C15AD02 /* SyncBootstrap.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5D9A6C3D4B7F215846224ACC2CB1AB8 /* SyncBootstrap.swift */; };
 		9F892EF6EFCE56F931824FE9CEF50E45 /* SkillManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA0032E73661286B4405321FFC1FDC3C /* SkillManager.swift */; };
-		9FA3A2248F75F1791395D29E0B9B3BCB /* BrowserResourceMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7359460366CB63EAA54A1A20B0573D41 /* BrowserResourceMonitor.swift */; };
 		A0B97D40221B9FDA669C32F6DEEA2F55 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8A33723C8512D649DADF721E0D6D2D4B /* WidgetKit.framework */; };
 		A108839F8A227FCA17B976270FAAAF3A /* SyncedChat.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9FE0FA64E5BBA7AD69F0CDA18B3F6CCF /* SyncedChat.swift */; };
 		A14D33B1304EDBC737769426384992DD /* MessageListInfrastructure.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3B856892C53609701658F7722C77318 /* MessageListInfrastructure.swift */; };
 		A2E495EF2EBD637265F787E5F8805CDF /* ChatMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 084C47BBABFAF1714DA54F19FE2FD24B /* ChatMessage.swift */; };
-		A3E35A91A83B4158AC733A313251D28F /* BrowserUseActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3524A90EE6949A4D2958D9498A4D5598 /* BrowserUseActions.swift */; };
 		A44A548282467C65B5B8ABF6FDA4310E /* SyncConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A24777EE67D1D8865B6D32186E0F659 /* SyncConfig.swift */; };
 		A46D11689B538096ED8B00A9C88CD728 /* CrashReporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14F9ED917FCD9E93FAB07731DC198768 /* CrashReporter.swift */; };
 		A4DF31E319F8B51A8EFAD7B1A26F1E30 /* pre-rebase.sample in Resources */ = {isa = PBXBuildFile; fileRef = 986D28C8D6378FBFE3BB3DC78621BA53 /* pre-rebase.sample */; };
 		A62A5BB6212AC33B4D2EA70DFFFA2C8C /* MiniClawApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2602773AB5A5F4ABBCEB2DEA5DE4D8D1 /* MiniClawApp.swift */; };
-		A837CA1DA899479C82572D39C6DCB8DC /* CookieBackupStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCE497EFDC9617C674D708D84166C982 /* CookieBackupStore.swift */; };
 		A8AEC1C97F189DEC768F3C39EC43C627 /* ScenePhaseMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 330221C4BDE012084F833D3E54445800 /* ScenePhaseMonitor.swift */; };
 		AB3C4DDF6D4C77445E69E28B4501290E /* applypatch-msg.sample in Resources */ = {isa = PBXBuildFile; fileRef = 3A89829C2373787771E2D1E3114491BD /* applypatch-msg.sample */; };
 		AB5B839AF6E711BAB0F53E2F4C794423 /* TaskPipController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 855C12373D4AF12A82BA697795F94FE5 /* TaskPipController.swift */; };
-		AC88176676E9E85FB0199C6D8C3C3426 /* BrowserHistory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2338AA99D27CB5D2DCBAD4BB96D06362 /* BrowserHistory.swift */; };
 		ACC1D353C5AEBD3551374668361C4D1B /* LinuxShellRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = 446FDEFFEE82F2F70BCDD2FC659415F3 /* LinuxShellRuntime.swift */; };
 		ADDA612455C8B5C26DE308F0ABEAD1B2 /* update.sample in Resources */ = {isa = PBXBuildFile; fileRef = E007621515A42129F8EFDBD5BFF8041A /* update.sample */; };
+		AE08DEFBFD01AB264C2DEB65837565CF /* MiniClawBrowserJS.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4CCDB0B04645B6AA1BA3E7AB70CDB29 /* MiniClawBrowserJS.swift */; };
 		AE8656EF7BD6A81A55D14840A4A4C4C2 /* RemoteMCPTool.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF6386A10D97A37AC9188929D75F0C72 /* RemoteMCPTool.swift */; };
 		AF188C290B9FDE71D10D0F3DAA86DD9E /* houdini_html_e.c in Sources */ = {isa = PBXBuildFile; fileRef = 57BE14224A1B75516FEE69BA1CFABA84 /* houdini_html_e.c */; };
 		B0ABCA050323117D08DDFBF22C396646 /* pre-receive.sample in Resources */ = {isa = PBXBuildFile; fileRef = 5B0901B9FDA71F9D4581117BC2231669 /* pre-receive.sample */; };
 		B4276435FC172BFAB8BDED5C9810C236 /* MiniClawiSH.m in Sources */ = {isa = PBXBuildFile; fileRef = 5CAF1183B40B3702CA6CE8693AB3C6C6 /* MiniClawiSH.m */; };
+		B444A0AD703A8C475277E2DB99E0E108 /* MiniClawTabPool.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38C5D23EF7F146E05F8C8796C0A45929 /* MiniClawTabPool.swift */; };
 		B50B4E8C1B969C68AEA3FC01A0AAAEB9 /* MTConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C57B1B1D13EE54E496F7F5C546B69F0 /* MTConfig.swift */; };
 		B63E78C46273EFE61BA374FE459FF0A6 /* SoulSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CA34BF636ECA7C8A7BFA22BEB198801 /* SoulSettingsView.swift */; };
+		B6B9D3213BDF8336C2588B7CDD80E5C3 /* MiniClawHistoryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 266E677486B4A1ABFB4020E838DD76AE /* MiniClawHistoryStore.swift */; };
 		B71B8436956722834B3901A8ADA7B754 /* SubAgentProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5C76925A1A0B68200AF6C42668341A5 /* SubAgentProfile.swift */; };
 		B84DE271129706DB1A23D2599D89B9C0 /* ext_scanners.re in Sources */ = {isa = PBXBuildFile; fileRef = 52796D39F1A7F0CA0DB096D0D7063278 /* ext_scanners.re */; };
 		BAA4C17D3A706F44A4FAD3CD0107283C /* ISHShellExecutor.m in Sources */ = {isa = PBXBuildFile; fileRef = E514A587008FD64C5E8557C8568F8480 /* ISHShellExecutor.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
@@ -233,6 +231,7 @@
 		C40695CE70ECE94CBE09F09C168AE64B /* HostExecutor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98A6C76042FFA4EFBDF99282EA8178DE /* HostExecutor.swift */; };
 		C5A66DC1768D14134AE0A23D3C9088DF /* MTFontMathTable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59EBF79E4D73C3CD2B35FA75A8D91D0C /* MTFontMathTable.swift */; };
 		C66D7261A199EB8EC7E53A16D7EA1A97 /* BackgroundScheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96DAC87E063FB656A3D350963F86FECA /* BackgroundScheduler.swift */; };
+		C6927B14843B3778EAD09ECA54ADD1F9 /* MiniClawCookieBackup.swift in Sources */ = {isa = PBXBuildFile; fileRef = 114EB1F228EC717561C84080C816F410 /* MiniClawCookieBackup.swift */; };
 		C70F05F337E37ABF2423AE89DD8E10AC /* SpeechInputView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8239CFED5C712425C4A7D9F259BD88C0 /* SpeechInputView.swift */; };
 		C8A931AA74B35473C47706857DC6EE77 /* OpenAIProviderAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = C93ACC7F1B43D4F1BE3B47D793EE2FE4 /* OpenAIProviderAdapter.swift */; };
 		C97A43BCE4B7989B4FE92767EDEE1CE9 /* SessionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83B5E92B329A65A6C2ADB6113A7512C5 /* SessionManager.swift */; };
@@ -259,7 +258,9 @@
 		D906E4CE10F59F0EBA814248396B043C /* MTMathListIndex.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E3E482F31FD7E4787DEE447846AD0F8 /* MTMathListIndex.swift */; };
 		D949BAEBC2D1BF3C98F4AE8328FF9890 /* OAuthKeychainStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = EEEEA0567F3E2281EF1D9DA6A8461747 /* OAuthKeychainStorage.swift */; };
 		DAAF693CAE5D2FD63501265D883BE7FC /* MountStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DEB180E56FFAA4A68A10A8B1B988EFA /* MountStore.swift */; };
+		DB0A0B73DB405392AEF2E7DE3B4D287D /* MiniClawBrowserActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71ED55A2D5385FABE3D7B0FCE7169F44 /* MiniClawBrowserActions.swift */; };
 		DB1A74855F11BD63E795ACA39FF8E605 /* case_fold_switch.inc in Sources */ = {isa = PBXBuildFile; fileRef = C654EEE5A486E204EC23C04D0E5C2E8C /* case_fold_switch.inc */; };
+		DB8FFD99379C4F35C4A7E5D5DF706510 /* MiniClawWebLoadError.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C80FA837F9415C3D1255207C52C38DC /* MiniClawWebLoadError.swift */; };
 		E017ACF277EA2C9309609F9F75C90ADE /* AnthropicProviderAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1F1E2D873370A186C79DCB78F02A0EF /* AnthropicProviderAdapter.swift */; };
 		E0351298A6D8D46357B0AD803A7039CD /* AppleTools.swift in Sources */ = {isa = PBXBuildFile; fileRef = 920547B4D75E8C04D1C5FE5DD59ADFA6 /* AppleTools.swift */; };
 		E23BB0958BD5CC5C9E4F2C592A884F02 /* MTFontManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B4B1E425C1BA41CC2D9DA8F2D83734A /* MTFontManager.swift */; };
@@ -272,7 +273,6 @@
 		E564FB6C4D6BEF5E851135460F6FCF6A /* SelectableMarkdownView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01BDC9ADED3BF3C716C11D453087B5FD /* SelectableMarkdownView.swift */; };
 		E62048552C00BFB6F5CBDA1D55E61F03 /* registry.c in Sources */ = {isa = PBXBuildFile; fileRef = B2FD4323AF06A598B760D47C715DB93D /* registry.c */; };
 		E6E9A1D051EFC9C00CDA97D8743E88B0 /* MemoryConsolidator.swift in Sources */ = {isa = PBXBuildFile; fileRef = C80091A028DB9E375C20C63688606843 /* MemoryConsolidator.swift */; };
-		E7EC237C3ADFD9852B20CA3C5D138B80 /* CookieAuditLogger.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A6AF3FB8FC2B6086DF3FFC54E1AC972 /* CookieAuditLogger.swift */; };
 		EB6987B5D4F96426B67166CAFA9221B2 /* utf8.c in Sources */ = {isa = PBXBuildFile; fileRef = D95B2865CAB7D1785473216DE83E3AE9 /* utf8.c */; };
 		EC64F49110B940D1A27E5C3671B5C5CE /* footnotes.c in Sources */ = {isa = PBXBuildFile; fileRef = D53F06A5CB4C8287CB98B739F8066B83 /* footnotes.c */; };
 		EDF9EA7272ACD9B168EBBF8A5CBE55AE /* MCPProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9618E90A48C99591B2452AFB338F7D9 /* MCPProtocol.swift */; };
@@ -377,6 +377,7 @@
 		105693E1D049521DC507A264A1A8B05D /* MemorySettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemorySettingsView.swift; sourceTree = "<group>"; };
 		1087A1CADF3EF5ACF39F8B8999E45AA7 /* SyncTransport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncTransport.swift; sourceTree = "<group>"; };
 		112D81A4C474030294FC27507E498A2C /* MathRenderScheduler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MathRenderScheduler.swift; sourceTree = "<group>"; };
+		114EB1F228EC717561C84080C816F410 /* MiniClawCookieBackup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MiniClawCookieBackup.swift; sourceTree = "<group>"; };
 		11895BB97D05B33A89F0D2D096BD3F41 /* BackgroundTaskController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundTaskController.swift; sourceTree = "<group>"; };
 		1210B8BD60734050DA5417CBD63748AB /* pre-applypatch.sample */ = {isa = PBXFileReference; path = "pre-applypatch.sample"; sourceTree = "<group>"; };
 		121C32A0F4BE7BE7EFC8288A2C2C3727 /* description */ = {isa = PBXFileReference; path = description; sourceTree = "<group>"; };
@@ -402,6 +403,7 @@
 		1B3B15844D20CFA342FFA821AD2F9E01 /* 6529cb7a0da752f4474ad5f53039f1ba5fad5e */ = {isa = PBXFileReference; path = 6529cb7a0da752f4474ad5f53039f1ba5fad5e; sourceTree = "<group>"; };
 		1BDC9823A0593F3EE49E262D4B549048 /* SubagentStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubagentStore.swift; sourceTree = "<group>"; };
 		1C6EF3B1270F2A8D952F00D542597C77 /* BrowserEngineAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserEngineAdapter.swift; sourceTree = "<group>"; };
+		1C80FA837F9415C3D1255207C52C38DC /* MiniClawWebLoadError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MiniClawWebLoadError.swift; sourceTree = "<group>"; };
 		1D81C63C16CF198716F40F667A78D6F6 /* MTFontV2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MTFontV2.swift; sourceTree = "<group>"; };
 		1E16693495F8C76241790B13DA3B652C /* UIKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UIKit.framework; path = System/Library/Frameworks/UIKit.framework; sourceTree = SDKROOT; };
 		1E7A17ECD501F8A07DE65452184A0F48 /* man.c */ = {isa = PBXFileReference; path = man.c; sourceTree = "<group>"; };
@@ -416,12 +418,12 @@
 		2199633966B57839F0F34C91D9466876 /* FileSystemManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileSystemManager.swift; sourceTree = "<group>"; };
 		224FF9027BF5834326F8E650024B0DF5 /* MCPClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MCPClient.swift; sourceTree = "<group>"; };
 		22F2D055460414F2BE1CD23E69F67D00 /* tagfilter.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = tagfilter.h; sourceTree = "<group>"; };
-		2338AA99D27CB5D2DCBAD4BB96D06362 /* BrowserHistory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserHistory.swift; sourceTree = "<group>"; };
 		23C95B8BDCEDE7D7F4C399C232512B8E /* CloseSubagentTool.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloseSubagentTool.swift; sourceTree = "<group>"; };
 		24D8CCAB0D36C3FB7C4876AB9888A8DA /* CoreTools.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoreTools.swift; sourceTree = "<group>"; };
 		258E9A5BADDAE2560A6AB44DC3DCB1F8 /* ext_scanners.c */ = {isa = PBXFileReference; path = ext_scanners.c; sourceTree = "<group>"; };
 		2602773AB5A5F4ABBCEB2DEA5DE4D8D1 /* MiniClawApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MiniClawApp.swift; sourceTree = "<group>"; };
 		264E2CA3BFF6D1FED830E4706CB2B4B3 /* b736ef046c0257588357d4bbb0a404d464da99 */ = {isa = PBXFileReference; path = b736ef046c0257588357d4bbb0a404d464da99; sourceTree = "<group>"; };
+		266E677486B4A1ABFB4020E838DD76AE /* MiniClawHistoryStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MiniClawHistoryStore.swift; sourceTree = "<group>"; };
 		27188D5169087D3AD26DE4F49B444D24 /* 7096dd0baa541bb2a47a368aa086f72fb66cf2 */ = {isa = PBXFileReference; path = 7096dd0baa541bb2a47a368aa086f72fb66cf2; sourceTree = "<group>"; };
 		28FF43DC6C5BEBDFEA105A9B94321657 /* SubagentRuntimeRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubagentRuntimeRegistry.swift; sourceTree = "<group>"; };
 		2AD6A61BF3C5B3B8138B399C1DB359E2 /* ToolLiveSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolLiveSheet.swift; sourceTree = "<group>"; };
@@ -429,7 +431,6 @@
 		2E07C25044364CCD3131613E431AD9B5 /* 8c89969ed56f99fb7bf1a839726fefebd27046 */ = {isa = PBXFileReference; path = 8c89969ed56f99fb7bf1a839726fefebd27046; sourceTree = "<group>"; };
 		2E0EB59F843898097232E02EBC7882D7 /* strikethrough.c */ = {isa = PBXFileReference; path = strikethrough.c; sourceTree = "<group>"; };
 		2E45CE8DF7448E74974100E82F8D341E /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
-		2EEE1CD50DC3230716A13F6F0DCE5DF9 /* BrowserTabPool.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserTabPool.swift; sourceTree = "<group>"; };
 		2EF5022303A10F1BB1DB87610632D6F4 /* MemoryIndexer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoryIndexer.swift; sourceTree = "<group>"; };
 		2F3C6F44AF4F912CEDBF1B8653D7DE6E /* f4a5e04421e5107f74c28e27354e0b2a4e7ef8 */ = {isa = PBXFileReference; path = f4a5e04421e5107f74c28e27354e0b2a4e7ef8; sourceTree = "<group>"; };
 		30A28283B4455262F5E4B79E50C71F91 /* BackgroundTaskCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundTaskCoordinator.swift; sourceTree = "<group>"; };
@@ -438,9 +439,9 @@
 		330221C4BDE012084F833D3E54445800 /* ScenePhaseMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScenePhaseMonitor.swift; sourceTree = "<group>"; };
 		338B331C7C33ECB7F897DB5862AD7770 /* MountPlaceholderSyncer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MountPlaceholderSyncer.swift; sourceTree = "<group>"; };
 		34304AFFDE66E362E798CC62481708B0 /* 0c486564f21b459af403a81670fcb832f311bc */ = {isa = PBXFileReference; path = 0c486564f21b459af403a81670fcb832f311bc; sourceTree = "<group>"; };
-		3524A90EE6949A4D2958D9498A4D5598 /* BrowserUseActions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserUseActions.swift; sourceTree = "<group>"; };
 		37CFDF117E718A7A896FDD07943BB1EE /* push-to-checkout.sample */ = {isa = PBXFileReference; path = "push-to-checkout.sample"; sourceTree = "<group>"; };
 		38AECAEC35878A9E1C0F05B5E534E321 /* ToolLoopBreaker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolLoopBreaker.swift; sourceTree = "<group>"; };
+		38C5D23EF7F146E05F8C8796C0A45929 /* MiniClawTabPool.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MiniClawTabPool.swift; sourceTree = "<group>"; };
 		3A491E56D5F0479F7B9DDDE9A7D34786 /* 8ce7a1e2cb689df32c3a6c26e1bd072dcf2acb */ = {isa = PBXFileReference; path = 8ce7a1e2cb689df32c3a6c26e1bd072dcf2acb; sourceTree = "<group>"; };
 		3A82DD11BBE211A62398929E583DA39A /* MirrorManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirrorManager.swift; sourceTree = "<group>"; };
 		3A89829C2373787771E2D1E3114491BD /* applypatch-msg.sample */ = {isa = PBXFileReference; path = "applypatch-msg.sample"; sourceTree = "<group>"; };
@@ -479,7 +480,6 @@
 		4F2023001F5012E972B1AC4DC99FEFA6 /* f9a5e7c03f9e64e9c7b4773a8e37ade8eaf406 */ = {isa = PBXFileReference; path = f9a5e7c03f9e64e9c7b4773a8e37ade8eaf406; sourceTree = "<group>"; };
 		5031F34D2F244C8908D3C0297B0CF9EF /* ChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatView.swift; sourceTree = "<group>"; };
 		51584A86DEB0350DACC7840E92199560 /* master */ = {isa = PBXFileReference; path = master; sourceTree = "<group>"; };
-		51F2A3A9115E91B2D224335616836F71 /* BrowserUseManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserUseManager.swift; sourceTree = "<group>"; };
 		52796D39F1A7F0CA0DB096D0D7063278 /* ext_scanners.re */ = {isa = PBXFileReference; path = ext_scanners.re; sourceTree = "<group>"; };
 		52DA349AB758509FF29A0F546CA75900 /* ChatMessageViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatMessageViews.swift; sourceTree = "<group>"; };
 		5508A72A360C9CFD540C39C7CD944362 /* 1096cd5574c9065d5a88500c266b3cde73b0e4 */ = {isa = PBXFileReference; path = 1096cd5574c9065d5a88500c266b3cde73b0e4; sourceTree = "<group>"; };
@@ -530,17 +530,19 @@
 		6CFBBCC8DCFAC67D0178B08ADDB0BAC1 /* CollectionViewMessageListV3.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CollectionViewMessageListV3.swift; sourceTree = "<group>"; };
 		6FCFBAD519570FAF94B0BC5A3F0AB5FE /* 9bfb66faa435c37c7162aadcff074372abfa61 */ = {isa = PBXFileReference; path = 9bfb66faa435c37c7162aadcff074372abfa61; sourceTree = "<group>"; };
 		7007250863E9D6B99116FC572A275686 /* BundledRules */ = {isa = PBXFileReference; lastKnownFileType = folder; name = BundledRules; path = MiniClaw/Resources/BundledRules; sourceTree = SOURCE_ROOT; };
-		7100B39EA38DF02F5B27B33CD1A931CD /* BrowserWebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserWebView.swift; sourceTree = "<group>"; };
+		71ED55A2D5385FABE3D7B0FCE7169F44 /* MiniClawBrowserActions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MiniClawBrowserActions.swift; sourceTree = "<group>"; };
 		7267DF00DA20D9811FEBE0903CBC54A7 /* references.c */ = {isa = PBXFileReference; path = references.c; sourceTree = "<group>"; };
 		729E1874004ADE469BFBFDD68A489F4A /* 90543b6df7a8e53283e5f3d42aaa47e3545126 */ = {isa = PBXFileReference; path = 90543b6df7a8e53283e5f3d42aaa47e3545126; sourceTree = "<group>"; };
-		7359460366CB63EAA54A1A20B0573D41 /* BrowserResourceMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserResourceMonitor.swift; sourceTree = "<group>"; };
 		73F13C0F18D54FDE4F68797FF09E5E48 /* eabfda4d683940200aac6be3f9963e0cc2c6b9 */ = {isa = PBXFileReference; path = eabfda4d683940200aac6be3f9963e0cc2c6b9; sourceTree = "<group>"; };
 		73F2038B71C6A03E79BBCBB620BAE158 /* BrowserView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserView.swift; sourceTree = "<group>"; };
 		742BB05DFB02C908AE70505EB43D97C5 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		748F46E1A509945DF52890B06AAA9735 /* RuntimeStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RuntimeStatus.swift; sourceTree = "<group>"; };
+		749A463C3629823E3F86A37C0D1BB0C5 /* 0b0d105d2a68f2a0668195e5265fece141f2b3 */ = {isa = PBXFileReference; path = 0b0d105d2a68f2a0668195e5265fece141f2b3; sourceTree = "<group>"; };
+		764C3E52F9617CE1F614C9FA29515A76 /* 81a97076926763691dcbee57e92bbe17ca4a60 */ = {isa = PBXFileReference; path = 81a97076926763691dcbee57e92bbe17ca4a60; sourceTree = "<group>"; };
 		768DAC78B3DBF4AC4996964F3D7B0DD9 /* 679bf374af72f2a183b97b40c9c7e9e51fbe5e */ = {isa = PBXFileReference; path = 679bf374af72f2a183b97b40c9c7e9e51fbe5e; sourceTree = "<group>"; };
 		77031C2E9BB1049DD5858BB1E373864B /* RuntimeStatusView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RuntimeStatusView.swift; sourceTree = "<group>"; };
 		779E8DF07AA1AC95351EF1EF4393ADF0 /* OAuthManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OAuthManager.swift; sourceTree = "<group>"; };
+		77E245B9E86FD45AE97A4D705F8B332F /* 501f81d54103be127219f389a81346a6433b8a */ = {isa = PBXFileReference; path = 501f81d54103be127219f389a81346a6433b8a; sourceTree = "<group>"; };
 		788AF6FB4BB7EFEE2A2FF29882D87BBC /* 264c4ded61ed24b3f052866347e87357982f84 */ = {isa = PBXFileReference; path = 264c4ded61ed24b3f052866347e87357982f84; sourceTree = "<group>"; };
 		78BACBEC515E9E8B2F3133BE53BFFFD2 /* 98576776240fbf79c8b4eebb0434ee411dc67f */ = {isa = PBXFileReference; path = 98576776240fbf79c8b4eebb0434ee411dc67f; sourceTree = "<group>"; };
 		7913EE6C4372FB1B976A73503EB8FF3B /* MiniClawMarkdownParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MiniClawMarkdownParser.swift; sourceTree = "<group>"; };
@@ -585,7 +587,6 @@
 		898844BBD6A56A10CF606C34DC265F17 /* writer.md */ = {isa = PBXFileReference; path = writer.md; sourceTree = "<group>"; };
 		8A33723C8512D649DADF721E0D6D2D4B /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
 		8A3AAEC9E08207C77955A31AE8BF53F5 /* b9b8de04874a585a6fea44b01fa5fbdb3b5327 */ = {isa = PBXFileReference; path = b9b8de04874a585a6fea44b01fa5fbdb3b5327; sourceTree = "<group>"; };
-		8A6AF3FB8FC2B6086DF3FFC54E1AC972 /* CookieAuditLogger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CookieAuditLogger.swift; sourceTree = "<group>"; };
 		8A87EDDCA2317E383333895DAE980E72 /* SettingsModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsModels.swift; sourceTree = "<group>"; };
 		8B6B13CEB01E265897720774831E5F7E /* CMakeLists.txt */ = {isa = PBXFileReference; path = CMakeLists.txt; sourceTree = "<group>"; };
 		8C3F7DBAD8288F24BCA25410A132B0B4 /* 5d8e31603cf3a93dff42163cfa0efa871eab9d */ = {isa = PBXFileReference; path = 5d8e31603cf3a93dff42163cfa0efa871eab9d; sourceTree = "<group>"; };
@@ -621,6 +622,7 @@
 		9D2481DDD3ED8AAF576DA8B06F5F7EE8 /* MTMathUILabel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MTMathUILabel.swift; sourceTree = "<group>"; };
 		9D934BEB9A07EBF3AFC9A7B3E2513A94 /* c2d8e20be67f02f67ff6a7a04abd3d1991e9ea */ = {isa = PBXFileReference; path = c2d8e20be67f02f67ff6a7a04abd3d1991e9ea; sourceTree = "<group>"; };
 		9DBB4E22443959F88887FFC0867F7D1F /* dup_check.py */ = {isa = PBXFileReference; path = dup_check.py; sourceTree = "<group>"; };
+		9DF1F7FA01630C22FD9E591D42151C35 /* MiniClawEngineWebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MiniClawEngineWebView.swift; sourceTree = "<group>"; };
 		9FE0FA64E5BBA7AD69F0CDA18B3F6CCF /* SyncedChat.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncedChat.swift; sourceTree = "<group>"; };
 		A02E0E1886684000760FCCAFAF75E9CA /* ChatSessionRuntime.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatSessionRuntime.swift; sourceTree = "<group>"; };
 		A095DD6B9F5B953F4090FF8C8B502F54 /* SkillLoadTool.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkillLoadTool.swift; sourceTree = "<group>"; };
@@ -633,7 +635,6 @@
 		A7573B9194B9F1B7EC718E072C86D322 /* RWLock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RWLock.swift; sourceTree = "<group>"; };
 		A924FBAB379E73BFDF048937F6D94822 /* a230a066772ead11a30464b5a17dc2c2448b4f */ = {isa = PBXFileReference; path = a230a066772ead11a30464b5a17dc2c2448b4f; sourceTree = "<group>"; };
 		A92C51A66BBC016FBA5E0EE0466135AC /* 442f031aef4b84d20eef6184550608a3e4ea61 */ = {isa = PBXFileReference; path = 442f031aef4b84d20eef6184550608a3e4ea61; sourceTree = "<group>"; };
-		AAD5534D5AF87A9591D1A92E31ACBDDA /* BrowserUseJavaScript.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserUseJavaScript.swift; sourceTree = "<group>"; };
 		AC0B0D8CC85658EC948096C3177D7746 /* RetryPolicyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RetryPolicyTests.swift; sourceTree = "<group>"; };
 		AC63B9927E1BEE2CDA9EB95585FACA9D /* BrowserContext.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserContext.swift; sourceTree = "<group>"; };
 		ACE34FB233EC5CCA9E9203394C71C023 /* 07a590b7c67691590ccc8531767020725f212b */ = {isa = PBXFileReference; path = 07a590b7c67691590ccc8531767020725f212b; sourceTree = "<group>"; };
@@ -641,6 +642,7 @@
 		AE0A5CDE0A328180E6155E0C8D9AF22C /* SessionsTool.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionsTool.swift; sourceTree = "<group>"; };
 		AEB84322C29C4F4CB0AD486211C19DDD /* table.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = table.h; sourceTree = "<group>"; };
 		AED02C1B10A48DEA057E7CD3EC121A87 /* SessionRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionRowView.swift; sourceTree = "<group>"; };
+		AFA93FA4E8216316B6DA37E419F2AAF3 /* MiniClawBrowserEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MiniClawBrowserEngine.swift; sourceTree = "<group>"; };
 		B0526D5EE9EB931E0B47246D9B0430A5 /* 0613ca6efeb70a3cbddef05e5ab0cc02ecaf6e */ = {isa = PBXFileReference; path = 0613ca6efeb70a3cbddef05e5ab0cc02ecaf6e; sourceTree = "<group>"; };
 		B056FEDD06412E5C35B13E875148B36C /* 13234e6f3b9a7ab48444887741701b3887074c */ = {isa = PBXFileReference; path = 13234e6f3b9a7ab48444887741701b3887074c; sourceTree = "<group>"; };
 		B084FFFFF84BE48B9955CAEF32AE20E2 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
@@ -669,7 +671,6 @@
 		BB13CCE583BC474F5AA626F0F00F1AA6 /* CoreLocation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreLocation.framework; path = System/Library/Frameworks/CoreLocation.framework; sourceTree = SDKROOT; };
 		BC2D0C657BC006AB7A54DCED12454BB2 /* db3d3a7bc64fe6f61eb580289b970e9bbca900 */ = {isa = PBXFileReference; path = db3d3a7bc64fe6f61eb580289b970e9bbca900; sourceTree = "<group>"; };
 		BC45DEE45B2F047F1F4CBB55C1A43EA8 /* houdini_html_u.c */ = {isa = PBXFileReference; path = houdini_html_u.c; sourceTree = "<group>"; };
-		BCE497EFDC9617C674D708D84166C982 /* CookieBackupStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CookieBackupStore.swift; sourceTree = "<group>"; };
 		BD93D82402814AC03AE7011D15DAD163 /* scanners.re */ = {isa = PBXFileReference; path = scanners.re; sourceTree = "<group>"; };
 		BE4831908765017825FDBDF316A03820 /* bfe9d8e8c0785ca6b764dc95ceb5c1ab446ea4 */ = {isa = PBXFileReference; path = bfe9d8e8c0785ca6b764dc95ceb5c1ab446ea4; sourceTree = "<group>"; };
 		BF14C902B02C35EEB37AFB24353BE0B5 /* MCPSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MCPSettingsView.swift; sourceTree = "<group>"; };
@@ -683,7 +684,7 @@
 		C26131A6798A4E48F2E38256F35E50F0 /* AgentRunService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentRunService.swift; sourceTree = "<group>"; };
 		C47F67F41AE44228FFEF8469211B2823 /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
 		C483EFAE38AA1B8CC976F0DCE3941EFB /* GrokProviderAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GrokProviderAdapter.swift; sourceTree = "<group>"; };
-		C4C5EEC0D33C72418B163B19DCF0EED1 /* WebLoadError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebLoadError.swift; sourceTree = "<group>"; };
+		C4CCDB0B04645B6AA1BA3E7AB70CDB29 /* MiniClawBrowserJS.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MiniClawBrowserJS.swift; sourceTree = "<group>"; };
 		C5EC3C9E1E158076F2A633E5DA7919F3 /* 6799f5c21b8196154a8a2cf421cbeb51412c76 */ = {isa = PBXFileReference; path = 6799f5c21b8196154a8a2cf421cbeb51412c76; sourceTree = "<group>"; };
 		C63E151D1E5F79070BC9DBD6FDF8A8D4 /* ChatSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatSession.swift; sourceTree = "<group>"; };
 		C646EEA27B66A39EA5F2A7C2A541BBB6 /* 212caf91c0007e826fee2d622bf48acbd30dde */ = {isa = PBXFileReference; path = 212caf91c0007e826fee2d622bf48acbd30dde; sourceTree = "<group>"; };
@@ -731,6 +732,7 @@
 		DD963B813769E105779A6A65B749A73C /* config.h.in */ = {isa = PBXFileReference; path = config.h.in; sourceTree = "<group>"; };
 		DDD45A8FA63A6814713F21C25B52287C /* commit-msg.sample */ = {isa = PBXFileReference; path = "commit-msg.sample"; sourceTree = "<group>"; };
 		DE88CBAF316EE9EF07C59622D3927239 /* linked_list.c */ = {isa = PBXFileReference; path = linked_list.c; sourceTree = "<group>"; };
+		DEE673DAA4E2FDD11F21B33FEE4F4D36 /* 63c98cbcb32b5ef9f3eac9d665585191333891 */ = {isa = PBXFileReference; path = 63c98cbcb32b5ef9f3eac9d665585191333891; sourceTree = "<group>"; };
 		DEE6E5E149D3AAD491E6365B07E75802 /* map.c */ = {isa = PBXFileReference; path = map.c; sourceTree = "<group>"; };
 		DF52598C16FEF8B3FC9425A70E44FF0B /* c37721fc052753f177318e9aad0fa670f2c720 */ = {isa = PBXFileReference; path = c37721fc052753f177318e9aad0fa670f2c720; sourceTree = "<group>"; };
 		DFEA7ED4426E8E7216F84A277BE9C541 /* a28cc762ef2b8aea370bf8f5bb868a5e2bfdac */ = {isa = PBXFileReference; path = a28cc762ef2b8aea370bf8f5bb868a5e2bfdac; sourceTree = "<group>"; };
@@ -756,9 +758,11 @@
 		EA143C0EB9BB699463759EE1FA4B93C9 /* QwenProviderAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QwenProviderAdapter.swift; sourceTree = "<group>"; };
 		EA40CC1388F6FF28B9C295A1121ACC0A /* Syncable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Syncable.swift; sourceTree = "<group>"; };
 		EA91705FFD79378F4690030D702769F5 /* ShareExtension.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = ShareExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		EC118FBE4D048C0903D51BC258374B2F /* MiniClawCookieAudit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MiniClawCookieAudit.swift; sourceTree = "<group>"; };
 		EC7B93FD44F06A5A0B896C0024973B2D /* f2959fbec425c993df71c58980bc3f73ab5078 */ = {isa = PBXFileReference; path = f2959fbec425c993df71c58980bc3f73ab5078; sourceTree = "<group>"; };
 		ED34FD0080B3B804207AFE918F2240DB /* 3f6561af2a31b2cc77a6f946326793c79f3983 */ = {isa = PBXFileReference; path = 3f6561af2a31b2cc77a6f946326793c79f3983; sourceTree = "<group>"; };
 		ED3D1E7412ACE2CC16656D6820D9977C /* AgentTask.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentTask.swift; sourceTree = "<group>"; };
+		EE74E4698C1A193B400492948C0A5816 /* 1b60b74c6045959a724078665d03fbc9381a98 */ = {isa = PBXFileReference; path = 1b60b74c6045959a724078665d03fbc9381a98; sourceTree = "<group>"; };
 		EEEEA0567F3E2281EF1D9DA6A8461747 /* OAuthKeychainStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OAuthKeychainStorage.swift; sourceTree = "<group>"; };
 		EF4348EAD579E0719A9934190673AA6E /* e15264dbd3b50177321040f87731e58688b531 */ = {isa = PBXFileReference; path = e15264dbd3b50177321040f87731e58688b531; sourceTree = "<group>"; };
 		F036B0C223365C937934BE05B0FFD73B /* OMHostStubs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OMHostStubs.swift; sourceTree = "<group>"; };
@@ -766,6 +770,7 @@
 		F12C6358594930AD87C390A706BD52C0 /* 8a518e350ed922cef7741e22e190f3160581ad */ = {isa = PBXFileReference; path = 8a518e350ed922cef7741e22e190f3160581ad; sourceTree = "<group>"; };
 		F22703CBE3DB640DD075ECEAC6C0607F /* CacheStabilityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CacheStabilityTests.swift; sourceTree = "<group>"; };
 		F2D80A0FCB5C22532F60E8F544CECD60 /* 6acca20748e003546a3a327958eaced7f9a9ba */ = {isa = PBXFileReference; path = 6acca20748e003546a3a327958eaced7f9a9ba; sourceTree = "<group>"; };
+		F3CD1C0D7B63C9A53F8535768B86884E /* MiniClawResourceMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MiniClawResourceMonitor.swift; sourceTree = "<group>"; };
 		F4448CFFE03D1DD28B6B78F365739A73 /* ToolProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolProtocol.swift; sourceTree = "<group>"; };
 		F5251B578A483D30D7C656695192FB57 /* MarkdownPrepRegex.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownPrepRegex.swift; sourceTree = "<group>"; };
 		F5C76925A1A0B68200AF6C42668341A5 /* SubAgentProfile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubAgentProfile.swift; sourceTree = "<group>"; };
@@ -824,6 +829,7 @@
 			isa = PBXGroup;
 			children = (
 				02338C260EF52523FF9DC0CBDA7BA2ED /* 38fc50fb789326a44102b57475e028d8ec0d18 */,
+				DEE673DAA4E2FDD11F21B33FEE4F4D36 /* 63c98cbcb32b5ef9f3eac9d665585191333891 */,
 			);
 			name = 31;
 			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/31";
@@ -945,6 +951,15 @@
 			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/05";
 			sourceTree = "<group>";
 		};
+		1ADE1A082A57840276F0A1A403E93DBC /* 2b */ = {
+			isa = PBXGroup;
+			children = (
+				764C3E52F9617CE1F614C9FA29515A76 /* 81a97076926763691dcbee57e92bbe17ca4a60 */,
+			);
+			name = 2b;
+			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/2b";
+			sourceTree = "<group>";
+		};
 		1DA152BD766523D4D2AA7150D3ABA9A2 /* objects */ = {
 			isa = PBXGroup;
 			children = (
@@ -952,6 +967,7 @@
 				53C6665124A890D56BD775EFB07772BA /* 0c */,
 				B2B765C5AC86272CBD6D0B2476B03885 /* 0e */,
 				54D185DE4439D6225D0D247384A0E1EB /* 0f */,
+				1ADE1A082A57840276F0A1A403E93DBC /* 2b */,
 				7108DB15DB92A15CBD026C2CBED547C3 /* 2c */,
 				261E2326111DE4E6ACFAA383FB801778 /* 2f */,
 				D3CB65C51BF589A54B805304D4A28ED4 /* 3a */,
@@ -1011,6 +1027,7 @@
 				6F818E68382DB38E87632ECEEA510A6A /* 86 */,
 				C9F2D280CEB25EBA22D52C2BDA346C00 /* 87 */,
 				35C1C8C2C31A76528BC5D9758C66143D /* 91 */,
+				C5D003F7B71EF1122F290B414D690969 /* 92 */,
 				3A5417B25F0F3B1AAA01BF0F70C8EDEE /* 94 */,
 				044320EF0F46A04AB1CABB28FB16E8EB /* 97 */,
 				20BFE7104F7BAB9DAF170593A6BF78DA /* a0 */,
@@ -1576,6 +1593,7 @@
 		686C52743A52416854693D24AD84DF69 /* 29 */ = {
 			isa = PBXGroup;
 			children = (
+				EE74E4698C1A193B400492948C0A5816 /* 1b60b74c6045959a724078665d03fbc9381a98 */,
 				DA2C4C177A01F22AA523F507FCA97B7C /* 20fb1f56f26ea846f9e5d0de52807e96e17b40 */,
 				E2BD9907B2D8906E31E946E10A6CEF33 /* 24b56f34689dfb281714d8d34d69eb2adcfaa7 */,
 			);
@@ -1982,6 +2000,7 @@
 				53C6665124A890D56BD775EFB07772BA /* 0c */,
 				B2B765C5AC86272CBD6D0B2476B03885 /* 0e */,
 				54D185DE4439D6225D0D247384A0E1EB /* 0f */,
+				1ADE1A082A57840276F0A1A403E93DBC /* 2b */,
 				7108DB15DB92A15CBD026C2CBED547C3 /* 2c */,
 				261E2326111DE4E6ACFAA383FB801778 /* 2f */,
 				D3CB65C51BF589A54B805304D4A28ED4 /* 3a */,
@@ -2041,6 +2060,7 @@
 				6F818E68382DB38E87632ECEEA510A6A /* 86 */,
 				C9F2D280CEB25EBA22D52C2BDA346C00 /* 87 */,
 				35C1C8C2C31A76528BC5D9758C66143D /* 91 */,
+				C5D003F7B71EF1122F290B414D690969 /* 92 */,
 				3A5417B25F0F3B1AAA01BF0F70C8EDEE /* 94 */,
 				044320EF0F46A04AB1CABB28FB16E8EB /* 97 */,
 				20BFE7104F7BAB9DAF170593A6BF78DA /* a0 */,
@@ -2086,8 +2106,8 @@
 				C9FA60861392AAC37345ED7124E3DB08 /* f6 */,
 				CF1A374E8EC6AC08D649191741EA080C /* f8 */,
 				9E85F587DCACAAD718D9E46805DF52B0 /* fd */,
-				21F0CE9917B1EB26631CB0BBC5AAC506 /* heads */,
 				D7636D7EA44457918372BAFC23D85FCB /* heads */,
+				21F0CE9917B1EB26631CB0BBC5AAC506 /* heads */,
 				2C60067B0DEEF1515779D49AADA980E8 /* hooks */,
 				FA95E8753468AF87E2E2CA9075CEB94A /* include */,
 				6344646E59AC03DFF9E8BE3C0ABAEE62 /* info */,
@@ -2304,6 +2324,15 @@
 			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/f5";
 			sourceTree = "<group>";
 		};
+		C5D003F7B71EF1122F290B414D690969 /* 92 */ = {
+			isa = PBXGroup;
+			children = (
+				77E245B9E86FD45AE97A4D705F8B332F /* 501f81d54103be127219f389a81346a6433b8a */,
+			);
+			name = 92;
+			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/92";
+			sourceTree = "<group>";
+		};
 		C64CCF85E2DE4801FD880B5B00C1EEEF /* c1 */ = {
 			isa = PBXGroup;
 			children = (
@@ -2516,18 +2545,9 @@
 			isa = PBXGroup;
 			children = (
 				19B0048C951C320B2009B3F1BC4FE26C /* AssistantBlockView.swift */,
-				2338AA99D27CB5D2DCBAD4BB96D06362 /* BrowserHistory.swift */,
-				7359460366CB63EAA54A1A20B0573D41 /* BrowserResourceMonitor.swift */,
-				2EEE1CD50DC3230716A13F6F0DCE5DF9 /* BrowserTabPool.swift */,
-				3524A90EE6949A4D2958D9498A4D5598 /* BrowserUseActions.swift */,
-				AAD5534D5AF87A9591D1A92E31ACBDDA /* BrowserUseJavaScript.swift */,
-				51F2A3A9115E91B2D224335616836F71 /* BrowserUseManager.swift */,
-				7100B39EA38DF02F5B27B33CD1A931CD /* BrowserWebView.swift */,
 				52DA349AB758509FF29A0F546CA75900 /* ChatMessageViews.swift */,
 				C237998B78737D9A763059D16A3DA037 /* ChatModels.swift */,
 				6CFBBCC8DCFAC67D0178B08ADDB0BAC1 /* CollectionViewMessageListV3.swift */,
-				8A6AF3FB8FC2B6086DF3FFC54E1AC972 /* CookieAuditLogger.swift */,
-				BCE497EFDC9617C674D708D84166C982 /* CookieBackupStore.swift */,
 				9DBB4E22443959F88887FFC0867F7D1F /* dup_check.py */,
 				3F478679C5ED6186F13B8AB3BFB2456B /* EquatableContextMenu.swift */,
 				D67C9F916A01FD93803A2BFE98B7EF72 /* FontSettings.swift */,
@@ -2536,13 +2556,22 @@
 				112D81A4C474030294FC27507E498A2C /* MathRenderScheduler.swift */,
 				D3B856892C53609701658F7722C77318 /* MessageListInfrastructure.swift */,
 				992152DF6E17CEF21C517498C4786435 /* MessageListLayout.swift */,
+				71ED55A2D5385FABE3D7B0FCE7169F44 /* MiniClawBrowserActions.swift */,
+				AFA93FA4E8216316B6DA37E419F2AAF3 /* MiniClawBrowserEngine.swift */,
+				C4CCDB0B04645B6AA1BA3E7AB70CDB29 /* MiniClawBrowserJS.swift */,
+				EC118FBE4D048C0903D51BC258374B2F /* MiniClawCookieAudit.swift */,
+				114EB1F228EC717561C84080C816F410 /* MiniClawCookieBackup.swift */,
+				9DF1F7FA01630C22FD9E591D42151C35 /* MiniClawEngineWebView.swift */,
+				266E677486B4A1ABFB4020E838DD76AE /* MiniClawHistoryStore.swift */,
 				7913EE6C4372FB1B976A73503EB8FF3B /* MiniClawMarkdownParser.swift */,
+				F3CD1C0D7B63C9A53F8535768B86884E /* MiniClawResourceMonitor.swift */,
+				38C5D23EF7F146E05F8C8796C0A45929 /* MiniClawTabPool.swift */,
+				1C80FA837F9415C3D1255207C52C38DC /* MiniClawWebLoadError.swift */,
 				F036B0C223365C937934BE05B0FFD73B /* OMHostStubs.swift */,
 				01BDC9ADED3BF3C716C11D453087B5FD /* SelectableMarkdownView.swift */,
 				87D272729DE28B80F3DF1D7026123814 /* SwiftMathRenderer.swift */,
 				0B1BCDC2C9B72337530C5A56D377574F /* TextFadeAnimator.swift */,
 				2AD6A61BF3C5B3B8138B399C1DB359E2 /* ToolLiveSheet.swift */,
-				C4C5EEC0D33C72418B163B19DCF0EED1 /* WebLoadError.swift */,
 				A5F7B0D7D47868AB7FC0323C1E978107 /* .git */,
 			);
 			name = MiniClawKit;
@@ -2608,6 +2637,7 @@
 		EF880C47F0D5151A73352D4D94D3EC48 /* 72 */ = {
 			isa = PBXGroup;
 			children = (
+				749A463C3629823E3F86A37C0D1BB0C5 /* 0b0d105d2a68f2a0668195e5265fece141f2b3 */,
 				3A491E56D5F0479F7B9DDDE9A7D34786 /* 8ce7a1e2cb689df32c3a6c26e1bd072dcf2acb */,
 			);
 			name = 72;
@@ -2878,20 +2908,11 @@
 			buildActionMask = 2147483647;
 			files = (
 				001DDEBCF93B24E72C3F3403D48EF125 /* AssistantBlockView.swift in Sources */,
-				AC88176676E9E85FB0199C6D8C3C3426 /* BrowserHistory.swift in Sources */,
-				9FA3A2248F75F1791395D29E0B9B3BCB /* BrowserResourceMonitor.swift in Sources */,
-				1F03564EF92C2F3DD4E9DCA7313BD411 /* BrowserTabPool.swift in Sources */,
-				A3E35A91A83B4158AC733A313251D28F /* BrowserUseActions.swift in Sources */,
-				3B30EAC97E3E5A418B99F68F7F31FE2A /* BrowserUseJavaScript.swift in Sources */,
-				2E948F47E0F1557C3B844535BFA81F42 /* BrowserUseManager.swift in Sources */,
-				52F6BE7412F4E7A10245AA5693D25910 /* BrowserWebView.swift in Sources */,
-				3299E92DEAC4F1CEBE4B09BE2537D161 /* CMakeLists.txt in Sources */,
 				753FB1CB10A25573AA58CD28FA33F7FC /* CMakeLists.txt in Sources */,
+				3299E92DEAC4F1CEBE4B09BE2537D161 /* CMakeLists.txt in Sources */,
 				9759D4905CE648ADEDD7D69BB5E90CF1 /* ChatMessageViews.swift in Sources */,
 				D80988C4F37E1D5D513C84FD7A61DFBB /* ChatModels.swift in Sources */,
 				91B4DF1BFF4B9F131FEEA00B110FDC32 /* CollectionViewMessageListV3.swift in Sources */,
-				E7EC237C3ADFD9852B20CA3C5D138B80 /* CookieAuditLogger.swift in Sources */,
-				A837CA1DA899479C82572D39C6DCB8DC /* CookieBackupStore.swift in Sources */,
 				919DE7DA6FC57AF892AC99A65A98DF31 /* EquatableContextMenu.swift in Sources */,
 				240C59042D6458CCE364A81D29116A1B /* FontSettings.swift in Sources */,
 				F8CFFEB1F589768C3102F40FFA53F94E /* KaTeXRenderer.swift in Sources */,
@@ -2919,14 +2940,23 @@
 				E27434BD169802EBCD324E8F86CBB67A /* MathRenderScheduler.swift in Sources */,
 				A14D33B1304EDBC737769426384992DD /* MessageListInfrastructure.swift in Sources */,
 				499DB48BC9B5970433759D2F315A5A7B /* MessageListLayout.swift in Sources */,
+				DB0A0B73DB405392AEF2E7DE3B4D287D /* MiniClawBrowserActions.swift in Sources */,
+				9380426C3351A0D42F6ABB92A61CE6C1 /* MiniClawBrowserEngine.swift in Sources */,
+				AE08DEFBFD01AB264C2DEB65837565CF /* MiniClawBrowserJS.swift in Sources */,
+				6E98AB308B1E67B863EBE88F630B0AEE /* MiniClawCookieAudit.swift in Sources */,
+				C6927B14843B3778EAD09ECA54ADD1F9 /* MiniClawCookieBackup.swift in Sources */,
+				521EF948CEFA5E231F5F17B7CD6276C4 /* MiniClawEngineWebView.swift in Sources */,
+				B6B9D3213BDF8336C2588B7CDD80E5C3 /* MiniClawHistoryStore.swift in Sources */,
 				C2C8775EB90188733E4A65C5D4A1EABA /* MiniClawMarkdownParser.swift in Sources */,
+				4E057CC5C2D99067FD86833BFD80C133 /* MiniClawResourceMonitor.swift in Sources */,
+				B444A0AD703A8C475277E2DB99E0E108 /* MiniClawTabPool.swift in Sources */,
+				DB8FFD99379C4F35C4A7E5D5DF706510 /* MiniClawWebLoadError.swift in Sources */,
 				3A21ED19A31BFC612A601D19674CCDE7 /* OMHostStubs.swift in Sources */,
 				2A425C48D4B4557DD5BF877374622309 /* RWLock.swift in Sources */,
 				E564FB6C4D6BEF5E851135460F6FCF6A /* SelectableMarkdownView.swift in Sources */,
 				4A407795FC831226DDECBB9FC9C9AEB2 /* SwiftMathRenderer.swift in Sources */,
 				34A58A18698B7F8AC8116FB9ABDB9EB0 /* TextFadeAnimator.swift in Sources */,
 				6780DC202D2EEC7DC8326C16C1871A3E /* ToolLiveSheet.swift in Sources */,
-				11B7FD5C3A81419622E85356D65F5358 /* WebLoadError.swift in Sources */,
 				57420251E9C72BF47D74377ED291F6F3 /* arena.c in Sources */,
 				00E995CAFF27F8EF0B4981F90E36C478 /* autolink.c in Sources */,
 				8A852FBDBC4BECD00489F9BA3000B017 /* autolink.h in Sources */,

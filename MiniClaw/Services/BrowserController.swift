@@ -246,20 +246,20 @@ final class BrowserController: NSObject, ObservableObject {
     /// 通过 scopedSessionID 临时覆盖 activeContext 的解析目标，调用结束后恢复。
     /// - Parameter tabID: 稳定标签 id（list_tabs 返回的 tab_id；标签增删后索引漂移但 id 稳定）。
     ///   优先于 tabIndex 解析，换算成当前索引后走原链路；nil 则仅用 tabIndex。
-    /// 2026-08-10:动作参数 → 引擎 BrowserActionInput(引擎优先路径)
-    private static func engineInput(action: String, params: [String: Any]) -> MiniClawKit.BrowserActionInput? {
-        guard let browserAction = MiniClawKit.BrowserAction(rawValue: action) else { return nil }
-        return MiniClawKit.BrowserActionInput(
+    /// 2026-08-10:动作参数 → 引擎 MiniClawActionInput(引擎优先路径)
+    private static func engineInput(action: String, params: [String: Any]) -> MiniClawKit.MiniClawActionInput? {
+        guard let browserAction = MiniClawKit.MiniClawBrowserAction(rawValue: action) else { return nil }
+        return MiniClawKit.MiniClawActionInput(
             action: browserAction,
             url: params["url"] as? String,
             selector: params["selector"] as? String,
             text: params["text"] as? String,
             coordinateX: params["x"] as? Int,
             coordinateY: params["y"] as? Int,
-            direction: (params["direction"] as? String).flatMap(MiniClawKit.BrowserActionInput.ScrollDirection.init),
+            direction: (params["direction"] as? String).flatMap(MiniClawKit.MiniClawActionInput.ScrollDirection.init),
             amount: params["amount"] as? Int,
             script: params["script"] as? String,
-            userAgent: (params["user_agent"] as? String).flatMap(MiniClawKit.UserAgentProfile.init),
+            userAgent: (params["user_agent"] as? String).flatMap(MiniClawKit.MiniClawUAProfile.init),
             maxDepth: params["max_depth"] as? Int,
             tabId: params["tab_id"] as? Int,
             scrollCount: params["scroll_count"] as? Int,
@@ -276,14 +276,14 @@ final class BrowserController: NSObject, ObservableObject {
     }
 
     /// 2026-08-10:引擎执行(共用池:UI 与工具同一引擎,标签同步)
-    private func engineExecute(input: MiniClawKit.BrowserActionInput, sessionID: UUID?) async throws -> String {
+    private func engineExecute(input: MiniClawKit.MiniClawActionInput, sessionID: UUID?) async throws -> String {
         let pool = enginePool(for: sessionID)
         let result = try await pool.execute(action: input, singleTab: false)
         return result.text
     }
 
     /// 引擎标签池(2026-08-10:与 UI 适配桥共用同一池,标签同步)
-    private func enginePool(for sessionID: UUID?) -> MiniClawKit.BrowserTabPool {
+    private func enginePool(for sessionID: UUID?) -> MiniClawKit.MiniClawTabPool {
         BrowserEngineAdapter.shared.pool(for: sessionID)
     }
 

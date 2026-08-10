@@ -5,7 +5,7 @@ import Combine
 import MiniClawKit
 
 // MARK: - 浏览器引擎适配桥(2026-08-10)
-// 把移植引擎(BrowserTabPool + BrowserUseManager)包装成 BrowserView 依赖的
+// 把移植引擎(MiniClawTabPool + MiniClawBrowserEngine)包装成 BrowserView 依赖的
 // 接口形态(BrowserController 同名成员),BrowserView 零改动切到引擎。
 // 引擎照搬自 OpenMinis BrowserUse 子系统;UI 复用主工程 BrowserView。
 
@@ -15,16 +15,16 @@ final class BrowserEngineAdapter: ObservableObject {
 
     /// 引擎标签池(会话级;宿主在进入会话时 setSession;
     /// 2026-08-10:与工具链共用——BrowserController 也经 pool(for:) 取池,UI/工具标签同步)
-    private let pool = BrowserTabPool()
-    private var pools: [String: MiniClawKit.BrowserTabPool] = [:]
-    private let sharedPool = MiniClawKit.BrowserTabPool()
+    private let pool = MiniClawTabPool()
+    private var pools: [String: MiniClawKit.MiniClawTabPool] = [:]
+    private let sharedPool = MiniClawKit.MiniClawTabPool()
 
     /// 会话级池(工具链共用)
-    func pool(for sessionID: UUID?) -> MiniClawKit.BrowserTabPool {
+    func pool(for sessionID: UUID?) -> MiniClawKit.MiniClawTabPool {
         guard let sessionID else { return sharedPool }
         let key = sessionID.uuidString
         if let p = pools[key] { return p }
-        let p = MiniClawKit.BrowserTabPool()
+        let p = MiniClawKit.MiniClawTabPool()
         p.sessionId = key
         pools[key] = p
         return p
