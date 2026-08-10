@@ -1027,9 +1027,10 @@ struct ChatView: View {
     /// 适配列表数据桥(2026-08-09 会话页 1:1 重构):移植列表组件的数据适配层
     @StateObject private var chatBridge = MiniClawChatBridge()
 
-    /// 适配列表调试开关:miniclaw.debug.chatList(UserDefaults,默认关)
+    /// 适配列表开关:默认 ON(2026-08-10 用户要求:搬过来的移植组件就是默认路径,
+    /// 不再使用旧 legacy 列表;保留 UserDefaults 覆盖便于回退调试)。
     private var UseAdaptedList: Bool {
-        UserDefaults.standard.bool(forKey: "miniclaw.debug.chatList")
+        (UserDefaults.standard.object(forKey: "miniclaw.debug.chatList") as? Bool) ?? true
     }
 
     /// 受控展开状态（2026-08-09）：思考块/工具卡/错误详情的展开集合。

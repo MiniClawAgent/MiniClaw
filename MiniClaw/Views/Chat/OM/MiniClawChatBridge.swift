@@ -21,6 +21,9 @@ final class MiniClawChatBridge: ObservableObject {
     /// 保持 message.id/block.id 稳定 → 列表高度缓存/contentKey memo 可命中,
     /// 消除每次刷新的全量缓存失效与估算↔实测落差(2026-08-10 滑动跳动/空白根因)。
     private var omCache: [String: MiniClawKit.ChatMessage] = [:]
+    /// 当前观察的 runtime(流式实时:SwiftData 消息终态落盘,流式中 content 不变,
+    /// 需订阅 runtime.streamingContent 驱动刷新;2026-08-10 切默认路径前接通)。
+    private weak var observedRuntime: ChatSessionRuntime?
 
     func attach(session: ChatSession, appState: AppState) {
         self.session = session
@@ -69,6 +72,52 @@ final class MiniClawChatBridge: ObservableObject {
 
         vm.messages = messages
         vm.isLoadingSession = false
+
+        // 流式实时合并(SwiftData 终态落盘,流式中 content 不更新):
+        // 把 runtime.streamingContent 合并进最后一条 assistant 消息的
+        // content 与最后 text block;若正文尚未出现则追加 text block。
+        if let runtime = appState?.chatRuntimes[session.id],
+           runtime.isResponding, !runtime.streamingContent.isEmpty,
+           let lastAI = messages.last(where: { $0.role == .assistant }) {
+            lastAI.content = runtime.streamingContent
+            if let tb = lastAI.blocks.last(where: { if case .text = $0.kind { return true }; return false }) {
+                tb.content = runtime.streamingContent
+            } else {
+                let tb = MiniClawKit.AssistantBlock(kind: .text, content: runtime.streamingContent)
+                lastAI.blocks.append(tb)
+            }
+        }
+
+        // 流式观察接管:runtime 对象变化(新建/重建)时重新挂 withObservationTracking
+        observeStreamingIfNeeded()
+    }
+
+    // MARK: - 流式实时观察(@Observable runtime)
+
+    /// runtime 流式内容变化 → refresh(指纹节流 0.25s 合并)。
+    /// SwiftData 消息终态落盘,流式中必须靠此订阅驱动 OM 列表实时刷新。
+    private func observeStreamingIfNeeded() {
+        guard let runtime = appState?.chatRuntimes[session?.id ?? UUID()] else { return }
+        if observedRuntime === runtime { return }
+        observedRuntime = runtime
+        trackStreaming(runtime)
+    }
+
+    private func trackStreaming(_ runtime: ChatSessionRuntime) {
+        withObservationTracking {
+            _ = runtime.streamingContent
+            _ = runtime.isResponding
+            _ = runtime.isPaused
+        } onChange: { [weak self] in
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                self.refresh()
+                // 重新注册(每次变化后需要重新观察)
+                if let rt = self.observedRuntime, rt === runtime {
+                    self.trackStreaming(runtime)
+                }
+            }
+        }
     }
 
     // MARK: - 对象复用(稳定 id)
