@@ -29,6 +29,19 @@ final class MiniClawChatBridge: ObservableObject {
         guard let session else { return }
 
         let sorted = session.messages.sorted { $0.createdAt < $1.createdAt }
+
+        // 运行状态镜像(停止/暂停按钮与 typing 指示器用)——必须在节流判断之前:
+        // 流式结束瞬间内容可能不变(指纹相同),但 isResponding 翻转必须同步,
+        // 否则思考块 isStreaming 永远为 true,自动折叠永不触发。
+        if let runtime = appState?.chatRuntimes[session.id] {
+            vm.isProcessing = runtime.isResponding
+            vm.canResume = runtime.isPaused
+            vm.streamingUIUpdatesSuspended = false
+        } else {
+            vm.isProcessing = false
+            vm.canResume = false
+        }
+
         let messages = sorted.map { MiniClawChatAdapter.convert($0) }
         // 指纹纳入思考段与工具状态(同 blocks 数内的状态流转不再被节流吞掉)
         var fp = ""
@@ -51,16 +64,6 @@ final class MiniClawChatBridge: ObservableObject {
         lastRefreshAt = now
 
         vm.messages = messages
-
-        // 运行状态镜像(停止/暂停按钮与 typing 指示器用)
-        if let runtime = appState?.chatRuntimes[session.id] {
-            vm.isProcessing = runtime.isResponding
-            vm.canResume = runtime.isPaused
-            vm.streamingUIUpdatesSuspended = false
-        } else {
-            vm.isProcessing = false
-            vm.canResume = false
-        }
         vm.isLoadingSession = false
     }
 
