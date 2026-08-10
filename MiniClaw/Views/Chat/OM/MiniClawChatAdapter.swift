@@ -33,6 +33,10 @@ enum MiniClawChatAdapter {
 
         for seg in message.reasoningSegments {
             let block = MiniClawKit.AssistantBlock(kind: .thinking, content: seg.text)
+            // 2026-08-10 用户要求:思考块默认折叠,哪怕用户上次展开过,
+            // 每次重建(新消息/流式刷新)一律强制折叠,不保留任何展开状态。
+            block.isThinkingExpanded = false
+            block.thinkingUserToggled = false
             items.append((seg.timelineOrder, block))
         }
 

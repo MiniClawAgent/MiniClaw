@@ -547,19 +547,15 @@ struct ReasoningBlockView: View {
             RoundedRectangle(cornerRadius: 12)
                 .strokeBorder(Color.blue.opacity(0.15), lineWidth: 0.5)
         )
-        // 开源参考实现 流式语义：自动展开（默认开）、结束自动折叠；用户手动过则尊重
+        // 2026-08-10 用户要求:思考块默认折叠、永不自动展开。
+        // 仅保留「流式结束自动折叠」(用户手动展开过则尊重用户选择)。
         .onChange(of: isStreaming) { streaming in
-            if streaming, !isUserToggled, !isExpanded {
-                onToggle?()
-            } else if !streaming, !isUserToggled, isExpanded {
+            if !streaming, !isUserToggled, isExpanded {
                 onToggle?()
             }
         }
         .onAppear {
-            // onChange 首帧不触发：进入时已在流式中 → 补一次自动展开
-            if isStreaming, !isUserToggled, !isExpanded {
-                onToggle?()
-            }
+            // 不再自动展开(用户要求默认折叠)
         }
     }
 
