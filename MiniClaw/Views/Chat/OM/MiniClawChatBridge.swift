@@ -17,6 +17,10 @@ final class MiniClawChatBridge: ObservableObject {
     private var lastFingerprint = ""
     /// 流式内容上报的最小间隔(秒):行增长高频触发时合并刷新
     private var lastRefreshAt: Date = .distantPast
+    /// OM 对象缓存(按 MiniClaw 持久消息 id):内容签名不变则复用旧对象,
+    /// 保持 message.id/block.id 稳定 → 列表高度缓存/contentKey memo 可命中,
+    /// 消除每次刷新的全量缓存失效与估算↔实测落差(2026-08-10 滑动跳动/空白根因)。
+    private var omCache: [String: MiniClawKit.ChatMessage] = [:]
 
     func attach(session: ChatSession, appState: AppState) {
         self.session = session
@@ -42,7 +46,7 @@ final class MiniClawChatBridge: ObservableObject {
             vm.canResume = false
         }
 
-        let messages = sorted.map { MiniClawChatAdapter.convert($0) }
+        let messages = sorted.map { omMessage(for: $0) }
         // 指纹纳入思考段与工具状态(同 blocks 数内的状态流转不再被节流吞掉)
         var fp = ""
         for m in messages {
@@ -65,6 +69,34 @@ final class MiniClawChatBridge: ObservableObject {
 
         vm.messages = messages
         vm.isLoadingSession = false
+    }
+
+    // MARK: - 对象复用(稳定 id)
+
+    /// 按 MiniClaw 持久消息 id 取 OM 对象:内容签名不变则复用缓存对象,
+    /// 避免每次 refresh 全量重建 UUID 导致列表高度缓存连坐失效。
+    private func omMessage(for model: ChatMessage) -> MiniClawKit.ChatMessage {
+        let key = model.id.uuidString
+        let fresh = MiniClawChatAdapter.convert(model)
+        if let cached = omCache[key], blockSignature(cached) == blockSignature(fresh) {
+            return cached
+        }
+        omCache[key] = fresh
+        return fresh
+    }
+
+    /// 块级渲染签名(块类型+内容量+工具状态+流式标志):
+    /// 签名相同 → 渲染等价 → 可安全复用旧对象(含 block.id/message.id)。
+    private func blockSignature(_ om: MiniClawKit.ChatMessage) -> String {
+        var s = "\(om.content.count)|\(om.isAwaitingModelResponse)|"
+        for b in om.blocks {
+            switch b.kind {
+            case .thinking: s += "t:\(b.content.count)|"
+            case .text: s += "x:\(b.content.count)|"
+            default: s += "u:\(String(describing: b.toolStatus)):\(b.content.count)|"
+            }
+        }
+        return s
     }
 
     /// 发送(复用宿主发送管线,由宿主闭包注入)
