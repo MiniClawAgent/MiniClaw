@@ -200,7 +200,7 @@ struct ChatView: View {
         var h: CGFloat = 0
         if !SubagentStore.shared.avatars(for: session.id).isEmpty { h += 44 }
         if attachmentNotice != nil { h += 40 }
-        h += CGFloat(pendingMessages.count) * 40 + 4
+        if !pendingMessages.isEmpty { h += CGFloat(pendingMessages.count) * 40 + 4 }
         return h
     }
 
@@ -813,7 +813,6 @@ struct ChatView: View {
                     }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
-        .safeAreaPadding(.bottom, isInputFocused ? 0.0 : nil)
     }
 
     var body: some View {
@@ -823,9 +822,8 @@ struct ChatView: View {
             // 聊天内容可滚到输入框下面、透过半透明输入框(.bar)可见(用户要求的悬浮态)。
             chatOverlay
         }
-        // 根 ZStack 延伸到底:列表+悬浮层覆盖到小横条,底部无背景条。
-        // 键盘高度由列表 Coordinator.keyboardHeight 手动注入(2026-08-11),不依赖 .automatic。
-        .ignoresSafeArea(.container, edges: .bottom)
+        // 2026-08-11 对齐 OpenMinis:列表与悬浮层都尊重安全区,键盘展开/收起由
+        // 系统自动键盘规避统一抬升——消息距输入栏距离恒定(不高不低)。
         .background(Color(.systemBackground))
         // 键盘高度监听已移至列表 Coordinator(keyboardHeight),此处不再手动桥接。
         .onChange(of: appState.pendingBrowserURL) { _, url in
@@ -1006,7 +1004,6 @@ struct ChatView: View {
             floatingBarHeight: 0,
             inputBarHeight: inputBarHeight + floatingOverlayHeight
         )
-        .ignoresSafeArea(edges: .bottom)
         .onAppear {
             chatBridge.attach(session: session, appState: appState)
             // 值类型捕获:ChatView 为 struct,闭包捕获的是值副本,无保留环风险
