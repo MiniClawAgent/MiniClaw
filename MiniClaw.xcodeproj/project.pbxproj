@@ -1672,8 +1672,8 @@
 				FE596C04F3421609D575495D9C5CC0E8 /* MiniClawTests */,
 				CDBD3BA70B124BF75AF6855607B4C60D /* MiniClawWidget */,
 				1DA152BD766523D4D2AA7150D3ABA9A2 /* objects */,
-				E037659DDEE9E4DB55228FDCF56D9F9B /* refs */,
 				79995835F723CD8761190B4B9A4B5C9F /* refs */,
+				E037659DDEE9E4DB55228FDCF56D9F9B /* refs */,
 				1F73E1141C89DBF16A6A12EB2C22ECB5 /* ShareExtension */,
 				B4F73D5AEBEAD617DD76551EDF5DEDFB /* src */,
 				CF93D6B6DD7B284F680B6FDB4ED01C5E /* Frameworks */,
@@ -2646,9 +2646,6 @@
 					UIInterfaceOrientationLandscapeRight,
 				);
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
-				OTHER_SWIFT_FLAGS = (
-					"-disable-explicit-modules",
-				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.neartop.miniclaw.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_INCLUDE_PATHS = (
@@ -2849,9 +2846,6 @@
 					UIInterfaceOrientationLandscapeRight,
 				);
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
-				OTHER_SWIFT_FLAGS = (
-					"-disable-explicit-modules",
-				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.neartop.miniclaw.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_INCLUDE_PATHS = (

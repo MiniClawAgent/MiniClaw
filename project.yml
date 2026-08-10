@@ -121,12 +121,12 @@ targets:
         INFOPLIST_KEY_NSSupportsLiveActivitiesFrequentUpdates: YES
         INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO
         # --- cmark-gfm vendored 集成(仅主 target 需要) ---
-        # 传递依赖:MiniClawKit.swiftmodule 内 import cmark_gfm,MiniClaw 编译时需可解析
+        # 传递依赖:MiniClawKit.swiftmodule 内 import cmark_gfm,MiniClaw 编译时需可解析。
+        # 注意:不可用 -disable-explicit-modules(Xcode 26 driver 已移除该 flag,
+        # 所有 target 都会报 Driver threw unknown argument);显式模块下 cmark_gfm
+        # 通过 src/include/module.modulemap 解析(modulemap 已在 include 路径内)。
         SWIFT_INCLUDE_PATHS:
           - "$(SRCROOT)/../第三方源码/swift-cmark/src/include"
-        # vendored cmark modulemap 不在 Xcode 依赖图内,显式模块构建无法解析 → 仅主 target 禁用
-        OTHER_SWIFT_FLAGS:
-          - "-disable-explicit-modules"
     dependencies:
       - sdk: Security.framework
       - sdk: HealthKit.framework
