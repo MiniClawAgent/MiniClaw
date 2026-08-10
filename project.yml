@@ -10,12 +10,6 @@ settings:
   base:
     SWIFT_VERSION: "6.0"
     SWIFT_OBJC_BRIDGING_HEADER: "MiniClaw/MiniClaw-Bridging-Header.h"
-    # 传递依赖:MiniClawKit.swiftmodule 内 import cmark_gfm,MiniClaw 编译时需可解析
-    SWIFT_INCLUDE_PATHS:
-      - "$(SRCROOT)/../第三方源码/swift-cmark/src/include"
-    # vendored cmark modulemap 不在 Xcode 依赖图内,显式模块构建无法解析 → 禁用
-    OTHER_SWIFT_FLAGS:
-      - "-disable-explicit-modules"
     CODE_SIGN_STYLE: Automatic
     # --- iSH (AArch64 / asbestos) integration ---
     # C/ObjC preprocessor flags (must match how the static libs were built)
@@ -126,6 +120,13 @@ targets:
         INFOPLIST_KEY_NSSupportsLiveActivities: YES
         INFOPLIST_KEY_NSSupportsLiveActivitiesFrequentUpdates: YES
         INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO
+        # --- cmark-gfm vendored 集成(仅主 target 需要) ---
+        # 传递依赖:MiniClawKit.swiftmodule 内 import cmark_gfm,MiniClaw 编译时需可解析
+        SWIFT_INCLUDE_PATHS:
+          - "$(SRCROOT)/../第三方源码/swift-cmark/src/include"
+        # vendored cmark modulemap 不在 Xcode 依赖图内,显式模块构建无法解析 → 仅主 target 禁用
+        OTHER_SWIFT_FLAGS:
+          - "-disable-explicit-modules"
     dependencies:
       - sdk: Security.framework
       - sdk: HealthKit.framework
