@@ -95,6 +95,9 @@ struct ChatInputBar: View {
     @State private var isPressingMic: Bool = false
     @State private var controller = SpeechController()
 
+    // 彩虹流动描边：AngularGradient 环形渐变 + hueRotation 缓慢旋转（2026-08-10 按方案 a 恢复）。
+    @State private var rainbowPhase: Angle = .zero
+
     // ★ 权限请求解耦标志 ★
     // DragGesture 手势回调只写标志位，不直接调任何 AVAudioSession/SFSpeechRecognizer API。
     // 实际权限请求由 .onChange(of:) 在 SwiftUI 视图更新周期中触发，
@@ -149,8 +152,9 @@ struct ChatInputBar: View {
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
             .frame(minHeight: isVoiceMode ? 0 : 53)
-            // 开源参考实现对齐(2026-08-09):纯白/深色白12% 底(原 .bar 材质),去彩虹旋转描边
-            .background(Color(UIColor { $0.userInterfaceStyle == .dark ? UIColor(white: 0.12, alpha: 1) : .white }))
+            // 磨砂玻璃背景(2026-08-11 恢复):悬浮态 + ultraThinMaterial 磨砂,
+            // 聊天内容可透出模糊光晕;彩虹流动描边仍保留作边界。
+            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
             .overlay(alignment: .bottomTrailing) {
                 // 仅在语音态显示发送按钮（语音面板会展开，按钮需固定在右下角）。
                 // 常规文字态的发送按钮已移入 textOperationRow 的 HStack 内、随文本框垂直居中，
@@ -161,7 +165,24 @@ struct ChatInputBar: View {
                         .padding(.bottom, 12)
                 }
             }
+            // 彩虹流动描边：环形渐变绕圆角矩形旋转一圈，视觉上呈现「缓慢流动的彩虹线」。
+            .overlay(
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .strokeBorder(
+                        AngularGradient(
+                            gradient: Gradient(colors: [.red, .orange, .yellow, .green, .blue, .purple, .red]),
+                            center: .center
+                        ),
+                        lineWidth: 1
+                    )
+                    .hueRotation(rainbowPhase)
+            )
             .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .onAppear {
+                withAnimation(.linear(duration: 15).repeatForever(autoreverses: false)) {
+                    rainbowPhase = .degrees(360)
+                }
+            }
         }
         .padding(.horizontal, 16)
         .padding(.bottom, 10)
@@ -497,40 +518,44 @@ struct ChatInputBar: View {
         Button(action: primaryAction) {
             if isPaused {
                 // 暂停+空 = 继续(play);暂停+有内容 = 入队发送(arrow)——与 primaryAction 分流一致
-                // （review nit 2026-08-09：直接用 empty 分流，避免字符串比较随图标改名失效）
                 let empty = draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                 if !empty {
-                    Image(systemName: "arrow.up.circle.fill")
-                        .font(.system(size: 34))
-                        .foregroundStyle(Color(.label))
-                } else {
-                    Circle()
-                        .fill(primaryColor)
+                    Image(systemName: "arrow.up")
+                        .font(.system(size: 18, weight: .medium))
+                        .foregroundStyle(.green)
                         .frame(width: 34, height: 34)
-                        .overlay {
-                            Image(systemName: "play.fill")
-                                .font(.system(size: 15, weight: .bold))
-                                .foregroundStyle(.white)
-                        }
+                        .background(Color(.secondarySystemBackground), in: Circle())
+                } else {
+                    Image(systemName: "play.fill")
+                        .font(.system(size: 18, weight: .medium))
+                        .foregroundStyle(.white)
+                        .frame(width: 34, height: 34)
+                        .background(primaryColor, in: Circle())
                 }
             } else if isAgentResponding {
-                // 开源参考实现对齐(2026-08-09):处理中 = 红色 stop.circle.fill(点击取消/暂停);
-                // 有内容可入队时仍显示箭头(review nit 2026-08-09:与 isPaused 分支统一,
-                // 直接按 empty 分流,避免字符串比较随图标改名失效)
+                // 回复中:空 → 黄色暂停;有内容可入队 → 绿色发送箭头
                 let empty = draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                 if !empty {
-                    Image(systemName: "arrow.up.circle.fill")
-                        .font(.system(size: 34))
-                        .foregroundStyle(Color(.label))
+                    Image(systemName: "arrow.up")
+                        .font(.system(size: 18, weight: .medium))
+                        .foregroundStyle(.green)
+                        .frame(width: 34, height: 34)
+                        .background(Color(.secondarySystemBackground), in: Circle())
                 } else {
-                    Image(systemName: "stop.circle.fill")
-                        .font(.system(size: 34))
-                        .foregroundStyle(.red)
+                    Image(systemName: "stop.fill")
+                        .font(.system(size: 18, weight: .medium))
+                        .foregroundStyle(.yellow)
+                        .frame(width: 34, height: 34)
+                        .background(Color(.secondarySystemBackground), in: Circle())
                 }
             } else {
-                Image(systemName: "arrow.up.circle.fill")
-                    .font(.system(size: 34))
-                    .foregroundStyle(primaryDisabled ? Color(.quaternaryLabel) : Color(.label))
+                // 空闲:有内容 → 绿色发送;空 → 灰禁用(不变)
+                let empty = draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                Image(systemName: "arrow.up")
+                    .font(.system(size: 18, weight: .medium))
+                    .foregroundStyle(empty ? Color(.quaternaryLabel) : Color.green)
+                    .frame(width: 34, height: 34)
+                    .background(Color(.secondarySystemBackground), in: Circle())
             }
         }
         .disabled(primaryDisabled)
