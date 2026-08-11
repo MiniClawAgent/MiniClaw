@@ -103,11 +103,20 @@ final class AppLogger: @unchecked Sendable {
 
     // MARK: - Public API
 
+    /// 诊断类 category 白名单:这些 category 的 info 级日志也镜像到 Xcode 控制台,
+    /// 便于真机调试时直接观察键盘/inset/测高/滚动链路(2026-08-11 用户要求)。
+    /// 其他 category 的 info 仍只写文件,避免 CellSize 等高频日志刷屏。
+    private static let consoleMirrorCategories: Set<String> = [
+        "KbdDiag", "InputBarLayout", "ScrollDiag", "ScrollStall",
+        "SubViewport", "Settle", "SettleJitter", "InputFocus"
+    ]
+
     func log(category: String, subsystem: String? = nil, level: LogLevel, message: String) {
         guard appLoggerEnabledFlag else { return }
         let line = formatLine(category: category, subsystem: subsystem ?? category, level: level, message: message)
         // 警告及以上镜像到控制台，便于真机/模拟器调试时直接看到。
-        if level == .warn || level == .error || level == .fault {
+        if level == .warn || level == .error || level == .fault
+            || (level == .info && Self.consoleMirrorCategories.contains(category)) {
             print("[\(level.rawValue)] [\(category)] \(message)")
         }
         queue.async { [weak self] in
