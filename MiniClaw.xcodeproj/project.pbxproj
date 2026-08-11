@@ -832,7 +832,6 @@
 				DEE673DAA4E2FDD11F21B33FEE4F4D36 /* 63c98cbcb32b5ef9f3eac9d665585191333891 */,
 			);
 			name = 31;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/31";
 			sourceTree = "<group>";
 		};
 		034637CB8525CE6F737DABCEAB10807F /* Tools */ = {
@@ -857,7 +856,6 @@
 				788AF6FB4BB7EFEE2A2FF29882D87BBC /* 264c4ded61ed24b3f052866347e87357982f84 */,
 			);
 			name = 97;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/97";
 			sourceTree = "<group>";
 		};
 		0B832258F23FB26A09AA03163BE96895 /* 68 */ = {
@@ -866,7 +864,6 @@
 				A5C995CE2B2B82911883647736EFCF08 /* 044e740e10f3ad60355689c4b799be77151bb0 */,
 			);
 			name = 68;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/68";
 			sourceTree = "<group>";
 		};
 		0B8D0D6A1A50A9795A7088AF131A7C55 /* 83 */ = {
@@ -875,7 +872,6 @@
 				451C6866EC31A995C271FEEB071E9DC1 /* e6e9bd640afc4a0a3d2a22306f1973b1aaa08f */,
 			);
 			name = 83;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/83";
 			sourceTree = "<group>";
 		};
 		0D1F6BF94FFA7EA704AA6943BD4956BB /* cd */ = {
@@ -884,7 +880,6 @@
 				6AA1B0AC0C011E35FE8538F2C7EDA74E /* 694a63dd7e8b2e3ac2056fcfba14429b092645 */,
 			);
 			name = cd;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/cd";
 			sourceTree = "<group>";
 		};
 		0F6B778A299907D76FECE3F357EE9EFF /* 53 */ = {
@@ -894,7 +889,6 @@
 				0679D32FD44C3BCAA5FD67F0B9A5C6D8 /* fceb7fdbec063c42fe52ed66e69ade9f1e2e46 */,
 			);
 			name = 53;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/53";
 			sourceTree = "<group>";
 		};
 		11F9D3A85843F116078354969867A525 /* OM */ = {
@@ -912,7 +906,6 @@
 				982EF68DA8E4F670BB6AD4E784E3C547 /* b66d5ba994f965d3af7be813c06fc0168da1a7 */,
 			);
 			name = 36;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/36";
 			sourceTree = "<group>";
 		};
 		14B207659AA82B48CD48DED3B13793E7 /* e8 */ = {
@@ -921,7 +914,6 @@
 				27188D5169087D3AD26DE4F49B444D24 /* 7096dd0baa541bb2a47a368aa086f72fb66cf2 */,
 			);
 			name = e8;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/e8";
 			sourceTree = "<group>";
 		};
 		175C7E95FF0D5B4E965BCD76902A2B67 /* Shared */ = {
@@ -939,7 +931,6 @@
 				78BACBEC515E9E8B2F3133BE53BFFFD2 /* 98576776240fbf79c8b4eebb0434ee411dc67f */,
 			);
 			name = 23;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/23";
 			sourceTree = "<group>";
 		};
 		19C1A26A04DCB2FF71E7E3C9B4356664 /* 05 */ = {
@@ -948,7 +939,6 @@
 				19B68DAF0D0855CC9B73541D0EB7AF0D /* 3721074da365eb0f6723266bc425dbcb48cc7d */,
 			);
 			name = 05;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/05";
 			sourceTree = "<group>";
 		};
 		1ADE1A082A57840276F0A1A403E93DBC /* 2b */ = {
@@ -957,7 +947,6 @@
 				764C3E52F9617CE1F614C9FA29515A76 /* 81a97076926763691dcbee57e92bbe17ca4a60 */,
 			);
 			name = 2b;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/2b";
 			sourceTree = "<group>";
 		};
 		1DA152BD766523D4D2AA7150D3ABA9A2 /* objects */ = {
@@ -965,7 +954,6 @@
 			children = (
 			);
 			name = objects;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects";
 			sourceTree = "<group>";
 		};
 		1F73E1141C89DBF16A6A12EB2C22ECB5 /* ShareExtension */ = {
@@ -983,7 +971,6 @@
 				4CE1C080515A0492CC44F9783E768BC4 /* 4bd6d02af18dac34539051861e524d4b1f44bf */,
 			);
 			name = a0;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/a0";
 			sourceTree = "<group>";
 		};
 		210E535F01A53F26183238E418DC324B /* 08 */ = {
@@ -993,7 +980,6 @@
 				C5EC3C9E1E158076F2A633E5DA7919F3 /* 6799f5c21b8196154a8a2cf421cbeb51412c76 */,
 			);
 			name = 08;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/08";
 			sourceTree = "<group>";
 		};
 		21F0CE9917B1EB26631CB0BBC5AAC506 /* heads */ = {
@@ -1002,7 +988,6 @@
 				B52A9830520A9943E68C71BE80E2E727 /* master */,
 			);
 			name = heads;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/logs/refs/heads";
 			sourceTree = "<group>";
 		};
 		25D802B6E9DBA8C920D1A1EB3D46ECD3 /* 57 */ = {
@@ -1011,7 +996,6 @@
 				5CD962212E1B6B042828E4A0C0A0C387 /* ce637786127a092b8e8c9966a2293ac10f8235 */,
 			);
 			name = 57;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/57";
 			sourceTree = "<group>";
 		};
 		261E2326111DE4E6ACFAA383FB801778 /* 2f */ = {
@@ -1020,7 +1004,6 @@
 				20A988F8BA066DA573A498192954D981 /* 65a8a3a6d3628d11ea9c26c9077cef672fe427 */,
 			);
 			name = 2f;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/2f";
 			sourceTree = "<group>";
 		};
 		2762EC8381394C17F1915D91F01FCC26 /* logs */ = {
@@ -1029,7 +1012,6 @@
 				0A163B8A05473E8C41F1103CED91761A /* HEAD */,
 			);
 			name = logs;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/logs";
 			sourceTree = "<group>";
 		};
 		27A7D058C5F7C85CC8C32FB2CE0F4B7A /* 4f */ = {
@@ -1039,7 +1021,6 @@
 				FF57625411933F7D176DF75D0437D922 /* ce60209350a1f116c5846f5eaefea16aa2d6e7 */,
 			);
 			name = 4f;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/4f";
 			sourceTree = "<group>";
 		};
 		27F8EAE57C9D828233DF8025D886937A /* 54 */ = {
@@ -1048,7 +1029,6 @@
 				B40198466106701A5EBCE6A15E0295C6 /* 06005b09260edc9c9946980fa590f461b8101a */,
 			);
 			name = 54;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/54";
 			sourceTree = "<group>";
 		};
 		280B0E7A15D7D7786B278D724F6B3584 /* BundledSubAgentProfiles */ = {
@@ -1068,7 +1048,6 @@
 				C12DD768D920B78ED4F846034CC71887 /* 737444b42b8d9efdf698af413023b2bd1714f3 */,
 			);
 			name = 65;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/65";
 			sourceTree = "<group>";
 		};
 		2C60067B0DEEF1515779D49AADA980E8 /* hooks */ = {
@@ -1090,7 +1069,6 @@
 				E007621515A42129F8EFDBD5BFF8041A /* update.sample */,
 			);
 			name = hooks;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/hooks";
 			sourceTree = "<group>";
 		};
 		2C8A3C99B51DE514984EFD57F1B0E4D5 /* Sync */ = {
@@ -1115,7 +1093,6 @@
 				8C8DCC981590C42328BCFEB3B29433C6 /* 12fe57fcfb42eb122669300ad0e740701b0395 */,
 			);
 			name = b1;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/b1";
 			sourceTree = "<group>";
 		};
 		2DF92B1DFBFCEEAEF231CC849E30D809 /* dd */ = {
@@ -1124,7 +1101,6 @@
 				1AA8CC159515A7C0942441EEB4419AEF /* 45e1ed2e18b32c516d9b481ebed3cb8bffa711 */,
 			);
 			name = dd;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/dd";
 			sourceTree = "<group>";
 		};
 		2E53FCDF2CC986DB390A5E5A36C67B99 /* da */ = {
@@ -1133,7 +1109,6 @@
 				CB731FD8AA851D9893AD6B5C9B3C0C64 /* ab14b40f02bbb5aa60f0cecb9bea37eea11753 */,
 			);
 			name = da;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/da";
 			sourceTree = "<group>";
 		};
 		30F54E29B2B0D5E4CA88107B5AA435E5 /* Settings */ = {
@@ -1162,7 +1137,6 @@
 				F2D80A0FCB5C22532F60E8F544CECD60 /* 6acca20748e003546a3a327958eaced7f9a9ba */,
 			);
 			name = 80;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/80";
 			sourceTree = "<group>";
 		};
 		35C1C8C2C31A76528BC5D9758C66143D /* 91 */ = {
@@ -1171,7 +1145,6 @@
 				2C38911516031FA25B26A1460D770FB3 /* 39316f792dca2809e9208743a4ae64310d191c */,
 			);
 			name = 91;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/91";
 			sourceTree = "<group>";
 		};
 		37B8A77A18715CC387FAC91E6BE33B72 /* d5 */ = {
@@ -1180,7 +1153,6 @@
 				801E2243C733E7C173BA8FFF93CB097A /* 850df98ec19de2eee9ff922ef59586efe471d0 */,
 			);
 			name = d5;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/d5";
 			sourceTree = "<group>";
 		};
 		39B71AA789607AA05D5EC319F114086C /* e6 */ = {
@@ -1190,7 +1162,6 @@
 				DF52598C16FEF8B3FC9425A70E44FF0B /* c37721fc052753f177318e9aad0fa670f2c720 */,
 			);
 			name = e6;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/e6";
 			sourceTree = "<group>";
 		};
 		3A5417B25F0F3B1AAA01BF0F70C8EDEE /* 94 */ = {
@@ -1199,7 +1170,6 @@
 				C6A064D597A8C959EAD3E2BF062588B9 /* ec31c83054f5bf9acdcf885f0c85c0509972eb */,
 			);
 			name = 94;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/94";
 			sourceTree = "<group>";
 		};
 		3AB7E4481A30A486CADCEE13F2B00B71 /* SwiftMath */ = {
@@ -1217,7 +1187,6 @@
 				EC7B93FD44F06A5A0B896C0024973B2D /* f2959fbec425c993df71c58980bc3f73ab5078 */,
 			);
 			name = db;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/db";
 			sourceTree = "<group>";
 		};
 		3BEB697455A2CCDFF5B3C889E6BA32E8 /* Chat */ = {
@@ -1242,7 +1211,6 @@
 				02B6D8F620B16F579F609D9C664B962A /* 0a3935aa8cc4b453d11f9827aaff9a1ba2eece */,
 			);
 			name = 19;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/19";
 			sourceTree = "<group>";
 		};
 		3F439212B464B5192BE3225A6F202A22 /* MiniClaw */ = {
@@ -1267,7 +1235,6 @@
 				A1C2DEAC79CECF06A857B4F09D53B899 /* 38a214832067fadcdd023160e799c25d4623e5 */,
 			);
 			name = 18;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/18";
 			sourceTree = "<group>";
 		};
 		4334FC2A34F36501CD9B6B51EDEF7DB0 /* MathRender */ = {
@@ -1301,7 +1268,6 @@
 				4B005B3FCACE6332985CE98EAAECCF93 /* 34c4d14ad64b6933310f4cfac6ef2f885dbc48 */,
 			);
 			name = 85;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/85";
 			sourceTree = "<group>";
 		};
 		4867EF96C83961483CF1DDB6A96BE3FF /* c6 */ = {
@@ -1310,7 +1276,6 @@
 				4F2023001F5012E972B1AC4DC99FEFA6 /* f9a5e7c03f9e64e9c7b4773a8e37ade8eaf406 */,
 			);
 			name = c6;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/c6";
 			sourceTree = "<group>";
 		};
 		492AC74FAE616DDFC8F5A708222515E6 /* e0 */ = {
@@ -1319,7 +1284,6 @@
 				08AB9279D3D478E9A697F4EBDE51BA77 /* 482e7922a784a758242d4b16a411c66a8bf662 */,
 			);
 			name = e0;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/e0";
 			sourceTree = "<group>";
 		};
 		4989255D4F83CDCD78181D345574E5AD /* 41 */ = {
@@ -1328,7 +1292,6 @@
 				ACE34FB233EC5CCA9E9203394C71C023 /* 07a590b7c67691590ccc8531767020725f212b */,
 			);
 			name = 41;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/41";
 			sourceTree = "<group>";
 		};
 		4C08E27C6B745588A494999F1D024035 /* 59 */ = {
@@ -1337,7 +1300,6 @@
 				C7BDDF4A87CD3E66F97D7083380A1618 /* eaf8e765de3e6009f33768799a64ab4372c51b */,
 			);
 			name = 59;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/59";
 			sourceTree = "<group>";
 		};
 		4D88D61AF158AE5F099B04538D99CD0D /* b8 */ = {
@@ -1346,7 +1308,6 @@
 				3C6FA8313EDAAD1AA57BCD3CCF6DFC3A /* 461b275fae76efd0d21fd0f1aaa696a5b10f9a */,
 			);
 			name = b8;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/b8";
 			sourceTree = "<group>";
 		};
 		53A8F30779AAA4B97EEF7D7230E51572 /* Background */ = {
@@ -1367,7 +1328,6 @@
 				DFEA7ED4426E8E7216F84A277BE9C541 /* a28cc762ef2b8aea370bf8f5bb868a5e2bfdac */,
 			);
 			name = 0c;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/0c";
 			sourceTree = "<group>";
 		};
 		54D185DE4439D6225D0D247384A0E1EB /* 0f */ = {
@@ -1376,7 +1336,6 @@
 				67F3FC1E7E7C6117F3F40DD340064110 /* a22554f3dae374aa72eb8628d439a421ce9338 */,
 			);
 			name = 0f;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/0f";
 			sourceTree = "<group>";
 		};
 		57F141F96D708716F341B00E4C676F31 /* e1 */ = {
@@ -1385,7 +1344,6 @@
 				4F171F222122F7F89B3145B11E4E9F90 /* d7e05bb39e2efee9b380f84440f1609765a3bc */,
 			);
 			name = e1;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/e1";
 			sourceTree = "<group>";
 		};
 		590ADDD527CAC7DD077752709A7CBC8F /* Browser */ = {
@@ -1402,7 +1360,6 @@
 				8A3AAEC9E08207C77955A31AE8BF53F5 /* b9b8de04874a585a6fea44b01fa5fbdb3b5327 */,
 			);
 			name = f4;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/f4";
 			sourceTree = "<group>";
 		};
 		5DD6495B0FD2C4499C955C539318B619 /* c8 */ = {
@@ -1412,7 +1369,6 @@
 				91D36F3B9D81C5CAC4FF9B77EB1CDBCC /* e36b7248fd3c7497d132ea02d1f4ad76fea0bc */,
 			);
 			name = c8;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/c8";
 			sourceTree = "<group>";
 		};
 		5F6F32F6652C450FFAB517554A4DCC45 /* 00 */ = {
@@ -1422,7 +1378,6 @@
 				FA2B550B1CB761E5816848AA4B0A7B1E /* e28c935e5e941af7d767455e1e0679322d27be */,
 			);
 			name = 00;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/00";
 			sourceTree = "<group>";
 		};
 		623B9E2A41B4AACCB6BA6CDFE48E1652 /* 74 */ = {
@@ -1432,7 +1387,6 @@
 				17A4607991A9752F685AB73756997555 /* f08921f00f71f413ca42c9d1c90202e672ef38 */,
 			);
 			name = 74;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/74";
 			sourceTree = "<group>";
 		};
 		6261F1751456FC4A517920AC3E517FA5 /* MathBundle */ = {
@@ -1465,7 +1419,6 @@
 				6AE2BA455B0530315D0F7F4D4D5F377E /* exclude */,
 			);
 			name = info;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/info";
 			sourceTree = "<group>";
 		};
 		6450DA21297C23E4AA31FC8F84BB69CE /* SubAgent */ = {
@@ -1488,7 +1441,6 @@
 				E2BD9907B2D8906E31E946E10A6CEF33 /* 24b56f34689dfb281714d8d34d69eb2adcfaa7 */,
 			);
 			name = 29;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/29";
 			sourceTree = "<group>";
 		};
 		6CCA13FF7A624EF488A66CF15EA15437 /* 6a */ = {
@@ -1497,7 +1449,6 @@
 				EF4348EAD579E0719A9934190673AA6E /* e15264dbd3b50177321040f87731e58688b531 */,
 			);
 			name = 6a;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/6a";
 			sourceTree = "<group>";
 		};
 		6F818E68382DB38E87632ECEEA510A6A /* 86 */ = {
@@ -1506,7 +1457,6 @@
 				171790DEDD2DE0F55959F1D8542BA675 /* 46f6270bcea422c1d2769dc907bebcb7f92779 */,
 			);
 			name = 86;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/86";
 			sourceTree = "<group>";
 		};
 		7108DB15DB92A15CBD026C2CBED547C3 /* 2c */ = {
@@ -1515,7 +1465,6 @@
 				C8A3A2BC48B536F3E9F1ADFE1AA49F51 /* b4d4c9c828da7c80c212ef497672c88a40c66d */,
 			);
 			name = 2c;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/2c";
 			sourceTree = "<group>";
 		};
 		71EACF00061ABFCEF00FABDBBD112738 /* 40 */ = {
@@ -1525,7 +1474,6 @@
 				7B97956C808F3AED5C0E0B14F86E59F8 /* f5f5be1bcb5d5ccac86e53406dea27f8ac7e55 */,
 			);
 			name = 40;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/40";
 			sourceTree = "<group>";
 		};
 		7469AB393232A8B89046E8E0FA13BBD2 /* 07 */ = {
@@ -1534,7 +1482,6 @@
 				00F7E360BF9B318AD553C26D03ECCD45 /* f21309c97366fb5532638bf915dcc531646efd */,
 			);
 			name = 07;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/07";
 			sourceTree = "<group>";
 		};
 		79995835F723CD8761190B4B9A4B5C9F /* refs */ = {
@@ -1542,7 +1489,6 @@
 			children = (
 			);
 			name = refs;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/refs";
 			sourceTree = "<group>";
 		};
 		79EF2878985BD25C6E23B9B26085C8CA /* c5 */ = {
@@ -1551,7 +1497,6 @@
 				2E07C25044364CCD3131613E431AD9B5 /* 8c89969ed56f99fb7bf1a839726fefebd27046 */,
 			);
 			name = c5;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/c5";
 			sourceTree = "<group>";
 		};
 		7A43A7A6492F5EB20ADF92B09B751ACA /* 33 */ = {
@@ -1560,7 +1505,6 @@
 				A92C51A66BBC016FBA5E0EE0466135AC /* 442f031aef4b84d20eef6184550608a3e4ea61 */,
 			);
 			name = 33;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/33";
 			sourceTree = "<group>";
 		};
 		7A61B39B1B4EEDC157FDFA2AD73F400D /* e4 */ = {
@@ -1570,7 +1514,6 @@
 				B0526D5EE9EB931E0B47246D9B0430A5 /* 0613ca6efeb70a3cbddef05e5ab0cc02ecaf6e */,
 			);
 			name = e4;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/e4";
 			sourceTree = "<group>";
 		};
 		7B39E9EFA31DABDF7D46E0BEA9E27985 /* 50 */ = {
@@ -1579,7 +1522,6 @@
 				1B3B15844D20CFA342FFA821AD2F9E01 /* 6529cb7a0da752f4474ad5f53039f1ba5fad5e */,
 			);
 			name = 50;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/50";
 			sourceTree = "<group>";
 		};
 		7BB7B50963A14220693A4D711BBD20AF /* 15 */ = {
@@ -1589,7 +1531,6 @@
 				B056FEDD06412E5C35B13E875148B36C /* 13234e6f3b9a7ab48444887741701b3887074c */,
 			);
 			name = 15;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/15";
 			sourceTree = "<group>";
 		};
 		7D8CDE0540BF32918FA9A5526E6B3D97 /* dc */ = {
@@ -1598,7 +1539,6 @@
 				56F8B096BC97E2A49391AC494E1A7131 /* 007977ee709a236d9e82719cf7d4e5577a81b9 */,
 			);
 			name = dc;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/dc";
 			sourceTree = "<group>";
 		};
 		8263C529871C1E36AA3EA70402D8D7CB /* 75 */ = {
@@ -1607,7 +1547,6 @@
 				ED34FD0080B3B804207AFE918F2240DB /* 3f6561af2a31b2cc77a6f946326793c79f3983 */,
 			);
 			name = 75;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/75";
 			sourceTree = "<group>";
 		};
 		84B5A0D46E80B6E62FC1C628FC25B5EF /* Products */ = {
@@ -1645,7 +1584,6 @@
 				69B10711B4F62152D72EE189D0EDD170 /* 93147834b434d180e0a55916e2e612cefbe2d5 */,
 			);
 			name = 76;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/76";
 			sourceTree = "<group>";
 		};
 		8B569D31F8EA6E9CC295B3C3F2C8D413 /* OAuth */ = {
@@ -1667,7 +1605,6 @@
 				0DCB018BC1849D9C49EAF3F4CFF44D23 /* a12684abc4b743460b0880d295784befaa8394 */,
 			);
 			name = a3;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/a3";
 			sourceTree = "<group>";
 		};
 		8D5185D71B763D35524CB09ECF46A755 /* iSH */ = {
@@ -1747,7 +1684,6 @@
 				83CD2563473B60BEF79C3EBDE10595B7 /* fd30ef2aed8601de4cfb8c664fb9bfc009fa37 */,
 			);
 			name = df;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/df";
 			sourceTree = "<group>";
 		};
 		90131388F6B8D1FA9A00EEE5E667550C /* 24 */ = {
@@ -1756,7 +1692,6 @@
 				8C3F7DBAD8288F24BCA25410A132B0B4 /* 5d8e31603cf3a93dff42163cfa0efa871eab9d */,
 			);
 			name = 24;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/24";
 			sourceTree = "<group>";
 		};
 		91589442675E5A274AC426ECA3AC20D9 /* Browser */ = {
@@ -1774,7 +1709,6 @@
 				BC2D0C657BC006AB7A54DCED12454BB2 /* db3d3a7bc64fe6f61eb580289b970e9bbca900 */,
 			);
 			name = 6f;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/6f";
 			sourceTree = "<group>";
 		};
 		966B668AEBBAC1D5AEED4A0F69B91D38 /* 20 */ = {
@@ -1783,7 +1717,6 @@
 				E41AF08535AEEFC218E23C2B21FFD27A /* 5e57d66d649cb9e015a2d2d43eca406ae98626 */,
 			);
 			name = 20;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/20";
 			sourceTree = "<group>";
 		};
 		99FDBFE985B844C35DD385597B7571BA /* 8d */ = {
@@ -1792,7 +1725,6 @@
 				6FCFBAD519570FAF94B0BC5A3F0AB5FE /* 9bfb66faa435c37c7162aadcff074372abfa61 */,
 			);
 			name = 8d;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/8d";
 			sourceTree = "<group>";
 		};
 		9CCA2FBE607D3D44384F136B5AD68DB4 /* 9f */ = {
@@ -1801,7 +1733,6 @@
 				2F3C6F44AF4F912CEDBF1B8653D7DE6E /* f4a5e04421e5107f74c28e27354e0b2a4e7ef8 */,
 			);
 			name = 9f;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/9f";
 			sourceTree = "<group>";
 		};
 		9D931064182122A8F1FF00C8AB090DEB /* 5a */ = {
@@ -1810,7 +1741,6 @@
 				C673160C6BC6523C1A76A8530CCD6E13 /* b3fb40597ec8b1aec99a518fec83f8093bdafc */,
 			);
 			name = 5a;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/5a";
 			sourceTree = "<group>";
 		};
 		9E85F587DCACAAD718D9E46805DF52B0 /* fd */ = {
@@ -1819,7 +1749,6 @@
 				768DAC78B3DBF4AC4996964F3D7B0DD9 /* 679bf374af72f2a183b97b40c9c7e9e51fbe5e */,
 			);
 			name = fd;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/fd";
 			sourceTree = "<group>";
 		};
 		9F3105BFE90387A7FEF71D1B074E93DF /* d1 */ = {
@@ -1828,7 +1757,6 @@
 				5FFA7A1637985E281C7AC6A0283EDDC3 /* 1df962e626b40e76f861b3a1cf4637815d5431 */,
 			);
 			name = d1;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/d1";
 			sourceTree = "<group>";
 		};
 		A0C1AAB8834F977569F0079CB6CFBF89 /* cb */ = {
@@ -1837,7 +1765,6 @@
 				DC54B845E0AAF96490885FA8409FB0A4 /* 9fd4bebd44011868b35ed06de7e55c19470778 */,
 			);
 			name = cb;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/cb";
 			sourceTree = "<group>";
 		};
 		A0E69E97CF6D3CC7B0B666EC5BBDE0FC /* 3d */ = {
@@ -1846,7 +1773,6 @@
 				264E2CA3BFF6D1FED830E4706CB2B4B3 /* b736ef046c0257588357d4bbb0a404d464da99 */,
 			);
 			name = 3d;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/3d";
 			sourceTree = "<group>";
 		};
 		A11F255B5353FF9E2A60322961F2840D /* 8b */ = {
@@ -1855,20 +1781,6 @@
 				B1603C9ECA731B522AFC18FD4C51AA4F /* 22c8160d4863cf686d127590dff68a23619097 */,
 			);
 			name = 8b;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/8b";
-			sourceTree = "<group>";
-		};
-		A5F7B0D7D47868AB7FC0323C1E978107 /* .git */ = {
-			isa = PBXGroup;
-			children = (
-				D9C5C9E5806161FD45D10D8F7359E48C /* COMMIT_EDITMSG */,
-				F051221B3760DA7A55D63A9950CC11D0 /* config */,
-				121C32A0F4BE7BE7EFC8288A2C2C3727 /* description */,
-				9137D96B3B61087987CDDEA7271A3BB5 /* HEAD */,
-				CC71B17CB3C4E5400BD22CA3CF301ECF /* index */,
-			);
-			name = .git;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git";
 			sourceTree = "<group>";
 		};
 		ABADFF71CC02B317014202A81847EFDF = {
@@ -1879,7 +1791,6 @@
 				3DC9C3A998E2463E0AA13A0DF0B53FBB /* BundledSubAgentProfiles */,
 				742BB05DFB02C908AE70505EB43D97C5 /* PrivacyInfo.xcprivacy */,
 				41869D0129D11922611582AA2D3901BE /* rootfs */,
-				A5F7B0D7D47868AB7FC0323C1E978107 /* .git */,
 				5F6F32F6652C450FFAB517554A4DCC45 /* 00 */,
 				53C6665124A890D56BD775EFB07772BA /* 0c */,
 				B2B765C5AC86272CBD6D0B2476B03885 /* 0e */,
@@ -2019,7 +1930,6 @@
 				9800C50B156F5DF202736BF07BD2CF10 /* 98259c3b54076d684bf3459baeaeae8dbce97a */,
 			);
 			name = 4e;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/4e";
 			sourceTree = "<group>";
 		};
 		AF9F23BBB19AAAF4B10A99EFD868DD30 /* d6 */ = {
@@ -2028,7 +1938,6 @@
 				320EA18B4A0EC119BA389B21075A0BF0 /* 54467befdefc047c8464c2925aec638ce34ea7 */,
 			);
 			name = d6;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/d6";
 			sourceTree = "<group>";
 		};
 		B16169124C1F451346B06413800DE177 /* ea */ = {
@@ -2037,7 +1946,6 @@
 				8C6C5D396EBBCBEB2DEA2DBBF27D55D8 /* 649396aec6503be46d8e8366269af31effa971 */,
 			);
 			name = ea;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/ea";
 			sourceTree = "<group>";
 		};
 		B279A83A8B20408F596456054F510A6E /* 4c */ = {
@@ -2046,7 +1954,6 @@
 				34304AFFDE66E362E798CC62481708B0 /* 0c486564f21b459af403a81670fcb832f311bc */,
 			);
 			name = 4c;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/4c";
 			sourceTree = "<group>";
 		};
 		B2B765C5AC86272CBD6D0B2476B03885 /* 0e */ = {
@@ -2057,7 +1964,6 @@
 				94FC129B9C995BCD01294DEA2FD6B46D /* cc65b405de6376ba32b65daa81fb1ae8857cd2 */,
 			);
 			name = 0e;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/0e";
 			sourceTree = "<group>";
 		};
 		B4F73D5AEBEAD617DD76551EDF5DEDFB /* src */ = {
@@ -2130,7 +2036,6 @@
 				9D934BEB9A07EBF3AFC9A7B3E2513A94 /* c2d8e20be67f02f67ff6a7a04abd3d1991e9ea */,
 			);
 			name = af;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/af";
 			sourceTree = "<group>";
 		};
 		B7E4EAB24ADEAA4F8FE30DC52E93A1A1 /* d8 */ = {
@@ -2139,7 +2044,6 @@
 				CA086758C46554FAC892514D9555209A /* 1277041e798c828f4da7497e412ba1d23971ca */,
 			);
 			name = d8;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/d8";
 			sourceTree = "<group>";
 		};
 		B93968ED97C43CB840A2E05A25A81F12 /* 84 */ = {
@@ -2149,7 +2053,6 @@
 				86F206320134C00DDB4D75117AEAEC53 /* a2a4d50ef848de38f517892098a1b77f375850 */,
 			);
 			name = 84;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/84";
 			sourceTree = "<group>";
 		};
 		BBFFC7EAB32F1C2279B8E0FD146262FD /* AppIntents */ = {
@@ -2167,7 +2070,6 @@
 				2136BFBDA2FF0DFF14741C5D99547711 /* 79b38e5023cd6b77740a0502f14c43aed3e450 */,
 			);
 			name = a6;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/a6";
 			sourceTree = "<group>";
 		};
 		BCC85924DEC6596C158F95EF521A5C6E /* 39 */ = {
@@ -2176,7 +2078,6 @@
 				96E4B6EAD6A60478052D77A6FD253305 /* 13598bd64f010cff5ee6ccfa3e4f4cef0c62e6 */,
 			);
 			name = 39;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/39";
 			sourceTree = "<group>";
 		};
 		BD26E14B4B8DD55A79988895D9EEB8B5 /* 9c */ = {
@@ -2185,7 +2086,6 @@
 				87263B98168B88528CCF8BDD12108F45 /* 541d48fafe3251ee93f6e9656c5acb53e1ed94 */,
 			);
 			name = 9c;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/9c";
 			sourceTree = "<group>";
 		};
 		C25761099A19CC2414B78B645CFD794E /* 6c */ = {
@@ -2194,7 +2094,6 @@
 				7FD4B250A537A58B52BE922808D79763 /* 045b8a664a507a5dfcf82bc0d9b6f36b6470e6 */,
 			);
 			name = 6c;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/6c";
 			sourceTree = "<group>";
 		};
 		C3EFD18C1C7DE67C4BF3997B3F6CD739 /* f5 */ = {
@@ -2204,7 +2103,6 @@
 				31F606CA5D8649A882F869C343FE2E28 /* adc2cc5254dba1f4ccb554116f0189bb1b6b26 */,
 			);
 			name = f5;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/f5";
 			sourceTree = "<group>";
 		};
 		C5D003F7B71EF1122F290B414D690969 /* 92 */ = {
@@ -2213,7 +2111,6 @@
 				77E245B9E86FD45AE97A4D705F8B332F /* 501f81d54103be127219f389a81346a6433b8a */,
 			);
 			name = 92;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/92";
 			sourceTree = "<group>";
 		};
 		C64CCF85E2DE4801FD880B5B00C1EEEF /* c1 */ = {
@@ -2222,7 +2119,6 @@
 				64627C67FE87547BA87B53C49B9C71E9 /* 0933a6274c9ad9fa2b54e4b008bad61d685e6d */,
 			);
 			name = c1;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/c1";
 			sourceTree = "<group>";
 		};
 		C82DBBB9878EAA0C6FF019C40C54C858 /* Resources */ = {
@@ -2242,7 +2138,6 @@
 				E405614695F7AD435C6DBB7EE902F6C4 /* 1fd7d19d8658f64d8696ed9cdfc82c821ed76d */,
 			);
 			name = 87;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/87";
 			sourceTree = "<group>";
 		};
 		C9FA60861392AAC37345ED7124E3DB08 /* f6 */ = {
@@ -2251,7 +2146,6 @@
 				6897536D9880AB3380D818421893A48E /* 752c6577c1ba043995680ec938f6f7d00ca584 */,
 			);
 			name = f6;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/f6";
 			sourceTree = "<group>";
 		};
 		CD3B452389FE8E88AA89E29388E0F26D /* 73 */ = {
@@ -2260,7 +2154,6 @@
 				857DB181702404810DA943EC6E4F64EF /* bfda807e84ce789172070477c3eacc470d56f4 */,
 			);
 			name = 73;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/73";
 			sourceTree = "<group>";
 		};
 		CDAE5CCBA74DFE7A72A67328489AB646 /* bc */ = {
@@ -2269,7 +2162,6 @@
 				825E46AF14895F66F186FAE00A616C46 /* a3bf8a6faa50265683602017b09e445242b914 */,
 			);
 			name = bc;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/bc";
 			sourceTree = "<group>";
 		};
 		CDBD3BA70B124BF75AF6855607B4C60D /* MiniClawWidget */ = {
@@ -2288,7 +2180,6 @@
 				A36AE1A313D0545F01ACAD712ACCC03F /* bef0091be946ab0462350cc6f6564ed6ed1eb6 */,
 			);
 			name = 3b;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/3b";
 			sourceTree = "<group>";
 		};
 		CF1A374E8EC6AC08D649191741EA080C /* f8 */ = {
@@ -2297,7 +2188,6 @@
 				73F13C0F18D54FDE4F68797FF09E5E48 /* eabfda4d683940200aac6be3f9963e0cc2c6b9 */,
 			);
 			name = f8;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/f8";
 			sourceTree = "<group>";
 		};
 		CF93D6B6DD7B284F680B6FDB4ED01C5E /* Frameworks */ = {
@@ -2323,7 +2213,6 @@
 				82FFDC931C44D4CA5AA6D8C7D852CE67 /* 9e9d924fabd43a102d459ea4f198d6f6447572 */,
 			);
 			name = b5;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/b5";
 			sourceTree = "<group>";
 		};
 		D1541F3DC43949E2EE0A8770F382B247 /* b6 */ = {
@@ -2333,7 +2222,6 @@
 				09BCE46BD353BA0CA488CFDF33F11955 /* d15ce892fb2dc879d32a2f4d6ad1592484bcad */,
 			);
 			name = b6;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/b6";
 			sourceTree = "<group>";
 		};
 		D3CB65C51BF589A54B805304D4A28ED4 /* 3a */ = {
@@ -2342,7 +2230,6 @@
 				EA07B5151B757320AB9670533C4D228F /* d1707b4be0627a1c8f0a9ac8c9560fd8644ea9 */,
 			);
 			name = 3a;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/3a";
 			sourceTree = "<group>";
 		};
 		D52DDE9D6A562F0666AC0FBD60FC8E27 /* 9d */ = {
@@ -2352,7 +2239,6 @@
 				869EDA9CEB089E4DC2F642EF23CF4658 /* f7fb34a7ee3002a2006c7d37051ed2398f0f18 */,
 			);
 			name = 9d;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/9d";
 			sourceTree = "<group>";
 		};
 		D54D18974CA2BBDE84B2C902BAD0A47C /* Home */ = {
@@ -2374,7 +2260,6 @@
 				51584A86DEB0350DACC7840E92199560 /* master */,
 			);
 			name = heads;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/refs/heads";
 			sourceTree = "<group>";
 		};
 		DC2B6DB8F73A28BD063329DAE78F9102 /* 7a */ = {
@@ -2383,7 +2268,6 @@
 				C646EEA27B66A39EA5F2A7C2A541BBB6 /* 212caf91c0007e826fee2d622bf48acbd30dde */,
 			);
 			name = 7a;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/7a";
 			sourceTree = "<group>";
 		};
 		E037659DDEE9E4DB55228FDCF56D9F9B /* refs */ = {
@@ -2391,7 +2275,6 @@
 			children = (
 			);
 			name = refs;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/logs/refs";
 			sourceTree = "<group>";
 		};
 		E10301D56B44C8DFC16A6257C4C10CB3 /* ec */ = {
@@ -2400,7 +2283,6 @@
 				88CB6DBAF614C6AB5395F236A712E733 /* 0e4fc338d7f271dea724e6e0a3fe5e7ae9befd */,
 			);
 			name = ec;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/ec";
 			sourceTree = "<group>";
 		};
 		E1D1EE743612C1798B12EF49A48378A8 /* Models */ = {
@@ -2420,7 +2302,6 @@
 				A924FBAB379E73BFDF048937F6D94822 /* a230a066772ead11a30464b5a17dc2c2448b4f */,
 			);
 			name = 6b;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/6b";
 			sourceTree = "<group>";
 		};
 		EA1CE80FCAC00978C105899E0FA98EB8 /* MiniClawKit */ = {
@@ -2465,7 +2346,6 @@
 				647906AFCDFCCBA79BACD6FDB35D5D2B /* 45d59d0039a180b9a46b7948656091d028616a */,
 			);
 			name = 7e;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/7e";
 			sourceTree = "<group>";
 		};
 		EC2F8DD2A649199E8C5F7B2EBAA84F70 /* Shared */ = {
@@ -2483,7 +2363,6 @@
 				6674521DA072316C7F44FCA5435BDC18 /* a769a56a190739c949035e08193a2914f18b89 */,
 			);
 			name = 5b;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/5b";
 			sourceTree = "<group>";
 		};
 		EDA917FC384D0FF7A484E58BFD8A4C28 /* c3 */ = {
@@ -2493,7 +2372,6 @@
 				794BE7A36941D4697BFE5695EF566F9B /* 9535ff04aa3c211d788a90e8acccd49a0dfac6 */,
 			);
 			name = c3;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/c3";
 			sourceTree = "<group>";
 		};
 		EDC33B73A29A709EC37F06736EC99DD4 /* a9 */ = {
@@ -2503,7 +2381,6 @@
 				473CF1D638E430ACF40D2E059C4E05A1 /* 0955e991e81c3a2aa5bb7335ef71fb6d63839d */,
 			);
 			name = a9;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/a9";
 			sourceTree = "<group>";
 		};
 		EE43229255272C2469FA2B3CA2C4A8FF /* ba */ = {
@@ -2512,7 +2389,6 @@
 				58C769F78C143552F9056BC971A59628 /* f9974dd2e28630260dcbbe6471ef44b5cbff86 */,
 			);
 			name = ba;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/ba";
 			sourceTree = "<group>";
 		};
 		EF880C47F0D5151A73352D4D94D3EC48 /* 72 */ = {
@@ -2522,7 +2398,6 @@
 				3A491E56D5F0479F7B9DDDE9A7D34786 /* 8ce7a1e2cb689df32c3a6c26e1bd072dcf2acb */,
 			);
 			name = 72;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/72";
 			sourceTree = "<group>";
 		};
 		F1C53F811DD582FBE53A1E230D662C1C /* App */ = {
@@ -2543,7 +2418,6 @@
 				5508A72A360C9CFD540C39C7CD944362 /* 1096cd5574c9065d5a88500c266b3cde73b0e4 */,
 			);
 			name = 5c;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/5c";
 			sourceTree = "<group>";
 		};
 		F389ACB046DAF98481926B6C06A64C9C /* app */ = {
@@ -2562,7 +2436,6 @@
 				C6F32318A1CF4FDDA1EEBCDEFD20B0B3 /* a653a3b866e44d947a4eb73b6ea319a382e016 */,
 			);
 			name = 3f;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/3f";
 			sourceTree = "<group>";
 		};
 		F48FD0BFD5672BB18BCAD8ECC755BD7E /* d3 */ = {
@@ -2571,7 +2444,6 @@
 				D06F561076DDFCFFA13FC98AA026D1AE /* be0bd08f18f6c30748663936cfeba144f59720 */,
 			);
 			name = d3;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/d3";
 			sourceTree = "<group>";
 		};
 		FA95E8753468AF87E2E2CA9075CEB94A /* include */ = {
@@ -2590,7 +2462,6 @@
 				3EA40CB4E71AE2FAD967A77E593280C3 /* d559b4e937ca1b805eb39f544cbebe3c58ca6f */,
 			);
 			name = 70;
-			path = "/Users/neartop/Desktop/MiniClowDevelopment/第三方源码/MiniClawKit/.git/objects/70";
 			sourceTree = "<group>";
 		};
 		FE596C04F3421609D575495D9C5CC0E8 /* MiniClawTests */ = {

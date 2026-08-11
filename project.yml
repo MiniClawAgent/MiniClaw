@@ -175,6 +175,7 @@ targets:
       - path: ../第三方源码/MiniClawKit
         excludes:
           - KaTeX
+          - .git
       # SwiftMath(原生公式渲染,vendored 1.7.3)
       - path: ../第三方源码/SwiftMath/Sources/SwiftMath
       # cmark-gfm C 源码(vendored,swift-cmark 0.8.0)
