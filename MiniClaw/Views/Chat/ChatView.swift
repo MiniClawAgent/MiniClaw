@@ -101,9 +101,15 @@ struct ChatView: View {
     /// 后续 词元 / 工具事件不再抢回滚动控制，直到用户主动发送消息或重新进入会话。
     @State private var shouldAutoFollow: Bool = true
     @FocusState private var isInputFocused: Bool
-    /// 输入栏高度(2026-08-11 重建,onGeometryChange 测输入栏自身高度,不含键盘)。
+    /// 悬浮层总高度(2026-08-11 重写):onGeometryChange 测整个 chatOverlay 真实内容高度
+    /// (排队消息 + 子代理头像 + 附件提示 + 输入栏),不含键盘。键盘展开/收起不改该值,
+    /// 故消息距输入栏距离在无键盘态与有键盘态恒定(= 列表 contentInset.bottom - 8)。
     @State private var inputBarHeight: CGFloat = 0
     @State private var inputBarHeightDebounce: Task<Void, Never>?
+    /// 悬浮内容条(排队/子代理/附件)高度,照 OpenMinis floatingBarHeight 语义:
+    /// 列表 bottomInset = inputBarHeight + floatingBarHeight + 8。
+    @State private var floatingBarHeight: CGFloat = 0
+    /// 输入栏最近一次 on-screen 高度(onGeometryChange 上报,debounce 提交时读最新值)。
     @State private var latestInputBarFrameH: CGFloat = 0
     @State private var didSeedInputBarHeight = false
 
@@ -193,16 +199,6 @@ struct ChatView: View {
     @MainActor
     /// 本会话排队中的用户消息
     private var pendingMessages: [PendingUserMessage] { appState.pendingUserMessages[session.id] ?? [] }
-
-    /// 悬浮层内容总高度(输入栏上方叠加元素):子代理头像区(约 44)+ 附件提示(约 40)
-    /// + 队列消息(每条 40)+ 间距。计入列表底部 inset,键盘抬起/消息回落不遮挡。
-    private var floatingOverlayHeight: CGFloat {
-        var h: CGFloat = 0
-        if !SubagentStore.shared.avatars(for: session.id).isEmpty { h += 44 }
-        if attachmentNotice != nil { h += 40 }
-        if !pendingMessages.isEmpty { h += CGFloat(pendingMessages.count) * 40 + 4 }
-        return h
-    }
 
     // MARK: - 持久化（草稿 / 排队队列跨会话与杀后台）
 
@@ -699,131 +695,148 @@ struct ChatView: View {
     }
 
     /// 输入栏悬浮层(2026-08-11 拆分 body 避免类型推断超时)。
+    /// 悬浮内容条(排队消息 + 子代理头像 + 附件提示):照 OpenMinis floatingToolPreview
+    /// 语义,独立于输入栏测高(列表 bottomInset = inputBarHeight + floatingBarHeight + 8)。
+    @ViewBuilder
+    private var floatingContent: some View {
+        // 「回到底部」按钮已按用户要求从源码剔除(2026-08-10)。
+
+        // 排队消息:显示在输入框上方悬浮层(2026-08-10 用户要求,
+        // 不再注入消息列表内容里)。每条含删除叉 + 立即发送按钮。
+        let queue = pendingMessages
+        if !queue.isEmpty {
+            VStack(alignment: .leading, spacing: 4) {
+                ForEach(queue) { item in
+                    queuedMessageRow(item)
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.bottom, 4)
+        }
+
+        // 子代理：在输入框上方悬浮显示圆形头像（常驻，任务完成后也不消失）。
+        // 点按头像从底部弹出「智能体 ↔ 子代理」对话详情页（下滑返回）；
+        // 长按头像可移除该子代理卡片。
+        let subs = SubagentStore.shared.avatars(for: session.id)
+        if !subs.isEmpty {
+            subagentFloatingAvatars(subs)
+        }
+
+        // 附件交由 智能体通过工具读取时的中性提示：
+        // - 与输入栏左右对齐（同样的 16pt 外边距 + 12pt 内边距、左对齐）
+        // - 用户可点按整条提示立即关闭（同时保留 5 秒后自动消失）
+        if let notice = attachmentNotice {
+            HStack(spacing: 6) {
+                Image(systemName: "info.circle.fill")
+                    .font(.caption)
+                    .foregroundStyle(.blue)
+                Text(notice)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
+            .padding(.horizontal, 16)
+            .padding(.bottom, 4)
+            .contentShape(Rectangle())
+            .onTapGesture { withAnimation { attachmentNotice = nil } }
+            .transition(.move(edge: .bottom).combined(with: .opacity))
+        }
+    }
+
     @ViewBuilder
     private var chatOverlay: some View {
         VStack(spacing: 0) {
-                    // 「回到底部」按钮已按用户要求从源码剔除(2026-08-10)。
-
-                    // 排队消息:显示在输入框上方悬浮层(2026-08-10 用户要求,
-                    // 不再注入消息列表内容里)。每条含删除叉 + 立即发送按钮。
-                    let queue = pendingMessages
-                    if !queue.isEmpty {
-                        VStack(alignment: .leading, spacing: 4) {
-                            ForEach(queue) { item in
-                                queuedMessageRow(item)
-                            }
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.bottom, 4)
-                    }
-
-                    // 子代理：在输入框上方悬浮显示圆形头像（常驻，任务完成后也不消失）。
-                    // 点按头像从底部弹出「智能体 ↔ 子代理」对话详情页（下滑返回）；
-                    // 长按头像可移除该子代理卡片。
-                    let subs = SubagentStore.shared.avatars(for: session.id)
-                    if !subs.isEmpty {
-                        subagentFloatingAvatars(subs)
-                    }
-
-                    // 附件交由 智能体通过工具读取时的中性提示：
-                    // - 与输入栏左右对齐（同样的 16pt 外边距 + 12pt 内边距、左对齐）
-                    // - 用户可点按整条提示立即关闭（同时保留 5 秒后自动消失）
-                    if let notice = attachmentNotice {
-                        HStack(spacing: 6) {
-                            Image(systemName: "info.circle.fill")
-                                .font(.caption)
-                                .foregroundStyle(.blue)
-                            Text(notice)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                                .lineLimit(2)
-                        }
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 8)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
-                        .padding(.horizontal, 16)
-                        .padding(.bottom, 4)
-                        .contentShape(Rectangle())
-                        .onTapGesture { withAnimation { attachmentNotice = nil } }
-                        .transition(.move(edge: .bottom).combined(with: .opacity))
-                    }
-                    ChatInputBar(
-                        isAgentResponding: isRespondingBinding,
-                        isPaused: isPausedBinding,
-                        attachments: $pendingAttachments,
-                        injectedText: injectedInputText,
-                        injectionID: inputInjectionID,
-                        onDraftChanged: { text in
-                            // 防抖镜像同步 + 草稿落盘（击键不再触发本视图重算）
-                            inputText = text
-                            persistDraft()
-                        },
-                        onSend: { text in
-                            sendMessage(text)
-                        },
-                        onPause: pauseGeneration,
-                        onResume: resumeGeneration,
-                        onSlashCommand: handleSlashCommand,
-                        thinkingSupported: modelSupportsThinking,
-                        thinkingSelectedLevel: currentThinkingLevel,
-                        thinkingLevels: availableThinkingLevels,
-                        focused: $isInputFocused
-                    )
-                    // 输入栏高度(2026-08-11 重建):onGeometryChange 测输入栏【自身高度】。
-                    .onGeometryChange(for: CGRect.self) { proxy in
-                        proxy.frame(in: .global)
-                    } action: { frame in
-                        let newH = frame.size.height
-                        guard newH > 0 else { return }
-                        let hostWindow = inputBarWindowBounds()
-                        let paneW = frame.width > 1 ? frame.width : hostWindow.width
-                        let tolerance = paneW * 0.25
-                        let onscreen = frame.minX >= hostWindow.minX - tolerance
-                            && frame.maxX <= hostWindow.maxX + tolerance
-                        if onscreen { latestInputBarFrameH = newH }
-                        if !didSeedInputBarHeight, onscreen {
-                            didSeedInputBarHeight = true
-                            inputBarHeightDebounce?.cancel()
-                            inputBarHeight = newH
-                            inputBarHeightDebounce = Task { @MainActor in
-                                try? await Task.sleep(for: .milliseconds(380))
-                                guard !Task.isCancelled else { return }
-                                let settled = latestInputBarFrameH
-                                if settled > 0, abs(settled - newH) > 0.5 {
-                                    inputBarHeight = settled
-                                }
-                            }
-                            return
-                        }
-                        guard onscreen else { return }
-                        inputBarHeightDebounce?.cancel()
-                        inputBarHeightDebounce = Task { @MainActor in
-                            try? await Task.sleep(for: .milliseconds(380))
-                            guard !Task.isCancelled else { return }
-                            let committed = latestInputBarFrameH > 0 ? latestInputBarFrameH : newH
-                            inputBarHeight = committed
-                            try? await Task.sleep(for: .milliseconds(320))
-                            guard !Task.isCancelled else { return }
-                            let settled = latestInputBarFrameH
-                            if settled > 0, abs(settled - committed) > 0.5 {
-                                inputBarHeight = settled
-                            }
+            // 悬浮内容条(排队/子代理/附件):照 OpenMinis floatingToolPreview 独立测高。
+            floatingContent
+                .onGeometryChange(for: CGFloat.self) { proxy in
+                    proxy.size.height
+                } action: { newH in
+                    floatingBarHeight = newH
+                }
+                .onDisappear {
+                    floatingBarHeight = 0
+                }
+            ChatInputBar(
+                isAgentResponding: isRespondingBinding,
+                isPaused: isPausedBinding,
+                attachments: $pendingAttachments,
+                injectedText: injectedInputText,
+                injectionID: inputInjectionID,
+                onDraftChanged: { text in
+                    // 防抖镜像同步 + 草稿落盘（击键不再触发本视图重算）
+                    inputText = text
+                    persistDraft()
+                },
+                onSend: { text in
+                    sendMessage(text)
+                },
+                onPause: pauseGeneration,
+                onResume: resumeGeneration,
+                onSlashCommand: handleSlashCommand,
+                thinkingSupported: modelSupportsThinking,
+                thinkingSelectedLevel: currentThinkingLevel,
+                thinkingLevels: availableThinkingLevels,
+                focused: $isInputFocused
+            )
+            // 照 OpenMinis inputBar 测高:seed 首帧同步 + 380ms debounce + 320ms settle-confirm。
+            // .global frame 的 height 不受键盘影响(键盘只改 Y),配合 onscreen 守卫。
+            .onGeometryChange(for: CGRect.self) { proxy in
+                proxy.frame(in: .global)
+            } action: { frame in
+                let newH = frame.size.height
+                guard newH > 0 else { return }
+                let hostWindow = inputBarWindowBounds()
+                let paneW = frame.width > 1 ? frame.width : hostWindow.width
+                let tolerance = paneW * 0.25
+                let onscreen = frame.minX >= hostWindow.minX - tolerance
+                    && frame.maxX <= hostWindow.maxX + tolerance
+                if onscreen { latestInputBarFrameH = newH }
+                if !didSeedInputBarHeight, onscreen {
+                    didSeedInputBarHeight = true
+                    inputBarHeightDebounce?.cancel()
+                    inputBarHeight = newH
+                    inputBarHeightDebounce = Task { @MainActor in
+                        try? await Task.sleep(for: .milliseconds(380))
+                        guard !Task.isCancelled else { return }
+                        let settled = latestInputBarFrameH
+                        if settled > 0, abs(settled - newH) > 0.5 {
+                            inputBarHeight = settled
                         }
                     }
+                    return
+                }
+                guard onscreen else { return }
+                inputBarHeightDebounce?.cancel()
+                inputBarHeightDebounce = Task { @MainActor in
+                    try? await Task.sleep(for: .milliseconds(380))
+                    guard !Task.isCancelled else { return }
+                    let committed = latestInputBarFrameH > 0 ? latestInputBarFrameH : newH
+                    inputBarHeight = committed
+                    try? await Task.sleep(for: .milliseconds(320))
+                    guard !Task.isCancelled else { return }
+                    let settled = latestInputBarFrameH
+                    if settled > 0, abs(settled - committed) > 0.5 {
+                        inputBarHeight = settled
+                    }
+                }
+            }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+        .onAppear { didSeedInputBarHeight = false }
     }
 
     var body: some View {
         ZStack {
             messageListView
-            // P15:输入栏改悬浮层(ZStack 靠底)——输入框外不再有背景、不再顶开列表,
-            // 聊天内容可滚到输入框下面、透过半透明输入框(.bar)可见(用户要求的悬浮态)。
+        }
+        // 照 OpenMinis:输入栏以 .overlay(alignment:.bottom) 悬浮,受 safe area 约束,
+        // 键盘展开/收起由系统自动键盘规避统一抬升——消息距输入栏距离恒定。
+        .overlay(alignment: .bottom) {
             chatOverlay
         }
-        // 2026-08-11 对齐 OpenMinis:列表与悬浮层都尊重安全区,键盘展开/收起由
-        // 系统自动键盘规避统一抬升——消息距输入栏距离恒定(不高不低)。
         .background(Color(.systemBackground))
         // 键盘高度监听已移至列表 Coordinator(keyboardHeight),此处不再手动桥接。
         .onChange(of: appState.pendingBrowserURL) { _, url in
@@ -1001,8 +1014,8 @@ struct ChatView: View {
             onResume: { chatBridge.onResume?() },
             onStop: { chatBridge.onStop?() },
             maxContentWidth: 0,
-            floatingBarHeight: 0,
-            inputBarHeight: inputBarHeight + floatingOverlayHeight
+            floatingBarHeight: floatingBarHeight,
+            inputBarHeight: inputBarHeight
         )
         .onAppear {
             chatBridge.attach(session: session, appState: appState)
