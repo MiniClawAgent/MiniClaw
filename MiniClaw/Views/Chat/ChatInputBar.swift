@@ -705,10 +705,14 @@ struct ChatInputBar: View {
                 showSourcePicker = true
             }
 
-            // 文本输入
+            // 文本输入(方案A已回退 2026-08-11:恢复 SwiftUI TextField)
             TextField(textFieldPlaceholder, text: $draft,
                       axis: SettingsStore.shared.settings.chat.enterToSend ? .horizontal : .vertical)
                 .focused(focused)
+                .onChange(of: focused.wrappedValue) { _, now in
+                    // [KbdDiag 2026-08-11] 输入焦点变化(键盘弹出/收起直接信号)。
+                    AppLogger.shared.info("[InputFocus] focused=\(now) draftLen=\(draft.count)", category: "KbdDiag")
+                }
                 .lineLimit(SettingsStore.shared.settings.chat.enterToSend ? 1 : 6)
                 .submitLabel(SettingsStore.shared.settings.chat.enterToSend ? .send : .return)
                 .onSubmit {
@@ -726,6 +730,19 @@ struct ChatInputBar: View {
                             }
                         }
                 )
+            .onChange(of: focused.wrappedValue) { _, now in
+                // [KbdDiag 2026-08-11] 输入焦点变化(键盘弹出/收起直接信号)。
+                AppLogger.shared.info("[InputFocus] focused=\(now) draftLen=\(draft.count)", category: "KbdDiag")
+            }
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 20)
+                    .onEnded { value in
+                        // 下滑 → 收起键盘（输入框内任意位置下滑）
+                        if value.translation.height > 30 {
+                            focused.wrappedValue = false
+                        }
+                    }
+            )
 
             // 清除
             if !draft.isEmpty {

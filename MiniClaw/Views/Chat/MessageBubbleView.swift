@@ -440,17 +440,9 @@ struct MessageBubbleView: View {
     // MARK: - Assistant Avatar
 
     private var assistantAvatar: some View {
-        // 开源参考实现对齐(2026-08-09):sparkles 18pt semibold + 暖金渐变(原 ✨ emoji)
-        Image(systemName: "sparkles")
-            .font(.system(size: 18, weight: .semibold))
-            .foregroundStyle(
-                LinearGradient(
-                    colors: [Color(red: 0.72, green: 0.69, blue: 0.59),
-                             Color(red: 0.6, green: 0.6, blue: 0.55)],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-            )
+        // 2026-08-10 用户要求:星星改为 emoji ✨(原 sparkles SF 符号 + 暖金渐变)。
+        Text("✨")
+            .font(.system(size: 18))
     }
 }
 

@@ -110,6 +110,10 @@ struct ChatView: View {
     /// 列表 bottomInset = inputBarHeight + floatingBarHeight + 8。
     @State private var floatingBarHeight: CGFloat = 0
     /// 输入栏最近一次 on-screen 高度(onGeometryChange 上报,debounce 提交时读最新值)。
+    /// [KbdDiag 2026-08-11] 上次打日志的高度(去重,避免刷屏)。
+    /// 必须 @State:onGeometryChange 的 action 是 @escaping 非 mutating 闭包,
+    /// 普通存储属性无法在其中赋值(Cannot assign to property: 'self' is immutable)。
+    @State private var lastLoggedInputBarH: CGFloat = -1
     @State private var latestInputBarFrameH: CGFloat = 0
     @State private var didSeedInputBarHeight = false
 
@@ -795,8 +799,15 @@ struct ChatView: View {
                 let onscreen = frame.minX >= hostWindow.minX - tolerance
                     && frame.maxX <= hostWindow.maxX + tolerance
                 if onscreen { latestInputBarFrameH = newH }
+                // [KbdDiag 2026-08-11] 输入栏测高全链路日志(照 OpenMinis InputBarLayout):
+                // 每次上报打 frame.height + onscreen,seed/commit 时打结果。
+                if newH != lastLoggedInputBarH {
+                    lastLoggedInputBarH = newH
+                    AppLogger.shared.info("[InputBarLayout] h=\(String(format: "%.1f", newH)) onscreen=\(onscreen) y=\(String(format: "%.1f", frame.minY)) win.h=\(String(format: "%.1f", hostWindow.height))", category: "InputBarLayout")
+                }
                 if !didSeedInputBarHeight, onscreen {
                     didSeedInputBarHeight = true
+                    AppLogger.shared.info("[InputBarLayout] SEED inputBarHeight=\(String(format: "%.1f", newH))", category: "InputBarLayout")
                     inputBarHeightDebounce?.cancel()
                     inputBarHeight = newH
                     inputBarHeightDebounce = Task { @MainActor in
@@ -815,6 +826,9 @@ struct ChatView: View {
                     try? await Task.sleep(for: .milliseconds(380))
                     guard !Task.isCancelled else { return }
                     let committed = latestInputBarFrameH > 0 ? latestInputBarFrameH : newH
+                    if abs(committed - inputBarHeight) > 0.5 {
+                        AppLogger.shared.info("[InputBarLayout] COMMIT inputBarHeight=\(String(format: "%.1f", committed))", category: "InputBarLayout")
+                    }
                     inputBarHeight = committed
                     try? await Task.sleep(for: .milliseconds(320))
                     guard !Task.isCancelled else { return }
@@ -837,7 +851,6 @@ struct ChatView: View {
         .overlay(alignment: .bottom) {
             chatOverlay
         }
-        .background(Color(.systemBackground))
         // 键盘高度监听已移至列表 Coordinator(keyboardHeight),此处不再手动桥接。
         .onChange(of: appState.pendingBrowserURL) { _, url in
             if let url { browserURL = url; appState.pendingBrowserURL = nil }
@@ -985,6 +998,9 @@ struct ChatView: View {
 
     private var messageListView: some View {
         adaptedListContent
+        // 2026-08-11 恢复:仅列表延伸到小横条(消息可滚到小横条后面,底部无白条);
+        // 输入栏 overlay 不受影响,仍尊重底部安全区停留在原位置。
+        .ignoresSafeArea(.container, edges: .bottom)
         .onAppear {
             shouldAutoFollow = true
             AppLogger.shared.info("[Chat] onAppear follow=true messages=" + String(session.messages.count)

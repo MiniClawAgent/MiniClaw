@@ -10,7 +10,10 @@ import MiniClawKit
 @MainActor
 final class MiniClawChatBridge: ObservableObject {
     /// 适配列表直接消费的视图模型
-    let vm = MiniClawKit.AIChatViewModel()
+    /// 适配列表直接消费的视图模型。注入 BrowserEngineAdapter 的共享标签池,
+    /// 让浏览器工具指示器能打开真实引擎 WebView(BrowserSheetView),不再落入
+    /// 空桩 ISHTerminalView(2026-08-10 修复:浏览器工具白屏)。
+    let vm = MiniClawKit.AIChatViewModel(browserTabPool: BrowserEngineAdapter.shared.pool(for: nil))
 
     private weak var session: ChatSession?
     private weak var appState: AppState?
@@ -28,6 +31,15 @@ final class MiniClawChatBridge: ObservableObject {
     func attach(session: ChatSession, appState: AppState) {
         self.session = session
         self.appState = appState
+        // 浏览器工具指示器用的标签池必须是会话级池(与引擎工具执行同一对象):
+        // 注入 sharedPool 会让工具导航的 tab 落在会话级池、指示器打开的是空池
+        // → "No Page"(2026-08-10 修复)。attach 时按 session.id 取会话级池。
+        vm.browserTabPool = BrowserEngineAdapter.shared.pool(for: session.id)
+        // 重进会话:清空对象缓存 + 重置指纹,强制从磁盘重建 blocks
+        // (buildBlocks 按 timelineOrder 正确排序)。否则 omCache 复用流式期间
+        // 的中途乱序 blocks,重进会话仍错序(2026-08-10 修复)。
+        omCache.removeAll(keepingCapacity: true)
+        lastFingerprint = ""
         refresh(force: true)
     }
 
@@ -36,20 +48,112 @@ final class MiniClawChatBridge: ObservableObject {
         guard let session else { return }
 
         let sorted = session.messages.sorted { $0.createdAt < $1.createdAt }
-
+        // 排队消息不再注入 vm.messages——2026-08-10 用户要求显示在输入框上方
+        // 悬浮层(ChatView.queuedMessageRow 直接读 appState.pendingUserMessages),
+        // 此处移除列表注入避免重复显示。
         // 运行状态镜像(停止/暂停按钮与 typing 指示器用)——必须在节流判断之前:
         // 流式结束瞬间内容可能不变(指纹相同),但 isResponding 翻转必须同步,
         // 否则思考块 isStreaming 永远为 true,自动折叠永不触发。
+        // 注意:不再无条件清 streamingUIUpdatesSuspended——该标志由消息列表
+        // 组件在用户拖动(挂起流式重建)/settle(恢复)时自行管理,此处强制复位
+        // 会让拖动中的挂起窗失效(0.25s 内被踢回 false),是上拉回弹抖动的一环。
         if let runtime = appState?.chatRuntimes[session.id] {
             vm.isProcessing = runtime.isResponding
             vm.canResume = runtime.isPaused
-            vm.streamingUIUpdatesSuspended = false
         } else {
             vm.isProcessing = false
             vm.canResume = false
         }
 
-        let messages = sorted.map { omMessage(for: $0) }
+        var messages = sorted.map { omMessage(for: $0) }
+        // 流式实时合并(SwiftData 终态落盘,流式中 content 不更新):
+        // 把 runtime 的实时缓冲(正文 streamingContent、思考段
+        // streamingReasoningSegments、工具调用 streamingToolCalls)合并进
+        // 最后一条 assistant 消息,按 timelineOrder 交错插入 blocks——
+        // 实现「思考指示器 → 工具指示器 → 正文」流式中依次实时出现,
+        // 不再等终态落盘一次性吐出(2026-08-10 修复)。
+        // 注意:合并必须在指纹/节流 return 之前执行——流式中指纹可能因
+        // 纯文本增长而恒等,若合并放 return 之后则永不执行 → 无流式输出。
+        // 合并只改最后一条消息的 content/blocks,成本可控,不应被节流吞掉。
+        if let runtime = appState?.chatRuntimes[session.id],
+           runtime.isResponding,
+           let lastAI = messages.last(where: { $0.role == .assistant }) {
+            // ① 正文:按思考段/工具调用的 position 把 streamingContent 切分成
+            // 多段 text block,按「事件 order - 0.5」穿插插入——与终态 buildBlocks
+            // 规则一致,实现「思考1→工具1→回复1→思考2→工具2→回复2」流式中即
+            // 正确穿插(2026-08-10 修复:流式正文混在一起、完成后才跳回正确)。
+            // 幂等:0.25s 节流高频调用,按 timelineOrder 定位既有 text block 就地
+            // 更新(保 block.id/高度缓存),不存在才 insertBlock。
+            if !runtime.streamingContent.isEmpty {
+                lastAI.content = runtime.streamingContent
+                // 事件列表:思考段 + 工具调用,按 order(次按 position)排序。
+                var events: [(order: Double, position: Int)] = []
+                for seg in runtime.streamingReasoningSegments {
+                    events.append((Double(seg.timelineOrder), seg.position))
+                }
+                for evt in runtime.streamingToolCalls {
+                    events.append((Double(evt.timelineOrder), evt.position))
+                }
+                events.sort {
+                    $0.order < $1.order || ($0.order == $1.order && $0.position < $1.position)
+                }
+                // 切分:每个事件前的正文片段 order = 事件order - 0.5;剩余排最后。
+                let content = runtime.streamingContent
+                var cursor = 0
+                for (order, position) in events {
+                    let p = min(max(position, 0), content.count)
+                    if p > cursor {
+                        let startIdx = content.index(content.startIndex, offsetBy: cursor)
+                        let endIdx = content.index(content.startIndex, offsetBy: p)
+                        upsertTextBlock(content: String(content[startIdx..<endIdx]),
+                                        order: order - 0.5,
+                                        into: &lastAI.blocks)
+                    }
+                    cursor = max(cursor, p)
+                }
+                if cursor < content.count {
+                    let startIdx = content.index(content.startIndex, offsetBy: cursor)
+                    upsertTextBlock(content: String(content[startIdx..<content.endIndex]),
+                                    order: Double(Int.max - 1),
+                                    into: &lastAI.blocks)
+                }
+            }
+            // ② 思考段:按 timelineOrder 交错插入 .thinking block。
+            // 段文本流式增长(新全文以旧全文为前缀),用「新文本以旧内容开头」
+            // 匹配已存在的段并就地更新;新段追加并强制折叠。
+            for seg in runtime.streamingReasoningSegments {
+                let prefixMatch = lastAI.blocks.first { b in
+                    b.kind == .thinking && !b.content.isEmpty && seg.text.hasPrefix(b.content)
+                }
+                if let existing = prefixMatch {
+                    existing.content = seg.text
+                } else {
+                    let tb = MiniClawKit.AssistantBlock(kind: .thinking, content: seg.text)
+                    tb.isThinkingExpanded = false
+                    tb.thinkingUserToggled = false
+                    insertBlock(tb, order: Double(seg.timelineOrder), into: &lastAI.blocks)
+                }
+            }
+            // ③ 工具调用:按 timelineOrder 交错插入 tool block。
+            // 已存在的调用(同 callID)更新状态/内容;新调用追加。
+            for evt in runtime.streamingToolCalls {
+                let key = evt.callID ?? evt.id.uuidString
+                if let existing = lastAI.blocks.first(where: { $0.toolUseId == key }) {
+                    existing.content = evt.arguments
+                    existing.toolStatus = self.toolStatus(for: evt)
+                } else {
+                    let kind = MiniClawChatAdapter.toolKind(evt.name, arguments: evt.arguments)
+                    let tb = MiniClawKit.AssistantBlock(
+                        kind: kind,
+                        content: evt.arguments,
+                        toolStatus: self.toolStatus(for: evt),
+                        toolUseId: key
+                    )
+                    insertBlock(tb, order: Double(evt.timelineOrder), into: &lastAI.blocks)
+                }
+            }
+        }
+
         // 指纹纳入思考段与工具状态(同 blocks 数内的状态流转不再被节流吞掉)
         var fp = ""
         for m in messages {
@@ -60,7 +164,9 @@ final class MiniClawChatBridge: ObservableObject {
                 } else if b.toolStatus != nil {
                     fp += "u:\(String(describing: b.toolStatus))|\(b.content.count)|"
                 } else {
-                    fp += "x|"
+                    // text 块指纹含内容量:流式增长必须反映到指纹,
+                    // 否则 vm.messages 重建被节流吞掉,列表无刷新驱动。
+                    fp += "x:\(b.content.count)|"
                 }
             }
         }
@@ -72,21 +178,6 @@ final class MiniClawChatBridge: ObservableObject {
 
         vm.messages = messages
         vm.isLoadingSession = false
-
-        // 流式实时合并(SwiftData 终态落盘,流式中 content 不更新):
-        // 把 runtime.streamingContent 合并进最后一条 assistant 消息的
-        // content 与最后 text block;若正文尚未出现则追加 text block。
-        if let runtime = appState?.chatRuntimes[session.id],
-           runtime.isResponding, !runtime.streamingContent.isEmpty,
-           let lastAI = messages.last(where: { $0.role == .assistant }) {
-            lastAI.content = runtime.streamingContent
-            if let tb = lastAI.blocks.last(where: { if case .text = $0.kind { return true }; return false }) {
-                tb.content = runtime.streamingContent
-            } else {
-                let tb = MiniClawKit.AssistantBlock(kind: .text, content: runtime.streamingContent)
-                lastAI.blocks.append(tb)
-            }
-        }
 
         // 流式观察接管:runtime 对象变化(新建/重建)时重新挂 withObservationTracking
         observeStreamingIfNeeded()
@@ -108,6 +199,11 @@ final class MiniClawChatBridge: ObservableObject {
             _ = runtime.streamingContent
             _ = runtime.isResponding
             _ = runtime.isPaused
+            // 思考段/工具调用的实时缓冲也必须观察:它们的变化(新段/新工具/
+            // 状态流转)驱动 refresh → 合并进 blocks,否则思考/工具指示器
+            // 流式中不出现(2026-08-10 修复)。
+            _ = runtime.streamingReasoningSegments
+            _ = runtime.streamingToolCalls
         } onChange: { [weak self] in
             DispatchQueue.main.async { [weak self] in
                 guard let self else { return }
@@ -124,14 +220,83 @@ final class MiniClawChatBridge: ObservableObject {
 
     /// 按 MiniClaw 持久消息 id 取 OM 对象:内容签名不变则复用缓存对象,
     /// 避免每次 refresh 全量重建 UUID 导致列表高度缓存连坐失效。
+    /// 流式增长特例:同一消息 content 变长但 blocks 结构相同(仅文本块增量)
+    /// 时,复用旧对象并就地更新文本块 content——保持 block.id 恒定,
+    /// diffable 列表只 reconfigure 不重建,消除流式/切回 app 抖动。
     private func omMessage(for model: ChatMessage) -> MiniClawKit.ChatMessage {
         let key = model.id.uuidString
         let fresh = MiniClawChatAdapter.convert(model)
-        if let cached = omCache[key], blockSignature(cached) == blockSignature(fresh) {
-            return cached
+        if let cached = omCache[key] {
+            // 内容签名完全一致:复用缓存对象(block.id 稳定,高度缓存可命中)。
+            if blockSignature(cached) == blockSignature(fresh) {
+                return cached
+            }
+            // 流式中的消息(终态前 SwiftData 未落盘):始终保留 cached 并就地同步
+            // 已落盘部分(blocks 结构变化时也复用旧对象)。流式状态(正文/思考/工具)
+            // 由 refresh() 的实时合并补充,若此处替换新对象会导致 block.id 全变、
+            // 高度缓存连坐失效、bind4a 订阅断链——加剧「一次性吐出」(2026-08-10)。
+            if model.isStreaming {
+                mergeTextContent(cached, from: fresh)
+                cached.isAwaitingModelResponse = fresh.isAwaitingModelResponse
+                cached.content = fresh.content
+                return cached
+            }
+            // 终态消息(isStreaming == false):直接返回 fresh,走 buildBlocks 的
+            // timelineOrder 正确排序。不复用 cached——cached 可能是流式期间
+            // 「正文堆末尾/思考逆序」的中途状态,复用会让重进会话仍错序
+            // (2026-08-10 修复:重进会话排序混乱)。
+            omCache[key] = fresh
+            return fresh
         }
         omCache[key] = fresh
         return fresh
+    }
+
+    /// 块级结构签名(仅块数+类型,不含内容量):判断"能否就地复用"。
+    private func blockStructure(_ om: MiniClawKit.ChatMessage) -> String {
+        var s = "\(om.blocks.count)|"
+        for b in om.blocks {
+            switch b.kind {
+            case .text: s += "x|"
+            case .thinking: s += "t|"
+            default: s += "u|"
+            }
+        }
+        return s
+    }
+
+    /// 把 fresh 的文本块内容就地写进 cached 对应块(保持对象/block.id 不变)。
+    /// 思考块/工具块内容也可能增长(流式中),一并更新以保渲染正确。
+    private func mergeTextContent(_ cached: MiniClawKit.ChatMessage, from fresh: MiniClawKit.ChatMessage) {
+        let count = min(cached.blocks.count, fresh.blocks.count)
+        for i in 0..<count {
+            switch (cached.blocks[i].kind, fresh.blocks[i].kind) {
+            case (.text, .text), (.thinking, .thinking):
+                cached.blocks[i].content = fresh.blocks[i].content
+            case (_, _) where kindTag(cached.blocks[i].kind) == kindTag(fresh.blocks[i].kind):
+                // 工具类块(带关联值,kind 本身不等)且结构标签一致时同步内容/状态
+                cached.blocks[i].content = fresh.blocks[i].content
+                if let ts = fresh.blocks[i].toolStatus { cached.blocks[i].toolStatus = ts }
+            default:
+                break
+            }
+        }
+    }
+
+    /// 工具/信息类块的粗粒度结构标签(不带关联值),用于就地复用的匹配判断。
+    private func kindTag(_ kind: AssistantBlockKind) -> String {
+        switch kind {
+        case .text: return "x"
+        case .thinking: return "t"
+        case .shellTool: return "u"
+        case .fileReadTool: return "u"
+        case .fileWriteTool: return "u"
+        case .fileEditTool: return "u"
+        case .browserTool: return "u"
+        case .readImageTool: return "u"
+        case .memoryTool: return "u"
+        case .info: return "i"
+        }
     }
 
     /// 块级渲染签名(块类型+内容量+工具状态+流式标志):
@@ -151,6 +316,57 @@ final class MiniClawChatBridge: ObservableObject {
     /// 发送(复用宿主发送管线,由宿主闭包注入)
     var onSend: ((String) -> Void)?
     var onStop: (() -> Void)?
+
+    /// 按 timelineOrder 把新块插入 blocks,保持「思考→工具→正文」的真实发生顺序。
+    /// 每个块都携带 timelineOrder(Double,正文片段用事件 order+0.5 穿插),插入时
+    /// 按真实序号定位,不再用常数推断(旧实现 thinking=5/tool=10 导致多段思考逆序)。
+    private func insertBlock(_ block: MiniClawKit.AssistantBlock, order: Double, into blocks: inout [MiniClawKit.AssistantBlock]) {
+        block.timelineOrder = order
+        if order <= 0 {
+            // 旧数据无 timelineOrder:排最前(可接受降级)
+            blocks.insert(block, at: 0)
+            return
+        }
+        var insertIdx = blocks.count
+        for (i, b) in blocks.enumerated() {
+            if b.timelineOrder > order {
+                insertIdx = i
+                break
+            }
+        }
+        blocks.insert(block, at: insertIdx)
+    }
+
+    /// 正文片段幂等更新:按 timelineOrder 定位既有 text block 就地更新 content
+    /// (保持 block.id,保住高度缓存),不存在才 insertBlock 插入。流式高频调用
+    /// 必须增量,避免每 0.25s 重建 text block 导致高度缓存连坐失效。
+    /// 防重复(2026-08-10):retry/重建后可能出现旧残留 text block(内容与新片段
+    /// 相同但 timelineOrder 不同),更新前先移除这类重复块,避免同一段正文出现两次。
+    private func upsertTextBlock(content: String, order: Double, into blocks: inout [MiniClawKit.AssistantBlock]) {
+        guard !content.isEmpty else { return }
+        // 移除内容完全相同的其他 text 块(旧残留,防正文重复)。
+        blocks.removeAll { b in
+            b.kind == .text && b.timelineOrder != order && b.content == content
+        }
+        if let existing = blocks.first(where: { $0.kind == .text && $0.timelineOrder == order }) {
+            if existing.content != content { existing.content = content }
+        } else {
+            let tb = MiniClawKit.AssistantBlock(kind: .text, content: content)
+            insertBlock(tb, order: order, into: &blocks)
+        }
+    }
+
+    /// 既有块的时间线序号:直接读块上记录的 timelineOrder(正文默认 Int.max-1)。
+    private func blockOrder(of block: MiniClawKit.AssistantBlock) -> Double {
+        block.timelineOrder
+    }
+
+    /// 工具状态推断(流式中:执行中 running;结果回填后 success/failed/cancelled)。
+    private func toolStatus(for event: ToolCallEvent) -> MiniClawKit.ToolBlockStatus? {
+        if event.wasInterrupted { return .cancelled }
+        if event.resultText.isEmpty { return .running }
+        return event.success ? .success : .failed(message: "")
+    }
     var onResume: (() -> Void)?
     var onPause: (() -> Void)?
 }
