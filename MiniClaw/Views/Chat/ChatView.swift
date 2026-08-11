@@ -92,6 +92,8 @@ struct ChatView: View {
     @State private var showTokenUsage: Bool = false
     @State private var showSoulSettings: Bool = false
     @State private var showModelManagement: Bool = false
+    /// 「添加密钥」指示器 → 智能体服务商页面(ProviderSettingsView,2026-08-11)。
+    @State private var showProviderSettings: Bool = false
     /// 上下文占用快照的本地镜像（数据源是 `ContextUsageStore`，引擎写、UI 读）。
     /// 进入会话时先做一次本地估算兜底，随后由引擎的真值/校准估算持续刷新。
     @State private var contextSnapshot: ContextUsageSnapshot = .empty
@@ -705,6 +707,13 @@ struct ChatView: View {
     private var floatingContent: some View {
         // 「回到底部」按钮已按用户要求从源码剔除(2026-08-10)。
 
+        // 添加密钥引导:用户未配置任何服务商密钥时显示在输入框上方(2026-08-11 用户需求)。
+        // 点击 → 打开服务商页面 + 申请网络/本地网络权限(照设置页先例,拒绝不闪退)。
+        // 已配置任意服务商(apiKey/OAuth/Keychain)后自动消失。
+        if !appState.hasAnyConfiguredProvider {
+            addKeyBanner
+        }
+
         // 排队消息:显示在输入框上方悬浮层(2026-08-10 用户要求,
         // 不再注入消息列表内容里)。每条含删除叉 + 立即发送按钮。
         let queue = pendingMessages
@@ -887,6 +896,16 @@ struct ChatView: View {
                 GroupsSettingsView(dismissAction: { showModelManagement = false })
             }
         }
+        .sheet(isPresented: $showProviderSettings) {
+            // 2026-08-11:与设置页「智能体服务商」完全一致的界面(ProviderSettingsView),
+            // 全屏高度呈现;系统下滑手势关闭(不画蛇添足加关闭按钮)。
+            NavigationStack {
+                ProviderSettingsView()
+                    .navigationTitle(L10n.tr("智能体服务商"))
+            }
+            .presentationDetents([.large])
+            .presentationDragIndicator(.visible)
+        }
         .fullScreenCover(isPresented: $showSessionTerminal) {
             #if ISH_ENABLED
             TerminalView(initialSessionID: session.id, initialSessionTitle: session.title)
@@ -1044,6 +1063,45 @@ struct ChatView: View {
         .onChange(of: session.messages.last?.isStreaming ?? false) { _, _ in chatBridge.refresh(force: true) }
     }
     // MARK: - 子代理悬浮头像（输入框上方）
+
+    /// 添加密钥引导条(输入框上方悬浮层):照排队消息样式——虚线气泡 + 磨砂背景。
+    /// 2026-08-11 用户需求:未配置任何服务商密钥时显示,点击进入服务商页面;
+    /// 点击同时申请网络/本地网络权限(照设置页先例,拒绝不闪退)。
+    private var addKeyBanner: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "key.fill")
+                .font(.system(size: 15))
+                .foregroundStyle(.orange)
+            Text(L10n.tr("添加密钥"))
+                .font(.system(size: 14))
+                .foregroundStyle(.primary)
+            Spacer(minLength: 0)
+            Image(systemName: "chevron.right")
+                .font(.system(size: 12))
+                .foregroundStyle(.secondary)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .strokeBorder(style: StrokeStyle(lineWidth: 1.5, dash: [6, 4]))
+                .foregroundStyle(Color.orange.opacity(0.5))
+        )
+        .contentShape(RoundedRectangle(cornerRadius: 12))
+        .onTapGesture {
+            // ① 打开智能体服务商页面(配置 LLM 提供商与 API,2026-08-11
+            //    修正:此前误跳「模型管理」GroupsSettingsView,应为 ProviderSettingsView)。
+            showProviderSettings = true
+            // ② 申请网络/本地网络权限(照设置页先例):
+            //    requestNetworkAccess 不弹窗仅登记联网;requestLocalNetwork 触发
+            //    本地网络弹窗,用户拒绝走 .failed → denied 持久化,不会闪退。
+            PermissionManager.shared.requestNetworkAccess()
+            PermissionManager.shared.requestLocalNetwork()
+        }
+        .padding(.horizontal, 16)
+        .padding(.bottom, 4)
+    }
 
     /// 排队消息行(输入框上方悬浮层):虚线气泡 + 删除叉 + 立即发送按钮 + 长按菜单。
     /// 2026-08-10 用户要求排队消息显示在输入框上方而非消息列表内容里。

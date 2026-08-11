@@ -465,8 +465,11 @@ final class AppLogger: @unchecked Sendable {
         ) else { return [] }
         return urls
             .filter { $0.pathExtension.lowercased() == "log" }
-            // 排除崩溃日志（crash-*.log），它们由专门的「崩溃日志」分区单独列出
-            .filter { !$0.lastPathComponent.lowercased().hasPrefix("crash-") }
+            // 排除崩溃日志（crash-*.log / mxcrash-*.log），它们由专门的「崩溃日志」分区单独列出
+            .filter {
+                let name = $0.lastPathComponent.lowercased()
+                return !name.hasPrefix("crash-") && !name.hasPrefix("mxcrash-")
+            }
             .compactMap { url in
                 let vals = try? url.resourceValues(forKeys: [.fileSizeKey])
                 let size = Int64(vals?.fileSize ?? 0)
@@ -477,19 +480,26 @@ final class AppLogger: @unchecked Sendable {
             .sorted { $0.date > $1.date }
     }
 
-    /// 崩溃日志列表：过滤 `crash-YYYYMMDD-HHMMSS.log`，按名称倒序。
+    /// 崩溃日志列表：过滤 `crash-YYYYMMDD-HHMMSS.log` 与 `mxcrash-YYYYMMDD-HHMMSS.log`
+    /// （MetricKit 系统级报告），按名称倒序。[MetricKit 2026-08-11] mxcrash- 前缀
+    /// 用于区分来源：App 内信号/启动检测(crash-) vs 系统 .ips 摘要(MetricKit)。
     func listCrashLogFiles() -> [LogFileEntry] {
         guard let urls = try? fileManager.contentsOfDirectory(
             at: logsDir,
             includingPropertiesForKeys: [.fileSizeKey]
         ) else { return [] }
         return urls
-            .filter { $0.lastPathComponent.lowercased().hasPrefix("crash-") && $0.pathExtension.lowercased() == "log" }
+            .filter {
+                let name = $0.lastPathComponent.lowercased()
+                return $0.pathExtension.lowercased() == "log"
+                    && (name.hasPrefix("crash-") || name.hasPrefix("mxcrash-"))
+            }
             .compactMap { url in
                 let vals = try? url.resourceValues(forKeys: [.fileSizeKey])
                 let size = Int64(vals?.fileSize ?? 0)
                 let date = url.deletingPathExtension().lastPathComponent
                     .replacingOccurrences(of: "crash-", with: "")
+                    .replacingOccurrences(of: "mxcrash-", with: "")
                 return LogFileEntry(url: url, date: date, size: size)
             }
             .sorted { $0.date > $1.date }

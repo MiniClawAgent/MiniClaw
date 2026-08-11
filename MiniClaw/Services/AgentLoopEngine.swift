@@ -35,10 +35,14 @@ final class AgentLoopEngine: @unchecked Sendable {
     /// 由 run(forceThinkingLevel:) 写入，runLoop + emitReasoning 内读取。
     private var forceThinkingOverride: String?
     private var activeRequestTask: URLSessionDataTask?
-    /// 当前正在执行的工具 Task（供 cancel/pause 中断挂起的工具调用）。
-    /// 存为 `Any?` 因为不同工具返回的 Task 泛型参数不同，取消时向下转型。
-    private var toolExecutionTask: Any?
-
+    /// 当前正在执行的工具 Task 集合（供 cancel/pause 中断挂起的工具调用）。
+    /// [Fix 2026-08-11 并发工具崩溃·OpenMinis 模式] 原 `toolExecutionTask: Any?` 是
+    /// 单一共享可变属性——并发工具(executeToolsConcurrently 的 withTaskGroup)同时写
+    /// 1925/1927 行,主线程 pause/cancel 同时读写,ARC 引用计数竞争 → swift_release_dealloc
+    /// 崩溃(用户实证:两个 shell 并发执行时偶发)。改为 NSLock 保护的按 callID 集合
+    /// (照 SubagentEngineBag 范式),每个工具写自己的槽位,暂停/取消枚举全部取消——
+    /// 与 OpenMinis ISHExecutionCoordinator(actor 持有 in-flight 集合)同构。
+    private let toolExecutionTasks = ToolTaskBag()
     /// 取消 的全部可变状态统一由 actor 保护。
     /// 因为 cancel() 从主线程调用，
     /// 而 run() 的循环在独立的 Task 上执行，两者并发访问这些字段；
@@ -399,9 +403,9 @@ final class AgentLoopEngine: @unchecked Sendable {
         activeRequestTask?.cancel()
         activeRequestTask = nil
         // 一并取消正在执行的工具调用（解决工具挂起时点停止无响应的问题）。
-        (toolExecutionTask as? Task<Void, Never>)?.cancel()
-        (toolExecutionTask as? Task<ToolResult, Never>)?.cancel()
-        toolExecutionTask = nil
+        // [Fix 2026-08-11 并发工具崩溃] 枚举取消全部 in-flight 工具 Task
+        // （OpenMinis stopCurrentCommand 语义:一次停止 = 取消整个批次）。
+        toolExecutionTasks.drain().forEach { $0.cancel() }
         // 一并取消正在运行的子代理，避免父循环停止后子代理仍在后台空跑（并行派发时全部取消）。
         activeSubagents.drain().forEach { $0.cancel() }
         // 手动停止：实时活动右上角状态图标切到「已停止」（避免停滞在「回复中」）。
@@ -421,9 +425,8 @@ final class AgentLoopEngine: @unchecked Sendable {
         activeRequestTask = nil
         // 取消正在执行的工具，让 executeTool 的 withTaskGroup 快速返回取消结果，
         // 随后循环在安全点②检测到 pauseRequested 并落地为 .paused。
-        (toolExecutionTask as? Task<Void, Never>)?.cancel()
-        (toolExecutionTask as? Task<ToolResult, Never>)?.cancel()
-        toolExecutionTask = nil
+        // [Fix 2026-08-11 并发工具崩溃] 枚举取消全部 in-flight 工具 Task。
+        toolExecutionTasks.drain().forEach { $0.cancel() }
         // 一并取消正在运行的子代理（与 cancel() 同策略，P2）。
         activeSubagents.drain().forEach { $0.cancel() }
     }
@@ -1857,7 +1860,8 @@ final class AgentLoopEngine: @unchecked Sendable {
 
         // ── 带超时可取消的工具执行：单个工具最长 120 秒 ──
         // 工具与 120s 超时竞速 + 用户取消/暂停三方竞争，任一触发立即返回。
-        // toolExecutionTask 直接持有 execTask（非包装），确保 pause/cancel 能取消真正的工作。
+        // [Fix 2026-08-11 并发工具崩溃] execTask 按 callID 注册进 ToolTaskBag
+        // （NSLock 保护），确保 pause/cancel 能取消真正的工作（枚举全部 in-flight）。
         // 关键修复：工具的真实同步逻辑（图片 OCR/分类、文件读取、记忆落盘等）原本随
         // executeTool 所在的 MainActor 上下文在主线程执行，遇到重工具会把主线程夯 30~50s，
         // 被 iOS 看门狗强杀（见崩溃日志 MAIN THREAD BLOCKED 39.9s/51.6s）。
@@ -1920,11 +1924,11 @@ final class AgentLoopEngine: @unchecked Sendable {
                 return ToolResult(success: false, text: "Error: 工具执行被中断。")
             }
         }
-        // 直接持有 execTask：pause()/cancel() 取消的就是真正的工作任务，
-        // 而非之前那个只做 await 的无效包装 Task。
-        toolExecutionTask = execTask
+        // [Fix 2026-08-11 并发工具崩溃] 按 callID 注册到集合(NSLock 保护):
+        // 并发工具各自写自己的槽位,不再竞争单一共享属性;pause/cancel 枚举全部取消。
+        toolExecutionTasks.insert(tc.id, task: execTask)
         let result = await execTask.value
-        toolExecutionTask = nil
+        toolExecutionTasks.remove(tc.id)
 
         let duration = Date().timeIntervalSince(startedAt)
         emitToolResult(rawName, callID: tc.id, result: result, duration: duration)
@@ -2303,6 +2307,38 @@ final class SubagentEngineBag: @unchecked Sendable {
         let engine = engines.remove(at: idx)
         engine.cancel()
         return true
+    }
+}
+
+/// 活跃工具执行 Task 容器（线程安全）。[Fix 2026-08-11 并发工具崩溃·OpenMinis 模式]
+///
+/// 原实现是 `AgentLoopEngine.toolExecutionTask: Any?` 单一共享可变属性：
+/// 并发工具(executeToolsConcurrently 的 withTaskGroup 同时跑多个 executeTool)
+/// 在同一属性上写入/清空,主线程 pause/cancel 也同时读写,ARC 引用计数竞争导致
+/// `swift_release_dealloc` 崩溃(用户实证:两个 shell 并发执行时偶发闪退)。
+///
+/// 本容器照 OpenMinis 的 in-flight 集合模型(ISHExecutionCoordinator actor 持有
+/// perSessionInflight PID 队列)与项目内 SubagentEngineBag 范式实现:NSLock 保护的
+/// [callID: Task] 字典,每个并发工具写自己的槽位;pause/cancel 用 drain() 枚举
+/// 取消**全部** in-flight 工具(OpenMinis stopCurrentCommand 语义:一次停止=取消整批)。
+final class ToolTaskBag: @unchecked Sendable {
+    private let lock = NSLock()
+    private var tasks: [String: Task<ToolResult, Never>] = [:]
+
+    func insert(_ callID: String, task: Task<ToolResult, Never>) {
+        lock.lock(); tasks[callID] = task; lock.unlock()
+    }
+
+    func remove(_ callID: String) {
+        lock.lock(); tasks.removeValue(forKey: callID); lock.unlock()
+    }
+
+    /// 取出并清空全部工具 Task（用于暂停/取消时批量取消）。
+    func drain() -> [Task<ToolResult, Never>] {
+        lock.lock(); defer { lock.unlock() }
+        let all = Array(tasks.values)
+        tasks.removeAll()
+        return all
     }
 }
 

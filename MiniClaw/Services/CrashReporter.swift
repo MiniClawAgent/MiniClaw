@@ -236,12 +236,59 @@ final class CrashReporter: @unchecked Sendable {
         return url
     }
 
+    /// 写入 MetricKit 系统级崩溃报告:`mxcrash-*.log`。
+    /// [MetricKit 2026-08-11] 来源是系统 `.ips` 摘要(下次启动经 MXMetricManager
+    /// 交付),与 App 内信号/启动检测报告(crash-*)区分——Type 带 "MetricKit" 前缀,
+    /// 文件名用 mxcrash- 前缀。App 内信号处理器抓不到的崩溃(LLDB 接管/堆损坏/
+    /// SIGKILL)由它兜底,栈完整可靠。
+    @discardableResult
+    func writeMetricKitReport(
+        type: String,
+        stack: String?,
+        date: Date = Date(),
+        lastLogLines: String? = nil
+    ) -> URL {
+        let dateStr = Self.dateFormatter.string(from: date)
+        let footprint = appMemoryMB()
+        let footprintStr = footprint.map { String(format: "%.0f", $0) } ?? "N/A"
+        let totalMemMB = Double(ProcessInfo.processInfo.physicalMemory) / (1024 * 1024)
+        let lines = lastLogLines ?? AppLogger.shared.lastLogLines(count: 20)
+
+        let report = CrashReportComposer.compose(
+            date: dateStr,
+            type: type,
+            build: appLoggerBuildString(),
+            os: ProcessInfo.processInfo.operatingSystemVersionString,
+            device: appLoggerDeviceModel(),
+            lastPhase: "MetricKit (system crash diagnostics)",
+            memoryMB: footprintStr,
+            systemTotalMB: String(format: "%.0f", totalMemMB),
+            lastLogLines: lines,
+            stack: stack ?? "(none)",
+            logReference: AppLogger.shared.crashLogPath()
+        )
+
+        let url = logsDir.appendingPathComponent(mxcrashFileName(for: date))
+        try? report.write(to: url, atomically: true, encoding: .utf8)
+        AppLogger.shared.info("[MetricKit] 崩溃报告已落盘 \(url.lastPathComponent)", category: "Crash")
+        return url
+    }
+
     // MARK: - 文件名
 
     func crashFileName(for date: Date = Date()) -> String {
         let f = DateFormatter()
         f.dateFormat = "yyyyMMdd-HHmmss"
         return "crash-\(f.string(from: date)).log"
+    }
+
+    /// MetricKit 崩溃报告文件名：`mxcrash-YYYYMMDD-HHMMSS.log`。
+    /// [MetricKit 2026-08-11] 前缀与 App 内信号/启动检测报告(`crash-`)区分,
+    /// 崩溃日志页与用户据此识别来源(系统级 .ips 摘要 vs App 内抓取)。
+    func mxcrashFileName(for date: Date = Date()) -> String {
+        let f = DateFormatter()
+        f.dateFormat = "yyyyMMdd-HHmmss"
+        return "mxcrash-\(f.string(from: date)).log"
     }
 
     // MARK: - 内存占用（best-effort）

@@ -241,7 +241,9 @@ struct MarkdownContentView: View {
 
 
             // ── Setext 标题（2026-08-08 补齐）：下一行为 === 或 --- 时，本行变标题 ──
-            if index + 1 < lines.count {
+            // 2026-08-11 修复:检测前排除 ATX 标题(# 开头)与列表 marker 行,
+            // 否则 `# 标题\n---` 被误当 H2 且 --- 消失、`- 项\n---` 列表项变 H2。
+            if index + 1 < lines.count, !trimmed.hasPrefix("#"), !isListMarkerLine(trimmed) {
                 let nextTrimmed = lines[index + 1].trimmingCharacters(in: .whitespaces)
                 if !nextTrimmed.isEmpty, nextTrimmed.allSatisfy({ $0 == "=" }) {
                     flushTextBuffer()
@@ -486,6 +488,17 @@ struct MarkdownContentView: View {
         return (level, content)
     }
 
+    /// 2026-08-11 新增:行是否列表 marker(任务/无序/有序),供 Setext 标题检测
+    /// 排除列表行(`- 项\n---` 不应被误判为 H2)。
+    private nonisolated static func isListMarkerLine(_ line: String) -> Bool {
+        let trimmed = line.trimmingCharacters(in: .whitespaces)
+        if trimmed.isEmpty { return false }
+        if parseTaskItem(trimmed) != nil { return true }
+        if parseBulletItem(trimmed) != nil { return true }
+        if parseOrderedItem(trimmed) != nil { return true }
+        return false
+    }
+
     private nonisolated static func parseTaskItem(_ line: String) -> (isCompleted: Bool, content: String, indent: Int)? {
         guard let match = line.firstMatch(of: /^\s{0,7}[-*+]\s+\[([ xX])\]\s+(.+)/) else { return nil }
         let marker = String(match.1).lowercased()
@@ -503,8 +516,10 @@ struct MarkdownContentView: View {
         // ref 需转义正则元字符（如 v1.2 的 `.`）；输出不带尖括号（防 normalizeBareURLs 二次处理）。
         for (ref, url) in refs {
             let escaped = NSRegularExpression.escapedPattern(for: ref)
+            // 2026-08-11 修复:原正则 `\[ref\]\[\]\]` 无捕获组,模板 `$1` 替换成空串
+            // → [text][] 链接文字丢失显示为空白链接。加捕获组保留文本。
             result = result.replacingOccurrences(
-                of: "\\[\(escaped)\\]\\[\\]\\]",
+                of: "\\[([^\\[\\]]+)\\]\\[\\]",
                 with: "[$1](\(url))",
                 options: .regularExpression
             )
@@ -812,7 +827,9 @@ struct MarkdownContentView: View {
                         .fill(.orange.opacity(0.4))
                         .frame(width: 3)
                     // 嵌套引用同级 13pt（2026-08-08 对齐开源参考实现，与一级一致）
-                    quotedBlocksView(inner, depth: 0)
+                    // 2026-08-11 修复:传 depth+1(原 depth:0 让 ≥4 层防递归兜底永不触发,
+                    // 深层嵌套无限累加缩进/反复全量解析)。
+                    quotedBlocksView(inner, depth: depth + 1)
                         .padding(.leading, 13)
                 }
                 .padding(.vertical, 2)
@@ -1039,7 +1056,11 @@ struct MarkdownContentView: View {
         // 开源参考实现对齐：H1/H2 bold，H3-H6 semibold；标题行距 0，上下 margin = 基准字号
         let weight: Font.Weight = (level == 1 || level == 2) ? .bold : .semibold
         let base = MarkdownContentView.bodyFontSize
-        Text(content)
+        // 2026-08-11 修复:标题内容走行内 markdown 解析(加粗/斜体/链接/代码/删除线),
+        // 之前 Text(content) 原样显示 `## **加粗**` 的星号,与列表项/正文行为不一致。
+        // 用 parseInlineMarkdown(MarkdownContentView 自己的方法;inlineMarkdown 是
+        // MarkdownTableView 的私有方法,跨类型调用会编译失败)。
+        Text(parseInlineMarkdown(content))
             .font(Font.system(size: size, weight: weight))
             .foregroundStyle(.primary)
             .padding(.top, base)

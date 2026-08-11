@@ -110,6 +110,16 @@ final class AppState {
         providers.contains { $0.credentialType == "oauth" }
     }
 
+    /// 是否已配置任意服务商密钥（apiKey / OAuth / Keychain 任一有效）。
+    /// 用于会话页「添加密钥」引导指示器的显隐判断（2026-08-11 用户需求）。
+    var hasAnyConfiguredProvider: Bool {
+        providers.contains { p in
+            if p.credentialType == "oauth" { return true }
+            if !p.apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return true }
+            return APIKeyStore.getKey(for: p.id) != nil
+        }
+    }
+
     /// 供应商 → OAuth 管理器映射。仅已适配 OAuth 的服务商返回非 nil。
     @MainActor
     static func oauthManager(for providerType: ProviderType) -> (any OAuthManager)? {

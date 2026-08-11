@@ -27,6 +27,9 @@ struct MiniClawApp: App {
         _ = FileSystemManager.shared
         // 安装崩溃/信号处理器与主线程卡死看门狗（依赖 FileSystemManager 已创建根目录）。
         AppLogger.shared.installCrashHandlers()
+        // 注册 MetricKit 系统级崩溃诊断收集（下次启动接收系统 .ips 摘要，
+        // 兜底 App 内信号处理器抓不到的崩溃：LLDB 接管/堆损坏/SIGKILL）。
+        MetricKitCollector.shared.start()
         // 检测上一轮异常退出并生成崩溃报告（写入 .crashalive 标记）。
         CrashReporter.shared.checkAbnormalExit()
         // 模型能力目录已并入厂商适配器文件(编译期),无需种子拷贝。

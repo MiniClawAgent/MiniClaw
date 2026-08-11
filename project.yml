@@ -70,6 +70,12 @@ targets:
       - path: ../第三方源码/ish-arm64/rootfs
         type: folder
         buildPhase: resources
+      # SwiftMath 数学字体资源(2026-08-11 闪退修复):必须进 App 主包。
+      # MiniClawKit 静态合并链接,其 resources 不进 App 包 → Bundle.main
+      # 找不到 mathFonts.bundle → MTFont.fontBundle 强解包崩溃。
+      - path: ../第三方源码/SwiftMath/Sources/SwiftMath/mathFonts.bundle
+        type: folder
+        buildPhase: resources
       # Privacy Manifest（iOS 17+ 上架强制要求：声明所需理由 API + 数据收集类型）
       - path: PrivacyInfo.xcprivacy
         buildPhase: resources
@@ -144,6 +150,11 @@ targets:
       - target: ShareExtension
     preBuildScripts: []
     postBuildScripts: []
+    # 2026-08-11 闪退修复:mathFonts.bundle 必须进 App 主包。
+    # MiniClawKit 为静态合并链接(frameworks 不内嵌),挂在 Kit target 的
+    # 资源不会随代码进 App 包 → Bundle.main 找不到 → MTFont.fontBundle
+    # 强解包崩溃(渲染数学公式即闪退)。此处用 sources+buildPhase 显式复制
+    # 进 App 主包(与本 target 其他资源一致,顶层 resources: 键不生效)。
 
   MiniClawKit:
     type: framework

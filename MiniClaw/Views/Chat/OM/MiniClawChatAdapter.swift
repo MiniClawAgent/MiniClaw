@@ -4,7 +4,11 @@ import MiniClawKit
 // MARK: - 适配层:消息转换(2026-08-09)
 // 把 MiniClaw 的 SwiftData 消息模型转换为 移植消息列表组件所需的
 // ChatMessage/AssistantBlock 形态。纯转换,不持有状态。
+// 2026-08-11 [Fix 重进会话跳屏·根因]:整体 @MainActor——buildBlocks 内为 text
+// block 调用 cacheRenderedContent()(内部经 FontSettings.shared 渲染,其本身是
+// @MainActor),且所有调用方(MiniClawChatBridge)都在 MainActor 上下文。
 
+@MainActor
 enum MiniClawChatAdapter {
 
     // MARK: - 消息级转换
@@ -38,7 +42,9 @@ enum MiniClawChatAdapter {
         var events: [(order: Int, position: Int, block: MiniClawKit.AssistantBlock)] = []
 
         for seg in message.reasoningSegments {
-            let block = MiniClawKit.AssistantBlock(kind: .thinking, content: seg.text)
+            // 2026-08-11 [Fix 重进会话跳屏·方案B]:传 seg.id(SwiftData 持久化),
+            // 重建时复用 → contentKey 稳定 → memo 跨会话命中,首帧即精确高度。
+            let block = MiniClawKit.AssistantBlock(id: seg.id, kind: .thinking, content: seg.text)
             // 2026-08-10 用户要求:思考块默认折叠,哪怕用户上次展开过,
             // 每次重建(新消息/流式刷新)一律强制折叠,不保留任何展开状态。
             block.isThinkingExpanded = false
@@ -47,7 +53,7 @@ enum MiniClawChatAdapter {
         }
 
         for event in message.toolCalls {
-            let block = MiniClawKit.AssistantBlock(kind: toolKind(event.name, arguments: event.arguments), content: event.resultText)
+            let block = MiniClawKit.AssistantBlock(id: event.id, kind: toolKind(event.name, arguments: event.arguments), content: event.resultText)
             block.toolUseId = event.callID ?? event.id.uuidString
             block.toolInputArgs = event.arguments
             block.toolDuration = event.duration
@@ -80,7 +86,19 @@ enum MiniClawChatAdapter {
             if pos > textCursor {
                 let startIdx = content.index(content.startIndex, offsetBy: textCursor)
                 let endIdx = content.index(content.startIndex, offsetBy: pos)
-                let textBlock = MiniClawKit.AssistantBlock(kind: .text, content: String(content[startIdx..<endIdx]))
+                // [Fix 重进会话跳屏·方案B] 正文片段无持久化事件 id,用
+                // (mid+起始字符位置) 生成确定性 UUID:同内容同切分 → 同 id →
+                // contentKey 稳定 → memo 跨会话命中。
+                let textBlock = MiniClawKit.AssistantBlock(
+                    id: deterministicTextBlockID(messageID: message.id, startOffset: textCursor),
+                    kind: .text, content: String(content[startIdx..<endIdx]))
+                // [Fix 重进会话跳屏·根因] 预渲染精确高度所需的 attributedString——
+                // 对应 OpenMinis AIChatViewModel.cacheAttributedString(for:) 的移植。
+                // MiniClaw 之前从不赋值 cachedAttributedString(全工程 0 赋值),导致
+                // applySnapshot 的 TextKit 精确 precalc 分支恒为死代码,text block 首帧
+                // 全部走字符数启发式 est(误差 ±13-52pt,CJK 达 -50%),滚动首测大修正→跳屏。
+                // 赋值后:重进会话首帧即精确高度,零跳屏。
+                textBlock.cacheRenderedContent()
                 textBlock.timelineOrder = order - 0.5
                 items.append((order - 0.5, textBlock))
             }
@@ -89,12 +107,42 @@ enum MiniClawChatAdapter {
         }
         if textCursor < content.count {
             let startIdx = content.index(content.startIndex, offsetBy: textCursor)
-            let textBlock = MiniClawKit.AssistantBlock(kind: .text, content: String(content[startIdx..<content.endIndex]))
+            // 尾部正文片段:用固定锚 "tail" 保证稳定(同一消息只有一段尾部正文)。
+            let textBlock = MiniClawKit.AssistantBlock(
+                id: deterministicTextBlockID(messageID: message.id, startOffset: -1),
+                kind: .text, content: String(content[startIdx..<content.endIndex]))
+            textBlock.cacheRenderedContent()
             textBlock.timelineOrder = Double(Int.max - 1)
             items.append((Double(Int.max - 1), textBlock))
         }
 
         return items.sorted { $0.order < $1.order }.map(\.block)
+    }
+
+    /// [Fix 重进会话跳屏·方案B] 由 (消息 id + 片段起始偏移) 生成确定性 UUID:
+    /// 内容切分稳定时,重进会话重建得到同一 id。偏移 -1 表示尾部正文片段。
+    private static func deterministicTextBlockID(messageID: UUID, startOffset: Int) -> UUID {
+        var h: UInt64 = 1469598103934665603 // FNV-1a 64
+        let seed = "\(messageID.uuidString)|\(startOffset)"
+        for b in seed.utf8 {
+            h ^= UInt64(b)
+            h = h &* 1099511628211
+        }
+        // 用哈希值填充 UUID 的 16 字节(前 8 字节 = h,后 8 字节 = 对 h 做一次混淆)
+        var bytes = [UInt8](repeating: 0, count: 16)
+        for i in 0..<8 {
+            bytes[i] = UInt8((h >> (i * 8)) & 0xFF)
+        }
+        let h2 = h &* 0x9E3779B97F4A7C15 &+ 0x94D049BB133111EB
+        for i in 0..<8 {
+            bytes[8 + i] = UInt8((h2 >> (i * 8)) & 0xFF)
+        }
+        // 置 UUID v4 版本位与变体位(保证格式合法)
+        bytes[6] = (bytes[6] & 0x0F) | 0x40
+        bytes[8] = (bytes[8] & 0x3F) | 0x80
+        let tuple = (bytes[0],bytes[1],bytes[2],bytes[3],bytes[4],bytes[5],bytes[6],bytes[7],
+                     bytes[8],bytes[9],bytes[10],bytes[11],bytes[12],bytes[13],bytes[14],bytes[15])
+        return UUID(uuid: tuple)
     }
 
     /// 工具名 + 参数 → OM 块类型(10 种 kind 映射),关联值填入真实操作名/路径/命令,

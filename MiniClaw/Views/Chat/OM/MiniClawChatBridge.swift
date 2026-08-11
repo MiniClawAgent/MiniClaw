@@ -20,6 +20,10 @@ final class MiniClawChatBridge: ObservableObject {
     private var lastFingerprint = ""
     /// 流式内容上报的最小间隔(秒):行增长高频触发时合并刷新
     private var lastRefreshAt: Date = .distantPast
+    /// 上次 refresh 时的 isProcessing 值,用于检测「流式结束翻转」
+    /// (isResponding true→false):终态刷新若撞上 0.25s 节流窗口会被吞掉,
+    /// UI 停在差几个字的旧内容,重进会话才完整(2026-08-11 方案一修复)。
+    private var lastIsProcessing: Bool = false
     /// OM 对象缓存(按 MiniClaw 持久消息 id):内容签名不变则复用旧对象,
     /// 保持 message.id/block.id 稳定 → 列表高度缓存/contentKey memo 可命中,
     /// 消除每次刷新的全量缓存失效与估算↔实测落差(2026-08-10 滑动跳动/空白根因)。
@@ -64,6 +68,12 @@ final class MiniClawChatBridge: ObservableObject {
             vm.isProcessing = false
             vm.canResume = false
         }
+        // 流式结束翻转检测(2026-08-11 方案一):isResponding true→false 瞬间,
+        // 终态刷新可能撞上 0.25s 节流窗口被吞(UI 停在差几个字的旧内容,
+        // 重进会话才完整)。翻转时本次刷新绕过节流强制重建 vm.messages,
+        // 内容来自已同步落盘的 SwiftData,不新增内容源。
+        let endTransition = lastIsProcessing && !vm.isProcessing
+        lastIsProcessing = vm.isProcessing
 
         var messages = sorted.map { omMessage(for: $0) }
         // 流式实时合并(SwiftData 终态落盘,流式中 content 不更新):
@@ -128,7 +138,8 @@ final class MiniClawChatBridge: ObservableObject {
                 if let existing = prefixMatch {
                     existing.content = seg.text
                 } else {
-                    let tb = MiniClawKit.AssistantBlock(kind: .thinking, content: seg.text)
+                    // [Fix 重进会话跳屏·方案B] 传 seg.id 保持与终态 Adapter 重建一致。
+                    let tb = MiniClawKit.AssistantBlock(id: seg.id, kind: .thinking, content: seg.text)
                     tb.isThinkingExpanded = false
                     tb.thinkingUserToggled = false
                     insertBlock(tb, order: Double(seg.timelineOrder), into: &lastAI.blocks)
@@ -141,14 +152,21 @@ final class MiniClawChatBridge: ObservableObject {
                 if let existing = lastAI.blocks.first(where: { $0.toolUseId == key }) {
                     existing.content = evt.arguments
                     existing.toolStatus = self.toolStatus(for: evt)
+                    // [Fix 2026-08-11] 同步 toolInputArgs:胶囊显示名走
+                    // toolDescription→activity 分支,缺它流式中只显示兜底文案,
+                    // 终态重建后才显示具体操作名(用户反馈「完成才显示名称」)。
+                    existing.toolInputArgs = evt.arguments
                 } else {
                     let kind = MiniClawChatAdapter.toolKind(evt.name, arguments: evt.arguments)
+                    // [Fix 重进会话跳屏·方案B] 传 evt.id 保持与终态 Adapter 重建一致。
                     let tb = MiniClawKit.AssistantBlock(
+                        id: evt.id,
                         kind: kind,
                         content: evt.arguments,
                         toolStatus: self.toolStatus(for: evt),
                         toolUseId: key
                     )
+                    tb.toolInputArgs = evt.arguments
                     insertBlock(tb, order: Double(evt.timelineOrder), into: &lastAI.blocks)
                 }
             }
@@ -171,7 +189,7 @@ final class MiniClawChatBridge: ObservableObject {
             }
         }
         let now = Date()
-        let throttled = now.timeIntervalSince(lastRefreshAt) < 0.25 && !force
+        let throttled = now.timeIntervalSince(lastRefreshAt) < 0.25 && !force && !endTransition
         if fp == lastFingerprint || (throttled && !force) { return }
         lastFingerprint = fp
         lastRefreshAt = now

@@ -103,6 +103,7 @@
 		57420251E9C72BF47D74377ED291F6F3 /* arena.c in Sources */ = {isa = PBXBuildFile; fileRef = E53AC55FD2B82CE25BE1D45B5A26BCA0 /* arena.c */; };
 		5754C8D6F4DAC37F55AD870096992463 /* scanners.re in Sources */ = {isa = PBXBuildFile; fileRef = BD93D82402814AC03AE7011D15DAD163 /* scanners.re */; };
 		5B0B9C7BECEC23D3698A510A0710CA9E /* MTMathUILabel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D2481DDD3ED8AAF576DA8B06F5F7EE8 /* MTMathUILabel.swift */; };
+		5BA4A77CBEFA24BD873802FC68ABBC53 /* mathFonts.bundle in Resources */ = {isa = PBXBuildFile; fileRef = 09991F2E805D9EECC44DFEDD2BEF6A66 /* mathFonts.bundle */; };
 		5BD0F3C3E661273A60A99BB9AEC4D0D2 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F75B223CFCEA5912307F4BEBF7A58AE /* SettingsView.swift */; };
 		5C685B13C27867AA6AC7ACA303CEA1B4 /* SettingsDomainViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4EC262F0551B78AD03709B152986F346 /* SettingsDomainViews.swift */; };
 		5E9FBDA2FEA8719EEDDEB9EA6CAB2150 /* tagfilter.h in Sources */ = {isa = PBXBuildFile; fileRef = 22F2D055460414F2BE1CD23E69F67D00 /* tagfilter.h */; };
@@ -199,6 +200,7 @@
 		B63E78C46273EFE61BA374FE459FF0A6 /* SoulSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CA34BF636ECA7C8A7BFA22BEB198801 /* SoulSettingsView.swift */; };
 		B6B9D3213BDF8336C2588B7CDD80E5C3 /* MiniClawHistoryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 266E677486B4A1ABFB4020E838DD76AE /* MiniClawHistoryStore.swift */; };
 		B71B8436956722834B3901A8ADA7B754 /* SubAgentProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5C76925A1A0B68200AF6C42668341A5 /* SubAgentProfile.swift */; };
+		B737F7444DD7B9A5E4146F279F196AEC /* MetricKitCollector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 669E97D64A74F2BEE378FA70B74E1FA8 /* MetricKitCollector.swift */; };
 		B84DE271129706DB1A23D2599D89B9C0 /* ext_scanners.re in Sources */ = {isa = PBXBuildFile; fileRef = 52796D39F1A7F0CA0DB096D0D7063278 /* ext_scanners.re */; };
 		BAA4C17D3A706F44A4FAD3CD0107283C /* ISHShellExecutor.m in Sources */ = {isa = PBXBuildFile; fileRef = E514A587008FD64C5E8557C8568F8480 /* ISHShellExecutor.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
 		BC678A2D866DC6C79954F7DD44C5C20B /* Photos.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3B2D0B4089BB0C2149493DEBF76E6DCC /* Photos.framework */; };
@@ -347,6 +349,7 @@
 		062133818C8A84AB95776F1F0E6ADC3D /* MTMathList.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MTMathList.swift; sourceTree = "<group>"; };
 		0843901375CED686D5449E5FCC1E5002 /* scanners.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = scanners.c; sourceTree = "<group>"; };
 		084C47BBABFAF1714DA54F19FE2FD24B /* ChatMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatMessage.swift; sourceTree = "<group>"; };
+		09991F2E805D9EECC44DFEDD2BEF6A66 /* mathFonts.bundle */ = {isa = PBXFileReference; lastKnownFileType = folder; name = mathFonts.bundle; path = "../第三方源码/SwiftMath/Sources/SwiftMath/mathFonts.bundle"; sourceTree = SOURCE_ROOT; };
 		0A2070BA8D3D4C6110877314FCC51733 /* ToolConfirmationBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolConfirmationBridge.swift; sourceTree = "<group>"; };
 		0AFFA74BB103DC2C66EA5926F7903140 /* XiaomiProviderAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XiaomiProviderAdapter.swift; sourceTree = "<group>"; };
 		0B1BCDC2C9B72337530C5A56D377574F /* TextFadeAnimator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextFadeAnimator.swift; sourceTree = "<group>"; };
@@ -448,6 +451,7 @@
 		61752417A4675A607393B59C5391C685 /* GeminiProviderAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeminiProviderAdapter.swift; sourceTree = "<group>"; };
 		619DD268671B0688A6059E140ECA13E6 /* MessageBubbleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageBubbleView.swift; sourceTree = "<group>"; };
 		62D051480F0F881FC5B40D0438F0C9C5 /* BrowserController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserController.swift; sourceTree = "<group>"; };
+		669E97D64A74F2BEE378FA70B74E1FA8 /* MetricKitCollector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricKitCollector.swift; sourceTree = "<group>"; };
 		67A9EDDECF5D2491737CFB1A2F100C50 /* BrowserTool.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserTool.swift; sourceTree = "<group>"; };
 		67B9C8B8FAC53D6CF87F6D30E71401B3 /* html.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = html.c; sourceTree = "<group>"; };
 		6B4B1E425C1BA41CC2D9DA8F2D83734A /* MTFontManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MTFontManager.swift; sourceTree = "<group>"; };
@@ -946,6 +950,7 @@
 				B9618E90A48C99591B2452AFB338F7D9 /* MCPProtocol.swift */,
 				C80091A028DB9E375C20C63688606843 /* MemoryConsolidator.swift */,
 				2EF5022303A10F1BB1DB87610632D6F4 /* MemoryIndexer.swift */,
+				669E97D64A74F2BEE378FA70B74E1FA8 /* MetricKitCollector.swift */,
 				3A82DD11BBE211A62398929E583DA39A /* MirrorManager.swift */,
 				CEE90116EFBC1D4CEBB16FAC92C0C5FB /* MountMirrorManager.swift */,
 				131451AE5A983985E9D449BB899707BC /* MountPathBridge.swift */,
@@ -995,6 +1000,7 @@
 				7007250863E9D6B99116FC572A275686 /* BundledRules */,
 				93A32EFA68D356C44AD599601411D7CD /* BundledSkills */,
 				3DC9C3A998E2463E0AA13A0DF0B53FBB /* BundledSubAgentProfiles */,
+				09991F2E805D9EECC44DFEDD2BEF6A66 /* mathFonts.bundle */,
 				742BB05DFB02C908AE70505EB43D97C5 /* PrivacyInfo.xcprivacy */,
 				41869D0129D11922611582AA2D3901BE /* rootfs */,
 				F389ACB046DAF98481926B6C06A64C9C /* app */,
@@ -1383,6 +1389,7 @@
 				202C26351B609EBBBE77B249C8A8850B /* Localizable.json in Resources */,
 				C1E27EF99F9BD0D50B295AB98E9F8C98 /* PrivacyInfo.xcprivacy in Resources */,
 				9509EC4635D858D3CD5A57C483799440 /* general.md in Resources */,
+				5BA4A77CBEFA24BD873802FC68ABBC53 /* mathFonts.bundle in Resources */,
 				C38E274B6CF5506CF34636C66ECA9B5B /* planner.md in Resources */,
 				CE2721F02BC2787D308AA8822D2FD9D8 /* research.md in Resources */,
 				9165BB74342F79D1E6F8CFE564AC410B /* rootfs in Resources */,
@@ -1593,6 +1600,7 @@
 				06CE8483642A0B1D471B319650905D1B /* MemoryIndexer.swift in Sources */,
 				81F41FC18AC012D290FDFA2CEC777FAA /* MemorySettingsView.swift in Sources */,
 				822EF17694714EFF37DD0024FB717462 /* MessageBubbleView.swift in Sources */,
+				B737F7444DD7B9A5E4146F279F196AEC /* MetricKitCollector.swift in Sources */,
 				A62A5BB6212AC33B4D2EA70DFFFA2C8C /* MiniClawApp.swift in Sources */,
 				2895E88D23977D5E61B9EAAB132C158A /* MiniClawChatAdapter.swift in Sources */,
 				10ABCB5618E02CBEED403F3851D59381 /* MiniClawChatBridge.swift in Sources */,

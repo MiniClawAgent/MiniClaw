@@ -1452,7 +1452,7 @@ struct LogsView: View {
         } header: {
             Text(L10n.tr("崩溃日志"))
         } footer: {
-            Text(L10n.tr("应用闪退或异常退出时自动生成的结构化崩溃报告（crash-年月日-时分秒.log）。左滑可删除。"))
+            Text(L10n.tr("应用闪退或异常退出时自动生成的结构化崩溃报告（crash-年月日-时分秒.log）。左滑可删除。crash- 前缀为 App 内信号/启动检测报告；mxcrash- 前缀为系统级（MetricKit）报告，兜底 App 内抓不到的崩溃。"))
         }
     }
 
