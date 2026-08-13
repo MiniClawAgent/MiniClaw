@@ -45,25 +45,25 @@ final class MemoryConsolidator: @unchecked Sendable {
         var rewriteRejected = false
 
         var text: String {
-            if let skippedReason { return String(format: L10n.tr("已跳过：%@"), skippedReason) }
+            if let skippedReason { return String(format: L10n.l("skipped"), skippedReason) }
             var parts: [String] = []
-            parts.append(String(format: L10n.tr("条目 %1$d → %2$d"), itemsBefore, itemsAfter))
-            parts.append(String(format: L10n.tr("字符 %1$d → %2$d"), charsBefore, charsAfter))
+            parts.append(String(format: L10n.l("entries_1_d_2_d"), itemsBefore, itemsAfter))
+            parts.append(String(format: L10n.l("characters_1_d_2_d"), charsBefore, charsAfter))
             if exactDuplicatesRemoved > 0 {
-                parts.append(String(format: L10n.tr("精确去重 %d"), exactDuplicatesRemoved))
+                parts.append(String(format: L10n.l("exact_duplicates_removed"), exactDuplicatesRemoved))
             }
             if semanticDuplicatesMerged > 0 {
-                parts.append(String(format: L10n.tr("语义归并 %d"), semanticDuplicatesMerged))
+                parts.append(String(format: L10n.l("semantic_merges"), semanticDuplicatesMerged))
             }
             if dailyFilesArchived > 0 {
-                parts.append(String(format: L10n.tr("归档日志 %d 份"), dailyFilesArchived))
+                parts.append(String(format: L10n.l("archived_daily_logs"), dailyFilesArchived))
             }
             if rewritten {
-                parts.append(L10n.tr("已按主题重写"))
+                parts.append(L10n.l("rewritten_by_topic"))
             } else if rewriteRejected {
-                parts.append(L10n.tr("重写结果未通过校验，已回退"))
+                parts.append(L10n.l("rewrite_failed_validation_rolled_back"))
             }
-            return parts.joined(separator: L10n.tr("；"))
+            return parts.joined(separator: L10n.l("semicolon_char"))
         }
     }
 
@@ -81,25 +81,27 @@ final class MemoryConsolidator: @unchecked Sendable {
     func consolidate(force: Bool = false) async -> Report {
         var report = Report()
 
-        let mem = SettingsStore.shared.settings.memory
+        // 设置快照：后台线程不裸读 SettingsStore（2026-08-13 竞争修复）。
+        let settings = await SettingsStore.shared.snapshot()
+        let mem = settings.memory
         guard mem.isEnabled else {
-            report.skippedReason = L10n.tr("记忆功能未启用")
+            report.skippedReason = L10n.l("memory_is_disabled")
             return report
         }
         if !force {
             guard mem.consolidationEnabled else {
-                report.skippedReason = L10n.tr("自动整理已关闭")
+                report.skippedReason = L10n.l("auto_consolidation_is_off")
                 return report
             }
             if let last = UserDefaults.standard.object(forKey: Self.lastRunKey) as? Double,
                Date().timeIntervalSince1970 - last < Self.cooldown {
-                report.skippedReason = L10n.tr("处于冷却期")
+                report.skippedReason = L10n.l("in_cooldown_period")
                 return report
             }
         }
 
         guard gate.begin() else {
-            report.skippedReason = L10n.tr("已有整理任务在运行")
+            report.skippedReason = L10n.l("a_consolidation_run_is_already_in_progress")
             return report
         }
         defer { gate.end() }
@@ -110,13 +112,13 @@ final class MemoryConsolidator: @unchecked Sendable {
 
         if !force, original.count < mem.consolidationMinChars {
             report.skippedReason = String(
-                format: L10n.tr("长期记忆 %1$d 字符，未达阈值 %2$d"),
+                format: L10n.l("long_term_memory_is_1_d_chars_below_the_2_d_threshold"),
                 original.count, mem.consolidationMinChars
             )
             return report
         }
         guard !original.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            report.skippedReason = L10n.tr("长期记忆为空")
+            report.skippedReason = L10n.l("long_term_memory_is_empty")
             return report
         }
 
@@ -131,7 +133,7 @@ final class MemoryConsolidator: @unchecked Sendable {
                 endpoint: endpoint
             )
             if let digest, !digest.isEmpty {
-                working += "\n\n## \(L10n.tr("历史归档"))\n\n" + digest + "\n"
+                working += "\n\n## \(L10n.l("archive"))\n\n" + digest + "\n"
             }
             report.dailyFilesArchived = archivedCount
         }
@@ -184,14 +186,14 @@ final class MemoryConsolidator: @unchecked Sendable {
                 AppLogger.shared.info("整理期间检测到新增记忆，已合并保留（+\(appended.count) 字符）", category: "Memory")
             } else {
                 AppLogger.shared.warn("整理期间 MEMORY.md 被改写，放弃本次写回以保护新数据", category: "Memory")
-                report.skippedReason = "整理期间记忆被改写，已放弃写回"
+                report.skippedReason = L10n.l("memory_rewrite_aborted")
                 return report
             }
         }
 
         backup(original, label: "MEMORY")
         do {
-            try MemoryManager.shared.writeLongTermMemory(result, mode: .replace)
+            try MemoryManager.shared.writeLongTermMemory(result, mode: .replace, settings: settings)
             report.didRun = true
             UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: Self.lastRunKey)
             AppLogger.shared.info("记忆整理完成：\(report.text)", category: "Memory")

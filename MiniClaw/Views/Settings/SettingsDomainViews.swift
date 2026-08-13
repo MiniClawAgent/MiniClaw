@@ -29,7 +29,7 @@ private func modelIdFromCompositeKey(_ compositeKey: String) -> String {
 // MARK: - 模型组 (groups)
 
 struct GroupsSettingsView: View {
-    @Environment(AppState.self) private var appState
+    @EnvironmentObject private var appState: AppState
     /// 关闭回调：仅当以全屏封面（如会话页点击模型名）弹出时由调用方传入；
     /// 在「设置」页通过 NavigationLink 进入时为 nil，沿用系统返回按钮。
     var dismissAction: (() -> Void)? = nil
@@ -48,7 +48,7 @@ struct GroupsSettingsView: View {
                         ModelGroupEditView(group: $g)
                     } label: {
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(g.name.isEmpty ? L10n.tr("(未命名组)") : g.name)
+                            Text(g.name.isEmpty ? L10n.l("unnamed_group") : g.name)
                                 .font(.headline)
                             Text(groupSummary(g))
                                 .font(.caption)
@@ -61,8 +61,8 @@ struct GroupsSettingsView: View {
                     let deletedIds = Set(idx.map { groups[$0].id })
                     groups.remove(atOffsets: idx)
                     clearDeletedAssignments(deletedIds)
-                    saveGroups(summary: L10n.tr("删除模型组"))
-                    saveAssignments(summary: L10n.tr("清理已删除模型组用途"))
+                    saveGroups(summary: L10n.l("delete_model_group"))
+                    saveAssignments(summary: L10n.l("clear_deleted_model_group_assignments"))
                 }
 
                 if groups.isEmpty {
@@ -71,7 +71,7 @@ struct GroupsSettingsView: View {
                     } label: {
                         HStack(spacing: 8) {
                             Image(systemName: "plus.circle.fill")
-                            Text(L10n.tr("点击创建模型组"))
+                            Text(L10n.l("tap_to_create_model_group"))
                         }
                         .font(.headline)
                         .frame(maxWidth: .infinity, alignment: .center)
@@ -81,30 +81,30 @@ struct GroupsSettingsView: View {
                     .foregroundStyle(.secondary)
                 }
             } header: {
-                Text(L10n.tr("模型分组"))
+                Text(L10n.l("model_group"))
             }
 
             Section {
                 HStack {
-                    TextField(L10n.tr("新建模型组"), text: $newName)
+                    TextField(L10n.l("new_model_group"), text: $newName)
                         .focused($newNameFocused)
-                    Button(L10n.tr("添加")) {
+                    Button(L10n.l("add")) {
                         let name = newName.trimmingCharacters(in: .whitespaces)
                         guard !name.isEmpty else { return }
                         groups.append(ModelGroup(name: name, modelIds: []))
                         newName = ""
-                        saveGroups(summary: L10n.tr("新建模型组"))
+                        saveGroups(summary: L10n.l("new_model_group"))
                     }
                     .disabled(newName.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
             } footer: {
-                Text(L10n.tr("模型组即使尚未关联模型也会立即保存。"))
+                Text(L10n.l("a_model_group_is_saved_immediately_even_if_no_models_are_linked_yet"))
             }
 
             groupAssignmentsContent
             configuredModelsContent
         }
-        .navigationTitle(L10n.tr("模型管理"))
+        .navigationTitle(L10n.l("model_management"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             // 弹出场景（首页/会话页顶部点击）：保存由 onChange/onDisappear 自动完成，
@@ -120,7 +120,7 @@ struct GroupsSettingsView: View {
                             .padding(6)
                             .background(.ultraThinMaterial, in: Circle())
                     }
-                    .accessibilityLabel(L10n.tr("保存"))
+                    .accessibilityLabel(L10n.l("save"))
                 }
             }
         }
@@ -130,14 +130,14 @@ struct GroupsSettingsView: View {
             normalizeAssignments()
         }
         .onChange(of: groups) { _ in
-            saveGroups(summary: L10n.tr("修改模型组"))
+            saveGroups(summary: L10n.l("edit_model_group"))
         }
         .onChange(of: sessionSettings) { _ in
-            saveAssignments(summary: L10n.tr("修改模型组用途"))
+            saveAssignments(summary: L10n.l("edit_model_group_assignment"))
         }
         .onDisappear {
-            saveGroups(summary: L10n.tr("保存模型组"))
-            saveAssignments(summary: L10n.tr("保存模型组用途"))
+            saveGroups(summary: L10n.l("save_model_group"))
+            saveAssignments(summary: L10n.l("save_model_group_assignment"))
         }
         .sheet(item: $editingProviderModel) { selection in
             NavigationStack {
@@ -161,14 +161,14 @@ struct GroupsSettingsView: View {
     @ViewBuilder
     private var groupAssignmentsContent: some View {
         Section {
-            modelSlotPicker(L10n.tr("主模型"), selection: $sessionSettings.mainModel, textInAndOutOnly: true)
-            modelSlotPicker(L10n.tr("副模型"), selection: $sessionSettings.secondaryModel, textInAndOutOnly: true)
-            modelSlotPicker(L10n.tr("语音输入"), selection: $sessionSettings.speechInputModel)
-            modelSlotPicker(L10n.tr("语音输出"), selection: $sessionSettings.speechOutputModel)
+            modelSlotPicker(L10n.l("primary_model"), selection: $sessionSettings.mainModel, textInAndOutOnly: true)
+            modelSlotPicker(L10n.l("sub_model"), selection: $sessionSettings.secondaryModel, textInAndOutOnly: true)
+            modelSlotPicker(L10n.l("voice_input"), selection: $sessionSettings.speechInputModel)
+            modelSlotPicker(L10n.l("voice_output"), selection: $sessionSettings.speechOutputModel)
         } header: {
-            Text(L10n.tr("设置分组"))
+            Text(L10n.l("settings_group"))
         } footer: {
-            Text(L10n.tr("为不同用途选择模型组或单个模型；选择“无”表示不指定。副模型同时承担标题、记忆、子代理、Embedding 等全部后台任务（子代理自动走副模型，无需单独设置）。"))
+            Text(L10n.l("choose_a_model_group_or_a_single_model_per_purpose_none_means_unspecified_the_secondary_model_also_handles_all_background_tasks_titles_memory_subagents_embedding_etc_subagents_automatically_use_the_secondary_model_no_separate_setup_needed"))
         }
     }
 
@@ -177,18 +177,18 @@ struct GroupsSettingsView: View {
     /// 为 false 时（语音输入/输出）保留原"文本输入或输出"的宽松过滤。
     private func modelSlotPicker(_ title: String, selection: Binding<ModelSelection>, textInAndOutOnly: Bool = false) -> some View {
         Picker(title, selection: selection) {
-            Text(L10n.tr("无")).tag(ModelSelection.none)
+            Text(L10n.l("none")).tag(ModelSelection.none)
             if !groups.isEmpty {
-                Section(L10n.tr("模型组")) {
+                Section(L10n.l("model_groups")) {
                     ForEach(groups) { group in
-                        Text(group.name.isEmpty ? L10n.tr("(未命名组)") : group.name)
+                        Text(group.name.isEmpty ? L10n.l("unnamed_group") : group.name)
                             .tag(ModelSelection.group(id: group.id))
                     }
                 }
             }
             let models = textInAndOutOnly ? chatModelOptions : textCapableModelOptions
             if !models.isEmpty {
-                Section(L10n.tr("单个模型")) {
+                Section(L10n.l("individual_models")) {
                     ForEach(models, id: \.tag) { option in
                         Text(option.title).tag(option.tag)
                     }
@@ -240,10 +240,10 @@ struct GroupsSettingsView: View {
 
         Section {
             if enabledProviders.isEmpty {
-                Text(L10n.tr("尚未添加任何已启用的智能体服务商"))
+                Text(L10n.l("no_enabled_providers_yet"))
                     .foregroundStyle(.secondary)
             } else if providersWithModels.isEmpty {
-                Text(L10n.tr("已启用的服务商尚未获取模型"))
+                Text(L10n.l("enabled_providers_have_not_fetched_models_yet"))
                     .foregroundStyle(.secondary)
             } else {
                 ForEach(providersWithModels) { provider in
@@ -275,14 +275,14 @@ struct GroupsSettingsView: View {
                                 .contentShape(Rectangle())
                             }
                             .buttonStyle(.plain)
-                            .accessibilityLabel(String(format: L10n.tr("调整模型 %@"), model.resolvedName))
+                            .accessibilityLabel(String(format: L10n.l("adjust_model"), model.resolvedName))
                         }
                     } label: {
                         HStack {
                             Text(provider.label.isEmpty ? provider.providerType.defaultLabel : provider.label)
                                 .font(.subheadline.weight(.semibold))
                             Spacer()
-                            Text("\(provider.models.filter { !$0.hidden }.count) " + L10n.tr("个模型"))
+                            Text("\(provider.models.filter { !$0.hidden }.count) " + L10n.l("model_count_suffix"))
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
@@ -290,9 +290,9 @@ struct GroupsSettingsView: View {
                 }
             }
         } header: {
-            Text(L10n.tr("模型选项"))
+            Text(L10n.l("model_options"))
         } footer: {
-            Text(L10n.tr("点击模型进入详情页调整参数；默认推理模型请在「模型分组」中设置主模型。"))
+            Text(L10n.l("tap_a_model_to_open_its_detail_page_and_adjust_parameters_set_the_default_inference_model_as_the_main_model_in_model_groups"))
         }
     }
 
@@ -302,9 +302,9 @@ struct GroupsSettingsView: View {
                 resolveCompositeKey(entry.compositeKey, in: appState.providers)?.model.resolvedName
                     ?? modelIdFromCompositeKey(entry.compositeKey)
             }
-            return names.isEmpty ? L10n.tr("无关联模型") : names.joined(separator: ", ")
+            return names.isEmpty ? L10n.l("no_associated_model") : names.joined(separator: ", ")
         }
-        return group.modelIds.isEmpty ? L10n.tr("无关联模型") : group.modelIds.joined(separator: ", ")
+        return group.modelIds.isEmpty ? L10n.l("no_associated_model") : group.modelIds.joined(separator: ", ")
     }
 
     private func providerExpansionBinding(_ providerId: UUID) -> Binding<Bool> {
@@ -381,7 +381,7 @@ struct GroupsSettingsView: View {
 }
 
 struct ModelGroupEditView: View {
-    @Environment(AppState.self) private var appState
+    @EnvironmentObject private var appState: AppState
     @Binding var group: ModelGroup
     @State private var showingModelPicker = false
     @State private var editMode: EditMode = .inactive
@@ -391,42 +391,42 @@ struct ModelGroupEditView: View {
         Form {
             Section {
                 HStack {
-                    TextField(L10n.tr("组名称"), text: $draftName)
-                    Button(L10n.tr("保存")) {
+                    TextField(L10n.l("group_name"), text: $draftName)
+                    Button(L10n.l("save")) {
                         saveGroupName()
                     }
                     .disabled(!canSaveGroupName)
                 }
             }
             Section {
-                Picker(L10n.tr("路由策略"), selection: $group.strategy) {
-                    Text(L10n.tr("故障转移 (fallback)")).tag("fallback")
-                    Text(L10n.tr("负载均衡 (loadBalance)")).tag("loadBalance")
+                Picker(L10n.l("routing_strategy"), selection: $group.strategy) {
+                    Text(L10n.l("failover_fallback")).tag("fallback")
+                    Text(L10n.l("load_balancing_loadbalance")).tag("loadBalance")
                 }
-                Picker(L10n.tr("降级策略"), selection: $group.fallbackStrategy) {
-                    Text(L10n.tr("仅拒绝时 (limited)")).tag("limited")
-                    Text(L10n.tr("短暂错误也降级 (always)")).tag("always")
+                Picker(L10n.l("degradation_strategy"), selection: $group.fallbackStrategy) {
+                    Text(L10n.l("on_decline_only_limited")).tag("limited")
+                    Text(L10n.l("downgrade_even_on_transient_errors_always")).tag("always")
                 }
-                Picker(L10n.tr("默认思考等级"), selection: $group.defaultThinkingLevel) {
-                    Text(L10n.tr("关闭 (off)")).tag("off")
-                    Text(L10n.tr("低 (low)")).tag("low")
-                    Text(L10n.tr("中 (medium)")).tag("medium")
-                    Text(L10n.tr("高 (high)")).tag("high")
-                    Text(L10n.tr("超高 (xhigh)")).tag("xhigh")
-                    Text(L10n.tr("最大 (max)")).tag("max")
-                    Text(L10n.tr("极限 (ultra)")).tag("ultra")
+                Picker(L10n.l("default_thinking_level"), selection: $group.defaultThinkingLevel) {
+                    Text(L10n.l("off")).tag("off")
+                    Text(L10n.l("level_low_display")).tag("low")
+                    Text(L10n.l("level_medium_display")).tag("medium")
+                    Text(L10n.l("high_high")).tag("high")
+                    Text(L10n.l("ultra_high")).tag("xhigh")
+                    Text(L10n.l("maximum_value")).tag("max")
+                    Text(L10n.l("extreme_ultra")).tag("ultra")
                 }
                 Stepper(value: $group.contextLimitTokens, in: 0...200000, step: 1000) {
-                    Text(group.contextLimitTokens == 0 ? L10n.tr("上下文上限：原生窗口") : String(format: L10n.tr("上下文上限：%@ tokens"), "\(group.contextLimitTokens)"))
+                    Text(group.contextLimitTokens == 0 ? L10n.l("context_limit_native_window") : String(format: L10n.l("context_limit_tokens"), "\(group.contextLimitTokens)"))
                 }
             } header: {
-                Text(L10n.tr("路由与降级（对齐 spec 9.2.2）"))
+                Text(L10n.l("routing_and_fallback_aligned_with_spec_9_2_2"))
             } footer: {
-                Text(L10n.tr("上下文上限 0 表示使用模型原生窗口大小。"))
+                Text(L10n.l("a_context_limit_of_0_means_using_the_model_s_native_window_size"))
             }
             Section {
                 if group.entries.isEmpty {
-                    Text(L10n.tr("尚未添加模型"))
+                    Text(L10n.l("no_models_added_yet"))
                         .foregroundStyle(.secondary)
                 } else {
                     ForEach($group.entries) { $entry in
@@ -444,7 +444,7 @@ struct ModelGroupEditView: View {
                             }
                             Spacer()
                             if !isEntryAvailable(entry) {
-                                Text(L10n.tr("不可用"))
+                                Text(L10n.l("unavailable"))
                                     .font(.caption2)
                                     .foregroundStyle(.secondary)
                             }
@@ -461,12 +461,12 @@ struct ModelGroupEditView: View {
                 }
             } header: {
                 HStack {
-                    Text(L10n.tr("模型 ID 列表"))
+                    Text(L10n.l("model_id_list"))
                     Spacer()
                     Button {
                         withAnimation { editMode = (editMode == .active) ? .inactive : .active }
                     } label: {
-                        Label(editMode == .active ? L10n.tr("完成") : L10n.tr("排序"), systemImage: editMode == .active ? "checkmark" : "arrow.up.arrow.down")
+                        Label(editMode == .active ? L10n.l("done") : L10n.l("sort"), systemImage: editMode == .active ? "checkmark" : "arrow.up.arrow.down")
                             .font(.caption.weight(.semibold))
                     }
                     .textCase(nil)
@@ -474,7 +474,7 @@ struct ModelGroupEditView: View {
                     Button {
                         showingModelPicker = true
                     } label: {
-                        Label(L10n.tr("添加"), systemImage: "plus")
+                        Label(L10n.l("add"), systemImage: "plus")
                             .font(.caption.weight(.semibold))
                     }
                     .textCase(nil)
@@ -482,13 +482,13 @@ struct ModelGroupEditView: View {
                 }
             } footer: {
                 if availableModels.isEmpty {
-                    Text(L10n.tr("请先在智能体服务商中拉取模型。"))
+                    Text(L10n.l("fetch_models_from_a_provider_first"))
                 } else {
-                    Text(L10n.tr("点「排序」进入编辑模式可拖动调整优先级；行左滑可移除模型。列表顺序即故障转移（limited）尝试顺序：排在前面的优先使用，失败才按顺序轮换。"))
+                    Text(L10n.l("tap_sort_to_enter_edit_mode_and_drag_to_adjust_priority_swipe_left_on_a_row_to_remove_a_model_the_list_order_is_the_failover_limited_attempt_order_earlier_entries_are_tried_first_and_only_on_failure_does_it_move_down_the_list"))
                 }
             }
         }
-        .navigationTitle(L10n.tr("编辑组"))
+        .navigationTitle(L10n.l("edit_group"))
         .navigationBarTitleDisplayMode(.inline)
         .environment(\.editMode, $editMode)
         .onAppear {
@@ -647,14 +647,14 @@ private struct ModelGroupModelPicker: View {
                     }
                 }
             }
-            .navigationTitle(L10n.tr("添加模型"))
+            .navigationTitle(L10n.l("add_model"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button(L10n.tr("取消")) { dismiss() }
+                    Button(L10n.l("cancel")) { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button(L10n.tr("添加")) {
+                    Button(L10n.l("add")) {
                         onAdd(selectedModelIds)
                         dismiss()
                     }

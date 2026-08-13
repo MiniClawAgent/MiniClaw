@@ -31,23 +31,24 @@ enum IntentNotification {
 /// 派发链路目前在 UI 层（ChatView 消费 pendingDeepLinkTask 后启动引擎），
 /// 因此两个意图都置 openAppWhenRun = true 保证界面出现、任务必达；
 /// 服务层派发器落地（无 UI 也能消费）后改回 false 实现真后台执行。
+@available(iOS 17.0, *)
 struct RunAgentTaskIntent: LiveActivityIntent, ProgressReportingIntent {
 
-    static let title: LocalizedStringResource = "新建任务"
-    static let description = IntentDescription("让 MiniClaw 智能体执行一条新任务（可附文件），完成后发通知")
+    static let title: LocalizedStringResource = "new_task"
+    static let description = IntentDescription("new_task_desc")
     // headless：不打开 App 界面，任务由服务层消费者后台执行（用户已验证此模式可用）。
     static let openAppWhenRun = false
 
-    @Parameter(title: "任务提示词", description: "要交给 MiniClaw 执行的指令", requestValueDialog: "要执行什么任务？")
+    @Parameter(title: "task_prompt_title", description: "task_prompt_desc", requestValueDialog: "task_prompt_dialog")
     var prompt: String
 
-    @Parameter(title: "附件", description: "要随任务发送的文件（可选），可接收前面动作的输出（如图片/文档）",
+    @Parameter(title: "attachment_title", description: "attachment_desc",
                supportedTypeIdentifiers: ["public.image", "public.movie", "public.data"],
                inputConnectionBehavior: .connectToPreviousIntentResult)
     var attachments: [IntentFile]?
 
     static var parameterSummary: some ParameterSummary {
-        Summary("新建任务：\(\.$prompt)") {
+        Summary("new_task_summary") {
             \.$attachments
         }
     }
@@ -59,7 +60,7 @@ struct RunAgentTaskIntent: LiveActivityIntent, ProgressReportingIntent {
         BackgroundTaskController.shared.armForIntent(sessionID: nil)
         // LiveActivityIntent 授权窗口内启动实时活动（官方唯一后台启动路径）；
         // 引擎 agentDidStart 会再次调用（幂等复用），双路径安全。
-        BackgroundTaskController.shared.startLiveActivity(sessionID: nil, title: "新建任务", icon: ChatSession.defaultIcon)
+        BackgroundTaskController.shared.startLiveActivity(sessionID: nil, title: String(localized: "new_task"), icon: ChatSession.defaultIcon)
 
         let trimmed = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { throw IntentError.emptyPrompt }
@@ -67,12 +68,7 @@ struct RunAgentTaskIntent: LiveActivityIntent, ProgressReportingIntent {
         // 附件转为内存数据（由服务层消费者落盘到会话目录）；未配置附件时为 nil/空。
         var deepLinkAttachments: [AppState.DeepLinkAttachment] = []
         for file in attachments ?? [] {
-            let data: Data
-            do {
-                data = try await file.data
-            } catch {
-                throw IntentError.attachmentReadFailed(file.filename)
-            }
+            let data = file.data
             deepLinkAttachments.append(AppState.DeepLinkAttachment(fileName: resolvedIntentFileName(for: file), data: data))
         }
 
@@ -91,7 +87,7 @@ struct RunAgentTaskIntent: LiveActivityIntent, ProgressReportingIntent {
         AppState.shared?.consumeIntentTaskIfNeeded()
 
         // 开始通知标题固定「新建任务」（仅本意图；「继续会话」的开始通知仍用会话名，完成通知不变）。
-        IntentNotification.postStarted(title: "新建任务", promptPreview: String(trimmed.prefix(50)), sessionID: session.id)
+        IntentNotification.postStarted(title: String(localized: "new_task"), promptPreview: String(trimmed.prefix(50)), sessionID: session.id)
 
 #if compiler(>=6.4)
         // ===== iOS 27+ 官方长任务路径（LongRunningIntent）=====
@@ -103,7 +99,7 @@ struct RunAgentTaskIntent: LiveActivityIntent, ProgressReportingIntent {
             // 定期上报进度（系统要求）：totalUnitCount=0 为不确定进度，
             // completedUnitCount 递增表示持续活跃（进度数据源：引擎 词元/阶段，后续可细化）。
             progress.totalUnitCount = 100
-            progress.localizedDescription = "MiniClaw 任务处理中…"
+            progress.localizedDescription = String(localized: "intent_processing")
             let deadline = Date().addingTimeInterval(Self.finishTimeoutSeconds)
             while Date() < deadline {
                 try Task.checkCancellation()
@@ -118,18 +114,27 @@ struct RunAgentTaskIntent: LiveActivityIntent, ProgressReportingIntent {
         } onCancel: { _ in
             // 用户取消（Siri「取消」等）：通知引擎停止，避免后台继续空跑。
             Task { @MainActor in
-                if let engine = AppState.shared?.chatRuntimes[session.id] { engine.cancel() }
-                AppState.shared?.markIntentEngineFinished(sessionID: session.id, result: .failure(IntentError.timeout))
+                let sid = session.id
+                if let engine = AppState.shared?.chatRuntimes[sid] { engine.cancel() }
+                AppState.shared?.markIntentEngineFinished(sessionID: sid, result: .failure(IntentError.timeout))
+                // 2026-08-12 修复：取消同样写终态，否则 status 卡 .running → 首页图标转圈
+                // (runLoop 被 cancel 后静默返回，不触发 onComplete/onError 回调)。
+                if let s = SessionManager.shared.session(id: sid),
+                   s.status == .running || s.status == .retrying {
+                    s.status = .completed
+                    s.updatedAt = Date()
+                    SessionManager.shared.persist(s)
+                }
             }
         }
-        return .result(value: reply ?? "", dialog: "任务完成")
+        return .result(value: reply ?? "", dialog: IntentDialog("task_complete"))
 #else
         // ===== iOS 26 及以下：现有 headless 路径 =====
         // 系统无官方后台延长 API，保持「等引擎启动即返回 + eager 保活 + LiveActivity + 完成通知」；
         // progress 定期更新仅作 Siri 进度显示（无延长能力）。
         // 等引擎真正开始 run 后再返回（消除「返回了但引擎没启动」窗口）。
         await waitForEngineStart(sessionID: session.id, progress: progress)
-        return .result(value: "已开始", dialog: "任务已开始，完成后会通知你。")
+        return .result(value: String(localized: "started"), dialog: IntentDialog("task_started_notice"))
 #endif
     }
 
@@ -143,10 +148,10 @@ struct RunAgentTaskIntent: LiveActivityIntent, ProgressReportingIntent {
         case timeout
         var errorDescription: String? {
             switch self {
-            case .emptyPrompt: return "任务提示词为空，请输入要执行的任务"
-            case .attachmentReadFailed(let name): return "附件「\(name)」读取失败，请重试"
-            case .createSessionFailed: return "创建会话失败，请重试"
-            case .timeout: return "等待任务完成超时（30 分钟），请到 App 内查看进度"
+            case .emptyPrompt: return String(localized: "intent_empty_prompt")
+            case .attachmentReadFailed(let name): return String(format: L10n.l("intent_attachment_read_failed"), name)
+            case .createSessionFailed: return String(localized: "intent_create_session_failed")
+            case .timeout: return String(localized: "intent_wait_timeout")
             }
         }
     }
@@ -170,6 +175,7 @@ func resolvedIntentFileName(for file: IntentFile) -> String {
 /// 注意：pendingDeepLinkTask 在 startRun 成功后即被消费清空，不能作为等待依据；
 /// 只检查目标会话的引擎启动信号。文件级私有：两个 intent 共用。
 /// 等待期间定期更新 progress（ProgressReportingIntent，iOS 17+）：Siri/快捷指令显示执行中。
+@available(iOS 17.0, *)
 @MainActor
 private func waitForEngineStart(sessionID: UUID, progress: Progress? = nil) async {
     for _ in 0..<50 {
@@ -179,7 +185,7 @@ private func waitForEngineStart(sessionID: UUID, progress: Progress? = nil) asyn
         }
         if let progress {
             progress.totalUnitCount = 100
-            progress.localizedDescription = "MiniClaw 任务处理中…"
+            progress.localizedDescription = String(localized: "intent_processing")
             progress.completedUnitCount += 1
         }
         try? await Task.sleep(for: .milliseconds(100))
@@ -191,6 +197,9 @@ private func waitForEngineStart(sessionID: UUID, progress: Progress? = nil) asyn
 /// 每个意图都注册 AppShortcut（对齐参考实现）——只有短语注册的意图，
 /// 用户才能从「App 快捷指令」列表可靠添加并运行；未注册短语的意图
 /// 即使从「App 动作」手动添加，运行时路由也不可靠（日志零 intent 执行）。
+/// iOS16 兼容(2026-08-12):两个意图依赖 LiveActivityIntent(iOS17),
+/// 快捷指令整体仅 iOS17+ 注册;16 下无 Siri 快捷指令(记录于改造报告)。
+@available(iOS 17.0, *)
 struct MiniClawShortcuts: AppShortcutsProvider {
     @AppShortcutsBuilder
     static var appShortcuts: [AppShortcut] {
@@ -199,18 +208,22 @@ struct MiniClawShortcuts: AppShortcutsProvider {
             phrases: [
                 "用 ${applicationName} 执行任务",
                 "让 ${applicationName} 运行任务",
-                "新建 ${applicationName} 任务"
+                "新建 ${applicationName} 任务",
+                "Run a task with ${applicationName}",
+                "Ask ${applicationName} to run a task"
             ],
-            shortTitle: "新建任务",
+            shortTitle: "new_task",
             systemImageName: "brain"
         )
         AppShortcut(
             intent: ContinueSessionIntent(),
             phrases: [
                 "继续 ${applicationName} 会话",
-                "向 ${applicationName} 会话发送消息"
+                "向 ${applicationName} 会话发送消息",
+                "Continue ${applicationName} conversation",
+                "Send a message to ${applicationName} conversation"
             ],
-            shortTitle: "继续会话",
+            shortTitle: "continue_session",
             systemImageName: "arrowshape.turn.up.left.fill"
         )
     }
@@ -224,7 +237,7 @@ struct ChatSessionEntity: AppEntity {
     let title: String
     let iconName: String
 
-    static var typeDisplayRepresentation: TypeDisplayRepresentation { "会话" }
+    static var typeDisplayRepresentation: TypeDisplayRepresentation { "session_entity" }
     static var defaultQuery: ChatSessionEntityQuery { ChatSessionEntityQuery() }
 
     var displayRepresentation: DisplayRepresentation {
@@ -257,26 +270,27 @@ struct ChatSessionEntityQuery: EntityQuery {
 /// 继续会话：向选中的已有会话发送消息（可携带多个附件）。
 /// - waitForResult = false（默认）：立即返回「已开始」，智能体完成后由引擎管线发本地通知；
 /// - waitForResult = true：等待整轮完成，返回 智能体回复全文（可链式传给后续快捷指令动作）。
+@available(iOS 17.0, *)
 struct ContinueSessionIntent: LiveActivityIntent, ProgressReportingIntent {
-    static let title: LocalizedStringResource = "继续会话"
-    static let description = IntentDescription("向选中的 MiniClaw 会话发送消息（可附文件）。可等待智能体完成并返回回复内容，或立即返回稍后通知。")
+    static let title: LocalizedStringResource = "continue_session"
+    static let description = IntentDescription("continue_session_desc")
     // headless：与「运行任务」完全同机制（openAppWhenRun=false + 短语注册）。
     // 此前失败根因 = 未注册 AppShortcut 短语，用户从「App 动作」手动添加的意图
     // 路由不可靠（perform 不执行、App 不拉起）；短语注册后路由与运行任务一致。
     static let openAppWhenRun = false
 
-    @Parameter(title: "会话", description: "选择要发送消息的会话")
+    @Parameter(title: "session_title", description: "task_prompt_desc")
     var session: ChatSessionEntity
 
-    @Parameter(title: "消息", description: "要发送给智能体的内容", requestValueDialog: "要发送什么内容？")
+    @Parameter(title: "message_title", description: "message_desc", requestValueDialog: "message_dialog")
     var message: String
 
-    @Parameter(title: "附件", description: "要随消息发送的文件（可选），可接收前面动作的输出（如图片/文档）",
+    @Parameter(title: "attachment_title", description: "attachment_desc",
                supportedTypeIdentifiers: ["public.image", "public.movie", "public.data"],
                inputConnectionBehavior: .connectToPreviousIntentResult)
     var attachments: [IntentFile]?
 
-    @Parameter(title: "等待结果", description: "开启后等待智能体完成并返回回复内容；关闭则立即返回，完成时发通知", default: false)
+    @Parameter(title: "wait_for_result_title", description: "attachment_desc", default: false)
     var waitForResult: Bool
 
     /// 等待模式下防永久挂起的超时（秒）：任何链路故障（派发失败/引擎未启动）都不会让快捷指令无限转圈。
@@ -287,7 +301,7 @@ struct ContinueSessionIntent: LiveActivityIntent, ProgressReportingIntent {
     static var parameterSummary: some ParameterSummary {
         // 显式列出全部参数（含可选参数）：否则「附件/等待结果」会折叠进快捷指令的
         // 隐藏区，用户看不到添加入口。
-        Summary("向 \(\.$session) 发送 \(\.$message)") {
+        Summary("send_summary") {
             \.$attachments
             \.$waitForResult
         }
@@ -305,12 +319,7 @@ struct ContinueSessionIntent: LiveActivityIntent, ProgressReportingIntent {
         // 附件转为内存数据（由服务层消费者落盘到会话目录）；未配置附件时为 nil/空。
         var deepLinkAttachments: [AppState.DeepLinkAttachment] = []
         for file in attachments ?? [] {
-            let data: Data
-            do {
-                data = try await file.data
-            } catch {
-                throw IntentError.attachmentReadFailed(file.filename)
-            }
+            let data = file.data
             deepLinkAttachments.append(AppState.DeepLinkAttachment(fileName: resolvedIntentFileName(for: file), data: data))
         }
         let task = AppState.PendingDeepLinkTask(
@@ -338,7 +347,7 @@ struct ContinueSessionIntent: LiveActivityIntent, ProgressReportingIntent {
         // waitForResult 仅影响 dialog 措辞，返回值恒为整轮回复文本（快捷指令总能拿到结果）。
         let reply = try await performBackgroundTask { () -> String? in
             progress.totalUnitCount = 100
-            progress.localizedDescription = "MiniClaw 任务处理中…"
+            progress.localizedDescription = String(localized: "intent_processing")
             let deadline = Date().addingTimeInterval(Self.finishTimeoutSeconds)
             while Date() < deadline {
                 try Task.checkCancellation()
@@ -355,14 +364,14 @@ struct ContinueSessionIntent: LiveActivityIntent, ProgressReportingIntent {
                 AppState.shared?.markIntentEngineFinished(sessionID: session.id, result: .failure(IntentError.timeout))
             }
         }
-        return .result(value: reply ?? "", dialog: waitForResult ? "任务完成" : "已开始处理，完成后会通知你。")
+        return .result(value: reply ?? "", dialog: IntentDialog(waitForResult ? "task_complete" : "task_started_processing"))
 #else
         // ===== iOS 26 及以下：现有 headless 路径 =====
         // 等引擎真正开始 run 后再返回（headless 无 UI，用户感知 = 通知；保证引擎已启动）。
         await waitForEngineStart(sessionID: session.id, progress: progress)
 
         guard waitForResult else {
-            return .result(value: "已开始", dialog: "已开始处理，完成后会通知你。")
+            return .result(value: String(localized: "started"), dialog: IntentDialog("task_started_processing"))
         }
 
         // 等待模式：整轮 Agent 跑完由 ChatView.onComplete 经 fireDeepLinkSuccess 回传回复文本；
@@ -379,7 +388,7 @@ struct ContinueSessionIntent: LiveActivityIntent, ProgressReportingIntent {
                 AppState.shared?.deepLinkResultContinuation = nil
             }
         }
-        return .result(value: reply, dialog: "任务完成")
+        return .result(value: reply, dialog: IntentDialog("task_complete"))
 #endif
     }
 
@@ -390,10 +399,10 @@ struct ContinueSessionIntent: LiveActivityIntent, ProgressReportingIntent {
         case timeout
         var errorDescription: String? {
             switch self {
-            case .sessionNotFound: return "找不到所选会话"
-            case .emptyMessage: return "消息内容为空，请输入要发送给智能体的内容"
-            case .attachmentReadFailed(let name): return "附件「\(name)」读取失败，请重试"
-            case .timeout: return "等待智能体回复超时（120 秒），任务可能仍在运行，请到 App 内查看"
+            case .sessionNotFound: return String(localized: "intent_session_not_found")
+            case .emptyMessage: return String(localized: "intent_empty_message")
+            case .attachmentReadFailed(let name): return String(format: L10n.l("intent_attachment_read_failed"), name)
+            case .timeout: return String(localized: "intent_reply_timeout")
             }
         }
     }

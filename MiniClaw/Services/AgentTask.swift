@@ -73,36 +73,26 @@ struct AgentTask: Codable, Identifiable {
     }
 }
 
-/// 检查点持久化：按会话 ID 在 `Documents/MiniClaw/runs/<id>.json` 落盘。
+/// 检查点持久化：按会话 ID 存入 SQLite(`session_blobs` 表,kind=agent_task)。
 ///
-/// 落盘时机（v1）：
-/// - 每轮助手回合完成后写 `running`（支撑 App 被杀冷恢复）；
+/// 落盘时机(v1)：
+/// - 每轮助手回合完成后写 `running`(支撑 App 被杀冷恢复)；
 /// - 用户暂停的安全点写 `paused`；
-/// - 终态（完成/失败/取消）立即删除文件，避免残留误导恢复。
+/// - 终态(完成/失败/取消)立即删除,避免残留误导恢复。
 final class AgentTaskStore: @unchecked Sendable {
     static let shared = AgentTaskStore()
 
-    private let fileManager = FileManager.default
     /// 检查点读写串行队列：save/load/clear 全部经此排队。
     /// 引擎循环（后台）每轮写检查点与主线程 cancel()/stopGeneration() 的 clear 并发执行时，
-    /// 串行化保证"先 clear 后 write 残留 .running"、"先 write 后 clear 正常清除"二选一，
-    /// 不会出现交错（配合 saveCheckpoint 的活跃性守卫，彻底杜绝已取消任务"复活"）。
+    /// 串行化保证"先 clear 后写残留 .running"、"先写后 clear 正常清除"二选一，
+    /// 不会出现交错(配合 saveCheckpoint 的活跃性守卫，彻底杜绝已取消任务"复活")。
     private let queue = DispatchQueue(label: "miniclaw-agent-task-store")
-
-    private var runsDir: URL {
-        FileSystemManager.shared.miniClawRoot.appendingPathComponent("runs", isDirectory: true)
-    }
-
-    private func fileURL(for sessionID: UUID) -> URL {
-        runsDir.appendingPathComponent(sessionID.uuidString + ".json")
-    }
 
     func save(_ task: AgentTask) {
         queue.sync {
             do {
-                try fileManager.createDirectory(at: runsDir, withIntermediateDirectories: true)
                 let data = try JSONEncoder().encode(task)
-                try data.write(to: fileURL(for: task.sessionID), options: .atomic)
+                SQLiteStore.shared.saveBlob(sessionID: task.sessionID, kind: .agentTask, payload: data)
             } catch {
                 AppLogger.shared.error("保存 AgentTask 检查点失败（session=\(task.sessionID.uuidString.prefix(8))）：\(error.localizedDescription)", category: "Agent", subsystem: "Checkpoint")
             }
@@ -111,10 +101,8 @@ final class AgentTaskStore: @unchecked Sendable {
 
     func load(sessionID: UUID) -> AgentTask? {
         queue.sync {
-            let url = fileURL(for: sessionID)
-            guard fileManager.fileExists(atPath: url.path) else { return nil }
+            guard let data = SQLiteStore.shared.loadBlob(sessionID: sessionID, kind: .agentTask) else { return nil }
             do {
-                let data = try Data(contentsOf: url)
                 return try JSONDecoder().decode(AgentTask.self, from: data)
             } catch {
                 AppLogger.shared.error("读取 AgentTask 检查点失败（session=\(sessionID.uuidString.prefix(8))）：\(error.localizedDescription)", category: "Agent", subsystem: "Checkpoint")
@@ -125,9 +113,7 @@ final class AgentTaskStore: @unchecked Sendable {
 
     func clear(sessionID: UUID) {
         queue.sync {
-            let url = fileURL(for: sessionID)
-            guard fileManager.fileExists(atPath: url.path) else { return }
-            try? fileManager.removeItem(at: url)
+            SQLiteStore.shared.deleteBlob(sessionID: sessionID, kind: .agentTask)
         }
     }
 
@@ -151,8 +137,8 @@ final class AgentTaskStore: @unchecked Sendable {
 ///
 /// 背景：此前排队队列只存在于 `AppState.pendingUserMessages`（内存字典），
 /// 回复进行中被杀后台即丢失；草稿 `inputText` 仅存于 `ChatView` 的 `@State`，
-/// 退出会话即清空。现统一以 `Documents/MiniClaw/queue/<sessionID>.json`（队列）
-/// 与 `<sessionID>.draft.json`（草稿）为磁盘真源：
+/// 退出会话即清空。现统一以 SQLite(`session_blobs` 表,kind=pending_queue / pending_draft)
+/// 为磁盘真源：
 /// - 队列：每次增删都落盘，且与内存字典保持单一方向同步（字典变 → 写盘）；
 ///   进入会话时由 `ChatView.restorePersistedState()` 从盘恢复到字典。
 /// - 草稿：输入变化即落盘；消息真正发出时清空。
@@ -162,50 +148,35 @@ final class AgentTaskStore: @unchecked Sendable {
 final class PendingMessageStore: @unchecked Sendable {
     static let shared = PendingMessageStore()
 
-    private let fileManager = FileManager.default
+    /// 草稿 blob 落盘/清空完成广播（2026-08-13）：首页笔图标据此即时重算。
+    static let pendingDraftDidChange = Notification.Name("pendingDraftDidChange")
 
-    /// 落盘串行队列（线程治理 2026-08-09）：发消息/排队/草稿高频写盘移后台。
+    /// 落盘串行队列（线程治理 2026-08-09）：发消息/排队/草稿高频写库移后台。
     private let ioQueue = DispatchQueue(label: "pending-message-store-io")
-
-    private var queueDir: URL {
-        FileSystemManager.shared.miniClawRoot.appendingPathComponent("queue", isDirectory: true)
-    }
-
-    private func queueFileURL(for sessionID: UUID) -> URL {
-        queueDir.appendingPathComponent(sessionID.uuidString + ".json")
-    }
-
-    private func draftFileURL(for sessionID: UUID) -> URL {
-        queueDir.appendingPathComponent(sessionID.uuidString + ".draft.json")
-    }
 
     // MARK: 排队队列
 
-    /// 落盘当前排队队列；空数组等价于清空（删除文件）。落盘移后台（线程治理 2026-08-09）。
+    /// 落盘当前排队队列；空数组等价于清空（删除 blob）。落库移后台（线程治理 2026-08-09）。
     func save(_ messages: [PendingUserMessage], for sessionID: UUID) {
         let sid = sessionID
         ioQueue.async { [self] in
             do {
-                try fileManager.createDirectory(at: queueDir, withIntermediateDirectories: true)
-                let url = queueFileURL(for: sid)
                 if messages.isEmpty {
-                    try? fileManager.removeItem(at: url)
+                    SQLiteStore.shared.deleteBlob(sessionID: sid, kind: .pendingQueue)
                     return
                 }
                 let data = try JSONEncoder().encode(messages)
-                try data.write(to: url, options: .atomic)
+                SQLiteStore.shared.saveBlob(sessionID: sid, kind: .pendingQueue, payload: data)
             } catch {
                 AppLogger.shared.error("保存排队消息失败（session=\(sid.uuidString.prefix(8))）：\(error.localizedDescription)", category: "Agent", subsystem: "Queue")
             }
         }
     }
 
-    /// 读取落盘的排队队列；无文件返回 `nil`。
+    /// 读取落盘的排队队列；无记录返回 `nil`。
     func load(for sessionID: UUID) -> [PendingUserMessage]? {
-        let url = queueFileURL(for: sessionID)
-        guard fileManager.fileExists(atPath: url.path) else { return nil }
+        guard let data = SQLiteStore.shared.loadBlob(sessionID: sessionID, kind: .pendingQueue) else { return nil }
         do {
-            let data = try Data(contentsOf: url)
             return try JSONDecoder().decode([PendingUserMessage].self, from: data)
         } catch {
             AppLogger.shared.error("读取排队消息失败（session=\(sessionID.uuidString.prefix(8))）：\(error.localizedDescription)", category: "Agent", subsystem: "Queue")
@@ -215,32 +186,35 @@ final class PendingMessageStore: @unchecked Sendable {
 
     // MARK: 输入草稿
 
-    /// 落盘输入栏未发送内容；空白文本等价于清空（删除文件）。落盘移后台（线程治理 2026-08-09）。
+    /// 落盘输入栏未发送内容；空白文本等价于清空（删除 blob）。落库移后台（线程治理 2026-08-09）。
     func saveDraft(_ text: String, for sessionID: UUID) {
         let sid = sessionID
         ioQueue.async { [self] in
             do {
-                try fileManager.createDirectory(at: queueDir, withIntermediateDirectories: true)
-                let url = draftFileURL(for: sid)
                 if text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    try? fileManager.removeItem(at: url)
-                    return
+                    SQLiteStore.shared.deleteBlob(sessionID: sid, kind: .pendingDraft)
+                } else {
+                    let payload = ["text": text]
+                    let data = try JSONSerialization.data(withJSONObject: payload)
+                    SQLiteStore.shared.saveBlob(sessionID: sid, kind: .pendingDraft, payload: data)
                 }
-                let payload = ["text": text]
-                let data = try JSONSerialization.data(withJSONObject: payload)
-                try data.write(to: url, options: .atomic)
+                // 2026-08-13 治标：草稿落盘/清空完成后广播——首页会话行的笔图标
+                // (hasDraft) 是读时计算且列表不随草稿文件变化重绘，不广播会残留。
+                NotificationCenter.default.post(
+                    name: PendingMessageStore.pendingDraftDidChange,
+                    object: nil,
+                    userInfo: ["sessionID": sid]
+                )
             } catch {
                 AppLogger.shared.error("保存输入草稿失败（session=\(sid.uuidString.prefix(8))）：\(error.localizedDescription)", category: "Agent", subsystem: "Draft")
             }
         }
     }
 
-    /// 读取落盘的输入草稿；无文件或空白返回 `nil`。
+    /// 读取落盘的输入草稿；无记录或空白返回 `nil`。
     func loadDraft(for sessionID: UUID) -> String? {
-        let url = draftFileURL(for: sessionID)
-        guard fileManager.fileExists(atPath: url.path) else { return nil }
+        guard let data = SQLiteStore.shared.loadBlob(sessionID: sessionID, kind: .pendingDraft) else { return nil }
         do {
-            let data = try Data(contentsOf: url)
             guard let obj = try JSONSerialization.jsonObject(with: data) as? [String: Any],
                   let text = obj["text"] as? String else { return nil }
             return text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : text
@@ -253,7 +227,7 @@ final class PendingMessageStore: @unchecked Sendable {
     func clearDraft(for sessionID: UUID) {
         let sid = sessionID
         ioQueue.async { [self] in
-            try? fileManager.removeItem(at: draftFileURL(for: sid))
+            SQLiteStore.shared.deleteBlob(sessionID: sid, kind: .pendingDraft)
         }
     }
 }

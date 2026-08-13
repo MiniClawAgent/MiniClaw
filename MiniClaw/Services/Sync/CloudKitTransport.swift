@@ -124,7 +124,7 @@ final class CloudKitTransport: SyncTransport {
         let query = CKQuery(recordType: recordType, predicate: predicate)
 
         var upserts: [PortableRecord] = []
-        var deletions: [(String, String)] = []
+        let deletions: [(String, String)] = []
 
         // 使用 records(matching:) 兼容 API
         let (matchResults, _) = try await database.records(matching: query, desiredKeys: nil, resultsLimit: 1000)

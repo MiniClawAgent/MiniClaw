@@ -1,17 +1,20 @@
 import Foundation
-import SwiftData
 
-@Model
-final class ChatMessage {
-    @Attribute(.unique) var id: UUID
+/// 会话消息。iOS16 适配(2026-08-12):由 SwiftData @Model 改为普通 Codable class,
+/// 持久化经 SessionManager 的 JSON 文件存储(Documents/MiniClaw-Sessions/<uuid>/session.json)。
+/// `session` 为内存反向引用(不参与编码),缓存属性不落盘。
+final class ChatMessage: Identifiable, Codable {
+    var id: UUID
     var roleRaw: String
     var content: String
     var createdAt: Date
     var isStreaming: Bool
-    /// 用户是否主动中断了本条 智能体回复。可选类型保证旧 SwiftData 数据轻量迁移兼容。
+    /// 2026-08-12 治本:消息级暂停标志。暂停即置 true 并同步落盘,
+    /// 重启后据此恢复暂停指示器(不依赖进程内 runtime)。
+    var isPaused: Bool = false
+    /// 用户是否主动中断了本条 智能体回复。可选类型兼容旧数据。
     var wasStopped: Bool?
     /// 智能体回复因异常/警告（网络失败、工具熔断、无效工具、无有效内容等）被迫中断，并未正常完成。
-    /// 非可选 Bool 带默认值 false，配合 SwiftData 轻量迁移兼容旧数据。
     var wasInterrupted: Bool = false
     /// 任务总耗时（秒，2026-08-08 用户定）：从用户发送消息到 AI 跑完全部轮次输出完毕；
     /// 暂停/重试期间不计。可选类型：旧数据/断点恢复（冷启动）不显示。落盘持久化。
@@ -20,27 +23,24 @@ final class ChatMessage {
     var toolCallResult: String?
     var toolCallsData: Data?
     var attachmentsData: Data?
-    /// 思考过程（reasoning）展示字段：持久化到 SwiftData，重进会话后仍能看到可折叠「思考过程」块；
+    /// 思考过程（reasoning）展示字段：持久化，重进会话后仍能看到可折叠「思考过程」块；
     /// **不回灌上下文**——`buildHistory` 只取 `content`，所以下一轮上下文只看正文、思考 词元 永不回灌。
-    /// 由 ChatView 在流式期间实时写入（与 `content` 同机制），流式结束后随消息一起落盘。
     var reasoning: String?
     /// 最终轮回复正文：agent 工具循环结束后「最后一轮模型答复」的文本（区别于 `content`——
-    /// content 是整轮所有循环文本的拼接，开头可能是过程叙述）。首页会话列表摘要优先用此字段，
-    /// 避免显示成「第一轮循环的中间回复」；nil = 旧数据/未正常完成，回退 content。
+    /// content 是整轮所有循环文本的拼接，开头可能是过程叙述）。首页会话列表摘要优先用此字段。
     var previewText: String?
-    /// 分段思考过程：按「agent loop 轮次（iterations）」切片，每段独立可折叠、穿插在正文/工具调用之间，
-    /// 而非全部堆在回复顶部。由 ChatView 在流式期间按迭代序号累积写入并落盘。
-    /// 旧消息只有单字符串 `reasoning` 时，`MessageBubbleView` 会把它包成一个 `position: 0` 的单段兼容。
+    /// 分段思考过程：按「agent loop 轮次（iterations）」切片，每段独立可折叠、穿插在正文/工具调用之间。
     var reasoningSegmentsData: Data?
 
-    var session: ChatSession?
+    /// 内存反向引用（不参与编码）：由 SessionManager 加载时装配。
+    weak var session: ChatSession?
 
     /// 解码缓存（2026-08-07 效率优化）：toolCalls/attachments/reasoningSegments 是计算属性,
     /// 每次访问都全量 JSON 解码——请求构造对每条历史消息访问多次,长会话每轮重复解码。
-    /// @Transient 不落盘;set 时清缓存保证一致性。
-    @Transient private var toolCallsCache: [ToolCallEvent]?
-    @Transient private var attachmentsCache: [String]?
-    @Transient private var reasoningSegmentsCache: [ReasoningSegment]?
+    /// 不落盘;set 时清缓存保证一致性。
+    private var toolCallsCache: [ToolCallEvent]?
+    private var attachmentsCache: [String]?
+    private var reasoningSegmentsCache: [ReasoningSegment]?
 
     /// 本次回复过程中穿插的工具调用事件（含参数与结果），用于在 UI 中展示 智能体的工具使用过程。
     var toolCalls: [ToolCallEvent] {
@@ -111,6 +111,52 @@ final class ChatMessage {
         self.toolCallName = toolCallName
         self.toolCallResult = toolCallResult
         self.attachmentsData = try? JSONEncoder().encode(attachments)
+    }
+
+    // MARK: - Codable（手动：排除内存引用 session 与解码缓存）
+
+    private enum CodingKeys: String, CodingKey {
+        case id, roleRaw, content, createdAt, isStreaming, wasStopped, wasInterrupted,
+             taskElapsedSeconds, toolCallName, toolCallResult, toolCallsData, attachmentsData,
+             reasoning, previewText, reasoningSegmentsData
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        roleRaw = try c.decode(String.self, forKey: .roleRaw)
+        content = try c.decode(String.self, forKey: .content)
+        createdAt = try c.decode(Date.self, forKey: .createdAt)
+        isStreaming = try c.decodeIfPresent(Bool.self, forKey: .isStreaming) ?? false
+        wasStopped = try c.decodeIfPresent(Bool.self, forKey: .wasStopped)
+        wasInterrupted = try c.decodeIfPresent(Bool.self, forKey: .wasInterrupted) ?? false
+        taskElapsedSeconds = try c.decodeIfPresent(Double.self, forKey: .taskElapsedSeconds)
+        toolCallName = try c.decodeIfPresent(String.self, forKey: .toolCallName)
+        toolCallResult = try c.decodeIfPresent(String.self, forKey: .toolCallResult)
+        toolCallsData = try c.decodeIfPresent(Data.self, forKey: .toolCallsData)
+        attachmentsData = try c.decodeIfPresent(Data.self, forKey: .attachmentsData)
+        reasoning = try c.decodeIfPresent(String.self, forKey: .reasoning)
+        previewText = try c.decodeIfPresent(String.self, forKey: .previewText)
+        reasoningSegmentsData = try c.decodeIfPresent(Data.self, forKey: .reasoningSegmentsData)
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(id, forKey: .id)
+        try c.encode(roleRaw, forKey: .roleRaw)
+        try c.encode(content, forKey: .content)
+        try c.encode(createdAt, forKey: .createdAt)
+        try c.encode(isStreaming, forKey: .isStreaming)
+        try c.encodeIfPresent(wasStopped, forKey: .wasStopped)
+        try c.encode(wasInterrupted, forKey: .wasInterrupted)
+        try c.encodeIfPresent(taskElapsedSeconds, forKey: .taskElapsedSeconds)
+        try c.encodeIfPresent(toolCallName, forKey: .toolCallName)
+        try c.encodeIfPresent(toolCallResult, forKey: .toolCallResult)
+        try c.encodeIfPresent(toolCallsData, forKey: .toolCallsData)
+        try c.encodeIfPresent(attachmentsData, forKey: .attachmentsData)
+        try c.encodeIfPresent(reasoning, forKey: .reasoning)
+        try c.encodeIfPresent(previewText, forKey: .previewText)
+        try c.encodeIfPresent(reasoningSegmentsData, forKey: .reasoningSegmentsData)
     }
 }
 

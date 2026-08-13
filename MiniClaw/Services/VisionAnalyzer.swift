@@ -80,7 +80,7 @@ struct VisionAnalysisResult: Sendable {
 /// 无需网络，纯设备端执行，适用于所有模型（包括不支持原生视觉输入的文本模型）。
 final class VisionAnalyzer: @unchecked Sendable {
 
-    nonisolated(unsafe) static let shared = VisionAnalyzer()
+    static let shared = VisionAnalyzer()
 
     private init() {}
 
@@ -108,14 +108,14 @@ final class VisionAnalyzer: @unchecked Sendable {
         guard let imageData = try? Data(contentsOf: url),
               let image = UIImage(data: imageData) else {
             var result = VisionAnalysisResult()
-            result.error = "无法读取或解码图片文件: \(path)"
+            result.error = String(format: L10n.l("vision_read_failed"), path)
             return result
         }
 
         var finalResult = VisionAnalysisResult()
         finalResult.imageSize = image.size
         guard let cgImage = image.cgImage else {
-            finalResult.error = "无法获取 CGImage"
+            finalResult.error = L10n.l("vision_cgimage_failed")
             return finalResult
         }
 

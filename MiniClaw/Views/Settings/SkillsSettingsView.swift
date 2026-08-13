@@ -19,7 +19,7 @@ struct SkillsSettingsView: View {
         List {
             if skills.isEmpty {
                 Section {
-                    Text(L10n.tr("还没有任何技能。点击右上角「+」从本地导入，或把符合 技能格式 格式的技能目录放入 skills/。"))
+                    Text(L10n.l("no_skills_yet_tap_in_the_top_right_to_import_from_local_files_or_place_a_skill_directory_following_the_skill_format_into_skills"))
                         .font(.callout)
                         .foregroundStyle(.secondary)
                 }
@@ -42,7 +42,7 @@ struct SkillsSettingsView: View {
                 reload()
             }
         }
-        .navigationTitle(L10n.tr("技能"))
+        .navigationTitle(L10n.l("skills"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
@@ -50,20 +50,20 @@ struct SkillsSettingsView: View {
                     Button {
                         sortMode = .name
                     } label: {
-                        Label(L10n.tr("按名称"), systemImage: sortMode == .name ? "checkmark" : "")
+                        Label(L10n.l("by_name"), systemImage: sortMode == .name ? "checkmark" : "")
                     }
                     Button {
                         sortMode = .updated
                     } label: {
-                        Label(L10n.tr("按更新时间"), systemImage: sortMode == .updated ? "checkmark" : "")
+                        Label(L10n.l("by_update_time"), systemImage: sortMode == .updated ? "checkmark" : "")
                     }
                 } label: {
-                    Label(L10n.tr("排序"), systemImage: "arrow.up.arrow.down")
+                    Label(L10n.l("sort"), systemImage: "arrow.up.arrow.down")
                 }
             }
             ToolbarItem(placement: .topBarTrailing) {
                 Button(action: { showImport = true }) {
-                    Label(L10n.tr("本地导入"), systemImage: "plus")
+                    Label(L10n.l("local_import"), systemImage: "plus")
                 }
             }
         }
@@ -78,16 +78,16 @@ struct SkillsSettingsView: View {
                 let didStart = url.startAccessingSecurityScopedResource()
                 defer { if didStart { url.stopAccessingSecurityScopedResource() } }
                 let res = SkillManager.shared.importSkillFile(from: url)
-                importMessage = res.message.isEmpty ? L10n.tr("导入完成。") : res.message
+                importMessage = res.message.isEmpty ? L10n.l("import_complete") : res.message
                 showImportResult = true
                 reload()
             case .failure(let error):
-                importMessage = String(format: L10n.tr("选择文件失败：%@"), error.localizedDescription)
+                importMessage = String(format: L10n.l("failed_to_select_file"), error.localizedDescription)
                 showImportResult = true
             }
         }
-        .alert(L10n.tr("导入结果"), isPresented: $showImportResult) {
-            Button(L10n.tr("好")) {}
+        .alert(L10n.l("import_result"), isPresented: $showImportResult) {
+            Button(L10n.l("ok")) {}
         } message: {
             Text(importMessage)
         }
@@ -139,7 +139,7 @@ private struct SkillRowView: View {
             Spacer()
             Toggle("", isOn: $isEnabled)
                 .labelsHidden()
-                .onChange(of: isEnabled) { _, newValue in
+                .onChange(of: isEnabled) { newValue in
                     SkillManager.shared.setEnabled(skill.name, newValue)
                 }
         }
@@ -150,7 +150,7 @@ private struct SkillRowView: View {
         HStack(spacing: 3) {
             Image(systemName: skill.source == "builtin" ? "internaldrive.fill" : "tray.and.arrow.down.fill")
                 .imageScale(.small)
-            Text(skill.source == "builtin" ? L10n.tr("内置技能") : L10n.tr("本地导入"))
+            Text(skill.source == "builtin" ? L10n.l("built_in_skills") : L10n.l("local_import"))
                 .font(.caption2)
         }
         .foregroundStyle(.tertiary)
@@ -186,26 +186,26 @@ private struct SkillDetailView: View {
 
     var body: some View {
         List {
-            Section(L10n.tr("详情")) {
-                LabeledContent(L10n.tr("名称"), value: skill.name)
-                LabeledContent(L10n.tr("版本号"), value: "v\(skill.version)")
-                LabeledContent(L10n.tr("安装时间"), value: Self.dateFmt.string(from: skill.installDate))
+            Section(L10n.l("details")) {
+                LabeledContent(L10n.l("name"), value: skill.name)
+                LabeledContent(L10n.l("version_number"), value: "v\(skill.version)")
+                LabeledContent(L10n.l("install_time"), value: Self.dateFmt.string(from: skill.installDate))
                 HStack {
-                    Text(L10n.tr("来源"))
+                    Text(L10n.l("source"))
                     Spacer()
                     sourceBadge
                 }
-                Toggle(L10n.tr("启用（注入对话）"), isOn: $isEnabled)
-                    .onChange(of: isEnabled) { _, newValue in
+                Toggle(L10n.l("enable_inject_into_conversation"), isOn: $isEnabled)
+                    .onChange(of: isEnabled) { newValue in
                         SkillManager.shared.setEnabled(skill.name, newValue)
                     }
             }
 
-            Section(L10n.tr("更新")) {
+            Section(L10n.l("update")) {
                 Button {
                     // 非网页链接下载来源，禁用
                 } label: {
-                    Label(L10n.tr("从 URL 更新"), systemImage: "link")
+                    Label(L10n.l("update_from_url"), systemImage: "link")
                 }
                 .disabled(true)
                 .foregroundStyle(.secondary)
@@ -213,24 +213,24 @@ private struct SkillDetailView: View {
                 Button {
                     showUpdateImporter = true
                 } label: {
-                    Label(L10n.tr("从文件更新"), systemImage: "doc")
+                    Label(L10n.l("update_from_file"), systemImage: "doc")
                 }
 
                 Button {
-                    alertMsg = L10n.tr("尚未启用 iCloud 同步（需在签名能力中开启 iCloud）。")
+                    alertMsg = L10n.l("icloud_sync_is_not_enabled_yet_you_need_to_enable_icloud_in_the_signing_capabilities")
                     showAlert = true
                 } label: {
-                    Label(L10n.tr("同步 iCloud"), systemImage: "icloud")
+                    Label(L10n.l("sync_icloud"), systemImage: "icloud")
                 }
                 .foregroundStyle(.secondary)
             }
 
-            Section(L10n.tr("描述")) {
+            Section(L10n.l("description")) {
                 Text(SkillManager.shared.introSection(named: skill.name))
                     .font(.callout)
             }
 
-            Section(L10n.tr("文件")) {
+            Section(L10n.l("files")) {
                 ForEach(SkillManager.shared.skillFiles(directoryName: skill.directoryName), id: \.self) { rel in
                     Button {
                         if let content = SkillManager.shared.fileContent(
@@ -255,7 +255,7 @@ private struct SkillDetailView: View {
                     } label: {
                         HStack {
                             Spacer()
-                            Label(L10n.tr("删除技能"), systemImage: "trash")
+                            Label(L10n.l("delete_skill"), systemImage: "trash")
                             Spacer()
                         }
                     }
@@ -275,16 +275,16 @@ private struct SkillDetailView: View {
                 let didStart = url.startAccessingSecurityScopedResource()
                 defer { if didStart { url.stopAccessingSecurityScopedResource() } }
                 let res = SkillManager.shared.updateSkill(directoryName: skill.directoryName, from: url)
-                alertMsg = res.message.isEmpty ? L10n.tr("更新完成。") : res.message
+                alertMsg = res.message.isEmpty ? L10n.l("update_complete") : res.message
                 showAlert = true
                 onChanged()
             case .failure(let error):
-                alertMsg = String(format: L10n.tr("选择文件失败：%@"), error.localizedDescription)
+                alertMsg = String(format: L10n.l("failed_to_select_file"), error.localizedDescription)
                 showAlert = true
             }
         }
-        .alert(L10n.tr("更新结果"), isPresented: $showAlert) {
-            Button(L10n.tr("好")) {}
+        .alert(L10n.l("update_result"), isPresented: $showAlert) {
+            Button(L10n.l("ok")) {}
         } message: {
             Text(alertMsg)
         }
@@ -298,11 +298,11 @@ private struct SkillDetailView: View {
                             .padding()
                     }
                 }
-                .navigationTitle(fileView?.name ?? L10n.tr("文件"))
+                .navigationTitle(fileView?.name ?? L10n.l("files"))
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .confirmationAction) {
-                        Button(L10n.tr("完成")) { showFile = false }
+                        Button(L10n.l("done")) { showFile = false }
                     }
                 }
             }
@@ -313,7 +313,7 @@ private struct SkillDetailView: View {
         HStack(spacing: 3) {
             Image(systemName: skill.source == "builtin" ? "internaldrive.fill" : "tray.and.arrow.down.fill")
                 .imageScale(.small)
-            Text(skill.source == "builtin" ? L10n.tr("内置技能") : L10n.tr("本地导入"))
+            Text(skill.source == "builtin" ? L10n.l("built_in_skills") : L10n.l("local_import"))
                 .font(.subheadline)
         }
         .foregroundStyle(.secondary)

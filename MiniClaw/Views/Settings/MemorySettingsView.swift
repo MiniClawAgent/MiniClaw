@@ -8,22 +8,22 @@ struct MemorySettingsView: View {
 
     var body: some View {
         List {
-            Section(L10n.tr("记忆开关")) {
-                Toggle(L10n.tr("启用记忆"), isOn: $memory.isEnabled)
-                    .onChange(of: memory.isEnabled) { _, _ in persist() }
-                Toggle(L10n.tr("自动保存每日记忆"), isOn: $memory.autoSaveDaily)
-                    .onChange(of: memory.autoSaveDaily) { _, _ in persist() }
-                Toggle(L10n.tr("向量召回（FTS+向量）"), isOn: $memory.embeddingEnabled)
-                    .onChange(of: memory.embeddingEnabled) { _, _ in persist() }
+            Section(L10n.l("memory_toggle")) {
+                Toggle(L10n.l("enable_memory"), isOn: $memory.isEnabled)
+                    .onChange(of: memory.isEnabled) { _ in persist() }
+                Toggle(L10n.l("auto_save_daily_memory"), isOn: $memory.autoSaveDaily)
+                    .onChange(of: memory.autoSaveDaily) { _ in persist() }
+                Toggle(L10n.l("vector_recall_fts_vector"), isOn: $memory.embeddingEnabled)
+                    .onChange(of: memory.embeddingEnabled) { _ in persist() }
             }
 
-            Section(L10n.tr("长期记忆 (MEMORY.md)")) {
+            Section(L10n.l("long_term_memory_memory_md")) {
                 Button {
                     loadLongTermMemory()
                     activeSheet = .longTermEditor
                 } label: {
                     HStack {
-                        Label(L10n.tr("查看 / 编辑长期记忆"), systemImage: "brain.head.profile")
+                        Label(L10n.l("view_edit_long_term_memory"), systemImage: "brain.head.profile")
                         Spacer()
                         Image(systemName: "chevron.right")
                             .font(.caption)
@@ -33,9 +33,9 @@ struct MemorySettingsView: View {
                 .buttonStyle(.plain)
             }
 
-            Section(L10n.tr("每日记忆")) {
+            Section(L10n.l("daily_memory")) {
                 if memoryLogs.isEmpty {
-                    Text(L10n.tr("暂无日志"))
+                    Text(L10n.l("no_logs_yet"))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 } else {
@@ -73,7 +73,7 @@ struct MemorySettingsView: View {
             }
 
         }
-        .navigationTitle(L10n.tr("记忆"))
+        .navigationTitle(L10n.l("memory"))
         .navigationBarTitleDisplayMode(.inline)
         .onAppear { loadFromStore() }
         .sheet(item: $activeSheet) { sheet in
@@ -81,7 +81,7 @@ struct MemorySettingsView: View {
             case .dailyLog(let url):
                 NavigationStack {
                     ScrollView {
-                        Text((try? String(contentsOf: url, encoding: .utf8)) ?? L10n.tr("无法读取文件"))
+                        Text((try? String(contentsOf: url, encoding: .utf8)) ?? L10n.l("unable_to_read_file"))
                             .font(.system(.caption, design: .monospaced))
                             .textSelection(.enabled)
                             .padding()
@@ -99,10 +99,10 @@ struct MemorySettingsView: View {
                         .navigationBarTitleDisplayMode(.inline)
                         .toolbar {
                             ToolbarItem(placement: .cancellationAction) {
-                                Button(L10n.tr("取消")) { activeSheet = nil }
+                                Button(L10n.l("cancel")) { activeSheet = nil }
                             }
                             ToolbarItem(placement: .confirmationAction) {
-                                Button(L10n.tr("保存")) { saveLongTermMemory() }
+                                Button(L10n.l("save")) { saveLongTermMemory() }
                                     .disabled(longTermMemoryDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                             }
                         }
@@ -117,7 +117,7 @@ struct MemorySettingsView: View {
     }
 
     private func persist() {
-        SettingsStore.shared.set(memory, domain: .memory, summary: L10n.tr("更新记忆设置"))
+        SettingsStore.shared.set(memory, domain: .memory, summary: L10n.l("update_memory_settings"))
     }
 
     private func loadLongTermMemory() {
@@ -133,7 +133,8 @@ struct MemorySettingsView: View {
 
     private func saveLongTermMemory() {
         do {
-            try MemoryManager.shared.writeLongTermMemory(longTermMemoryDraft, mode: .replace)
+            // 主线程 UI 调用：直接读 settings 安全（后台路径必须传快照）。
+            try MemoryManager.shared.writeLongTermMemory(longTermMemoryDraft, mode: .replace, settings: SettingsStore.shared.settings)
             activeSheet = nil
         } catch {
             return

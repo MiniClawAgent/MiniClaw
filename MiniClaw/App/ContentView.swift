@@ -1,8 +1,7 @@
 import SwiftUI
-import SwiftData
 
 struct ContentView: View {
-    @Environment(AppState.self) private var appState
+    @EnvironmentObject private var appState: AppState
     /// 订阅界面语言单例：语言切换时 `current` 变化触发本视图重渲染，
     /// 让 NavigationStack 及其内 HomeView（含设置 sheet）的 `L10n.tr` 文案以新语言重新求值。
     /// App 文案走纯 String、不读 `.locale` 环境，故必须在 View 层显式订阅 L10n.shared；
@@ -17,7 +16,7 @@ struct ContentView: View {
     @State private var currentConfirmItem: ToolConfirmationBridge.Item?
 
     var body: some View {
-        NavigationStack(path: Bindable(appState).navigationPath) {
+        NavigationStack(path: $appState.navigationPath) {
             HomeView()
                 .navigationDestination(isPresented: $isChatActive) {
                     if let session = chatSession {
@@ -25,7 +24,7 @@ struct ContentView: View {
                     }
                 }
         }
-        .onChange(of: appState.selectedSession) { _, newValue in
+        .onChange(of: appState.selectedSession) { newValue in
             if let session = newValue {
                 chatSession = session
                 isChatActive = true
@@ -34,7 +33,7 @@ struct ContentView: View {
         // 真正退出会话（导航 pop 回首页）时才清理选中状态。
         // 不能用 ChatView.onDisappear：fullScreenCover（会话内命令行/浏览器）
         // 也会把 ChatView 暂时移出层级并触发 onDisappear，导致误清理。
-        .onChange(of: isChatActive) { _, active in
+        .onChange(of: isChatActive) { active in
             if !active {
                 chatSession = nil
                 appState.selectedSession = nil
@@ -57,7 +56,7 @@ struct ContentView: View {
         // 现改为：依赖 L10n.shared (ObservableObject) 的 @Published current 变化，
         // 让观察了 L10n.shared 的视图（ContentView / HomeView / SettingsView / AppearanceSettingsView 等）
         // 自动重新求值，L10n.tr(...) 读到新语言；sheet 状态不受影响，用户留在原页面看到文案即时切换。
-        .onChange(of: appState.appLanguage) { _, newLang in
+        .onChange(of: appState.appLanguage) { newLang in
             L10n.shared.setLanguage(newLang)
         }
         // ── 工具调用前确认（全局自定义浮层，非系统 Alert）──
@@ -72,9 +71,12 @@ struct ContentView: View {
                         .ignoresSafeArea()
                         .onTapGesture { /* 点击遮罩不关闭，避免引擎 continuation 悬挂 */ }
                     VStack(spacing: 14) {
-                        Text(L10n.tr("工具调用确认"))
+                        Text(L10n.l("tool_call_confirmation"))
                             .font(.headline)
-                        Text(L10n.tr("即将调用工具「") + item.toolName + "」\n" + L10n.tr("操作：") + item.summary)
+                        Group {
+                            let actionLine = L10n.l("about_to_call_tool") + item.toolName + "」\n" + L10n.l("operation_label") + item.summary
+                            Text(actionLine)
+                        }
                             .font(.subheadline)
                             .multilineTextAlignment(.center)
                             .foregroundStyle(.secondary)
@@ -82,18 +84,18 @@ struct ContentView: View {
                         Button {
                             confirmBridge.resolve(itemID: item.id, approved: true)
                         } label: {
-                            Text(L10n.tr("允许一次")).frame(maxWidth: .infinity)
+                            Text(L10n.l("allow_once")).frame(maxWidth: .infinity)
                         }
                         Button {
                             confirmBridge.approveSession(sessionID: item.sessionID)
                             confirmBridge.resolve(itemID: item.id, approved: true)
                         } label: {
-                            Text(L10n.tr("允许本次会话")).frame(maxWidth: .infinity)
+                            Text(L10n.l("allow_this_session")).frame(maxWidth: .infinity)
                         }
                         Button(role: .destructive) {
                             confirmBridge.resolve(itemID: item.id, approved: false)
                         } label: {
-                            Text(L10n.tr("拒绝")).frame(maxWidth: .infinity)
+                            Text(L10n.l("deny")).frame(maxWidth: .infinity)
                         }
                     }
                     .padding(20)

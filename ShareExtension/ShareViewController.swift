@@ -18,7 +18,7 @@ final class ShareViewController: UIViewController {
 
     private let sendButton: UIButton = {
         let b = UIButton(type: .system)
-        b.setTitle("发送给 MiniClaw 执行", for: .normal)
+        b.setTitle(String(localized: "share_send_title"), for: .normal)
         b.titleLabel?.font = .systemFont(ofSize: 17, weight: .semibold)
         b.translatesAutoresizingMaskIntoConstraints = false
         return b
@@ -26,7 +26,7 @@ final class ShareViewController: UIViewController {
 
     private let hintLabel: UILabel = {
         let l = UILabel()
-        l.text = "将作为任务直接派发给 MiniClaw 智能体"
+        l.text = String(localized: "share_hint")
         l.font = .systemFont(ofSize: 12)
         l.textColor = .secondaryLabel
         l.translatesAutoresizingMaskIntoConstraints = false
@@ -69,7 +69,10 @@ final class ShareViewController: UIViewController {
         }
         // 唤起主 App 处理深链（P1-4）。open 完成后结束扩展。
         extensionContext?.open(url) { [weak self] _ in
-            self?.extensionContext?.completeRequest(returningItems: nil, completionHandler: nil)
+            // @Sendable 闭包内不能直接访问 main-actor 隔离属性,切回主线程执行。
+            Task { @MainActor in
+                self?.extensionContext?.completeRequest(returningItems: nil, completionHandler: nil)
+            }
         }
     }
 
@@ -77,10 +80,12 @@ final class ShareViewController: UIViewController {
     private func extractPayload(completion: @escaping (String) -> Void) {
         guard let items = extensionContext?.inputItems as? [NSExtensionItem] else { completion(""); return }
         var result = ""
+        // loadItem 回调可能并发进入,result 写入加锁保护(Swift 6 并发预检)。
+        let lock = NSLock()
         let group = DispatchGroup()
         for item in items {
             for att in item.attachments ?? [] {
-                let handlers: [(String, (Any?) -> String?)] = [
+                let handlers: [(String, @Sendable (Any?) -> String?)] = [
                     ("public.plain-text", { $0 as? String }),
                     ("public.url", { ($0 as? URL)?.absoluteString }),
                     ("public.file-url", { ($0 as? URL)?.lastPathComponent })
@@ -90,7 +95,9 @@ final class ShareViewController: UIViewController {
                         group.enter()
                         att.loadItem(forTypeIdentifier: type, options: nil) { data, _ in
                             if let s = map(data) {
-                                result += (type == "public.file-url" ? "[文件] " : "") + s + "\n"
+                                lock.lock()
+                                result += (type == "public.file-url" ? String(localized: "share_file_prefix") : "") + s + "\n"
+                                lock.unlock()
                             }
                             group.leave()
                         }

@@ -13,15 +13,34 @@ enum MiniClawChatAdapter {
 
     // MARK: - 消息级转换
 
-    /// 把 MiniClaw 消息转换为 OM 形态(含 blocks 拆分)
+    /// 把 MiniClaw 消息转换为移植组件形态(含 blocks 拆分)
     static func convert(_ message: ChatMessage) -> MiniClawKit.ChatMessage {
-        let om = MiniClawKit.ChatMessage(role: omRole(message), content: message.content)
-        om.blocks = buildBlocks(message)
-        om.isAwaitingModelResponse = message.isStreaming
-        return om
+        // 2026-08-13 治本:id 注入——Kit ChatMessage.id 原为自动 UUID,与宿主 message.id
+        // 不等,导致长按菜单 Edit/Retry 的 session.messages.first(where: id) 找不到 → no-op。
+        let kitMessage = MiniClawKit.ChatMessage(role: kitRole(message), content: message.content, id: message.id)
+        kitMessage.blocks = buildBlocks(message)
+        kitMessage.isAwaitingModelResponse = message.isStreaming
+        // 2026-08-12 治本:附件桥接——宿主消息 attachments 是会话相对路径
+        // ("attachments/<name>"),映射为 Kit 的 AttachmentMeta(path: "/var/miniclaw/<rel>");
+        // Kit 的 miniClawURL 据此派生 miniclaw:// URL,UserAttachmentList 才能渲染出
+        // 图片缩略图/文件卡片(此前 convert 从不读 attachments,渲染恒空 → 附件全部不显示)。
+        if message.role == .user {
+            kitMessage.attachments = message.attachments.map { rel in
+                MiniClawKit.AttachmentMeta(path: "/var/miniclaw/\(rel)", size: Self.attachmentSize(rel), modified: Date())
+            }
+        }
+        return kitMessage
     }
 
-    private static func omRole(_ message: ChatMessage) -> MiniClawKit.ChatMessageRole {
+    /// 附件实际字节数(读会话目录文件;失败回退 0)。
+    private static func attachmentSize(_ rel: String) -> Int {
+        let url = SessionFileRouter.sessionsHostBase.appendingPathComponent(rel)
+        guard let attrs = try? FileManager.default.attributesOfItem(atPath: url.path),
+              let size = attrs[.size] as? Int else { return 0 }
+        return size
+    }
+
+    private static func kitRole(_ message: ChatMessage) -> MiniClawKit.ChatMessageRole {
         switch message.role {
         case .user: return .user
         case .assistant, .tool: return .assistant
@@ -40,6 +59,15 @@ enum MiniClawChatAdapter {
 
         // 收集事件(思考段 + 工具调用),按 timelineOrder 排序,含 position。
         var events: [(order: Int, position: Int, block: MiniClawKit.AssistantBlock)] = []
+
+        // 2026-08-12 兜底:reasoningSegments 为空但 message.reasoning(单串)非空时,
+        // 渲染一个完整思考块(旧数据/异常路径的降级,避免思考内容被静默隐藏)。
+        if message.reasoningSegments.isEmpty, let reasoning = message.reasoning, !reasoning.isEmpty {
+            let block = MiniClawKit.AssistantBlock(id: UUID(), kind: .thinking, content: reasoning)
+            block.isThinkingExpanded = false
+            block.thinkingUserToggled = false
+            events.append((0, 0, block))
+        }
 
         for seg in message.reasoningSegments {
             // 2026-08-11 [Fix 重进会话跳屏·方案B]:传 seg.id(SwiftData 持久化),
@@ -89,34 +117,104 @@ enum MiniClawChatAdapter {
                 // [Fix 重进会话跳屏·方案B] 正文片段无持久化事件 id,用
                 // (mid+起始字符位置) 生成确定性 UUID:同内容同切分 → 同 id →
                 // contentKey 稳定 → memo 跨会话命中。
-                let textBlock = MiniClawKit.AssistantBlock(
-                    id: deterministicTextBlockID(messageID: message.id, startOffset: textCursor),
-                    kind: .text, content: String(content[startIdx..<endIdx]))
-                // [Fix 重进会话跳屏·根因] 预渲染精确高度所需的 attributedString——
-                // 对应 OpenMinis AIChatViewModel.cacheAttributedString(for:) 的移植。
-                // MiniClaw 之前从不赋值 cachedAttributedString(全工程 0 赋值),导致
-                // applySnapshot 的 TextKit 精确 precalc 分支恒为死代码,text block 首帧
-                // 全部走字符数启发式 est(误差 ±13-52pt,CJK 达 -50%),滚动首测大修正→跳屏。
-                // 赋值后:重进会话首帧即精确高度,零跳屏。
-                textBlock.cacheRenderedContent()
-                textBlock.timelineOrder = order - 0.5
-                items.append((order - 0.5, textBlock))
+                let segment = String(content[startIdx..<endIdx])
+                for (o, b) in splitFileBlocks(markdown: segment, messageID: message.id, baseOrder: order - 0.5, startOffset: textCursor) {
+                    items.append((o, b))
+                }
             }
             items.append((order, block))
             textCursor = max(textCursor, pos)
         }
         if textCursor < content.count {
             let startIdx = content.index(content.startIndex, offsetBy: textCursor)
-            // 尾部正文片段:用固定锚 "tail" 保证稳定(同一消息只有一段尾部正文)。
-            let textBlock = MiniClawKit.AssistantBlock(
-                id: deterministicTextBlockID(messageID: message.id, startOffset: -1),
-                kind: .text, content: String(content[startIdx..<content.endIndex]))
-            textBlock.cacheRenderedContent()
-            textBlock.timelineOrder = Double(Int.max - 1)
-            items.append((Double(Int.max - 1), textBlock))
+            let segment = String(content[startIdx..<content.endIndex])
+            for (o, b) in splitFileBlocks(markdown: segment, messageID: message.id, baseOrder: Double(Int.max - 1), startOffset: textCursor) {
+                items.append((o, b))
+            }
         }
 
         return items.sorted { $0.order < $1.order }.map(\.block)
+    }
+
+    // MARK: - 文件引用拆分(块级渲染,消除行内附件黑边)
+
+    /// 媒体扩展名(图片/视频/音频),与 Kit SelectableMarkdownView 的
+    /// nativeImageExts/nativeVideoExts/nativeAudioExts 保持一致。
+    private static let mediaExts: Set<String> = [
+        "png","jpg","jpeg","gif","webp","bmp","tiff","svg",
+        "mp4","mov","m4v","avi","mkv","webm",
+        "mp3","m4a","wav","aac","ogg","flac"
+    ]
+
+    /// 是否文件引用:非 http/https 且扩展名为非媒体。
+    private static func isFileReference(_ url: String) -> Bool {
+        let lower = url.trimmingCharacters(in: .whitespaces).lowercased()
+        if lower.hasPrefix("http://") || lower.hasPrefix("https://") { return false }
+        var path = url
+        if let q = path.firstIndex(of: "?") { path = String(path[..<q]) }
+        if let f = path.firstIndex(of: "#") { path = String(path[..<f]) }
+        let ext = (path as NSString).pathExtension.lowercased()
+        guard !ext.isEmpty else { return false }
+        return !mediaExts.contains(ext)
+    }
+
+    /// 语义 URL 归一(2026-08-13:协议统一为 miniclaw://,不再做 scheme 转换)。
+    private static func canonicalFileURL(_ url: String) -> String {
+        url
+    }
+
+    /// 建一个文本块(复用 cacheRenderedContent + timelineOrder 写回)。
+    private static func makeTextBlock(messageID: UUID, startOffset: Int, content: String, order: Double) -> MiniClawKit.AssistantBlock {
+        let b = MiniClawKit.AssistantBlock(id: deterministicTextBlockID(messageID: messageID, startOffset: startOffset), kind: .text, content: content)
+        b.cacheRenderedContent()
+        b.timelineOrder = order
+        return b
+    }
+
+    /// 把一段 markdown 拆成「文本 + 文件块」交错序列。
+    /// 文件引用 = 非媒体扩展名的 markdown 图片/链接(排除 http/https)。
+    private static func splitFileBlocks(markdown: String, messageID: UUID, baseOrder: Double, startOffset: Int) -> [(order: Double, block: MiniClawKit.AssistantBlock)] {
+        var out: [(order: Double, block: MiniClawKit.AssistantBlock)] = []
+        let pattern = #"!\[[^\]]*\]\(([^)\s]+)\)|\[[^\]]*\]\(([^)\s]+)\)"#
+        guard let regex = try? NSRegularExpression(pattern: pattern) else {
+            out.append((baseOrder, makeTextBlock(messageID: messageID, startOffset: startOffset, content: markdown, order: baseOrder)))
+            return out
+        }
+        let ns = markdown as NSString
+        let matches = regex.matches(in: markdown, range: NSRange(location: 0, length: ns.length))
+        var cursor = 0
+        var sub = 0
+        for m in matches {
+            let urlRange = m.range(at: 1).location != NSNotFound ? m.range(at: 1) : m.range(at: 2)
+            guard urlRange.location != NSNotFound else { continue }
+            let url = ns.substring(with: urlRange)
+            guard isFileReference(url) else { continue }
+            if m.range.location > cursor {
+                let text = ns.substring(with: NSRange(location: cursor, length: m.range.location - cursor))
+                if !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    let o = baseOrder + Double(sub) * 0.05
+                    out.append((o, makeTextBlock(messageID: messageID, startOffset: startOffset + cursor, content: text, order: o)))
+                    sub += 1
+                }
+            }
+            let canonical = canonicalFileURL(url)
+            let rawName = (canonical as NSString).lastPathComponent
+            let fileName = rawName.removingPercentEncoding ?? rawName
+            let fb = MiniClawKit.AssistantBlock(id: deterministicTextBlockID(messageID: messageID, startOffset: startOffset + m.range.location), kind: .file(url: canonical), content: fileName)
+            let o = baseOrder + Double(sub) * 0.05
+            fb.timelineOrder = o
+            out.append((o, fb))
+            sub += 1
+            cursor = m.range.location + m.range.length
+        }
+        if cursor < ns.length {
+            let text = ns.substring(with: NSRange(location: cursor, length: ns.length - cursor))
+            if !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                let o = baseOrder + Double(sub) * 0.05
+                out.append((o, makeTextBlock(messageID: messageID, startOffset: startOffset + cursor, content: text, order: o)))
+            }
+        }
+        return out
     }
 
     /// [Fix 重进会话跳屏·方案B] 由 (消息 id + 片段起始偏移) 生成确定性 UUID:
@@ -145,7 +243,7 @@ enum MiniClawChatAdapter {
         return UUID(uuid: tuple)
     }
 
-    /// 工具名 + 参数 → OM 块类型(10 种 kind 映射),关联值填入真实操作名/路径/命令,
+    /// 工具名 + 参数 → Kit 块类型(10 种 kind 映射),关联值填入真实操作名/路径/命令,
     /// 让工具卡显示真实操作名称(而非笼统的 "Browser action"/"Shell command")。
     static func toolKind(_ name: String, arguments: String = "") -> MiniClawKit.AssistantBlockKind {
         // 从参数 JSON 提取关键字段(command/path/action/url 等),用于关联值展示。

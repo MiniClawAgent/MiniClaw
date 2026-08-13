@@ -104,11 +104,12 @@ final class AppLogger: @unchecked Sendable {
     // MARK: - Public API
 
     /// 诊断类 category 白名单:这些 category 的 info 级日志也镜像到 Xcode 控制台,
-    /// 便于真机调试时直接观察键盘/inset/测高/滚动链路(2026-08-11 用户要求)。
-    /// 其他 category 的 info 仍只写文件,避免 CellSize 等高频日志刷屏。
+    /// 便于真机调试时直接观察滚动/抖动链路(2026-08-11 用户要求)。
+    /// 2026-08-13 降噪:移除 KbdDiag/InputBarLayout/SubViewport/InputFocus——键盘与布局
+    /// inset 变化每次操作都打,刷屏价值低;文件日志仍完整保留。
     private static let consoleMirrorCategories: Set<String> = [
-        "KbdDiag", "InputBarLayout", "ScrollDiag", "ScrollStall",
-        "SubViewport", "Settle", "SettleJitter", "InputFocus"
+        "ScrollDiag", "ScrollStall", "Settle", "SettleJitter",
+        "ChatInputInject"  // 2026-08-13:「添加到输入框」链路打点,排查期镜像控制台
     ]
 
     func log(category: String, subsystem: String? = nil, level: LogLevel, message: String) {
@@ -426,7 +427,7 @@ final class AppLogger: @unchecked Sendable {
             }
 
             if frames.isEmpty {
-                blocks.append("thread #\(i) [\(threadName)] (mach port \(t)) — no frames (pc=0x\(String(format: "%llx", unsafeBitCast(state.__pc, to: Int64.self)))")
+                blocks.append("thread #\(i) [\(threadName)] (mach port \(t)) — no frames (pc=0x\(String(format: "%llx", Int64(bitPattern: state.__pc)))")
                 continue
             }
             var lines: [String] = []
@@ -549,7 +550,10 @@ func appLoggerDeviceModel() -> String {
     guard size > 0 else { return "unknown" }
     var machine = [CChar](repeating: 0, count: size)
     sysctlbyname("hw.machine", &machine, &size, nil, 0)
-    return String(cString: machine)
+    // iOS16 兼容:数组版 String(cString:) 已 deprecated,数组层截断 null 后 decoding 等价实现。
+    let nulIdx = machine.firstIndex(of: 0) ?? machine.endIndex
+    let bytes = machine[..<nulIdx].map { UInt8(bitPattern: $0) }
+    return String(decoding: bytes, as: UTF8.self)
 }
 
 /// 版本号 (build)，供信号处理器与 CrashReporter 共用。
@@ -619,7 +623,9 @@ fileprivate func appLoggerTailLines(_ path: String, maxBytes: Int = 16_384, coun
     var buf = [CChar](repeating: 0, count: clamped + 1)
     let n = pread(fd, &buf, clamped, off_t(total - clamped))
     guard n > 0 else { return nil }
-    let text = String(cString: buf)
+    let nulIdx = buf.firstIndex(of: 0) ?? buf.endIndex
+    let bytes = buf[..<nulIdx].map { UInt8(bitPattern: $0) }
+    let text = String(decoding: bytes, as: UTF8.self)
     let lines = text.split(separator: "\n", omittingEmptySubsequences: false)
     return lines.suffix(count).joined(separator: "\n")
 }

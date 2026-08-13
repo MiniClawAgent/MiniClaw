@@ -36,7 +36,7 @@ import Foundation
 //    context 1M、maxOutput 384K、纯文本);**deepseek-chat / deepseek-reasoner 已于 2026-07-24 停止使用**,
 //    调用会失败,不在适配范围内。
 
-final class DeepSeekProviderAdapter: OpenAIProviderAdapter {
+final class DeepSeekProviderAdapter: OpenAIProviderAdapter, @unchecked Sendable {
     /// 官方 Responses API 支持的模型(2026-08:仅 deepseek-v4-flash;v4-pro 官方称 8 月初加推)。
     /// 其他模型(deepseek-chat / deepseek-reasoner)选 Responses API 时自动回落 Chat Completions。
     static let responsesSupportedModels: Set<String> = ["deepseek-v4-flash"]

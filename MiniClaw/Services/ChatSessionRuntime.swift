@@ -1,5 +1,5 @@
 import Foundation
-import Observation
+import Combine
 
 /// 排队中的用户消息：智能体回复进行中用户继续发送的内容先进此队列，以虚线气泡展示，
 /// 待当前回复完成后按 FIFO 逐条转为真实消息并触发新一轮回复。
@@ -60,9 +60,8 @@ struct PendingUserMessage: Identifiable, Equatable, Codable {
 /// 用户在 智能体回复过程中返回首页再回到该会话 → `ChatView` 实例被销毁重建、`@State` 清空，
 /// 导致「响应中」状态丢失、无法停止那个仍在后台运行的引擎。
 /// 现在 `ChatView` 重建后可直接从 `AppState` 认领同一个运行时，实现无缝接管。
-@Observable
 @MainActor
-final class ChatSessionRuntime: @MainActor Identifiable {
+final class ChatSessionRuntime: ObservableObject, @MainActor Identifiable {
     /// 所属会话 ID（同时用作 `AppState.chatRuntimes` 的 key）
     let sessionID: UUID
     /// 正在执行本轮回复的引擎（`ChatView` 通过它执行 `cancel()`）
@@ -73,43 +72,43 @@ final class ChatSessionRuntime: @MainActor Identifiable {
         engine.cancelSubagent(subagentID: subagentID)
     }
     /// 当前正在流式输出的助手消息 ID（nil 表示无活跃流）
-    var streamingMessageID: UUID?
+    @Published var streamingMessageID: UUID?
     /// 统一重试状态（非 nil = 显示重试指示器）：retrying 进行中 / exhausted 最终失败。
     /// 首个成功输出 词元 到达时由 AgentRunService 清空。
-    var retryState: RetryState?
+    @Published var retryState: RetryState?
     /// 流式文本缓冲区（引用类型，跨 `ChatView` 重建存活）
-    var streamingContent: String = ""
+    @Published var streamingContent: String = ""
     /// 节流缓冲：每个 词元 先追加进 `pendingText`，由 ~100ms 定时器批量提交到
     /// `streamingContent`，把「每 词元 一次主线程重绘」降到约 10fps，消除流式期卡顿。
-    var pendingText: String = ""
+    @Published var pendingText: String = ""
     /// 节流调度标志：避免每个 词元 都起一个 sleep 任务，仅在一个批次窗口内起一次。
     private var flushScheduled = false
     /// 流式过程中的工具调用事件缓冲区
-    var streamingToolCalls: [ToolCallEvent] = []
+    @Published var streamingToolCalls: [ToolCallEvent] = []
     /// 流式过程中的分段思考过程（reasoning）缓冲区（引用类型，跨 `ChatView` 重建存活）。
     /// 按引擎迭代轮次（iterations）切片，每段独立展示、穿插在正文/工具之间。
     /// 仅用于实时展示，不写入磁盘、不回灌上下文。
-    var streamingReasoningSegments: [ReasoningSegment] = []
+    @Published var streamingReasoningSegments: [ReasoningSegment] = []
     /// 思考（reasoning）节流缓冲：每个 reasoning 词元 先按迭代轮次追加进这里，
     /// 由与正文共享的 ~100ms 调度窗口批量刷入 `streamingReasoningSegments`，把每 词元 一次的重绘降到约 10fps。
     private var pendingReasoning: [(piece: String, iteration: Int)] = []
     /// 全局时间线序号计数器：每次创建新的思考段或工具调用时递增，
     /// 用于渲染时按真实发生顺序交错排列（而非按 position 堆叠）。
-    var nextTimelineOrder: Int = 1
+    @Published var nextTimelineOrder: Int = 1
     /// 是否正在响应（驱动输入栏「发送/停止」切换，跨重建保持准确）
-    var isResponding: Bool = false
+    @Published var isResponding: Bool = false
     /// 是否处于「已暂停」状态（软暂停，可恢复）。
     /// 暂停时 `isResponding` 为 false，但 runtime 不移除（保留以便恢复）。
-    var isPaused: Bool = false
+    @Published var isPaused: Bool = false
 
     // MARK: - 任务总耗时计时（2026-08-08 用户定）
 
     /// 已结算秒数（暂停/重试期间累积在此，段累计模型）。
-    var taskAccumulated: Double = 0
+    @Published var taskAccumulated: Double = 0
     /// 当前计时段起点（非 nil = 正在计时；Date 差值计算，App 进后台计时照常走）。
-    var taskSegmentStartAt: Date?
+    @Published var taskSegmentStartAt: Date?
     /// 断点恢复（App 被杀冷启动续跑）的任务：起点不可靠，终态不结算、不显示耗时。
-    var taskTimingInvalid = false
+    @Published var taskTimingInvalid = false
 
     /// 开始/继续计时（幂等：已在计时则不动）。
     func taskStartOrResume() {
@@ -224,20 +223,19 @@ enum SubagentStatus: String, Codable { case running, error, completed, cancelled
 /// 数据结构与主会话页的 `ChatMessage` 对齐：`.task` 映射为 `.user`（绿色气泡），
 /// `.response` 映射为 `.assistant`（无背景、含工具调用与分段思考），由详情页复用 `MessageBubbleView` 渲染。
 /// 声明为 `@Observable` 类：流式追加 词元 / 工具调用时只刷新对应这一行，而非整段列表。
-@Observable
-final class SubagentMsg: Identifiable, Codable {
+final class SubagentMsg: ObservableObject, Identifiable, Codable {
     let id: UUID
     /// 角色：`.task` = 主 智能体分配给子代理的任务；`.response` = 子代理的回复。
     let role: SubagentMsgRole
-    var text: String
+    @Published var text: String
     /// 是否仍在流式输出（用于底部状态行显示「回复中」）。
-    var isStreaming: Bool
+    @Published var isStreaming: Bool
     /// 子代理回复中穿插的工具调用事件（与主线 `MessageBubbleView` 的 `ToolCallCardView` 完全一致）。
-    var toolCalls: [ToolCallEvent] = []
+    @Published var toolCalls: [ToolCallEvent] = []
     /// 分段思考过程（按 agent loop 迭代切片，穿插在正文/工具调用之间）。
-    var reasoningSegments: [ReasoningSegment] = []
+    @Published var reasoningSegments: [ReasoningSegment] = []
     /// 该回复是否因异常/中断而提前结束（渲染为「已中断」红色状态，与主线一致）。
-    var wasInterrupted: Bool = false
+    @Published var wasInterrupted: Bool = false
 
     init(role: SubagentMsgRole, text: String, isStreaming: Bool) {
         self.id = UUID()
@@ -277,17 +275,16 @@ enum SubagentMsgRole: String, Codable { case task, response }
 
 /// 单个子代理的完整对话（任务 + 回复），跨主回复轮次持续存在（头像常驻）。
 /// `@Observable` 类：详情页只观察它，主聊天页不观察，隔离流式刷新。
-@Observable
-final class SubagentConversation: Identifiable, Codable {
+final class SubagentConversation: ObservableObject, Identifiable, Codable {
     let id: UUID
     let name: String
-    var status: SubagentStatus
+    @Published var status: SubagentStatus
     /// 智能体 ↔ 子代理的对话（任务 + 回复），按发生顺序追加。
-    var messages: [SubagentMsg] = []
+    @Published var messages: [SubagentMsg] = []
     /// 子代理实际使用的模型显示（分组·模型，如「DeepSeek·deepseek-v4-pro」；未运行完为空）。
-    var modelDisplay: String = ""
+    @Published var modelDisplay: String = ""
     /// 子代理思考强度显示（无思考/低/高/默认；未运行完为空）。
-    var thinkingDisplay: String = ""
+    @Published var thinkingDisplay: String = ""
 
     init(id: UUID, name: String, status: SubagentStatus) {
         self.id = id

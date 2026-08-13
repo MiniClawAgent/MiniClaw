@@ -44,6 +44,10 @@ final class SyncCore {
     private struct DirtyKey: Hashable {
         let recordType: String
         let recordId: String
+        /// 2026-08-12 修复:删除操作标记——此前 markDeleted 与 markDirty 混同,
+        /// sendNow 只构建存在的记录,已删除的 recordId 不在 buildAll 结果里被过滤掉,
+        /// 删除永远无法推送到远端(全维度审计高危项 2.2)。
+        let isDeletion: Bool
     }
 
     // MARK: - Lifecycle
@@ -82,7 +86,7 @@ final class SyncCore {
 
     func markDirty(recordType: String, recordId: String, reason: SyncDirtyReason = .localUpsert) {
         guard isRunning else { return }
-        let key = DirtyKey(recordType: recordType, recordId: recordId)
+        let key = DirtyKey(recordType: recordType, recordId: recordId, isDeletion: false)
         dirtyRecords.insert(key)
         AppLogger.shared.info("Dirty+: type=\(recordType) id=\(recordId.prefix(8)) reason=\(reason.rawValue) queue=\(dirtyRecords.count)")
         scheduleSend()
@@ -90,7 +94,7 @@ final class SyncCore {
 
     func markDeleted(recordType: String, recordId: String) {
         guard isRunning else { return }
-        let key = DirtyKey(recordType: recordType, recordId: recordId)
+        let key = DirtyKey(recordType: recordType, recordId: recordId, isDeletion: true)
         dirtyRecords.insert(key)
         AppLogger.shared.info("DirtyDelete: type=\(recordType) id=\(recordId.prefix(8)) queue=\(dirtyRecords.count)")
         scheduleSend()
@@ -142,7 +146,17 @@ final class SyncCore {
                 AppLogger.shared.warn("No hydrator for \(recordType), skipping \(keys.count) records")
                 continue
             }
-            let records = await buildRecords(hydrator: hydrator, keys: keys)
+            // 删除操作走 buildDeletion(构建 operation == .delete 的记录),
+            // 其余走 buildRecords——修复删除永不推送(全维度审计 2.2)。
+            let deletions = keys.filter { $0.isDeletion }
+            let upserts = keys.filter { !$0.isDeletion }
+            var records: [PortableRecord] = []
+            if !upserts.isEmpty {
+                records += await buildRecords(hydrator: hydrator, keys: upserts)
+            }
+            for dk in deletions {
+                records.append(hydrator.buildDeletion(id: dk.recordId))
+            }
             allRecords.append(contentsOf: records)
         }
 
@@ -156,7 +170,9 @@ final class SyncCore {
             do {
                 let ready = await transport.isReady
                 guard ready else {
-                    AppLogger.shared.warn("Transport \(transport.capabilities.name) not ready")
+                    // 2026-08-12 修复:未就绪时把本批放回队列,否则本地变更永久丢失(审计 2.1)。
+                    AppLogger.shared.warn("Transport \(transport.capabilities.name) not ready, requeue \(toSend.count) key(s)")
+                    for key in toSend { dirtyRecords.insert(key) }
                     return
                 }
                 try await transport.send(records: allRecords)

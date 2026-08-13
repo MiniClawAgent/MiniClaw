@@ -43,15 +43,14 @@ struct SubagentRuntimeRecord: Codable, Sendable {
 /// 被销毁，导致子代理永远无法跨轮复用。这里把「身份 + 上下文历史」抽出来，按 `sessionID` 存
 /// 会话级单例，跨用户轮次存活，使主 智能体能用同一 `subagent_id` 在后续轮次继续向同一子代理派发任务。
 ///
-/// **跨重启恢复（B 方案）**：每次 upsert 后把记录落盘到
-/// `MiniClaw-Sessions/<会话UUID>/subagent/runtime_records.json`（与 subagent_store.json 同目录，
-/// 职责单一、随会话目录删除自动消失）；App 启动时 `rebuild()` 扫描恢复。
+/// **跨重启恢复(B 方案)**：每次 upsert 后把记录写入 SQLite(`session_blobs` 表,
+/// kind=runtime_records,与 subagent_store 同库);App 启动时 `rebuild()` 从库恢复。
 /// 恢复后复用分支照常命中，子代理的「身份 + 角色 + 聚焦 + 上下文历史」跨 App 重启不丢。
 ///
 /// **线程安全**：所有对内部字典的读写均通过 `lock` 保护，避免并发数据竞争导致 EXC_BAD_ACCESS 崩溃。
 /// 落盘经后台队列做原子写文件，不阻塞主线程。
 final class SubagentRuntimeRegistry: @unchecked Sendable {
-    nonisolated(unsafe) static let shared = SubagentRuntimeRegistry()
+    static let shared = SubagentRuntimeRegistry()
 
     /// sessionID -> (subagentID -> 运行期记录)
     private var store: [UUID: [UUID: SubagentRuntimeRecord]] = [:]
@@ -112,24 +111,20 @@ final class SubagentRuntimeRegistry: @unchecked Sendable {
         lock.lock()
         store[sessionID] = nil
         lock.unlock()
-        // 文件随会话目录删除自动消失，这里不再单独删（避免半删残留）。
+        // 同步删除 SQLite 行，避免残留（会话删除路径）。
+        ioQueue.async {
+            SQLiteStore.shared.deleteBlob(sessionID: sessionID, kind: .runtimeRecords)
+        }
     }
 
     // MARK: - 持久化（跨重启恢复，B 方案）
-
-    /// 会话级文件路径：`MiniClaw-Sessions/<会话UUID>/subagent/runtime_records.json`。
-    private func fileURL(for sessionID: UUID) -> URL {
-        let base = SessionFileRouter.shared.sessionHostDirectory(for: sessionID)
-        return base.appendingPathComponent("subagent", isDirectory: true)
-            .appendingPathComponent("runtime_records.json")
-    }
 
     /// 落盘快照（值类型，跨线程安全传递）。ChatCompletionMessage 已是 Codable。
     private struct Snapshot: Codable {
         var records: [String: [String: SubagentRuntimeRecord]] = [:]
     }
 
-    /// upsert/remove 后异步落盘：锁外取快照 → 后台队列编码写文件。
+    /// upsert/remove 后异步落库：锁外取快照 → 后台队列编码写 SQLite。
     private func persist(sessionID: UUID) {
         lock.lock()
         // Snapshot 的 key 是 String（UUID.uuidString），这里做一次显式转换。
@@ -139,33 +134,24 @@ final class SubagentRuntimeRegistry: @unchecked Sendable {
         }
         let snapshot = Snapshot(records: [sessionID.uuidString: bySubString])
         lock.unlock()
-        let url = fileURL(for: sessionID)
         ioQueue.async {
             guard let data = try? JSONEncoder().encode(snapshot) else { return }
-            try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-            try? data.write(to: url, options: .atomic)
+            SQLiteStore.shared.saveBlob(sessionID: sessionID, kind: .runtimeRecords, payload: data)
         }
     }
 
-    /// App 启动时调用：扫描全部会话目录，恢复各会话的子代理运行期记录。
-    /// 须在 UI 使用注册表前调用一次（幂等：重复调用会覆盖为磁盘状态）。
+    /// App 启动时调用：从 SQLite 恢复各会话的子代理运行期记录。
+    /// 须在 UI 使用注册表前调用一次（幂等：重复调用会覆盖为库内状态）。
     func rebuild() {
-        // 冷启动双扫全部会话目录 + JSON 解码移后台（线程治理 P0）：
+        // 冷启动全量读库 + JSON 解码移后台（线程治理 P0）：
         // 内部字典有 lock 保护，后台线程直接写入安全，无需回主线程。
         // 用 GCD 而非 Task.detached：Swift 6.2 的 NSLock 在 async 上下文不可用，
         // GCD 闭包是同步上下文，lock/unlock 合法。
         DispatchQueue.global(qos: .userInitiated).async { [self] in
             var recovered: [UUID: [UUID: SubagentRuntimeRecord]] = [:]
-            let fm = FileManager.default
-            guard let entries = try? fm.contentsOfDirectory(
-                at: SessionFileRouter.sessionsHostBase,
-                includingPropertiesForKeys: nil
-            ) else { return }
-            for entry in entries {
-                guard let sid = UUID(uuidString: entry.lastPathComponent) else { continue }
-                let url = entry.appendingPathComponent("subagent", isDirectory: true)
-                    .appendingPathComponent("runtime_records.json")
-                guard let data = try? Data(contentsOf: url),
+            let blobs = SQLiteStore.shared.loadBlobs(kind: .runtimeRecords)
+            for (sid, payloadOpt) in blobs {
+                guard let data = payloadOpt,
                       let snap = try? JSONDecoder().decode(Snapshot.self, from: data),
                       let bySub = snap.records[sid.uuidString] else { continue }
                 var m: [UUID: SubagentRuntimeRecord] = [:]

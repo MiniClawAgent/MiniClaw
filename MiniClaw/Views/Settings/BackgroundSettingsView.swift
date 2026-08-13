@@ -11,33 +11,34 @@ struct BackgroundSettingsView: View {
         Form {
             Section {
                 HStack {
-                    Text(L10n.tr("Agent状态"))
+                    Text(L10n.l("agent_status"))
                     Spacer()
-                    Text(runtime.isAgentActive ? L10n.tr("活跃") : L10n.tr("空闲"))
+                    Text(runtime.isAgentActive ? L10n.l("active") : L10n.l("idle_status"))
                         .foregroundStyle(runtime.isAgentActive ? .green : .secondary)
                 }
             } header: {
-                Text(L10n.tr("状态"))
+                Text(L10n.l("status"))
             } footer: {
-                Text(L10n.tr("模糊定位用于在后台保持 App 运行，仅当「后台运行」开启且已授权时启用。"))
+                Text(L10n.l("coarse_location_keeps_the_app_running_in_the_background_it_is_enabled_only_when_background_run_is_on_and_permission_is_granted"))
             }
 
             Section {
-                Toggle(L10n.tr("后台运行"), isOn: $background.backgroundRun)
-                Toggle(L10n.tr("实时活动"), isOn: $background.liveActivity)
-                Toggle(L10n.tr("画中画"), isOn: $background.pictureInPicture)
+                Toggle(L10n.l("background_run"), isOn: $background.backgroundRun)
+                Toggle(L10n.l("live_activity"), isOn: $background.liveActivity)
+                Toggle(L10n.l("picture_in_picture"), isOn: $background.pictureInPicture)
             } header: {
-                Text(L10n.tr("后台"))
+                Text(L10n.l("background"))
             } footer: {
-                Text(L10n.tr("「后台运行」开启后，运用灵动岛 / 实时活动显示任务进度；「实时活动」控制是否在灵动岛与锁屏渲染；「画中画」开启后，退出会话页即以画中画常驻显示运行中的任务（图标 / 会话标题 / 执行进度）。"))
+                Text(L10n.l("when_background_run_is_on_live_island_live_activity_shows_task_progress_live_activity_controls_rendering_on_the_island_and_lock_screen_picture_in_picture_shows_the_running_task_icon_title_progress_as_a_persistent_pip_window_after_you_leave_the_chat_page"))
             }
         }
-        .navigationTitle(L10n.tr("后台"))
+        .navigationTitle(L10n.l("background"))
         .navigationBarTitleDisplayMode(.inline)
-        .onChange(of: background) { saveBackground() }
+        // iOS16 兼容:闭包显式带参,强制匹配 onChange(of:) 单参重载(iOS17 新增无参 action 重载会优先选中)。
+        .onChange(of: background) { _ in saveBackground() }
     }
 
     private func saveBackground() {
-        SettingsStore.shared.set(background, domain: .background, summary: L10n.tr("修改后台设置"))
+        SettingsStore.shared.set(background, domain: .background, summary: L10n.l("edit_background_settings"))
     }
 }

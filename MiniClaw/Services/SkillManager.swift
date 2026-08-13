@@ -54,17 +54,23 @@ private enum ZipInflate {
                     let base = ptr.baseAddress?.assumingMemoryBound(to: Bytef.self)
                     strm.next_in = base?.advanced(by: consumed)
                     strm.avail_in = UInt32(min(inputLeft, Int(Int32.max)))
+                    // 2026-08-12:输出缓冲指针与 inflate 调用必须在同一闭包内(避免悬垂指针)。
                     while strm.avail_in > 0 {
-                        strm.next_out = UnsafeMutablePointer(&buffer)
-                        strm.avail_out = UInt32(chunk)
-                        let r = inflate(&strm, Z_NO_FLUSH)
-                        if r != Z_OK && r != Z_STREAM_END && r != Z_BUF_ERROR {
-                            result = r
-                            break
+                        var produced = 0
+                        buffer.withUnsafeMutableBytes { (outPtr: UnsafeMutableRawBufferPointer) in
+                            strm.next_out = outPtr.bindMemory(to: Bytef.self).baseAddress
+                            strm.avail_out = UInt32(chunk)
+                            let r = inflate(&strm, Z_NO_FLUSH)
+                            if r != Z_OK && r != Z_STREAM_END && r != Z_BUF_ERROR {
+                                result = r
+                            }
+                            produced = chunk - Int(strm.avail_out)
                         }
-                        let produced = chunk - Int(strm.avail_out)
-                        out.append(buffer, count: produced)
-                        if r == Z_STREAM_END { break }
+                        // 闭包外 append:避免与 buffer 独占访问重叠。
+                        if produced > 0 {
+                            out.append(buffer, count: produced)
+                        }
+                        if result != Z_OK || strm.avail_in == 0 { break }
                     }
                 }
             }
@@ -274,7 +280,7 @@ final class SkillManager {
             sections.append("### 已加载技能正文：\(name)\n\(body)")
         }
         guard !sections.isEmpty else { return "" }
-        return "## 已加载技能正文（本会话通过 skill_load 加载，请严格遵循其工作流与输出格式）\n" + sections.joined(separator: "\n\n")
+        return L10n.l("skill_loaded_prompt") + sections.joined(separator: "\n\n")
     }
 
     /// 读取指定 name 的技能正文。线程治理（2026-08-09）：后台读盘，不阻塞主线程。
@@ -389,7 +395,7 @@ final class SkillManager {
                 try extractZip(at: url, into: tmp)
                 staging = tmp
             } catch {
-                result.message = "解压失败：\(error.localizedDescription)"
+                result.message = String(format: L10n.l("skill_unzip_failed"), error.localizedDescription)
                 return result
             }
         } else if ext == "md" {
@@ -401,16 +407,16 @@ final class SkillManager {
                 try FileManager.default.copyItem(at: url, to: tmp.appendingPathComponent("SKILL.md"))
                 staging = tmp
             } catch {
-                result.message = "读取文件失败：\(error.localizedDescription)"
+                result.message = String(format: L10n.l("skill_read_failed"), error.localizedDescription)
                 return result
             }
         } else {
-            result.message = "不支持的文件类型：.\(ext)"
+            result.message = String(format: L10n.l("skill_unsupported_type"), ext)
             return result
         }
 
         guard let src = findSkillDirectories(in: staging).first else {
-            result.message = "未找到含 SKILL.md 的技能目录。"
+            result.message = L10n.l("skill_no_skillmd_dir")
             return result
         }
         let dest = fs.skillsDir.appendingPathComponent(directoryName)
@@ -418,9 +424,9 @@ final class SkillManager {
         do {
             try FileManager.default.copyItem(at: src, to: dest)
             result.imported.append(directoryName)
-            result.message = "已更新：\(directoryName)"
+            result.message = String(format: L10n.l("skill_updated"), directoryName)
         } catch {
-            result.message = "更新失败：\(error.localizedDescription)"
+            result.message = String(format: L10n.l("skill_update_failed"), error.localizedDescription)
         }
         return result
     }
@@ -480,7 +486,7 @@ final class SkillManager {
                 try extractZip(at: url, into: tmp)
                 staging = tmp
             } catch {
-                result.message = "解压失败：\(error.localizedDescription)"
+                result.message = String(format: L10n.l("skill_unzip_failed"), error.localizedDescription)
                 return result
             }
         } else if ext == "md" {
@@ -498,17 +504,17 @@ final class SkillManager {
                 try fm.copyItem(at: url, to: tmp.appendingPathComponent("SKILL.md"))
                 staging = tmp
             } catch {
-                result.message = "导入失败：\(error.localizedDescription)"
+                result.message = String(format: L10n.l("skill_import_failed"), error.localizedDescription)
                 return result
             }
         } else {
-            result.message = "不支持的文件类型：.\(ext)。请选择 .zip 技能包或单个 SKILL.md。"
+            result.message = String(format: L10n.l("skill_unsupported_type_hint"), ext)
             return result
         }
 
         let skillDirs = findSkillDirectories(in: staging)
         if skillDirs.isEmpty {
-            result.message = "未在文件中找到任何含 SKILL.md 的技能目录。"
+            result.message = L10n.l("skill_no_skillmd_in_file")
             return result
         }
 

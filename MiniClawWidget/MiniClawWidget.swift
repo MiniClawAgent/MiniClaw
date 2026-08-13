@@ -1,6 +1,7 @@
 import WidgetKit
 import SwiftUI
 
+@available(iOSApplicationExtension 16.1, *)
 struct MiniClawWidgetLiveActivity: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: MiniClawLiveActivityAttributes.self) { context in
@@ -92,9 +93,11 @@ private struct StatusIconView: View {
 
     private var resolved: String {
         if !status.isEmpty { return status }
+        // 2026-08-12 修复:phase 由主 App 以英文常量写入(completed/failed/running),
+        // 消除跨 target 中文耦合(此前 case "完成"/"失败" 依赖 L10n 未翻译才碰巧命中)。
         switch phase {
-        case "完成": return "completed"
-        case "失败": return "failed"
+        case "completed": return "completed"
+        case "failed": return "failed"
         default: return "running"
         }
     }
@@ -133,6 +136,7 @@ private struct StatusIconView: View {
 }
 
 /// 锁屏长览视图（三行单行布局，AI名与「图标+标题」带胶囊背景）
+@available(iOSApplicationExtension 16.1, *)
 private struct LockScreenActivityView: View {
     let context: ActivityViewContext<MiniClawLiveActivityAttributes>
     @Environment(\.colorScheme) private var colorScheme
@@ -214,8 +218,14 @@ private struct LockScreenActivityView: View {
 @main
 struct MiniClawWidgetBundle: WidgetBundle {
     var body: some Widget {
-        MiniClawWidgetLiveActivity()
         MiniClawQuickActionsWidget()
-        MiniClawQuickTaskWidget()
+        // iOS16 兼容(2026-08-12):一键任务 widget 依赖 AppIntent(iOS17),
+        // Live Activity widget 依赖 ActivityKit(iOS16.1)——按版本条件包含。
+        if #available(iOSApplicationExtension 17.0, *) {
+            MiniClawQuickTaskWidget()
+        }
+        if #available(iOSApplicationExtension 16.1, *) {
+            MiniClawWidgetLiveActivity()
+        }
     }
 }

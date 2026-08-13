@@ -113,6 +113,8 @@ enum MCPClientError: Error, LocalizedError, Sendable {
     case rpc(code: Int, message: String)
     case invalidResponse(String)
     case responseTimeout(Int)
+    case timeout(String)
+    case connectionLost(String)
     case paginationLimit
     case unsupported(String)
 
@@ -123,6 +125,8 @@ enum MCPClientError: Error, LocalizedError, Sendable {
         case .httpStatus(let status, let body): "MCP HTTP \(status): \(body)"
         case .rpc(let code, let message): "MCP RPC \(code): \(message)"
         case .responseTimeout(let requestID): "MCP 请求 \(requestID) 等待响应超时"
+        case .timeout(let message): message
+        case .connectionLost(let message): message
         case .paginationLimit: "MCP tools/list 分页超过安全上限或 cursor 重复"
         case .unsupported(let message): message
         }

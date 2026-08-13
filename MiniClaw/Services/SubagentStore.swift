@@ -13,19 +13,15 @@ import Observation
 /// （绿色气泡，与普通会话里用户消息完全一致）；子代理回复以 `.assistant` 角色呈现
 /// （无聊天背景、头像 + 名称 + 正文 + 工具指示器 + 思考块），与主线渲染形式一模一样。
 ///
-/// 持久化：会话隔离存储——每个会话的子代理数据独立落盘到
-/// `Documents/MiniClaw-Sessions/<会话UUID>/subagent/subagent_store.json`
-/// （对应 guest 内 `/var/MiniClaw/<会话>/subagent/`），随每次变更（去抖）写本会话小文件，
-/// 并在 App 启动时由 `SubagentStore.load()` 扫描全部会话目录恢复。
-/// 会话删除时文件随会话目录一并消失，无跨会话共用文件。
+/// 持久化：会话级数据存入 SQLite(`session_blobs` 表,kind=subagent_store),
+/// 随会话删除时由 SQLiteStore 级联清除;App 启动时由 `SubagentStore.load()` 从库恢复。
 ///
 /// 注意：本存储以值类型字典/数组承载，所有写入都通过「取出副本 → 修改 → 写回」的方式，
 /// 确保 `@Observable` 能正确发出变更通知（直接对下标结果做 in-place 修改不会回写）。
 /// `@MainActor`：全部写方法由 ChatView 的 onSubagentEvent 在主线程调用，快照构造与编码
 /// 也在主线程完成（与写操作同线程，消除数据竞争），ioQueue 仅收值类型 Data 做原子落盘。
 @MainActor
-@Observable
-final class SubagentStore {
+final class SubagentStore: ObservableObject {
     /// @MainActor 类的单例：初始化与访问均在主线程（调用方全部是 MainActor 上下文）。
     static let shared = SubagentStore()
 
@@ -47,32 +43,17 @@ final class SubagentStore {
         var conversations: [String: [String: SubagentConversation]] = [:]
     }
 
-    /// 会话级文件路径：`MiniClaw-Sessions/<会话UUID>/subagent/subagent_store.json`。
-    /// 目录由 SessionFileRouter 在会话首次触达时创建（sessionSubdirs 已含 subagent）。
-    private func fileURL(for sessionID: UUID) -> URL {
-        let base = SessionFileRouter.shared.sessionHostDirectory(for: sessionID)
-        return base.appendingPathComponent("subagent", isDirectory: true)
-            .appendingPathComponent("subagent_store.json")
-    }
-
-    /// App 启动时调用：扫描全部会话目录，逐个恢复头像与对话。
+    /// App 启动时调用：从 SQLite 恢复全部会话的头像与对话。
     /// 须在 UI 使用该存储前于主线程执行一次。
     func load() {
-        // 冷启动双扫全部会话目录 + JSON 解码移后台（线程治理 P0）：
-        // 主线程执行会阻塞首屏；回主线程仅一次性赋值（@Observable 隔离保持）。
+        // 冷启动全量读库 + JSON 解码移后台(线程治理 P0)：
+        // 主线程执行会阻塞首屏;回主线程仅一次性赋值(@Observable 隔离保持)。
         Task.detached(priority: .userInitiated) { [weak self] in
             var c: [UUID: [SubagentCard]] = [:]
             var conv: [UUID: [UUID: SubagentConversation]] = [:]
-            let fm = FileManager.default
-            guard let entries = try? fm.contentsOfDirectory(
-                at: SessionFileRouter.sessionsHostBase,
-                includingPropertiesForKeys: nil
-            ) else { return }
-            for entry in entries {
-                guard let sid = UUID(uuidString: entry.lastPathComponent) else { continue }
-                let url = entry.appendingPathComponent("subagent", isDirectory: true)
-                    .appendingPathComponent("subagent_store.json")
-                guard let data = try? Data(contentsOf: url),
+            let blobs = SQLiteStore.shared.loadBlobs(kind: .subagentStore)
+            for (sid, payloadOpt) in blobs {
+                guard let data = payloadOpt,
                       let snap = try? JSONDecoder().decode(Snapshot.self, from: data) else { continue }
                 if let list = snap.cards[sid.uuidString] {
                     c[sid] = list
@@ -89,8 +70,9 @@ final class SubagentStore {
                 guard let self else { return }
                 self.cards = c
                 self.conversations = conv
+                self.objectWillChange.send()
                 // 启动恢复：运行中被杀的子代理没有终态，统一标记「已取消」，
-                // 避免重启后出现永久的「处理中」僵尸卡片（P4）。
+                // 避免重启后出现永久的「处理中」僵尸卡片(P4)。
                 for sid in self.cards.keys {
                     guard var list = self.cards[sid] else { continue }
                     for i in list.indices where list[i].status == .running {
@@ -187,29 +169,20 @@ final class SubagentStore {
         }
     }
 
-    /// 主线程构造各脏会话快照并编码，把值类型 Data + 目标 URL 交给后台队列落盘。
+    /// 主线程构造各脏会话快照并编码，把值类型 (sessionID, Data) 交给后台队列落库。
     private func encodeAndWrite() async {
         let dirty = dirtySessions
         dirtySessions.removeAll()
         guard !dirty.isEmpty else { return }
-        var jobs: [(Data, URL)] = []
+        var jobs: [(UUID, Data)] = []
         for sid in dirty {
             guard let data = encodeSnapshot(for: sid) else { continue }
-            jobs.append((data, fileURL(for: sid)))
+            jobs.append((sid, data))
         }
+        let jobsToWrite = jobs
         ioQueue.async {
-            for (data, url) in jobs {
-                // 写前确保 subagent 目录存在（旧会话目录可能缺该子目录）：
-                // .atomic 写入目标目录不存在时会静默失败 → 持久化永久失效。
-                try? FileManager.default.createDirectory(
-                    at: url.deletingLastPathComponent(),
-                    withIntermediateDirectories: true
-                )
-                do {
-                    try data.write(to: url, options: [.atomic])
-                } catch {
-                    NSLog("[SubagentStore] ⚠️ 落盘失败 \(url.lastPathComponent): \(error.localizedDescription)")
-                }
+            for (sid, data) in jobsToWrite {
+                SQLiteStore.shared.saveBlob(sessionID: sid, kind: .subagentStore, payload: data)
             }
         }
     }
@@ -256,6 +229,7 @@ final class SubagentStore {
             convMap[info.id] = conv
         }
         conversations[sessionID] = convMap
+        objectWillChange.send()
 
         var list = cards[sessionID] ?? []
         if let idx = list.firstIndex(where: { $0.id == info.id }) {
@@ -264,6 +238,7 @@ final class SubagentStore {
             list.append(SubagentCard(id: info.id, name: info.name, status: .running))
         }
         cards[sessionID] = list
+        objectWillChange.send()
         scheduleSave(sessionID: sessionID)
     }
 
@@ -276,6 +251,7 @@ final class SubagentStore {
         if var list = cards[sessionID], let idx = list.firstIndex(where: { $0.id == info.id }) {
             list[idx].status = .running
             cards[sessionID] = list
+            objectWillChange.send()
         }
         scheduleSave(sessionID: sessionID)
     }
@@ -345,14 +321,15 @@ final class SubagentStore {
             m.wasInterrupted = true
             m.isStreaming = false
             if m.text.isEmpty {
-                m.text = String(format: L10n.tr("⚠️ %@"), desc)
+                m.text = String(format: L10n.l("warning_symbol_format"), desc)
             } else {
-                m.text += String(format: L10n.tr("\n\n⚠️ %@"), desc)
+                m.text += String(format: L10n.l("warning_format_prefix"), desc)
             }
         }
         if var list = cards[sessionID], let idx = list.firstIndex(where: { $0.id == info.id }) {
             list[idx].status = .error
             cards[sessionID] = list
+            objectWillChange.send()
         }
         scheduleSave(sessionID: sessionID)
             flushNow()
@@ -374,6 +351,7 @@ final class SubagentStore {
                 list[idx].status = .completed
             }
             cards[sessionID] = list
+            objectWillChange.send()
         }
         scheduleSave(sessionID: sessionID)
             flushNow()
@@ -391,6 +369,7 @@ final class SubagentStore {
         if var list = cards[sessionID], let idx = list.firstIndex(where: { $0.id == subagentID }) {
             list[idx].status = .cancelled
             cards[sessionID] = list
+            objectWillChange.send()
         }
         scheduleSave(sessionID: sessionID)
             flushNow()
@@ -401,28 +380,26 @@ final class SubagentStore {
         var convMap = conversations[sessionID] ?? [:]
         convMap[subagentID] = nil
         conversations[sessionID] = convMap
+        objectWillChange.send()
 
         if var list = cards[sessionID] {
             list.removeAll { $0.id == subagentID }
             cards[sessionID] = list
+            objectWillChange.send()
         }
         scheduleSave(sessionID: sessionID)
     }
 
-    /// 会话被删除时整体清理：清内存 + 删除该会话的 subagent 文件（随会话目录消失）。
+    /// 会话被删除时整体清理：清内存 + 删除该会话的 SQLite blob(会话级联清除)。
     func clearSession(_ sessionID: UUID) {
         conversations[sessionID] = nil
+        objectWillChange.send()
         cards[sessionID] = nil
+        objectWillChange.send()
         dirtySessions.remove(sessionID)
         saveTask?.cancel()
-        // 直接拼 URL，不经 sessionHostDirectory：避免 ensureHostDirs 在会话目录
-        // 已删除后重建整棵空目录树（与 SessionManager 的目录删除竞态）。
-        let url = SessionFileRouter.sessionsHostBase
-            .appendingPathComponent(sessionID.uuidString, isDirectory: true)
-            .appendingPathComponent("subagent", isDirectory: true)
-            .appendingPathComponent("subagent_store.json")
         ioQueue.async {
-            try? FileManager.default.removeItem(at: url)
+            SQLiteStore.shared.deleteBlob(sessionID: sessionID, kind: .subagentStore)
         }
     }
 

@@ -1,8 +1,9 @@
 import Foundation
 import SwiftUI
 import MiniClawKit
-import SwiftData
 import UIKit
+import QuickLook
+import AVKit
 
 /// 全屏图片查看的标识项：用 `.fullScreenCover(item:)` 的规范写法承载，
 /// 避免「计算 Binding + 内容内再读同一可选值」导致的偶尔不弹出的 SwiftUI 隐患。
@@ -10,6 +11,122 @@ struct FullscreenImageItem: Identifiable, Equatable {
     let url: URL
     var id: String { url.absoluteString }
 }
+
+/// 2026-08-12:长按菜单通知监听(「添加到输入框」/「从这里重跑」)。
+/// 独立 modifier 承载——直接挂 ChatView body 会触发 type-check 超时。
+struct ChatMenuListeners: ViewModifier {
+    let onAppend: (String) -> Void
+    let onRerun: (UUID) -> Void
+
+    func body(content: Content) -> some View {
+        content
+            // 通知名字符串与 Kit(AssistantBlockView.swift) 的
+            // chatInputAppendRequested / rerunFromToolBlock 常量同值;
+            // Kit 常量是 internal,宿主无法引用,这里用字面量构造同名通知。
+            .onReceive(NotificationCenter.default.publisher(for: Notification.Name("chatInputAppendRequested"))) { note in
+                guard let text = note.userInfo?["text"] as? String else {
+                    // 运行时打点(2026-08-13):通知到达但 userInfo 缺失 text。
+                    AppLogger.shared.warn("ChatMenuListeners: 收到 chatInputAppendRequested 但 userInfo 无 text", category: "ChatInputInject")
+                    return
+                }
+                // 运行时打点(2026-08-13):宿主收到「添加到输入框」通知。
+                AppLogger.shared.info("ChatMenuListeners: 收到「添加到输入框」通知 text=\(String(text.prefix(40)))", category: "ChatInputInject")
+                onAppend(text)
+            }
+            .onReceive(NotificationCenter.default.publisher(for: Notification.Name("rerunFromToolBlock"))) { note in
+                guard let blockId = note.userInfo?["blockId"] as? UUID else { return }
+                onRerun(blockId)
+            }
+    }
+}
+
+/// 系统共享面板(UIActivityViewController)——「分享」按钮接入的系统自带共享功能。
+struct ActivityView: UIViewControllerRepresentable {
+    let items: [Any]
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: items, applicationActivities: nil)
+    }
+    func updateUIViewController(_ controller: UIActivityViewController, context: Context) {}
+}
+
+/// 可缩放图片视图(UIScrollView + UIImageView):
+/// - 双指捏合放大(pinch zoom)
+/// - 双击恢复适合屏幕尺寸(已放大时);双击放大 2x(适合屏幕尺寸时)
+struct PreviewZoomableImageView: UIViewRepresentable {
+    let image: UIImage
+    /// 缩放状态变化回调:zoomScale > 1 时 true(用于关闭下滑关闭手势)。
+    var onZoomChange: ((Bool) -> Void)? = nil
+
+    func makeUIView(context: Context) -> UIScrollView {
+        let scrollView = UIScrollView()
+        scrollView.delegate = context.coordinator
+        scrollView.minimumZoomScale = 1
+        scrollView.maximumZoomScale = 4
+        scrollView.showsVerticalScrollIndicator = false
+        scrollView.showsHorizontalScrollIndicator = false
+        scrollView.backgroundColor = .clear
+        scrollView.decelerationRate = .fast
+        scrollView.bouncesZoom = true
+
+        let imageView = UIImageView(image: image)
+        imageView.contentMode = .scaleAspectFit
+        imageView.isUserInteractionEnabled = true
+        imageView.frame = scrollView.bounds
+        imageView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        scrollView.addSubview(imageView)
+        context.coordinator.imageView = imageView
+
+        let doubleTap = UITapGestureRecognizer(target: context.coordinator,
+                                               action: #selector(Coordinator.handleDoubleTap(_:)))
+        doubleTap.numberOfTapsRequired = 2
+        scrollView.addGestureRecognizer(doubleTap)
+        return scrollView
+    }
+
+    func updateUIView(_ scrollView: UIScrollView, context: Context) {
+        context.coordinator.imageView?.image = image
+    }
+
+    func makeCoordinator() -> Coordinator {
+        let coordinator = Coordinator()
+        coordinator.onZoomChange = onZoomChange
+        return coordinator
+    }
+
+    final class Coordinator: NSObject, UIScrollViewDelegate {
+        weak var imageView: UIImageView?
+        var onZoomChange: ((Bool) -> Void)?
+
+        func viewForZooming(in scrollView: UIScrollView) -> UIView? { imageView }
+
+        func scrollViewDidZoom(_ scrollView: UIScrollView) {
+            onZoomChange?(scrollView.zoomScale > 1.0)
+        }
+
+        @objc func handleDoubleTap(_ gesture: UITapGestureRecognizer) {
+            guard let scrollView = gesture.view as? UIScrollView else { return }
+            if scrollView.zoomScale > scrollView.minimumZoomScale {
+                // 双击恢复适合屏幕尺寸
+                scrollView.setZoomScale(scrollView.minimumZoomScale, animated: true)
+            } else {
+                let rect = PreviewZoomableImageView.zoomRect(forScale: 2.0,
+                                                      center: gesture.location(in: gesture.view),
+                                                      in: scrollView)
+                scrollView.zoom(to: rect, animated: true)
+            }
+        }
+    }
+
+    private static func zoomRect(forScale scale: CGFloat, center: CGPoint, in scrollView: UIScrollView) -> CGRect {
+        var rect = CGRect.zero
+        rect.size.width = scrollView.frame.size.width / scale
+        rect.size.height = scrollView.frame.size.height / scale
+        rect.origin.x = center.x - rect.size.width / 2
+        rect.origin.y = center.y - rect.size.height / 2
+        return rect
+    }
+}
+
 
 /// 上下文占用圆环：随实时占用比例变色，中心显示占用百分比数字（无 % 符号）。
 /// 变色档位与「真正的压缩触发点」严格同源——红色起点 = 引擎分档策略的 compactThreshold，
@@ -66,15 +183,14 @@ struct ContextRingIndicator: View {
         }
         .frame(width: 27, height: 27)
         .contentShape(Circle())
-        .accessibilityLabel(unlimited ? "上下文窗口无限制" : "上下文占用 \(Int(ratio * 100))%")
+        .accessibilityLabel(unlimited ? L10n.l("unlimited_context_window") : L10n.l("context_usage_format") + String(format: "%d%%", Int(ratio * 100)))
     }
 }
 
 struct ChatView: View {
-    @Environment(AppState.self) private var appState
-    @Environment(\.modelContext) private var modelContext
+    @EnvironmentObject private var appState: AppState
 
-    @Bindable var session: ChatSession
+    @ObservedObject var session: ChatSession
 
     @State private var inputText: String = ""
     /// 外部向输入框注入文本的通道（斜杠命令插入/清空/草稿恢复）：
@@ -85,7 +201,8 @@ struct ChatView: View {
     /// 附件被模型输入模态过滤后的提示文案（短暂展示于输入栏上方，几秒后自动消失）。
     @State private var attachmentNotice: String?
     @State private var browserURL: URL? = nil
-    @State private var fullscreenImageItem: FullscreenImageItem? = nil
+    /// 2026-08-12:统一全屏预览(文件管理器同款 FilePreviewView)目标文件。
+    @State private var previewFileURL: URL? = nil
     @State private var showFileManager: Bool = false
     @State private var showSessionTerminal: Bool = false
     @State private var showSessionBrowser: Bool = false
@@ -99,6 +216,8 @@ struct ChatView: View {
     @State private var contextSnapshot: ContextUsageSnapshot = .empty
     @State private var activeSubagentConversation: SubagentConversation? = nil
     @State private var lastMessageID: UUID?
+    /// 上一个 isResponding 值(iOS16 onChange 单参版本的翻转检测缓存)。
+    @State private var lastResponding: Bool = false
     /// 是否允许自动跟随最新内容。默认开启；用户只要手动拖动会话列表就立即关闭，
     /// 后续 词元 / 工具事件不再抢回滚动控制，直到用户主动发送消息或重新进入会话。
     @State private var shouldAutoFollow: Bool = true
@@ -108,7 +227,7 @@ struct ChatView: View {
     /// 故消息距输入栏距离在无键盘态与有键盘态恒定(= 列表 contentInset.bottom - 8)。
     @State private var inputBarHeight: CGFloat = 0
     @State private var inputBarHeightDebounce: Task<Void, Never>?
-    /// 悬浮内容条(排队/子代理/附件)高度,照 OpenMinis floatingBarHeight 语义:
+    /// 悬浮内容条(排队/子代理/附件)高度,照 floatingBarHeight 语义:
     /// 列表 bottomInset = inputBarHeight + floatingBarHeight + 8。
     @State private var floatingBarHeight: CGFloat = 0
     /// 输入栏最近一次 on-screen 高度(onGeometryChange 上报,debounce 提交时读最新值)。
@@ -159,12 +278,12 @@ struct ChatView: View {
 
     /// 可用的思考强度档位（固定列表，与 normalizedThinkingLevel 对齐）。
     private static let thinkingLevels: [(id: String, label: String)] = [
-        ("low", L10n.tr("低")), ("medium", L10n.tr("中")), ("high", L10n.tr("高")), ("xhigh", L10n.tr("极高")), ("max", L10n.tr("极强"))
+        ("low", L10n.l("level_low")), ("medium", L10n.l("level_medium")), ("high", L10n.l("high")), ("xhigh", L10n.l("very_high")), ("max", L10n.l("level_extreme"))
     ]
 
     /// 档位 id → 中文标签。
     private static let thinkingLevelLabels: [String: String] = [
-        "low": L10n.tr("低"), "medium": L10n.tr("中"), "high": L10n.tr("高"), "xhigh": L10n.tr("极高"), "max": L10n.tr("极强")
+        "low": L10n.l("level_low"), "medium": L10n.l("level_medium"), "high": L10n.l("high"), "xhigh": L10n.l("very_high"), "max": L10n.l("level_extreme")
     ]
 
     /// 当前主模型的 id（用于查询模型目录里的思考档位配置）。
@@ -247,13 +366,18 @@ struct ChatView: View {
             switch cmd.id {
             case "clear":
                 // 清空当前会话所有消息（保留会话本身）
-                let messages = session.messages
-                for msg in messages {
-                    modelContext.delete(msg)
+                // 2026-08-12 修复：清空前必须像 stopGeneration 一样终止在途引擎并写终态，
+                // 否则旧引擎回调因 runtime 被丢弃而 guard 跳过，status 卡 .running → 首页图标转圈。
+                if let runtime = appState.chatRuntimes[session.id] {
+                    runtime.engine.cancel()
+                    runtime.streamingMessageID = nil
                 }
-                try? modelContext.save()
-                AgentTaskStore.shared.clear(sessionID: session.id)
                 appState.chatRuntimes[session.id] = nil
+                SessionManager.shared.removeAllMessages(from: session)
+                AgentTaskStore.shared.clear(sessionID: session.id)
+                session.status = .completed
+                session.updatedAt = Date()
+                SessionManager.shared.persist(session)
 
             case "compact":
                 // 手动触发对话压缩（标记需要压缩，下次 run 时执行）
@@ -268,7 +392,7 @@ struct ChatView: View {
             // 记忆开关切换（/memory）
             var memorySettings = SettingsStore.shared.settings.memory
             memorySettings.isEnabled = !current
-            SettingsStore.shared.set(memorySettings, domain: .memory, summary: L10n.tr("斜杠命令切换"))
+            SettingsStore.shared.set(memorySettings, domain: .memory, summary: L10n.l("slash_command_toggled"))
 
         case .thinkingPicker(selectedLevel: _, levels: _):
             // 「/thinking」：左侧标签 = 开/关切换；右侧档位 pill = 直接切到该档。
@@ -285,7 +409,7 @@ struct ChatView: View {
                 // 输入式 /thinking 直发（无档位信息）：翻转当前状态（开→关，关→开到 low）
                 session.thinkingLevel = (session.thinkingLevel == "off") ? "low" : "off"
             }
-            try? modelContext.save()
+            SessionManager.shared.persist(session)
 
         default:
             // 插入文本类命令（/search、/image 等）→ 回填到输入框
@@ -321,6 +445,8 @@ struct ChatView: View {
 
     /// 向输入框注入文本（输入文本已本地化，外部写入统一走此通道）。
     private func injectInput(_ text: String) {
+        // 运行时打点(2026-08-13):注入通道入口。
+        AppLogger.shared.info("injectInput: 注入 \(text.count) 字 text=\(String(text.prefix(40))) 即将推进 injectionID=\(inputInjectionID + 1)", category: "ChatInputInject")
         injectedInputText = text
         inputInjectionID += 1
         inputText = text // 镜像同步（草稿落盘/其他读取仍用 inputText）
@@ -359,7 +485,7 @@ struct ChatView: View {
         let workingText: String
         if let skillName {
             SkillManager.shared.incrementUseCount(skillName)
-            workingText = (taskText?.isEmpty == false) ? taskText! : "请直接使用 \(skillName) 技能完成任务。"
+            workingText = (taskText?.isEmpty == false) ? taskText! : String(format: L10n.l("please_complete_the_task_directly_using_the_skill"), skillName)
         } else {
             // 非技能（普通文本或 /search 等插入文本命令）：原样发送。
             workingText = trimmed
@@ -388,13 +514,9 @@ struct ChatView: View {
             return
         }
 
-        // 若 session 尚未持久化（来自首页"新会话"按钮），在此首次发送时插入 SwiftData，
-        // 这样列表不会在导航动画期间就闪现空白行，不发言直接返回也不会留下空会话。
-        if session.modelContext == nil {
-            modelContext.insert(session)
-            try? modelContext.save()
-        }
-
+        // 用户发送消息即落盘(2026-08-12 回归修复)：立即持久化会话行+用户消息。
+        // createSession 只落盘了空会话,用户消息若不立即 persist,则 AI 运行中返回首页/
+        // 杀进程时该会话在 SQLite 中仍是空壳甚至缺失——会话从列表消失的根因之一。
         let userMessage = ChatMessage(role: .user, content: raw)
         userMessage.session = session
         // 用户附件复制进当前会话的 attachments/ 目录（会话独享、随会话删除），
@@ -402,6 +524,7 @@ struct ChatView: View {
         userMessage.attachments = persistAttachmentsToSession(pendingAttachments)
         session.messages.append(userMessage)
         session.updatedAt = Date()
+        SessionManager.shared.persist(session)
 
         // 首条消息：先写本地占位标题（即时、列表不空），再后台用 智能体精炼（服务层统一判定与生成）。
         AgentRunService.shared.generateAITitleIfNeeded(session: session, firstUserText: raw)
@@ -417,6 +540,74 @@ struct ChatView: View {
 
         // 空闲 → 常规启动。（回复进行中的分支已在函数开头拦截并入队）
         startAgentResponse(to: sentText, userMessageID: userMessage.id, injectedSkill: injectedSkill, attachments: userMessage.attachments, thinkingLevel: session.thinkingLevel)
+    }
+
+    // MARK: - 长按菜单动作（2026-08-12 治本：Edit/Retry/Re-run 接线）
+
+    /// 长按菜单「编辑」：回填输入框并聚焦。
+    @MainActor
+    private func editMessage(_ messageID: UUID) {
+        guard let msg = session.messages.first(where: { $0.id == messageID }), msg.role == .user else { return }
+        inputText = msg.content
+        isInputFocused = true
+    }
+
+    /// 长按菜单「重试」：截断到该用户消息（删除其后 AI 回复），重新执行 Agent。
+    @MainActor
+    private func retryMessage(_ messageID: UUID) {
+        guard let idx = session.messages.firstIndex(where: { $0.id == messageID }),
+              session.messages[idx].role == .user else { return }
+        // 该消息正在回复中则不重试（避免并发跑两轮）。
+        guard appState.chatRuntimes[session.id] == nil else { return }
+        let userMessage = session.messages[idx]
+        session.messages = Array(session.messages.prefix(idx + 1))
+        SessionManager.shared.persist(session)
+        startAgentResponse(to: userMessage.content, userMessageID: userMessage.id,
+                           attachments: userMessage.attachments, thinkingLevel: session.thinkingLevel)
+    }
+
+    /// 长按菜单「折叠上方」：压缩该消息之上的上下文。
+    /// 会话可见结构不变（仅插入一条指示器 system 消息），API 上下文用摘要替代
+    /// （buildHistory 应用 compactAnchorID/compactSummary）。
+    @MainActor
+    private func compactAbove(_ messageID: UUID) {
+        guard let idx = session.messages.firstIndex(where: { $0.id == messageID }), idx > 0 else { return }
+        guard appState.chatRuntimes[session.id] == nil else { return }
+        let indicator = ChatMessage(role: .system, content: L10n.l("compact_above_indicator"))
+        session.messages.insert(indicator, at: idx)
+        session.updatedAt = Date()
+        SessionManager.shared.persist(session)
+        Task { @MainActor in
+            if let summary = await AgentRunService.shared.generateCompactionSummary(session: session, anchorMessageID: messageID) {
+                session.compactAnchorID = messageID
+                session.compactSummary = summary
+                SessionManager.shared.persist(session)
+            } else {
+                // 摘要失败：移除指示器并回滚锚点。
+                session.messages.removeAll { $0.id == indicator.id }
+                session.compactAnchorID = nil
+                session.compactSummary = nil
+                SessionManager.shared.persist(session)
+            }
+        }
+    }
+
+    /// 长按工具块「从这里重跑」：定位包含该工具调用的 AI 消息，截断后重跑其前的用户消息。
+    @MainActor
+    private func rerunFromToolBlock(_ blockId: UUID) {
+        if let aiIdx = session.messages.firstIndex(where: { msg in
+            msg.role == .assistant && msg.toolCalls.contains(where: { $0.id == blockId })
+        }) {
+            let userIdx = aiIdx - 1
+            if userIdx >= 0, session.messages[userIdx].role == .user {
+                retryMessage(session.messages[userIdx].id)
+                return
+            }
+        }
+        // 兜底：重发最后一条用户消息。
+        if let lastUser = session.messages.last(where: { $0.role == .user }) {
+            retryMessage(lastUser.id)
+        }
     }
 
     // MARK: - 深链派任务消费（P1-4）
@@ -451,16 +642,13 @@ struct ChatView: View {
             return
         }
 
-        // 会话尚未持久化（理论上 createSession 已 insert，这里仅兜底）。
-        if session.modelContext == nil {
-            modelContext.insert(session)
-            try? modelContext.save()
-        }
-
+        // 用户发送消息即落盘(2026-08-12 回归修复)：快捷指令「继续会话」路径与人工发送一致,
+        // 立即持久化,避免运行中会话在存储中缺失。
         let userMessage = ChatMessage(role: .user, content: prompt)
         userMessage.session = session
         session.messages.append(userMessage)
         session.updatedAt = Date()
+        SessionManager.shared.persist(session)
 
         // 快捷指令「继续会话」携带的附件：直接落会话 attachments/ 目录（命名约定 <UUID前缀>_<原名>，
         // 与 persistAttachmentsToSession 全链路同名，工具按 hint 才能解析到），返回相对路径数组。
@@ -577,7 +765,7 @@ struct ChatView: View {
             var systemMessage = ChatCompletionMessage(role: "system", content: stable)
             systemMessage.volatileSuffix = volatile
             messages.append(systemMessage)
-            messages.append(contentsOf: AgentRunService.shared.buildHistory(session: session, userMessageID: UUID(), responseMessageID: UUID()))
+            messages.append(contentsOf: AgentRunService.shared.buildHistory(session: session, userMessageID: UUID(), responseMessageID: UUID()).messages)
             let schemas = router.allSchemas()
             let breakdown = ContextUsageEstimator.breakdown(
                 messages: messages,
@@ -629,17 +817,17 @@ struct ChatView: View {
                 Button {
                     showFileManager = true
                 } label: {
-                    Label(L10n.tr("当前会话的文件管理"), systemImage: "folder")
+                    Label(L10n.l("file_management_for_the_current_session"), systemImage: "folder")
                 }
                 Button {
                     showSessionTerminal = true
                 } label: {
-                    Label(L10n.tr("命令行（绑定本会话）"), systemImage: "terminal")
+                    Label(L10n.l("command_line_bound_to_this_session"), systemImage: "terminal")
                 }
                 Button {
                     showSessionBrowser = true
                 } label: {
-                    Label(L10n.tr("浏览器（绑定本会话）"), systemImage: "safari")
+                    Label(L10n.l("browser_bound_to_this_session"), systemImage: "safari")
                 }
 
                 // 后续选项在此追加
@@ -701,7 +889,7 @@ struct ChatView: View {
     }
 
     /// 输入栏悬浮层(2026-08-11 拆分 body 避免类型推断超时)。
-    /// 悬浮内容条(排队消息 + 子代理头像 + 附件提示):照 OpenMinis floatingToolPreview
+    /// 悬浮内容条(排队消息 + 子代理头像 + 附件提示):照 floatingToolPreview
     /// 语义,独立于输入栏测高(列表 bottomInset = inputBarHeight + floatingBarHeight + 8)。
     @ViewBuilder
     private var floatingContent: some View {
@@ -763,7 +951,7 @@ struct ChatView: View {
     @ViewBuilder
     private var chatOverlay: some View {
         VStack(spacing: 0) {
-            // 悬浮内容条(排队/子代理/附件):照 OpenMinis floatingToolPreview 独立测高。
+            // 悬浮内容条(排队/子代理/附件):照 floatingToolPreview 独立测高。
             floatingContent
                 .onGeometryChange(for: CGFloat.self) { proxy in
                     proxy.size.height
@@ -777,8 +965,7 @@ struct ChatView: View {
                 isAgentResponding: isRespondingBinding,
                 isPaused: isPausedBinding,
                 attachments: $pendingAttachments,
-                injectedText: injectedInputText,
-                injectionID: inputInjectionID,
+                injection: ChatInputInjection(id: inputInjectionID, text: injectedInputText),
                 onDraftChanged: { text in
                     // 防抖镜像同步 + 草稿落盘（击键不再触发本视图重算）
                     inputText = text
@@ -795,7 +982,7 @@ struct ChatView: View {
                 thinkingLevels: availableThinkingLevels,
                 focused: $isInputFocused
             )
-            // 照 OpenMinis inputBar 测高:seed 首帧同步 + 380ms debounce + 320ms settle-confirm。
+            // 照 inputBar 测高:seed 首帧同步 + 380ms debounce + 320ms settle-confirm。
             // .global frame 的 height 不受键盘影响(键盘只改 Y),配合 onscreen 守卫。
             .onGeometryChange(for: CGRect.self) { proxy in
                 proxy.frame(in: .global)
@@ -808,7 +995,7 @@ struct ChatView: View {
                 let onscreen = frame.minX >= hostWindow.minX - tolerance
                     && frame.maxX <= hostWindow.maxX + tolerance
                 if onscreen { latestInputBarFrameH = newH }
-                // [KbdDiag 2026-08-11] 输入栏测高全链路日志(照 OpenMinis InputBarLayout):
+                // [KbdDiag 2026-08-11] 输入栏测高全链路日志(照 InputBarLayout):
                 // 每次上报打 frame.height + onscreen,seed/commit 时打结果。
                 if newH != lastLoggedInputBarH {
                     lastLoggedInputBarH = newH
@@ -855,18 +1042,34 @@ struct ChatView: View {
         ZStack {
             messageListView
         }
-        // 照 OpenMinis:输入栏以 .overlay(alignment:.bottom) 悬浮,受 safe area 约束,
+        // 输入栏以 .overlay(alignment:.bottom) 悬浮,受 safe area 约束,
         // 键盘展开/收起由系统自动键盘规避统一抬升——消息距输入栏距离恒定。
         .overlay(alignment: .bottom) {
             chatOverlay
         }
         // 键盘高度监听已移至列表 Coordinator(keyboardHeight),此处不再手动桥接。
-        .onChange(of: appState.pendingBrowserURL) { _, url in
+        .onChange(of: appState.pendingBrowserURL) { url in
             if let url { browserURL = url; appState.pendingBrowserURL = nil }
+        }
+        // 内置浏览器打开策略:Kit 发来的 http/https 链接请求 → 复用同一个浏览器 sheet
+        .onReceive(NotificationCenter.default.publisher(for: .miniClawOpenURLRequested)) { note in
+            if let url = note.object as? URL,
+               let scheme = url.scheme?.lowercased(),
+               scheme == "http" || scheme == "https" {
+                AppLogger.shared.info("[Chat][BrowserTakeover] 收到通知 url=\(url.absoluteString) browserURL=\(browserURL?.absoluteString ?? "nil") → 设置", category: "Browser")
+                browserURL = url
+            } else {
+                AppLogger.shared.info("[Chat][BrowserTakeover] 收到通知但类型/scheme 不符 object=\(String(describing: note.object))", category: "Browser")
+            }
         }
         .sheet(isPresented: Binding(
             get: { browserURL != nil },
-            set: { if !$0 { browserURL = nil } }
+            set: { if !$0 {
+                if browserURL != nil {
+                    AppLogger.shared.info("[Chat][BrowserTakeover] browserURL sheet set(false) 关闭浏览器", category: "Browser")
+                }
+                browserURL = nil
+            } }
         )) {
             if let url = browserURL {
                 BrowserView(startURL: url)
@@ -876,6 +1079,16 @@ struct ChatView: View {
         .sheet(isPresented: $showFileManager) {
             SessionFileManagerView(sessionID: session.id)
         }
+        // 2026-08-12:统一全屏预览(文件管理器同款 FilePreviewView)——AI 图片/文件链接/
+        // 用户附件点击统一全屏呈现,右上角分享/关闭按钮,图片/视频黑 80% 透明背景。
+        .fullScreenCover(isPresented: Binding(
+            get: { previewFileURL != nil },
+            set: { if !$0 { previewFileURL = nil } }
+        )) {
+            if let url = previewFileURL {
+                FilePreviewView(fileURL: url)
+            }
+        }
         .sheet(isPresented: $showTokenUsage) {
             SessionTokenUsageView(session: session)
         }
@@ -883,8 +1096,10 @@ struct ChatView: View {
             SubagentChatView(conversation: conv, sessionID: session.id)
                 .presentationDragIndicator(.visible)
                 // sheet 默认带抬升材质（深色下偏灰、不透黑），与主会话纯黑背景不一致；
-                // 显式指定 presentationBackground = 系统背景（深色模式即纯黑）。
-                .presentationBackground(Color(.systemBackground))
+                // 显式指定背景 = 系统背景（深色模式即纯黑）。
+                // iOS16 兼容(2026-08-12):presentationBackground 是 iOS16.4 API,
+                // 用等价的 UIKit 背景(系统背景色铺满)替代,视觉一致。
+                .background(Color(.systemBackground))
         }
         .fullScreenCover(isPresented: $showSoulSettings) {
             NavigationStack {
@@ -901,7 +1116,7 @@ struct ChatView: View {
             // 全屏高度呈现;系统下滑手势关闭(不画蛇添足加关闭按钮)。
             NavigationStack {
                 ProviderSettingsView()
-                    .navigationTitle(L10n.tr("智能体服务商"))
+                    .navigationTitle(L10n.l("providers"))
             }
             .presentationDetents([.large])
             .presentationDragIndicator(.visible)
@@ -910,7 +1125,7 @@ struct ChatView: View {
             #if ISH_ENABLED
             TerminalView(initialSessionID: session.id, initialSessionTitle: session.title)
             #else
-            UnavailablePlaceholder(title: L10n.tr("终端不可用"), message: L10n.tr("当前构建未集成 iSH 运行环境"))
+            UnavailablePlaceholder(title: L10n.l("terminal_unavailable"), message: L10n.l("the_current_build_does_not_include_the_ish_runtime"))
             #endif
         }
         // 会话内浏览器（菜单「浏览器」入口）：初始 URL = 当前会话打开的链接；
@@ -920,15 +1135,6 @@ struct ChatView: View {
         .sheet(isPresented: $showSessionBrowser) {
             BrowserView(startURL: browserURL)
                 .presentationDetents([.large])
-        }
-        .fullScreenCover(item: $fullscreenImageItem) { item in
-            FullscreenImageView(
-                imageURL: item.url,
-                isPresented: Binding(
-                    get: { fullscreenImageItem != nil },
-                    set: { if !$0 { fullscreenImageItem = nil } }
-                )
-            )
         }
         // 标题区：系统导航栏 principal 居中显示（会话标题 + 模型名）。
         .navigationTitle("")
@@ -940,6 +1146,11 @@ struct ChatView: View {
         .onAppear {
             lastMessageID = session.messages.last?.id
             BrowserController.shared.setSession(session.id)
+            // 2026-08-12:浏览器 UI 标签池绑定到当前会话(与工具链同一池,指示器/工具/浏览器标签同步)
+            BrowserEngineAdapter.shared.setSession(session.id)
+            // 2026-08-12 修复:播种 lastResponding——若进入时 agent 已在回复中,
+            // 完成翻转 true→false 才不会被漏检(否则排队消息不自动续跑)。
+            lastResponding = isResponding
             restorePersistedState()
             // 调试日志（2026-08-08）：重进会话后的回复状态全链路追踪。
             let lastAssistant = session.messages.last(where: { $0.role == .assistant })
@@ -948,17 +1159,54 @@ struct ChatView: View {
             syncContextSnapshot()
             consumePendingDeepLinkTask()
         }
-        .onChange(of: appState.pendingDeepLinkTask?.id) { _, _ in
+        .onChange(of: appState.pendingDeepLinkTask?.id) { _ in
             consumePendingDeepLinkTask()
         }
-        .onChange(of: session.messages.count) { _, _ in
+        // 2026-08-12 治本:长按菜单「添加到输入框」与「从这里重跑」——
+        // Kit 发通知但此前无监听(空桩)。独立 modifier 承载,避免主 body
+        // type-check 超时(2026-08-12 编译错误)。
+        .modifier(ChatMenuListeners(
+            onAppend: { text in
+                // 2026-08-13 治本:输入框文本已本地化到 ChatInputBar,必须走
+                // injectInput 注入通道(推进 injectionID),否则只改本地 state,
+                // ChatInputBar 收不到 → 点击无反应。
+                injectInput(inputText + text)
+                isInputFocused = true
+            },
+            onRerun: { blockId in
+                rerunFromToolBlock(blockId)
+            }
+        ))
+        // 2026-08-12 治本:附件卡片点击打开——Kit 的 UserAttachmentList 点击发
+        // .miniClawOpenURLRequested 通知,此前宿主无监听 → 点击无反应。此处解析
+        // miniclaw:// URL 到会话目录实际文件,用分享面板打开(图片/音视频/文档通用)。
+        .onReceive(NotificationCenter.default.publisher(for: .miniClawOpenURLRequested)) { note in
+            guard let url = note.object as? URL else { return }
+            // 2026-08-12:兼容两种来源——miniclaw:// 语义链接(解析到会话目录)与
+            // 本地文件 URL(视频/音频卡片点击直接传 fileURL)。
+            let fileURL: URL?
+            if url.isFileURL {
+                fileURL = url
+            } else {
+                fileURL = MiniClawKit.AIChatViewModel.resolveMiniClawURL(url)
+            }
+            guard let fileURL, FileManager.default.fileExists(atPath: fileURL.path) else { return }
+            // 2026-08-12:系统预览(Quick Look)——图片/PDF/音视频/文档统一用系统原生预览
+            // 呈现(替代此前分享面板;分享仍可从 QL 底部动作获得)。
+            previewFileURL = fileURL
+        }
+        .onChange(of: session.messages.count) { _ in
             lastMessageID = session.messages.last?.id
         }
-        .onChange(of: session.modelName) { _, _ in
+        .onChange(of: session.modelName) { _ in
             // 切换模型 = 换了上下文窗口与压缩阈值，圆环必须按新窗口重算。
             syncContextSnapshot(force: true)
         }
-        .onChange(of: isResponding) { wasResponding, nowResponding in
+        // iOS16:onChange 单参数版本。用 @State 缓存上一个 isResponding 值,
+        // 检测「回复刚结束」(true→false) 翻转。
+        .onChange(of: isResponding) { nowResponding in
+            let wasResponding = lastResponding
+            lastResponding = nowResponding
             // 当前回复刚结束（true → false）→ 立即处理队列中最早排队的消息
             if wasResponding && !nowResponding {
                 processNextPendingMessage()
@@ -971,7 +1219,7 @@ struct ChatView: View {
                 }
             }
         }
-        .onChange(of: inputText) { _, _ in
+        .onChange(of: inputText) { _ in
             // 输入变化即落盘草稿，使其跨退出会话 / 杀后台可恢复。
             persistDraft()
         }
@@ -990,11 +1238,14 @@ struct ChatView: View {
             if SettingsStore.shared.settings.memory.isEnabled {
                 SessionReviewService.shared.schedule(sessionID: session.id)
             }
-            // 仅对已持久化的空会话执行清理；全新未发言的会话未 insert，无需删除
-            if session.messages.isEmpty, session.modelContext != nil {
+            // 仅对已持久化的空会话执行清理；全新未发言的会话未入内存，无需删除。
+            // 存活守卫(2026-08-12 回归修复)：会话仍有存活运行时(AI 正在操作/排队)时绝不删——
+            // 首条用户消息尚未落盘时 messages.isEmpty 误判,曾把运行中会话整体删除。
+            // 2026-08-12 修复:队列里有排队消息的会话也不删(否则 teardownSession 清空排队 blob)。
+            if session.messages.isEmpty && appState.chatRuntimes[session.id] == nil
+                && (appState.pendingUserMessages[session.id]?.isEmpty ?? true) {
                 let sid = session.id
-                modelContext.delete(session)
-                try? modelContext.save()
+                SessionManager.shared.deleteSession(id: sid)
                 // 空会话同样清理隔离资源（注销 fsContext + 删除 Sessions/<uuid>/）
                 SessionFileRouter.shared.unregister(sessionID: sid)
                 // 顺手清掉该会话的子代理运行期注册表（复用状态不再需要）。
@@ -1002,7 +1253,6 @@ struct ChatView: View {
                 ContextUsageStore.shared.clear(sessionID: sid)
             }
         }
-    .animation(.spring(response: 0.35, dampingFraction: 0.85), value: fullscreenImageItem)
     }
 
     // MARK: - Message List
@@ -1033,21 +1283,27 @@ struct ChatView: View {
             // 无有效目标也清空，避免泄漏到后续进入
             appState.scrollToMessageID = nil
         }
-        // 贴底状态同步（浮动「回到底部」按钮显隐,2026-08-10 OM 路径）
-        .onChange(of: chatBridge.vm.isNearBottom) { _, near in
+        // 贴底状态同步（浮动「回到底部」按钮显隐,2026-08-10 Kit 路径）
+        .onChange(of: chatBridge.vm.isNearBottom) { near in
             isNearBottom = near
         }
     }
 
-    /// 适配列表(OpenMinis 移植组件,默认路径),miniclaw.debug.chatList 开启时使用)
+    /// 适配列表(移植组件,默认路径),miniclaw.debug.chatList 开启时使用)
 
     private var adaptedListContent: some View {
         CollectionViewMessageListV3(
             vm: chatBridge.vm,
             inputFocused: isInputFocused,
-            onRetryMessage: nil,
+            onRetryMessage: { messageID in retryMessage(messageID) },
+            onEdit: { messageID in editMessage(messageID) },
             onResume: { chatBridge.onResume?() },
             onStop: { chatBridge.onStop?() },
+            onCompact: { messageID in compactAbove(messageID) },
+            onScreenshotImage: { image in
+                // 2026-08-12 治本:菜单「复制截图」——截图真实生成后此前被丢弃,现写入剪贴板。
+                UIPasteboard.general.image = image
+            },
             maxContentWidth: 0,
             floatingBarHeight: floatingBarHeight,
             inputBarHeight: inputBarHeight
@@ -1058,9 +1314,9 @@ struct ChatView: View {
             chatBridge.onResume = { resumeGeneration() }
             chatBridge.onStop = { stopGeneration() }
         }
-        .onChange(of: session.messages.count) { _, _ in chatBridge.refresh() }
-        .onChange(of: session.messages.last?.content.count ?? 0) { _, _ in chatBridge.refresh() }
-        .onChange(of: session.messages.last?.isStreaming ?? false) { _, _ in chatBridge.refresh(force: true) }
+        .onChange(of: session.messages.count) { _ in chatBridge.refresh() }
+        .onChange(of: session.messages.last?.content.count ?? 0) { _ in chatBridge.refresh() }
+        .onChange(of: session.messages.last?.isStreaming ?? false) { _ in chatBridge.refresh(force: true) }
     }
     // MARK: - 子代理悬浮头像（输入框上方）
 
@@ -1072,7 +1328,7 @@ struct ChatView: View {
             Image(systemName: "key.fill")
                 .font(.system(size: 15))
                 .foregroundStyle(.orange)
-            Text(L10n.tr("添加密钥"))
+            Text(L10n.l("add_api_key"))
                 .font(.system(size: 14))
                 .foregroundStyle(.primary)
             Spacer(minLength: 0)
@@ -1109,7 +1365,8 @@ struct ChatView: View {
         HStack(spacing: 6) {
             // 立即发送:中断当前回复并立即发送该条。
             Button {
-                appState.pendingUserMessages[session.id, default: []].removeAll { $0.id == item.id }
+                // 2026-08-12 修复:只调 sendQueuedMessage,移除逻辑收敛在方法内部
+                // (此前先 removeAll 再按 id 查找必然失败,排队消息静默丢失)。
                 sendQueuedMessage(item.id)
             } label: {
                 Image(systemName: "arrow.up.circle.fill")
@@ -1145,7 +1402,7 @@ struct ChatView: View {
             Button {
                 UIPasteboard.general.string = item.text
             } label: {
-                Label(L10n.tr("复制"), systemImage: "doc.on.doc")
+                Label(L10n.l("copy_action"), systemImage: "doc.on.doc")
             }
             Button {
                 injectInput(item.text)
@@ -1153,14 +1410,14 @@ struct ChatView: View {
                 persistQueue()
                 chatBridge.refresh()
             } label: {
-                Label(L10n.tr("编辑"), systemImage: "square.and.pencil")
+                Label(L10n.l("edit_action"), systemImage: "square.and.pencil")
             }
             Button(role: .destructive) {
                 appState.pendingUserMessages[session.id, default: []].removeAll { $0.id == item.id }
                 persistQueue()
                 chatBridge.refresh()
             } label: {
-                Label(L10n.tr("删除"), systemImage: "trash")
+                Label(L10n.l("delete_action"), systemImage: "trash")
             }
         }
     }
@@ -1228,8 +1485,8 @@ struct ChatView: View {
     private func showAttachmentNotice(droppedNames: [String]) {
         guard !droppedNames.isEmpty else { return }
         let list = droppedNames.prefix(3).joined(separator: "、")
-        let suffix = droppedNames.count > 3 ? String(format: L10n.tr(" 等 %@ 个文件"), String(droppedNames.count)) : ""
-        withAnimation { attachmentNotice = String(format: L10n.tr("已发送给智能体（将交由智能体通过工具读取）：%@%@"), list, suffix) }
+        let suffix = droppedNames.count > 3 ? String(format: L10n.l("and_other_files"), String(droppedNames.count)) : ""
+        withAnimation { attachmentNotice = String(format: L10n.l("sent_to_the_agent_it_will_read_them_via_tools"), list, suffix) }
         Task { @MainActor in
             try? await Task.sleep(nanoseconds: 5_000_000_000)
             withAnimation { attachmentNotice = nil }
@@ -1324,7 +1581,7 @@ struct ChatView: View {
         // 只标记当前仍未返回结果的工具；此前已完成/失败的工具保留原状态。
         for index in runtime.streamingToolCalls.indices where runtime.streamingToolCalls[index].resultText.isEmpty {
             runtime.streamingToolCalls[index].wasInterrupted = true
-            runtime.streamingToolCalls[index].resultText = L10n.tr("用户已停止")
+            runtime.streamingToolCalls[index].resultText = L10n.l("user_stopped")
             runtime.streamingToolCalls[index].success = false
             runtime.streamingToolCalls[index].duration = stoppedAt.timeIntervalSince(runtime.streamingToolCalls[index].timestamp)
         }
@@ -1334,6 +1591,12 @@ struct ChatView: View {
             msg.content = runtime.streamingContent
             msg.isStreaming = false
             msg.wasStopped = true
+            // 2026-08-12 修复:停止也是终态,补落盘思考段(此前漏写,思考永久丢失
+            // 且被打断会话重进后思考指示器消失)。对齐 onInterrupted 的落盘逻辑。
+            msg.reasoningSegments = runtime.streamingReasoningSegments
+            if !runtime.streamingReasoningSegments.isEmpty {
+                msg.reasoning = runtime.streamingReasoningSegments.map { $0.text }.joined(separator: "\n\n")
+            }
             // 任务总耗时：用户停止即终态，结算耗时（暂停态停止同样覆盖；断点恢复任务不显示）。
             if !runtime.taskTimingInvalid, msg.taskElapsedSeconds == nil { msg.taskElapsedSeconds = runtime.taskSettle() }
             if !runtime.streamingToolCalls.isEmpty {
@@ -1394,6 +1657,9 @@ struct ChatView: View {
             guard appState.chatRuntimes[session.id] === runtime, runtime.isPaused else { return }
             runtime.isPaused = false
             runtime.isResponding = true
+            // 2026-08-12 治本:恢复即回 .running(与暂停写 .paused 对称)。
+            session.status = .running
+            session.updatedAt = Date()
             // 任务总耗时：继续任务在暂停前的基础上继续计时。
             runtime.taskStartOrResume()
             // 恢复流式缓冲区，使新 词元 续写到同一气泡（而非另起一段）。
@@ -1438,6 +1704,9 @@ struct ChatView: View {
         }
         guard let routingPlan = appState.resolveModelRoutingPlan(for: .main),
               routingPlan.endpoints.first != nil else { return }
+        // 2026-08-12 治本:恢复时按检查点状态还原会话状态——暂停的检查点恢复为 .paused
+        // (首页行显示暂停而非转圈),其余(中断/运行)恢复为 .running 待续跑。
+        session.status = (task.status == .paused) ? .paused : .running
 
         // 找续写的气泡：优先用检查点里记录的 ID，找不到则兜底新建。
         let bubble: ChatMessage
@@ -1465,6 +1734,16 @@ struct ChatView: View {
         // 否则渲染时 effectiveToolCalls 优先取 runtime 空数组 → 已完成的工具卡/思考块被遮蔽消失。
         runtime.streamingToolCalls = bubble.toolCalls
         runtime.streamingReasoningSegments = bubble.reasoningSegments
+        // 2026-08-12 修复:旧数据/停止时未落盘思考段的场景,bubble.reasoningSegments 为空时
+        // 从检查点 task.messages 的最后一条 assistant 消息提取 reasoning_content 重建思考段,
+        // 否则被打断会话重进后思考指示器消失。
+        if bubble.reasoningSegments.isEmpty,
+           let lastAssistant = task.messages.last(where: { $0.role == "assistant" }),
+           let rc = lastAssistant.reasoningContent, !rc.isEmpty {
+            let seg = ReasoningSegment(index: 0, text: rc, position: 0, timelineOrder: 0)
+            bubble.reasoningSegments = [seg]
+            runtime.streamingReasoningSegments = [seg]
+        }
         let lastOrder = (bubble.toolCalls.map(\.timelineOrder) + bubble.reasoningSegments.map(\.timelineOrder)).max() ?? 0
         runtime.nextTimelineOrder = lastOrder + 1
         AppLogger.shared.info("[Recover] 重建 runtime: bubble.content=\(bubble.content.count)字 toolCalls=\(bubble.toolCalls.count) reasoningSegments=\(bubble.reasoningSegments.count) status=\(task.status.rawValue)", category: "Agent", subsystem: "Resume")
@@ -1535,6 +1814,8 @@ struct ChatView: View {
         userMessage.attachments = next.attachments
         session.messages.append(userMessage)
         session.updatedAt = Date()
+        // 排队消息转为真实用户消息即落盘(2026-08-12 回归修复)。
+        SessionManager.shared.persist(session)
 
         startAgentResponse(to: next.text, userMessageID: userMessage.id, injectedSkill: next.skillName, attachments: next.attachments, thinkingLevel: session.thinkingLevel, deepLinkCallback: next.deepLinkCallback)
     }
@@ -1572,6 +1853,8 @@ struct ChatView: View {
         userMessage.attachments = item.attachments
         session.messages.append(userMessage)
         session.updatedAt = Date()
+        // 排队消息转真实消息即落盘(2026-08-12 回归修复)。
+        SessionManager.shared.persist(session)
         startAgentResponse(to: item.text, userMessageID: userMessage.id, injectedSkill: item.skillName, attachments: item.attachments, thinkingLevel: session.thinkingLevel, deepLinkCallback: item.deepLinkCallback)
     }
 }
@@ -1624,7 +1907,7 @@ struct PendingMessageBubble: View {
             HStack(spacing: 3) {
                 Image(systemName: "hourglass")
                     .font(.system(size: 9))
-                Text(L10n.tr("排队中 · 点左侧按钮可停止并立即发送"))
+                Text(L10n.l("queued_tap_the_left_button_to_stop_and_send_immediately"))
                     .font(.caption2)
             }
             .foregroundStyle(.secondary)
@@ -1651,20 +1934,20 @@ struct ModelWarningBannerView: View {
                 Image(systemName: "exclamationmark.triangle.fill")
                     .foregroundStyle(.orange)
                     .font(.title3)
-                Text(L10n.tr("尚未接入模型"))
+                Text(L10n.l("no_model_connected"))
                     .font(.subheadline)
                     .fontWeight(.semibold)
                 Spacer()
             }
 
-            Text(L10n.tr("需要先接入模型才能完成对话。请前往「智能体服务商」添加服务商并填写 API Key。"))
+            Text(L10n.l("connect_a_model_first_to_start_chatting_go_to_providers_add_one_and_fill_in_the_api_key"))
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
 
             Button(action: onConfigure) {
                 HStack(spacing: 6) {
-                    Text(L10n.tr("前往配置模型"))
+                    Text(L10n.l("go_to_configure_models"))
                         .fontWeight(.medium)
                     Image(systemName: "arrow.up.right.square")
                 }

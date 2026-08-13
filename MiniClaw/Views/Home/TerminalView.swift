@@ -1,5 +1,4 @@
 import SwiftUI
-import SwiftData
 
 // MARK: - 终端（iSH / Alpine 交互式终端）
 //
@@ -17,11 +16,12 @@ import SwiftData
 
 struct TerminalView: View {
     @Environment(\.dismiss) private var dismiss
-    @Query(sort: \ChatSession.updatedAt, order: .reverse) private var sessions: [ChatSession]
+    /// 会话列表：来自 SessionManager 内存态（启动全量加载,变更即时落盘）。
+    private var sessions: [ChatSession] { SessionManager.shared.sessions }
     @State private var lines: [TerminalLine] = []
     @State private var input: String = ""
     @State private var isRunning: Bool = false
-    @State private var bootState: String = L10n.tr("检测中…")
+    @State private var bootState: String = L10n.l("detecting")
     /// 当前终端绑定的会话；nil = 共享区（fs_context=0）
     @State private var boundSessionID: UUID?
     @FocusState private var inputFocused: Bool
@@ -42,11 +42,11 @@ struct TerminalView: View {
     }
 
     private var boundSessionTitle: String {
-        guard let id = boundSessionID else { return L10n.tr("共享区") }
+        guard let id = boundSessionID else { return L10n.l("shared_area") }
         if let found = sessions.first(where: { $0.id == id })?.title { return found }
         // 查询未命中：若是打开终端时传入的当前会话（可能尚未持久化），用传入标题
         if id == initialSessionID, let title = initialSessionTitle { return title }
-        return L10n.tr("已删除的会话")
+        return L10n.l("deleted_sessions")
     }
 
     /// 当前绑定对应的 fs_context 真实值（0 = 共享区 / 未绑定）。
@@ -63,7 +63,7 @@ struct TerminalView: View {
                 HStack(spacing: 6) {
                     Image(systemName: MiniClawiSHIsBooted() ? "checkmark.circle.fill" : "hourglass")
                         .foregroundStyle(MiniClawiSHIsBooted() ? .green : .orange)
-                    Text(L10n.tr("Alpine 运行时：") + bootState)
+                    Text(L10n.l("alpine_runtime_label") + bootState)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     Spacer()
@@ -73,9 +73,9 @@ struct TerminalView: View {
                             switchBinding(to: nil)
                         } label: {
                             if boundSessionID == nil {
-                                Label(L10n.tr("共享区"), systemImage: "checkmark")
+                                Label(L10n.l("shared_area"), systemImage: "checkmark")
                             } else {
-                                Text(L10n.tr("共享区"))
+                                Text(L10n.l("shared_area"))
                             }
                         }
                         if !sessions.isEmpty {
@@ -126,7 +126,7 @@ struct TerminalView: View {
                                 Text("$")
                                     .font(.system(.caption, design: .monospaced))
                                     .foregroundStyle(.green)
-                                TextField(L10n.tr("在此输入命令，回车执行"), text: $input)
+                                TextField(L10n.l("enter_a_command_here_press_enter_to_run"), text: $input)
                                     .font(.system(.caption, design: .monospaced))
                                     .foregroundStyle(.white)
                                     .textInputAutocapitalization(.never)
@@ -142,7 +142,7 @@ struct TerminalView: View {
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background(Color.black)
-                    .onChange(of: lines.count) { _, _ in
+                    .onChange(of: lines.count) { _ in
                         withAnimation { proxy.scrollTo(inputAnchor, anchor: .bottom) }
                     }
                     .onAppear { inputFocused = true }
@@ -150,19 +150,19 @@ struct TerminalView: View {
                     .onTapGesture { inputFocused = true }
                 }
             }
-            .navigationTitle(Text(L10n.tr("终端")))
+            .navigationTitle(Text(L10n.l("terminal")))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button {
                         lines.removeAll()
                     } label: {
-                        Label(L10n.tr("清屏"), systemImage: "trash")
+                        Label(L10n.l("clear_screen"), systemImage: "trash")
                     }
                     .disabled(isRunning)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button(L10n.tr("完成")) { dismiss() }
+                    Button(L10n.l("done")) { dismiss() }
                 }
             }
             .task {
@@ -197,11 +197,11 @@ struct TerminalView: View {
 
     private func refreshBootState() {
         switch MiniClawiSHGetBootState() {
-        case .booted:     bootState = L10n.tr("已启动")
-        case .prewarming: bootState = L10n.tr("后台预热中")
-        case .failed:     bootState = L10n.tr("启动失败")
-        case .idle:       bootState = L10n.tr("未启动")
-        @unknown default: bootState = L10n.tr("未知")
+        case .booted:     bootState = L10n.l("started")
+        case .prewarming: bootState = L10n.l("prewarming_in_background")
+        case .failed:     bootState = L10n.l("launch_failed")
+        case .idle:       bootState = L10n.l("not_started")
+        @unknown default: bootState = L10n.l("unknown")
         }
     }
 
@@ -243,7 +243,7 @@ struct TerminalView: View {
                 }
             } catch {
                 await MainActor.run {
-                    lines.append(TerminalLine(text: String(format: L10n.tr("执行错误：%@"), error.localizedDescription), isError: true))
+                    lines.append(TerminalLine(text: String(format: L10n.l("execution_error"), error.localizedDescription), isError: true))
                 }
             }
             await MainActor.run {

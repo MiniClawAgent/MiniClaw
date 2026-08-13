@@ -216,7 +216,7 @@ struct SecurityGate {
         // 配置：敏感域/敏感字段写需确认
         case ("config", "set"):
             if let field = detail {
-                let sensitive = ["apikey", "secret", "token", "soul", "permissions", "minisconfigwrite",
+                let sensitive = ["apikey", "secret", "token", "soul", "permissions", "miniclawconfigwrite",
                                  "location", "bluetooth", "microphone", "speechrecognition", "camera",
                                  "photolibrary", "notifications", "calendar", "reminders", "healthkit",
                                  "homekit", "nfc", "localnetwork"]

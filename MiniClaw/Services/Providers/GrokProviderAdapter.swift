@@ -11,7 +11,7 @@ import Foundation
 // 3. 推理深度 `reasoning_effort`(基类已透传);工具调用与并行工具调用同 OpenAI 协议(基类已支持)。
 // 因此继承基类,仅注入 `store: false`。
 
-final class GrokProviderAdapter: OpenAIProviderAdapter {
+final class GrokProviderAdapter: OpenAIProviderAdapter, @unchecked Sendable {
     init(config: OpenAICompatConfig) {
         super.init(name: "xAI Grok", config: config)
     }

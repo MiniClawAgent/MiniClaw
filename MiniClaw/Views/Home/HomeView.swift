@@ -1,22 +1,26 @@
 import SwiftUI
-import SwiftData
 import UIKit
 import Combine
-import CoreData
 
 struct HomeView: View {
-    @Environment(AppState.self) private var appState
+    @EnvironmentObject private var appState: AppState
     /// 订阅界面语言单例：语言切换时 `current` 变化触发本视图重渲染，
     /// 让首页所有 `L10n.tr` 文案（搜索栏、空状态、分组标题、菜单等）以新语言重新求值。
     @ObservedObject private var l10n = L10n.shared
-    @Environment(\.modelContext) private var modelContext
     /// 场景相位：从后台返回前台时主动重载列表（见下方 .onChange），
     /// 避免「切后台再回来列表空白」（@State 在挂起/回收期间被重置的情形）。
     @Environment(\.scenePhase) private var scenePhase
     /// 首页会话列表：不依赖 `@Query` 的自动刷新（在 NavigationStack push/pop 时机下
     /// `@Query` 可能不重新拉取，表现为「发消息/建会话返回首页看不到」）。改为显式
     /// `modelContext.fetch` + 在「上下文保存 / 从聊天返回」时主动重载，列表永远反映真实存储。
-    @State private var sessions: [ChatSession] = []
+    @ObservedObject private var sessionManager = SessionManager.shared
+    /// 可见会话（过滤未发言空会话）。基于 sessionManager.sessions 实时派生——置顶等
+    /// 成员级变更经 objectWillChange 广播后本视图重算，立即生效（2026-08-13 治本：
+    /// 此前 @State 拷贝数组，ChatSession 是 class，成员变更后新旧数组元素引用相同、
+    /// 判等不变 → SwiftUI 不重渲染，置顶要等页面刷新才生效）。
+    private var sessions: [ChatSession] {
+        sessionManager.sessions.filter { !$0.messages.isEmpty }
+    }
     /// 首次加载中标记：首帧（.task 的 fetch 完成前）显示加载指示而非「空态」——
     /// 否则冷启动会先闪一下"欢迎使用"空态再突然恢复全部会话（用户误以为数据丢失）。
     /// 仅首次加载置位；后续 reloadSessions（保存/回前台/返回）不影响它。
@@ -24,6 +28,9 @@ struct HomeView: View {
     /// 未完成（可续跑）会话集合：检查点为 `paused` / `interrupted` 的会话。
     /// 用于首页图标外圈橙色边框徽标，标记「上次回复中断、可继续」。
     @State private var incompleteSessionIDs: Set<UUID> = []
+    /// 草稿刷新令牌（2026-08-13）：草稿 blob 删除/落盘完成广播后递增，
+    /// 传入 sessionRow 强制重算笔图标，杜绝「输入框已空但笔图标残留」。
+    @State private var draftRefreshToken = 0
 
     @State private var isSearching: Bool = false
     @State private var searchText: String = ""
@@ -88,19 +95,13 @@ struct HomeView: View {
         return .earlier
     }
 
-    // MARK: - 会话加载（显式 fetch，规避 @Query 在导航时机下不刷新）
+    // MARK: - 会话加载（显式重载，规避 @Query 在导航时机下不刷新）
     @MainActor
     private func reloadSessions() {
-        let descriptor = FetchDescriptor<ChatSession>(sortBy: [SortDescriptor(\.updatedAt, order: .reverse)])
-        guard let fetched = try? modelContext.fetch(descriptor) else {
-            // 取数失败（存储层异常/损坏）：保留内存中会话，不盲目清空。
-            AppLogger.shared.error("reloadSessions: fetch 失败（存储层可能损坏）")
-            return
-        }
-        // 存储层现在是唯一可信源（CloudKit 已移除、本地 SQLite 健康）。
-        // 直接以 fetch 结果为准，不再保留内存残留对象 —— 否则 ChatView 已删除的
-        // 空会话（已从存储移除）会因其仍残留在内存数组里而被保留，直到重启才消失。
-        sessions = fetched
+        // 内存态为唯一可信源（SessionManager.load 启动时全量加载,变更即时落盘）。
+        let loaded = SessionManager.shared.sessions
+        // sessions 现为 computed（基于 sessionManager.sessions 实时过滤），无需拷贝赋值。
+        AppLogger.shared.info("reloadSessions: 已加载 \(loaded.count) 个会话,显示 \(sessions.count) 个(过滤未发言空会话)")
         // 方案B：kill 后状态闭环。把「上次被系统杀死、且本进程已无存活运行时」的检查点
         // 从 running 翻成 interrupted，使「未完成任务」语义准确。
         // 关键守卫：仅当 appState.chatRuntimes 中已无该会话运行时才翻——后台挂起/运行中
@@ -111,7 +112,7 @@ struct HomeView: View {
         // 线程治理（2026-08-09）：2×N 次检查点读盘/写盘移后台（AgentTaskStore 内部有
         // 串行队列 + @unchecked Sendable，任意线程安全），主线程只保留 fetch 与一次赋值。
         // Swift 6 并发：detached 闭包不捕获 self（只收值类型参数），回主线程仅赋值 @State。
-        let ids = fetched.map(\.id)
+        let ids = loaded.map(\.id)
         let liveRuntimeIDs = Set(appState.chatRuntimes.keys)
         Task { @MainActor in
             let incomplete = await Task.detached(priority: .userInitiated) {
@@ -135,6 +136,11 @@ struct HomeView: View {
     }
 
     var body: some View {
+        mainContent
+    }
+
+    /// iOS16 适配:body 表达式过长触发类型检查超时,拆为独立子视图。
+    private var mainContent: some View {
         ZStack {
             Color(.systemBackground)
                 .ignoresSafeArea()
@@ -152,7 +158,7 @@ struct HomeView: View {
                     } else if sessions.isEmpty {
                         emptyStateView
                     } else if isSearching && !searchText.isEmpty && filteredSessions.isEmpty {
-                        ContentUnavailableView.search(text: searchText)
+                        EmptyStateView.search(text: searchText)
                     } else if isSearching {
                         // 搜索中：沿用首页同样的时间分组排序（空文本显示全部，有文本按关键字过滤）
                         groupedListView(searchText.isEmpty ? groupedSessions : filteredGroupedSessions)
@@ -170,16 +176,16 @@ struct HomeView: View {
         .toolbar {
             if isSelectionMode {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button(L10n.tr("取消")) { exitSelectionMode() }
+                    Button(L10n.l("cancel")) { exitSelectionMode() }
                         .fontWeight(.medium)
                 }
                 ToolbarItem(placement: .principal) {
-                    Text("\(selectedSessionIDs.count) " + L10n.tr("项已选择"))
+                    Text("\(selectedSessionIDs.count) " + L10n.l("item_s_selected"))
                         .font(.headline)
                         .fontWeight(.semibold)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button(L10n.tr(selectedSessionIDs.count == sessions.count && !sessions.isEmpty ? "取消全选" : "全选")) {
+                    Button(selectedSessionIDs.count == sessions.count && !sessions.isEmpty ? L10n.l("deselect_all_action") : L10n.l("select_all_action")) {
                         if selectedSessionIDs.count == sessions.count && !sessions.isEmpty {
                             selectedSessionIDs.removeAll()
                         } else {
@@ -200,7 +206,7 @@ struct HomeView: View {
                 }
             }
         }
-        .onChange(of: isSearching) { _, searching in
+        .onChange(of: isSearching) { searching in
             // 进入搜索：自动聚焦内联输入框；退出：失焦
             searchFocused = searching
         }
@@ -208,32 +214,32 @@ struct HomeView: View {
             #if ISH_ENABLED
             TerminalView()
             #else
-            UnavailablePlaceholder(title: L10n.tr("终端不可用"), message: L10n.tr("当前构建未集成 iSH 运行环境"))
+            UnavailablePlaceholder(title: L10n.l("terminal_unavailable"), message: L10n.l("the_current_build_does_not_include_the_ish_runtime"))
             #endif
         }
         .sheet(isPresented: $showRootfsManager) {
             #if ISH_ENABLED
             RootfsManagerView()
             #else
-            UnavailablePlaceholder(title: L10n.tr("Rootfs 管理不可用"), message: L10n.tr("当前构建未集成 iSH 运行环境"))
+            UnavailablePlaceholder(title: L10n.l("rootfs_management_unavailable"), message: L10n.l("the_current_build_does_not_include_the_ish_runtime"))
             #endif
         }
-        .sheet(isPresented: Bindable(appState).showSettings) {
+        .sheet(isPresented: $appState.showSettings) {
             NavigationStack {
                 SettingsView()
             }
         }
-        .alert(Text(L10n.tr("编辑标题")), isPresented: $showEditTitle) {
-            TextField(L10n.tr("标题"), text: $editingTitle)
-            Button(L10n.tr("取消"), role: .cancel) { editingSession = nil }
-            Button(L10n.tr("保存")) {
+        .alert(Text(L10n.l("edit_title")), isPresented: $showEditTitle) {
+            TextField(L10n.l("title"), text: $editingTitle)
+            Button(L10n.l("cancel"), role: .cancel) { editingSession = nil }
+            Button(L10n.l("save")) {
                 if let session = editingSession {
                     let trimmed = editingTitle.trimmingCharacters(in: .whitespacesAndNewlines)
                     if !trimmed.isEmpty {
                         session.title = trimmed
                         session.titleIsPlaceholder = false
                     }
-                    try? modelContext.save()
+                    SessionManager.shared.persist(session)
                     // 标题变更回传：刷新该会话 Live Activity 的标题（若正在运行）。
                     if let sid = editingSession?.id {
                         BackgroundTaskController.shared.agentDidUpdateSession(sessionID: sid.uuidString)
@@ -242,15 +248,15 @@ struct HomeView: View {
                 editingSession = nil
             }
         } message: {
-            Text(L10n.tr("为会话输入一个新的标题"))
+            Text(L10n.l("enter_a_new_title_for_this_session"))
         }
         .confirmationDialog(
-            Text(L10n.tr("删除 ") + "\(selectedSessionIDs.count)" + L10n.tr(" 个会话？")),
+            Text(L10n.l("delete_label_space") + "\(selectedSessionIDs.count)" + L10n.l("conversations")),
             isPresented: $showDeleteConfirm,
             titleVisibility: .visible
         ) {
-            Button(L10n.tr("删除"), role: .destructive) { deleteSelected() }
-            Button(L10n.tr("取消"), role: .cancel) {}
+            Button(L10n.l("delete_action"), role: .destructive) { deleteSelected() }
+            Button(L10n.l("cancel"), role: .cancel) {}
         }
         .sheet(item: $sharePayload) { payload in
             ShareSheet(items: payload.urls as [Any])
@@ -271,11 +277,12 @@ struct HomeView: View {
             BrowserView()
         }
         .task {
-            // 注入 SwiftData ModelContext 给会话管理单例，供 MiniClaw-sessions-cli 工具使用
-            SessionManager.shared.configure(with: modelContext)
-            // 首次进入首页即显式加载会话列表（不依赖 @Query 自动刷新）。
+            // 会话持久层已由 App 启动时加载(SessionManager.load 仅在 MiniClawApp.init 执行一次)。
+            // 此处**不再**重复调 load():load 会从 SQLite 重读并整体覆盖内存数组,而 persist
+            // 是异步 fire-and-forget——两者无次序保证,会把"运行中、写尚未落库"的会话从列表顶掉
+            // (2026-08-12 回归修复)。返回首页只需拷贝内存数组(reloadSessions),内存态才是唯一可信源。
             reloadSessions()
-            // 无论 fetch 成败都结束加载态：失败时列表为空，显示空态而非永久转圈。
+            // 无论加载成败都结束加载态：失败时列表为空，显示空态而非永久转圈。
             isLoadingSessions = false
             // P1-4：冷启动竞态兜底——若 onOpenURL 早于本 configure 触发（尚无法建会话），
             // 此处重试被推迟的深链派任务。
@@ -299,15 +306,12 @@ struct HomeView: View {
             alpineReady = false
             #endif
         }
-        // 任意 SwiftData 保存（建会话 / 发消息 / 改标题 / 删除等）后主动重载列表，
-        // 保证首页始终反映真实存储，规避 @Query 在导航时机下不刷新的问题。
-        // Core Data 的 didSave 通知可能在后台线程抛出，回主线程再更新 @State。
-        .onReceive(NotificationCenter.default.publisher(for: NSManagedObjectContext.didSaveObjectsNotification)) { _ in
-            DispatchQueue.main.async { reloadSessions() }
-        }
+        // 任意会话持久化（建会话 / 发消息 / 改标题 / 删除等）后主动重载列表，
+        // 保证首页始终反映真实存储（iOS16 适配:原 SwiftData/CoreData 通知已随存储层移除,
+        // 改为直接订阅 SessionManager 的 @Published sessions)。
         // 会话页切换：返回首页（selectedSession 被清空）时强制重载，双保险；
         // 进入会话页时关闭常驻 PiP（任务完成后的「已完成」悬浮窗，用户回会话查看结果即关闭）。
-        .onChange(of: appState.selectedSession?.id) { _, _ in
+        .onChange(of: appState.selectedSession?.id) { _ in
             if appState.selectedSession == nil {
                 reloadSessions()
             } else {
@@ -316,10 +320,22 @@ struct HomeView: View {
         }
         // 从后台返回前台时主动重载列表：若 @State 在挂起/被系统回收期间被重置，
         // 回到前台即按真实存储重建，避免「切后台再回来列表变空白」。
-        .onChange(of: scenePhase) { _, newPhase in
+        .onChange(of: scenePhase) { newPhase in
             if newPhase == .active {
                 reloadSessions()
             }
+        }
+        // 真正订阅 SessionManager(2026-08-12 修复)：此前「改为直接订阅 @Published sessions」
+        // 只是注释,列表仅靠生命周期快照刷新——onDisappear 删除空会话/标题写回后首页不刷新
+        // (陈旧引用残留)。objectWillChange 覆盖两类变更:数组级(@Published willSet,新增/删除)
+        // 与成员级(标题写回处手动 send),统一触发重载。
+        .onReceive(SessionManager.shared.objectWillChange) { _ in
+            reloadSessions()
+        }
+        // 2026-08-13 治标：草稿落盘/清空完成广播 → 递增令牌重算各行 hasDraft，
+        // 笔图标即时消失（不依赖列表其他刷新信号）。
+        .onReceive(NotificationCenter.default.publisher(for: PendingMessageStore.pendingDraftDidChange)) { _ in
+            draftRefreshToken += 1
         }
     }
 
@@ -332,7 +348,7 @@ struct HomeView: View {
             Spacer()
             ProgressView()
                 .controlSize(.large)
-            Text(L10n.tr("正在加载会话…"))
+            Text(L10n.l("loading_session"))
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
             Spacer()
@@ -350,16 +366,16 @@ struct HomeView: View {
                 .font(.system(size: 64))
                 .foregroundStyle(.secondary)
 
-            Text(L10n.tr("欢迎使用 MiniClaw"))
+            Text(L10n.l("welcome_to_miniclaw"))
                 .font(.title2)
                 .fontWeight(.semibold)
 
-            Text(L10n.tr("点击左下角按钮开始新会话"))
+            Text(L10n.l("tap_the_bottom_left_button_to_start_a_new_session"))
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
 
             Button(action: { createNewSession() }) {
-                Label(L10n.tr("开始新会话"), systemImage: "plus.circle.fill")
+                Label(L10n.l("start_new_session"), systemImage: "plus.circle.fill")
                     .font(.headline)
             }
             .buttonStyle(.borderedProminent)
@@ -389,7 +405,7 @@ struct HomeView: View {
                         sessionRow(session)
                     }
                 } header: {
-                    Text(L10n.tr(item.group.label))
+                    Text(L10n.l(item.group.label))
                         .font(.footnote)
                         .fontWeight(.semibold)
                         .foregroundStyle(.secondary)
@@ -423,7 +439,8 @@ struct HomeView: View {
             highlight: isSearching ? searchText : "",
             selectionMode: isSelectionMode,
             isSelected: selectedSessionIDs.contains(session.id),
-            isIncomplete: incompleteSessionIDs.contains(session.id)
+            isIncomplete: incompleteSessionIDs.contains(session.id),
+            draftRefreshID: draftRefreshToken
         )
         .contentShape(Rectangle())
         .onTapGesture {
@@ -445,13 +462,13 @@ struct HomeView: View {
                     Button(role: .destructive) {
                         deleteSession(session)
                     } label: {
-                        Label(L10n.tr("删除"), systemImage: "trash")
+                        Label(L10n.l("delete_action"), systemImage: "trash")
                     }
 
                     Button {
                         togglePin(session)
                     } label: {
-                        Label(L10n.tr(session.isPinned ? "取消置顶" : "置顶"), systemImage: session.isPinned ? "pin.slash.fill" : "pin.fill")
+                        Label(session.isPinned ? L10n.l("unpin_action") : L10n.l("pin_action"), systemImage: session.isPinned ? "pin.slash.fill" : "pin.fill")
                     }
                     .tint(.orange)
                 }
@@ -463,21 +480,21 @@ struct HomeView: View {
     private func contextMenuContent(for session: ChatSession) -> some View {
         Menu {
             Button("JSON") { generateExport(sessions: [session], as: .json) }
-            Button(L10n.tr("文本")) { generateExport(sessions: [session], as: .text) }
+            Button(L10n.l("text")) { generateExport(sessions: [session], as: .text) }
         } label: {
-            Label(L10n.tr("导出"), systemImage: "square.and.arrow.up")
+            Label(L10n.l("export"), systemImage: "square.and.arrow.up")
         }
         Button {
             editingSession = session
             editingTitle = session.title
             showEditTitle = true
         } label: {
-            Label(L10n.tr("编辑标题"), systemImage: "pencil")
+            Label(L10n.l("edit_title"), systemImage: "pencil")
         }
         Button {
             enterSelectionMode(preselect: [session.id])
         } label: {
-            Label(L10n.tr("选择"), systemImage: "checkmark.circle")
+            Label(L10n.l("select"), systemImage: "checkmark.circle")
         }
     }
 
@@ -573,7 +590,7 @@ struct HomeView: View {
     private var exportMenuButton: some View {
         Menu {
             Button("JSON") { exportSelectedSessions(as: .json) }
-            Button(L10n.tr("文本")) { exportSelectedSessions(as: .text) }
+            Button(L10n.l("text")) { exportSelectedSessions(as: .text) }
         } label: {
             circleShape(
                 systemImage: "square.and.arrow.up",
@@ -593,7 +610,7 @@ struct HomeView: View {
                 Image(systemName: "magnifyingglass")
                     .font(.system(size: 15))
                     .foregroundStyle(.secondary)
-                TextField(L10n.tr("搜索会话..."), text: $searchText)
+                TextField(L10n.l("search_sessions"), text: $searchText)
                     .textFieldStyle(.plain)
                     .submitLabel(.search)
                     .focused($searchFocused)
@@ -617,7 +634,7 @@ struct HomeView: View {
                     isSearching = false
                 }
             }) {
-                Text(L10n.tr("取消"))
+                Text(L10n.l("cancel"))
                     .font(.subheadline)
                     .fontWeight(.medium)
                     .foregroundStyle(.primary)
@@ -681,14 +698,14 @@ struct HomeView: View {
                 Button {
                     showTerminal = true
                 } label: {
-                    Label(L10n.tr("终端"), systemImage: "terminal")
+                    Label(L10n.l("terminal"), systemImage: "terminal")
                 }
                 .disabled(!alpineReady)
 
                 Button {
                     showRootfsManager = true
                 } label: {
-                    Label(L10n.tr("Rootfs 管理"), systemImage: "folder")
+                    Label(L10n.l("rootfs_management"), systemImage: "folder")
                 }
             }
             #endif
@@ -698,7 +715,7 @@ struct HomeView: View {
                 BrowserController.shared.setManualSession()
                 showBrowserSheet = true
             } label: {
-                Label(L10n.tr("浏览器"), systemImage: "globe")
+                Label(L10n.l("browser"), systemImage: "globe")
             }
         } label: {
             optionsButton
@@ -708,21 +725,20 @@ struct HomeView: View {
     // MARK: - Actions
 
     private func createNewSession() {
-        let session = ChatSession(
-            modelName: appState.currentModelDisplayName,
+        // 必须经 SessionManager 注册（入内存 sessions + 落盘 + 建会话隔离目录），
+        // 否则 AgentRunService.startRun 的会话注册 guard 会拦截 → 发送消息无 AI 回复。
+        guard let session = SessionManager.shared.createSession(
+            model: appState.currentModelDisplayName,
             agentName: appState.agentName
-        )
-        // 仅创建「内存会话」，暂不落盘：空会话不应出现在首页列表。
-        // 真正的 insert+save 推迟到用户发送首条消息时（见 ChatView.sendMessage 的
-        // `if session.modelContext == nil` 守卫）。这样「创建即闪现空行」「不发就残留空会话」
-        // 都不会发生；不发言直接返回时会话仅是内存对象被丢弃，存储里从无空会话。
+        ) else { return }
         appState.selectedSession = session
     }
 
     private func deleteSession(_ session: ChatSession) {
         let sid = session.id
-        modelContext.delete(session)
-        try? modelContext.save()
+        // 2026-08-12 治本:删除统一走 SessionManager(先改数组再 send,reload 读到新数组即消失);
+        // 不做本地乐观移除,避免与 manager 时序双写。
+        SessionManager.shared.deleteSession(id: sid)
         // 清理会话隔离资源：注销 fsContext 映射 + 删除 Sessions/<uuid>/ 宿主目录
         SessionFileRouter.shared.unregister(sessionID: sid)
         // 顺手清掉该会话的子代理运行期注册表（复用状态不再需要）。
@@ -731,8 +747,9 @@ struct HomeView: View {
     }
 
     private func togglePin(_ session: ChatSession) {
-        session.isPinned.toggle()
-        try? modelContext.save()
+        // 走 SessionManager 统一更新出口(会 objectWillChange 广播 → 首页重排分组),
+        // 直接改 session.isPinned 不触发列表重排,置顶"看起来没反应"(2026-08-13 修复)。
+        SessionManager.shared.updateSession(id: session.id, isPinned: !session.isPinned)
     }
 
     // MARK: - 多选 / 长按操作
@@ -773,8 +790,8 @@ struct HomeView: View {
         let toDelete = sessions.filter { selectedSessionIDs.contains($0.id) }
         guard !toDelete.isEmpty else { exitSelectionMode(); return }
         let ids = toDelete.map(\.id)
-        for s in toDelete { modelContext.delete(s) }
-        try? modelContext.save()
+        // 2026-08-12 治本:删除统一走 SessionManager(先改数组再 send),不做本地双写。
+        for s in toDelete { SessionManager.shared.deleteSession(id: s.id) }
         // 清理各会话隔离资源：注销 fsContext 映射 + 删除 Sessions/<uuid>/ 宿主目录
         for id in ids {
             SessionFileRouter.shared.unregister(sessionID: id)
@@ -837,12 +854,12 @@ enum SessionGroup: String, CaseIterable, Hashable {
 
     var label: String {
         switch self {
-        case .pinned: L10n.tr("置顶")
-        case .today: L10n.tr("今天")
-        case .yesterday: L10n.tr("昨天")
-        case .thisWeek: L10n.tr("本周")
-        case .thisMonth: L10n.tr("本月")
-        case .earlier: L10n.tr("更早")
+        case .pinned: L10n.l("pin")
+        case .today: L10n.l("today")
+        case .yesterday: L10n.l("yesterday")
+        case .thisWeek: L10n.l("this_week")
+        case .thisMonth: L10n.l("this_month")
+        case .earlier: L10n.l("earlier")
         }
     }
 
@@ -858,14 +875,11 @@ struct UnavailablePlaceholder: View {
 
     var body: some View {
         NavigationStack {
-            ContentUnavailableView {
-                Label(title, systemImage: "exclamationmark.triangle")
-            } description: {
-                Text(message)
-            }
+            EmptyStateView(label: title, systemImage: "exclamationmark.triangle",
+                             description: message)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button(L10n.tr("完成")) { dismiss() }
+                    Button(L10n.l("done")) { dismiss() }
                 }
             }
         }

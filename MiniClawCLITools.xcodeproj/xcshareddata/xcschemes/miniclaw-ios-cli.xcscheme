@@ -14,9 +14,9 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "A51A5C5CFB1D99887701266399DFF915"
-               BuildableName = "minis-browser-cli"
-               BlueprintName = "minis-browser-cli"
+               BlueprintIdentifier = "A5E78DED7233C4B18E445F33B1EDFBC4"
+               BuildableName = "miniclaw-ios-cli"
+               BlueprintName = "miniclaw-ios-cli"
                ReferencedContainer = "container:MiniClawCLITools.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
@@ -32,9 +32,9 @@
       <MacroExpansion>
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "A51A5C5CFB1D99887701266399DFF915"
-            BuildableName = "minis-browser-cli"
-            BlueprintName = "minis-browser-cli"
+            BlueprintIdentifier = "A5E78DED7233C4B18E445F33B1EDFBC4"
+            BuildableName = "miniclaw-ios-cli"
+            BlueprintName = "miniclaw-ios-cli"
             ReferencedContainer = "container:MiniClawCLITools.xcodeproj">
          </BuildableReference>
       </MacroExpansion>
@@ -55,9 +55,9 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "A51A5C5CFB1D99887701266399DFF915"
-            BuildableName = "minis-browser-cli"
-            BlueprintName = "minis-browser-cli"
+            BlueprintIdentifier = "A5E78DED7233C4B18E445F33B1EDFBC4"
+            BuildableName = "miniclaw-ios-cli"
+            BlueprintName = "miniclaw-ios-cli"
             ReferencedContainer = "container:MiniClawCLITools.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
@@ -74,9 +74,9 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "A51A5C5CFB1D99887701266399DFF915"
-            BuildableName = "minis-browser-cli"
-            BlueprintName = "minis-browser-cli"
+            BlueprintIdentifier = "A5E78DED7233C4B18E445F33B1EDFBC4"
+            BuildableName = "miniclaw-ios-cli"
+            BlueprintName = "miniclaw-ios-cli"
             ReferencedContainer = "container:MiniClawCLITools.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>

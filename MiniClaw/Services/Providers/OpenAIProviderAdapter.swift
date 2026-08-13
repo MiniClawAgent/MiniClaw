@@ -448,11 +448,12 @@ final class OpenAIStreamDelegate: NSObject, URLSessionDataDelegate, @unchecked S
 
     // MARK: - URLSessionDataDelegate
 
-    func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive response: URLResponse) {
+    func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive response: URLResponse, completionHandler: @escaping (URLSession.ResponseDisposition) -> Void) {
         guard !didFinish,
               let http = response as? HTTPURLResponse else { return }
         responseStatusCode = http.statusCode
         AppLogger.shared.info("适配器响应 status=\(http.statusCode)", category: "LLMClient", subsystem: "Adapter")
+        completionHandler(.allow)
     }
 
     func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {

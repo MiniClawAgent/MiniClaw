@@ -4,19 +4,19 @@ import UniformTypeIdentifiers
 // MARK: - 智能体服务商列表
 
 struct ProviderSettingsView: View {
-    @Environment(AppState.self) private var appState
+    @EnvironmentObject private var appState: AppState
     @State private var showAdd: Bool = false
     @State private var showImportFile: Bool = false
 
     /// 按兼容格式分类的固定顺序
-    private let categoryOrder = ["OpenAI 兼容", "Anthropic 兼容", "Google Gemini"]
+    private let categoryOrder = ["openai_compatible", "anthropic_compatible", "google_gemini"]
 
     var body: some View {
         List {
             ForEach(categoryOrder, id: \.self) { category in
                 let items = appState.providers.filter { $0.providerType.compatFormat == category }
                 if !items.isEmpty {
-                    Section(L10n.tr(category)) {
+                    Section(L10n.l(category)) {
                         ForEach(items) { p in
                             NavigationLink {
                                 ProviderDetailView(providerId: p.id)
@@ -28,10 +28,10 @@ struct ProviderSettingsView: View {
                                     HStack(spacing: 6) {
                                         Image(systemName: p.keyAdded ? "checkmark.shield.fill" : "exclamationmark.shield.fill")
                                             .foregroundStyle(p.keyAdded ? .green : .orange)
-                                        Text(p.keyAdded ? L10n.tr("密钥已添加") : L10n.tr("密钥未添加"))
+                                        Text(p.keyAdded ? L10n.l("key_added") : L10n.l("key_not_added"))
                                         Text("·")
                                             .foregroundStyle(.tertiary)
-                                        Text(L10n.tr("模型 ") + "\(p.models.count)")
+                                        Text(L10n.l("model_label_space") + "\(p.models.count)")
                                     }
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
@@ -50,12 +50,12 @@ struct ProviderSettingsView: View {
 
             if appState.providers.isEmpty {
                 Section {
-                    Text(L10n.tr("尚未添加任何智能体服务商"))
+                    Text(L10n.l("no_providers_yet"))
                         .foregroundStyle(.secondary)
                 }
             }
         }
-        .navigationTitle(L10n.tr("智能体服务商"))
+        .navigationTitle(L10n.l("providers"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
@@ -63,12 +63,12 @@ struct ProviderSettingsView: View {
                     Button {
                         showAdd = true
                     } label: {
-                        Label(L10n.tr("添加智能体服务商"), systemImage: "plus")
+                        Label(L10n.l("add_provider_button"), systemImage: "plus")
                     }
                     Button {
                         showImportFile = true
                     } label: {
-                        Label(L10n.tr("导入服务商"), systemImage: "square.and.arrow.down")
+                        Label(L10n.l("import_provider"), systemImage: "square.and.arrow.down")
                     }
                 } label: {
                     Image(systemName: "plus")
@@ -97,7 +97,7 @@ private struct CustomHeaderRow: Identifiable {
 }
 
 struct ProviderDetailView: View {
-    @Environment(AppState.self) private var appState
+    @EnvironmentObject private var appState: AppState
     let providerId: UUID
     /// 是否为本次新建（从「添加服务商」进来）。新建后若未填任何内容直接返回，应自动丢弃，避免生成空白服务商。
     var isNew: Bool = false
@@ -137,14 +137,14 @@ struct ProviderDetailView: View {
     var body: some View {
         Form {
             // 1. 标签
-            Section(L10n.tr("标签")) {
-                TextField(L10n.tr("标签"), text: $draft.label)
+            Section(L10n.l("tabs")) {
+                TextField(L10n.l("tabs"), text: $draft.label)
                 // API 兼容格式（不可编辑，仅显示）
                 HStack {
-                    Text(L10n.tr("API 兼容格式"))
+                    Text(L10n.l("api_compatible_format"))
                         .foregroundStyle(.secondary)
                     Spacer()
-                    Text(draft.providerType.compatFormat)
+                    Text(L10n.l(draft.providerType.compatFormat))
                         .foregroundStyle(.tertiary)
                 }
                 .font(.subheadline)
@@ -153,23 +153,23 @@ struct ProviderDetailView: View {
             // 2. 凭证
             Section {
                 if draft.credentialType == "oauth" {
-                    Label(L10n.tr("该服务商使用 OAuth 认证，凭证自动续期。"), systemImage: "person.badge.key")
+                    Label(L10n.l("this_provider_uses_oauth_credentials_renew_automatically"), systemImage: "person.badge.key")
                         .font(.caption)
                 } else {
-                    SecureField(draft.keyAdded ? L10n.tr("输入新密钥以更换") : "API Key", text: $apiKeyInput)
+                    SecureField(draft.keyAdded ? L10n.l("enter_a_new_key_to_replace") : "API Key", text: $apiKeyInput)
                 }
             } header: {
-                Text(L10n.tr("凭证"))
+                Text(L10n.l("credential_item"))
             } footer: {
                 if draft.keyAdded {
-                    Label(L10n.tr("已配置密钥（写入后不可回读）。留空保存不影响现有密钥，输入新值才会覆盖。"),
+                    Label(L10n.l("key_configured_cannot_be_read_back_after_writing_saving_with_it_blank_does_not_affect_the_existing_key_only_entering_a_new_value_will_overwrite_it"),
                           systemImage: "lock.fill")
                         .font(.caption)
                 }
             }
 
             // 3. 自定义 API 地址
-            Section(L10n.tr("自定义 API 地址")) {
+            Section(L10n.l("custom_api_url")) {
                 TextField("https://...", text: $draft.customBaseURL)
                     .keyboardType(.URL)
                     .textInputAutocapitalization(.never)
@@ -177,19 +177,19 @@ struct ProviderDetailView: View {
             }
 
             // 3.5 自定义请求头（对接需附加请求头的中转网关）
-            Section(L10n.tr("自定义请求头")) {
+            Section(L10n.l("custom_headers")) {
                 if headerRows.isEmpty {
-                    Text(L10n.tr("无自定义头。用于对接需附加请求头的中转网关（如 X-Api-Version、自定义鉴权等）。"))
+                    Text(L10n.l("no_custom_headers_used_to_connect_to_relay_gateways_that_require_additional_request_headers_e_g_x_api_version_custom_auth"))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
                 ForEach($headerRows) { $row in
                     HStack(alignment: .top, spacing: 8) {
                         VStack(alignment: .leading, spacing: 4) {
-                            TextField(L10n.tr("Header 名称"), text: $row.key)
+                            TextField(L10n.l("header_name"), text: $row.key)
                                 .textInputAutocapitalization(.never)
                                 .autocorrectionDisabled()
-                            TextField(L10n.tr("Header 值"), text: $row.value)
+                            TextField(L10n.l("header_value"), text: $row.value)
                                 .textInputAutocapitalization(.never)
                                 .autocorrectionDisabled()
                         }
@@ -210,14 +210,14 @@ struct ProviderDetailView: View {
                     headerRows.append(CustomHeaderRow(key: "", value: ""))
                     syncHeaders()
                 } label: {
-                    Label(L10n.tr("添加自定义请求头"), systemImage: "plus")
+                    Label(L10n.l("add_custom_header"), systemImage: "plus")
                 }
             }
 
             // 4. API 格式（Gemini 不适用）
             if !isGemini {
-                Section(L10n.tr("API 格式")) {
-                    Picker(L10n.tr("API 格式"), selection: $draft.apiFormat) {
+                Section(L10n.l("api_format")) {
+                    Picker(L10n.l("api_format"), selection: $draft.apiFormat) {
                         ForEach(APIFormat.allCases) { format in
                             Text(format.rawValue).tag(format)
                         }
@@ -231,16 +231,16 @@ struct ProviderDetailView: View {
                 Section {
                     Toggle("Azure OpenAI", isOn: $draft.azureEnabled)
                 } footer: {
-                    Text(L10n.tr("使用 Azure OpenAI 鉴权时，请在自定义 API 中附加完整的 Azure 端点，包括查询参数。"))
+                    Text(L10n.l("when_using_azure_openai_authentication_append_the_full_azure_endpoint_including_query_parameters_in_the_custom_api"))
                 }
             }
 
             // 6. 状态（Gemini 不适用）
             if !isGemini {
                 Section {
-                    Toggle(L10n.tr("启用此服务商"), isOn: $draft.isEnabled)
+                    Toggle(L10n.l("enable_this_provider"), isOn: $draft.isEnabled)
                 } header: {
-                    Text(L10n.tr("状态"))
+                    Text(L10n.l("status"))
                 }
             }
 
@@ -252,7 +252,7 @@ struct ProviderDetailView: View {
             // 8. 删除 智能体服务商（草稿模式不显示）
             if !isDraft {
                 Section {
-                    Button(L10n.tr("删除智能体服务商"), role: .destructive) {
+                    Button(L10n.l("delete_provider"), role: .destructive) {
                         deleteProvider()
                     }
                 }
@@ -270,7 +270,7 @@ struct ProviderDetailView: View {
                                 ProgressView()
                                     .controlSize(.small)
                             } else {
-                                Text(L10n.tr("保存"))
+                                Text(L10n.l("save"))
                                     .fontWeight(.semibold)
                             }
                             Spacer()
@@ -280,21 +280,21 @@ struct ProviderDetailView: View {
                 }
             }
         }
-        .navigationTitle(isDraft ? L10n.tr("添加服务商") : (draft.label.isEmpty ? L10n.tr("服务商") : draft.label))
+        .navigationTitle(isDraft ? L10n.l("add_provider_action") : (draft.label.isEmpty ? L10n.l("provider") : draft.label))
         .navigationBarTitleDisplayMode(.inline)
         // 已添加（编辑）态：隐藏系统返回按钮，统一由右上角「保存」退出并落盘；草稿态保留返回键取消。
         .navigationBarBackButtonHidden(!isDraft)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 if !isDraft {
-                    Button(L10n.tr("保存")) {
+                    Button(L10n.l("save")) {
                         Task { await saveForExistingProvider() }
                     }
                 }
             }
         }
         .onAppear { load() }   // 不回读已存密钥（spec 12.2：写入后不可回读）
-        .onChange(of: draft) { _, _ in persist() }
+        .onChange(of: draft) { _ in persist() }
         .onDisappear {
             // 草稿模式：取消时不保存（不操作 appState）
             if isDraft { return }
@@ -321,13 +321,13 @@ struct ProviderDetailView: View {
                 }
             }
         }
-        .confirmationDialog(L10n.tr("确认保存 API Key？"), isPresented: $showKeyConfirm) {
-            Button(L10n.tr("保存")) {
+        .confirmationDialog(L10n.l("save_api_key"), isPresented: $showKeyConfirm) {
+            Button(L10n.l("save")) {
                 Task { await saveCredentialAndFetchModels() }
             }
-            Button(L10n.tr("取消"), role: .cancel) { }
+            Button(L10n.l("cancel"), role: .cancel) { }
         } message: {
-            Text(L10n.tr("保存后 API Key 将写入本地存储，且不可回读（UI 显示掩码，config get 返回受保护提示）。"))
+            Text(L10n.l("after_saving_the_api_key_is_written_to_local_storage_and_cannot_be_read_back_the_ui_shows_a_mask_config_get_returns_a_protected_message"))
         }
     }
 
@@ -351,7 +351,7 @@ struct ProviderDetailView: View {
                     .frame(width: 28, height: 28)
             }
             .buttonStyle(.plain)
-            .accessibilityLabel(isHidden ? L10n.tr("显示模型") : L10n.tr("隐藏模型"))
+            .accessibilityLabel(isHidden ? L10n.l("show_model") : L10n.l("hidden_model"))
         }
     }
 
@@ -369,13 +369,13 @@ struct ProviderDetailView: View {
             // 拉取失败：在「模型」位置提示用户检查密钥 / API 地址
             if let err = draft.modelFetchError, !err.isEmpty {
                 VStack(alignment: .leading, spacing: 6) {
-                    Label(L10n.tr("模型拉取失败"), systemImage: "exclamationmark.triangle.fill")
+                    Label(L10n.l("model_fetch_failed"), systemImage: "exclamationmark.triangle.fill")
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(.red)
                     Text(err)
                         .font(.footnote)
                         .foregroundStyle(.red)
-                    Text(L10n.tr("请检查密钥凭证或 API 地址是否正确。"))
+                    Text(L10n.l("check_that_the_key_credential_or_api_url_is_correct"))
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
@@ -387,9 +387,9 @@ struct ProviderDetailView: View {
             }
             if draft.models.isEmpty {
                 VStack(alignment: .leading, spacing: 10) {
-                    Text(L10n.tr("暂无模型"))
+                    Text(L10n.l("no_models_yet"))
                         .foregroundStyle(.secondary)
-                    Button(L10n.tr("添加自定义模型")) { showAddModel = true }
+                    Button(L10n.l("add_custom_model")) { showAddModel = true }
                 }
             } else {
                 let sortedModels = draft.models.sorted {
@@ -403,11 +403,11 @@ struct ProviderDetailView: View {
                     draft.models.removeAll { ids.contains($0.id) }
                     persist()
                 }
-                Button(L10n.tr("添加自定义模型")) { showAddModel = true }
+                Button(L10n.l("add_custom_model")) { showAddModel = true }
             }
         } header: {
             HStack {
-                Text(L10n.tr("模型"))
+                Text(L10n.l("model_label"))
                 Spacer()
                 Button {
                     Task { await refreshModels() }
@@ -560,7 +560,7 @@ struct ProviderDetailView: View {
             } catch {
                 // 仅当所有策略都失败（网络错误）才最终报错
                 if forceBearer == strategies.last {
-                    let msg = String(format: L10n.tr("模型获取失败：网络或请求错误（%@）。"), error.localizedDescription)
+                    let msg = String(format: L10n.l("failed_to_fetch_models_network_or_request_error"), error.localizedDescription)
                     modelFetchError = msg
                     draft.modelFetchError = msg
                 }
@@ -574,7 +574,7 @@ struct ProviderDetailView: View {
 
         guard let httpResponse = response as? HTTPURLResponse else {
             if modelFetchError == nil {
-                let msg = L10n.tr("模型获取失败：未收到有效的 HTTP 响应。")
+                let msg = L10n.l("model_fetch_failed_no_valid_http_response_received")
                 modelFetchError = msg
                 draft.modelFetchError = msg
             }
@@ -602,21 +602,21 @@ struct ProviderDetailView: View {
             let fb = fallbackModelsForCurrentProvider()
             if !fb.isEmpty {
                 applyFetchedModels(fb, archive: false)
-                let note = String(format: L10n.tr("实时模型列表不可用（HTTP %1$@），已为你加载内置模型目录中的 %2$@ 个模型。如需要其他模型 ID，可用下方「添加自定义模型」手动填写。"), String(status), String(fb.count))
+                let note = String(format: L10n.l("live_model_list_unavailable_http_1_loaded_2_models_from_the_built_in_model_catalog_for_other_model_ids_use_add_custom_model_below"), String(status), String(fb.count))
                 modelFetchError = nil
                 modelFetchNotice = note
                 draft.modelFetchError = nil
                 draft.modelFetchNotice = note
                 return
             }
-            let msg = String(format: L10n.tr("模型获取失败（HTTP %1$@）%2$@"), String(status), serverMsg.isEmpty ? "" : "： \(serverMsg)")
+            let msg = String(format: L10n.l("failed_to_fetch_models_http_1_2"), String(status), serverMsg.isEmpty ? "" : "： \(serverMsg)")
             modelFetchError = msg
             draft.modelFetchError = msg
             return
         }
 
         guard let models = parseModels(from: data), !models.isEmpty else {
-            let msg = L10n.tr("模型获取失败：响应解析为空，请确认该服务商支持 /v1/models 模型列表接口。")
+            let msg = L10n.l("failed_to_fetch_models_empty_response_please_confirm_the_provider_supports_the_v1_models_list_endpoint")
             modelFetchError = msg
             draft.modelFetchError = msg
             return
@@ -719,7 +719,7 @@ struct ProviderDetailView: View {
         guard main != session.mainModel || secondary != session.secondaryModel else { return }
         SettingsStore.shared.update(
             domain: .session,
-            summary: L10n.tr("自动填充主/副模型")
+            summary: L10n.l("auto_fill_primary_secondary_model")
         ) { (settings: inout SessionSettings) in
             if settings.mainModel.isNone { settings.mainModel = main }
             if settings.secondaryModel.isNone { settings.secondaryModel = secondary }
@@ -938,21 +938,21 @@ struct AddProviderDestination: Hashable {
 }
 
 struct AddProviderView: View {
-    @Environment(AppState.self) private var appState
+    @EnvironmentObject private var appState: AppState
     @Environment(\.dismiss) private var dismiss
     @State private var path: [AddProviderDestination] = []
     @State private var showImportFile: Bool = false
 
     /// 已适配的服务商模板
     private let templates: [(ProviderType, String)] = [
-        (.openai, "OpenAI 兼容 API"),
-        (.anthropic, "Anthropic 兼容 API"),
-        (.google, "Google Gemini"),
-        (.grok, "xAI Grok"),
-        (.deepSeek, "DeepSeek"),
-        (.qwen, "Qwen 千问"),
-        (.xiaomi, "Xiaomi MiMo"),
-        (.zhipu, "Zhipu 智谱"),
+        (.openai, "openai_compatible_api"),
+        (.anthropic, "anthropic_compatible_api"),
+        (.google, "google_gemini"),
+        (.grok, "xai_grok"),
+        (.deepSeek, "deepseek"),
+        (.qwen, "qwen"),
+        (.xiaomi, "xiaomi_mimo"),
+        (.zhipu, "zhipu"),
     ]
 
     var body: some View {
@@ -967,7 +967,7 @@ struct AddProviderView: View {
                             HStack {
                                 Image(systemName: "server.rack")
                                     .foregroundStyle(.blue)
-                                Text(L10n.tr(title))
+                                Text(L10n.l(title))
                                 Spacer()
                                 Image(systemName: "chevron.right")
                                     .foregroundStyle(.tertiary)
@@ -975,9 +975,9 @@ struct AddProviderView: View {
                         }
                     }
                 } header: {
-                    Text(L10n.tr("已适配的服务商"))
+                    Text(L10n.l("supported_providers"))
                 } footer: {
-                    Text(L10n.tr("您可以添加同一服务商的多个实例。"))
+                    Text(L10n.l("you_can_add_multiple_instances_of_the_same_provider"))
                 }
 
                 Section {
@@ -987,16 +987,16 @@ struct AddProviderView: View {
                         HStack {
                             Image(systemName: "square.and.arrow.down")
                                 .foregroundStyle(.orange)
-                            Text(L10n.tr("从文件导入配置"))
+                            Text(L10n.l("import_config_from_file"))
                         }
                     }
                 }
             }
-            .navigationTitle(L10n.tr("添加服务商"))
+            .navigationTitle(L10n.l("add_provider_action"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button(L10n.tr("完成")) { dismiss() }
+                    Button(L10n.l("done")) { dismiss() }
                 }
             }
             .navigationDestination(for: AddProviderDestination.self) { dest in
@@ -1041,8 +1041,8 @@ struct AuthMethodPickerView: View {
                         Image(systemName: "key.fill")
                             .foregroundStyle(.blue)
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(L10n.tr("API Key 认证"))
-                            Text(L10n.tr("使用 API Key 密钥访问服务商接口"))
+                            Text(L10n.l("api_key_authentication"))
+                            Text(L10n.l("use_an_api_key_to_access_the_provider_api"))
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
@@ -1058,8 +1058,8 @@ struct AuthMethodPickerView: View {
                         Image(systemName: "person.badge.key.fill")
                             .foregroundStyle(.blue)
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(L10n.tr("OAuth 认证"))
-                            Text(L10n.tr("使用账号登录，或手动填写 Bearer Token"))
+                            Text(L10n.l("oauth_authentication"))
+                            Text(L10n.l("sign_in_with_your_account_or_enter_a_bearer_token_manually"))
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
@@ -1069,7 +1069,7 @@ struct AuthMethodPickerView: View {
                     }
                 }
             } footer: {
-                Text(L10n.tr("选择认证方式。OAuth 登录后凭证自动续期。"))
+                Text(L10n.l("choose_an_authentication_method_credentials_renew_automatically_after_oauth_sign_in"))
             }
         }
         .navigationTitle(label)
@@ -1086,7 +1086,7 @@ struct OAuthSetupView: View {
     let defaultLabel: String
     var onSaved: (() -> Void)? = nil
 
-    @Environment(AppState.self) private var appState
+    @EnvironmentObject private var appState: AppState
     @Environment(\.dismiss) private var dismiss
     @State private var labelText: String
     @State private var isLoggingIn = false
@@ -1106,8 +1106,8 @@ struct OAuthSetupView: View {
 
     var body: some View {
         Form {
-            Section(L10n.tr("标签")) {
-                TextField(L10n.tr("标签"), text: $labelText)
+            Section(L10n.l("tabs")) {
+                TextField(L10n.l("tabs"), text: $labelText)
             }
 
             Section {
@@ -1121,12 +1121,12 @@ struct OAuthSetupView: View {
                         } else {
                             Image(systemName: "person.badge.key")
                         }
-                        Text(isLoggingIn ? L10n.tr("登录中…") : String(format: L10n.tr("使用 %@ 账号登录"), defaultLabel))
+                        Text(isLoggingIn ? L10n.l("signing_in") : String(format: L10n.l("sign_in_with"), defaultLabel))
                     }
                 }
                 .disabled(isLoggingIn)
             } footer: {
-                Text(L10n.tr("通过官方 OAuth 登录，凭证自动续期。"))
+                Text(L10n.l("sign_in_via_official_oauth_credentials_renew_automatically"))
             }
 
             Section {
@@ -1134,15 +1134,15 @@ struct OAuthSetupView: View {
                     .keyboardType(.URL)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
-                SecureField(L10n.tr("Bearer Token"), text: $bearerToken)
-                Button(L10n.tr("添加")) {
+                SecureField(L10n.l("bearer_token"), text: $bearerToken)
+                Button(L10n.l("add")) {
                     Task { await saveManual() }
                 }
                 .disabled(bearerToken.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             } header: {
-                Text(L10n.tr("手动配置"))
+                Text(L10n.l("manual_configuration"))
             } footer: {
-                Text(L10n.tr("已有访问令牌时可直接填入。API 地址留空则使用官方默认地址。"))
+                Text(L10n.l("you_can_fill_in_an_existing_access_token_directly_leave_the_api_url_empty_to_use_the_official_default"))
             }
 
             if let errorMessage {
@@ -1152,7 +1152,7 @@ struct OAuthSetupView: View {
                 }
             }
         }
-        .navigationTitle(L10n.tr("OAuth 认证"))
+        .navigationTitle(L10n.l("oauth_authentication"))
         .navigationBarTitleDisplayMode(.inline)
     }
 
@@ -1186,7 +1186,7 @@ struct OAuthSetupView: View {
         do {
             try await OAuthKeychainStorage.shared.saveToken(tokens, instanceId: id.uuidString)
         } catch {
-            errorMessage = "保存凭证失败：\(error.localizedDescription)"
+            errorMessage = String(format: L10n.l("failed_to_save_credentials"), error.localizedDescription)
             return
         }
         let label = labelText.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -1235,27 +1235,27 @@ struct CustomModelEditorView: View {
 
     var body: some View {
         Form {
-            Section(L10n.tr("标识")) {
+            Section(L10n.l("identifier")) {
                 HStack {
-                    Text(L10n.tr("模型名称"))
+                    Text(L10n.l("model_name"))
                         .foregroundStyle(.primary)
                     Spacer()
-                    TextField(L10n.tr("显示名称"), text: $draft.displayName)
+                    TextField(L10n.l("display_name"), text: $draft.displayName)
                         .multilineTextAlignment(.trailing)
                 }
                 if isNew {
-                    TextField(L10n.tr("模型 ID"), text: $draft.modelId)
+                    TextField(L10n.l("model_id"), text: $draft.modelId)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                 } else {
-                    LabeledContent(L10n.tr("模型 ID"), value: draft.modelId)
+                    LabeledContent(L10n.l("model_id"), value: draft.modelId)
                 }
-                LabeledContent(L10n.tr("模型服务商"), value: providerName)
+                LabeledContent(L10n.l("model_provider"), value: providerName)
             }
 
             Section {
                 HStack {
-                    Text(L10n.tr("上下文窗口"))
+                    Text(L10n.l("context_window"))
                     Spacer()
                     TextField(vendorContextText, value: contextLimitBinding, format: .number.grouping(.never))
                         .keyboardType(.numberPad)
@@ -1265,7 +1265,7 @@ struct CustomModelEditorView: View {
                         .frame(width: 140)
                 }
                 HStack {
-                    Text(L10n.tr("最大输出 token"))
+                    Text(L10n.l("max_output_tokens"))
                     Spacer()
                     TextField(vendorMaxOutputText, value: maxOutputBinding, format: .number.grouping(.never))
                         .keyboardType(.numberPad)
@@ -1275,56 +1275,56 @@ struct CustomModelEditorView: View {
                         .frame(width: 140)
                 }
                 if draft.deepThinking {
-                    LabeledContent(L10n.tr("深度思考")) {
+                    LabeledContent(L10n.l("deep_thinking_label")) {
                         HStack(spacing: 4) {
                             Image(systemName: "checkmark.circle.fill")
-                            Text(L10n.tr("支持"))
+                            Text(L10n.l("support"))
                         }
                         .foregroundStyle(.green)
                     }
                 } else {
-                    LabeledContent(L10n.tr("深度思考")) {
-                        Text(L10n.tr("不支持"))
+                    LabeledContent(L10n.l("deep_thinking_label")) {
+                        Text(L10n.l("not_supported"))
                             .foregroundStyle(.tertiary)
                     }
                 }
             } header: {
-                Text(L10n.tr("功能特性"))
+                Text(L10n.l("features"))
             } footer: {
-                Text(L10n.tr("上下文窗口与最大输出：留空/填 0 时按厂商默认运行；填写后按你的设置生效并实际约束请求。"))
+                Text(L10n.l("context_window_and_max_output_leave_blank_or_enter_0_to_use_the_provider_default_once_set_your_values_take_effect_and_actually_constrain_requests"))
             }
 
             Section {
-                Toggle(L10n.tr("隐藏模型"), isOn: hiddenBinding)
+                Toggle(L10n.l("hidden_model"), isOn: hiddenBinding)
             } header: {
-                Text(L10n.tr("隐藏"))
+                Text(L10n.l("hide"))
             } footer: {
-                Text(L10n.tr("隐藏后，该模型不会在模型组的模型选项和添加列表中出现。"))
+                Text(L10n.l("once_hidden_this_model_will_not_appear_in_the_model_group_s_model_options_or_the_add_list"))
             }
 
             Section {
-                modalityRow(L10n.tr("文本输入"), supported: catalogSupportsInput("text"), toggle: $draft.inputText)
-                modalityRow(L10n.tr("图片输入"), supported: catalogSupportsInput("image"), toggle: $draft.inputImage)
-                modalityRow(L10n.tr("音频输入"), supported: catalogSupportsInput("audio"), toggle: $draft.inputAudio)
-                modalityRow(L10n.tr("视频输入"), supported: catalogSupportsInput("video"), toggle: $draft.inputVideo)
+                modalityRow(L10n.l("text_input"), supported: catalogSupportsInput("text"), toggle: $draft.inputText)
+                modalityRow(L10n.l("image_input"), supported: catalogSupportsInput("image"), toggle: $draft.inputImage)
+                modalityRow(L10n.l("audio_input"), supported: catalogSupportsInput("audio"), toggle: $draft.inputAudio)
+                modalityRow(L10n.l("video_input"), supported: catalogSupportsInput("video"), toggle: $draft.inputVideo)
             } header: {
-                Text(L10n.tr("输入模态"))
+                Text(L10n.l("input_modality"))
             } footer: {
-                Text(L10n.tr("「不支持」表示模型档案标注该模型无此输入能力；发送时会自动跳过对应类型的附件。文本为通用基线，默认开启。"))
+                Text(L10n.l("not_supported_means_the_model_profile_marks_this_model_as_lacking_that_input_capability_matching_attachments_are_skipped_when_sending_text_is_the_universal_baseline_and_is_on_by_default"))
             }
 
             Section {
-                modalityRow(L10n.tr("文本输出"), supported: catalogSupportsOutput("text"), toggle: $draft.outputText)
-                modalityRow(L10n.tr("图片输出"), supported: catalogSupportsOutput("image"), toggle: $draft.outputImage)
-                modalityRow(L10n.tr("音频输出"), supported: catalogSupportsOutput("audio"), toggle: $draft.outputAudio)
+                modalityRow(L10n.l("text_output"), supported: catalogSupportsOutput("text"), toggle: $draft.outputText)
+                modalityRow(L10n.l("image_output"), supported: catalogSupportsOutput("image"), toggle: $draft.outputImage)
+                modalityRow(L10n.l("audio_output"), supported: catalogSupportsOutput("audio"), toggle: $draft.outputAudio)
             } header: {
-                Text(L10n.tr("输出模态"))
+                Text(L10n.l("output_modality"))
             } footer: {
-                Text(L10n.tr("仅支持文本输出的模型此处均为「不支持」，一眼即可识别模型类型。文本为通用基线，默认开启。"))
+                Text(L10n.l("models_that_only_support_text_output_are_marked_not_supported_here_so_you_can_tell_the_model_type_at_a_glance_text_is_the_universal_baseline_and_is_on_by_default"))
             }
 
             Section {
-                Button(L10n.tr("测试")) {
+                Button(L10n.l("test")) {
                     showingTestCard = true
                 }
                 .disabled(
@@ -1332,21 +1332,21 @@ struct CustomModelEditorView: View {
                     !provider.keyAdded
                 )
             } header: {
-                Text(L10n.tr("测试"))
+                Text(L10n.l("test"))
             } footer: {
                 if !provider.keyAdded {
-                    Text(L10n.tr("保存服务商密钥后才能测试。"))
+                    Text(L10n.l("you_must_save_the_provider_key_before_testing"))
                 } else {
-                    Text(L10n.tr("发送一条模拟消息并测量首字输出时间。"))
+                    Text(L10n.l("send_a_simulated_message_and_measure_the_first_token_latency"))
                 }
             }
         }
         .simultaneousGesture(TapGesture().onEnded { fieldFocused = false })
-        .navigationTitle(isNew ? L10n.tr("添加模型") : L10n.tr("模型设置"))
+        .navigationTitle(isNew ? L10n.l("add_model") : L10n.l("model_settings"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Button(L10n.tr("保存")) {
+                Button(L10n.l("save")) {
                     var saved = draft
                     let original = initial.displayName.trimmingCharacters(in: .whitespacesAndNewlines)
                     let current = saved.displayName.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -1360,7 +1360,7 @@ struct CustomModelEditorView: View {
             }
             ToolbarItemGroup(placement: .keyboard) {
                 Spacer()
-                Button(L10n.tr("完成")) { fieldFocused = false }
+                Button(L10n.l("done")) { fieldFocused = false }
             }
         }
         .sheet(isPresented: $showingTestCard) {
@@ -1389,13 +1389,13 @@ struct CustomModelEditorView: View {
     /// 上下文窗口输入框的占位文案：有厂商默认则展示，否则提示未知。
     private var vendorContextText: String {
         if let v = catalogEntry?.contextWindow, v > 0 { return v.formatted(.number.grouping(.never)) }
-        return L10n.tr("未知")
+        return L10n.l("unknown")
     }
 
     /// 最大输出输入框的占位文案。
     private var vendorMaxOutputText: String {
         if let v = catalogEntry?.maxOutputTokens, v > 0 { return v.formatted(.number.grouping(.never)) }
-        return L10n.tr("服务商未提供")
+        return L10n.l("provider_not_provided")
     }
 
     /// 上下文窗口上限（厂商默认）；档案未标注则不限。
@@ -1459,7 +1459,7 @@ struct CustomModelEditorView: View {
     private func modalityRow(_ title: String, supported: Bool?, toggle: Binding<Bool>) -> some View {
         if supported == false {
             LabeledContent(title) {
-                Text(L10n.tr("不支持"))
+                Text(L10n.l("not_supported"))
                     .foregroundStyle(.tertiary)
             }
         } else {
@@ -1494,18 +1494,18 @@ private struct ModelLatencyTestView: View {
                         .multilineTextAlignment(.center)
                 }
 
-                Button(status.isRunning ? L10n.tr("测试中…") : L10n.tr("开始测试")) {
+                Button(status.isRunning ? L10n.l("testing") : L10n.l("start_test")) {
                     runTest()
                 }
                 .buttonStyle(.borderedProminent)
                 .disabled(status.isRunning)
             }
             .padding(28)
-            .navigationTitle(L10n.tr("模型测试"))
+            .navigationTitle(L10n.l("model_test"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
-                    Button(L10n.tr("完成")) { dismiss() }
+                    Button(L10n.l("done")) { dismiss() }
                 }
             }
             .onDisappear {
@@ -1526,7 +1526,7 @@ private struct ModelLatencyTestView: View {
                 let request = try makeTestRequest()
                 let (bytes, response) = try await URLSession.shared.bytes(for: request)
                 guard let http = response as? HTTPURLResponse else {
-                    status = .failed(L10n.tr("无效的响应"))
+                    status = .failed(L10n.l("invalid_response"))
                     return
                 }
                 guard (200...299).contains(http.statusCode) else {
@@ -1548,10 +1548,10 @@ private struct ModelLatencyTestView: View {
                     status = .success(latency)
                     return
                 }
-                status = .failed(L10n.tr("流结束未收到输出"))
+                status = .failed(L10n.l("stream_ended_with_no_output"))
             } catch is CancellationError {
                 if case .running = status {
-                    status = .failed(L10n.tr("测试已取消"))
+                    status = .failed(L10n.l("test_canceled"))
                 }
             } catch {
                 status = .failed(error.localizedDescription)
@@ -1710,17 +1710,17 @@ private struct ModelLatencyTestView: View {
         }
         var title: String {
             switch self {
-            case .idle: return L10n.tr("首字输出测试")
-            case .running: return L10n.tr("正在等待首字输出")
-            case .success(let latency): return String(format: L10n.tr("首字输出 %.2fs"), latency)
-            case .failed: return L10n.tr("测试失败")
+            case .idle: return L10n.l("first_token_output_test")
+            case .running: return L10n.l("waiting_for_first_output")
+            case .success(let latency): return String(format: L10n.l("first_token_output_2fs"), latency)
+            case .failed: return L10n.l("test_failed")
             }
         }
         var detail: String {
             switch self {
-            case .idle: return L10n.tr("测试会向当前模型发送一条最小模拟消息。")
-            case .running: return L10n.tr("请求已发送，正在测量首个有效输出。")
-            case .success: return L10n.tr("模型已成功返回首个有效文本。")
+            case .idle: return L10n.l("the_test_will_send_a_minimal_simulated_message_to_the_current_model")
+            case .running: return L10n.l("request_sent_measuring_the_first_valid_output")
+            case .success: return L10n.l("the_model_has_successfully_returned_its_first_valid_text")
             case .failed(let message): return message
             }
         }
@@ -1733,9 +1733,9 @@ private struct ModelLatencyTestView: View {
 
         var errorDescription: String? {
             switch self {
-            case .invalidURL: return L10n.tr("服务商请求地址无效")
-            case .http(let code): return String(format: L10n.tr("服务商返回 HTTP %@"), String(code))
-            case .noOutput: return L10n.tr("连接已结束，但模型没有返回有效文本")
+            case .invalidURL: return L10n.l("provider_request_url_invalid")
+            case .http(let code): return String(format: L10n.l("provider_returned_http"), String(code))
+            case .noOutput: return L10n.l("connection_ended_but_the_model_returned_no_valid_text")
             }
         }
     }

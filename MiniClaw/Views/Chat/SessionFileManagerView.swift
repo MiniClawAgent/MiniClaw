@@ -20,14 +20,14 @@ struct SessionFileManagerView: View {
     var body: some View {
         NavigationStack(path: $path) {
             SessionFileManagerRootView(sessionID: sessionID, path: $path)
-                .navigationTitle(L10n.tr("会话文件"))
+                .navigationTitle(L10n.l("session_files"))
                 .navigationBarTitleDisplayMode(.inline)
                 .navigationDestination(for: FileBrowserLocation.self) { loc in
                     UnifiedFileBrowser(location: loc, path: $path)
                 }
                 .toolbar {
                     ToolbarItem(placement: .topBarTrailing) {
-                        Button(L10n.tr("完成")) { dismiss() }
+                        Button(L10n.l("done")) { dismiss() }
                     }
                 }
         }
@@ -92,29 +92,29 @@ struct SessionFileManagerRootView: View {
             Section {
                 pathBar
             } header: {
-                Text(L10n.tr("当前路径（智能体可访问）"))
+                Text(L10n.l("current_path_agent_accessible"))
             }
             Section {
                 ForEach(sessionDirLocations, id: \.id) { loc in
                     dirRow(loc)
                 }
-            } header: { Text(L10n.tr("本会话")) } footer: { Text(L10n.tr("仅当前会话可见，与其他会话相互隔离。")) }
+            } header: { Text(L10n.l("this_session")) } footer: { Text(L10n.l("visible_only_in_the_current_session_isolated_from_other_sessions")) }
             Section {
                 ForEach(sharedDirLocations, id: \.id) { loc in
                     dirRow(loc)
                 }
-            } header: { Text(L10n.tr("共享文件夹")) } footer: { Text(L10n.tr("所有会话共享，修改会影响全局（如技能、挂载、记忆）。")) }
+            } header: { Text(L10n.l("shared_folders")) } footer: { Text(L10n.l("shared_across_all_sessions_changes_affect_the_global_scope_e_g_skills_mounts_memory")) }
         }
         .listStyle(.insetGrouped)
-        .alert(Text(L10n.tr("确认删除")), isPresented: Binding(
+        .alert(Text(L10n.l("confirm_deletion")), isPresented: Binding(
             get: { deleteTarget != nil },
             set: { if !$0 { deleteTarget = nil } }
         )) {
-            Button(L10n.tr("删除"), role: .destructive) { confirmDelete() }
-            Button(L10n.tr("取消"), role: .cancel) { deleteTarget = nil }
+            Button(L10n.l("delete_action"), role: .destructive) { confirmDelete() }
+            Button(L10n.l("cancel"), role: .cancel) { deleteTarget = nil }
         } message: {
             if let t = deleteTarget {
-                Text(String(format: L10n.tr("将删除目录「%@」"), t.directoryURL.lastPathComponent) + L10n.tr("及其全部内容，此操作不可撤销。"))
+                Text(String(format: L10n.l("delete_folder"), t.directoryURL.lastPathComponent) + L10n.l("and_all_its_contents_this_action_cannot_be_undone"))
             }
         }
         .overlay(alignment: .bottom) { toastView }
@@ -146,12 +146,12 @@ struct SessionFileManagerRootView: View {
             Button {
                 copyPath(for: loc)
             } label: {
-                Label(L10n.tr("复制路径"), systemImage: "doc.on.clipboard")
+                Label(L10n.l("copy_path"), systemImage: "doc.on.clipboard")
             }
             Button(role: .destructive) {
                 deleteTarget = loc
             } label: {
-                Label(L10n.tr("删除"), systemImage: "trash")
+                Label(L10n.l("delete_action"), systemImage: "trash")
             }
         }
     }
@@ -175,7 +175,7 @@ struct SessionFileManagerRootView: View {
     private func copyPath(for loc: FileBrowserLocation) {
         let p = aiAccessibleGuestPath(for: loc.directoryURL)
         UIPasteboard.general.string = p
-        showToast(String(format: L10n.tr("已复制路径：%@"), p))
+        showToast(String(format: L10n.l("path_copied"), p))
     }
 
     private func confirmDelete() {
@@ -185,7 +185,7 @@ struct SessionFileManagerRootView: View {
             deleteTarget = nil
         } catch {
             deleteTarget = nil
-            showToast(String(format: L10n.tr("删除失败：%@"), error.localizedDescription))
+            showToast(String(format: L10n.l("delete_failed"), error.localizedDescription))
         }
     }
 

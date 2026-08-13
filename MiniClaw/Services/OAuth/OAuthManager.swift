@@ -55,15 +55,15 @@ enum OAuthError: LocalizedError, Sendable {
 
     var errorDescription: String? {
         switch self {
-        case .notAuthenticated(let detail): return "未认证: \(detail)"
-        case .tokenExpired(let detail): return "Token 已过期: \(detail)"
-        case .refreshFailed(let detail): return "Token 刷新失败: \(detail)"
-        case .invalidCallback(let detail): return "回调无效: \(detail)"
-        case .networkError(let detail): return "网络错误: \(detail)"
-        case .tokenInvalid(let detail): return "Token 无效: \(detail)"
-        case .stateMismatch: return "OAuth state 不匹配"
-        case .callbackTimeout: return "OAuth 回调超时"
-        case .serverError(let detail): return "服务器错误: \(detail)"
+        case .notAuthenticated(let detail): return String(format: L10n.l("oauth_not_authenticated"), detail)
+        case .tokenExpired(let detail): return String(format: L10n.l("oauth_token_expired"), detail)
+        case .refreshFailed(let detail): return String(format: L10n.l("oauth_refresh_failed"), detail)
+        case .invalidCallback(let detail): return String(format: L10n.l("oauth_invalid_callback"), detail)
+        case .networkError(let detail): return String(format: L10n.l("oauth_network_error"), detail)
+        case .tokenInvalid(let detail): return String(format: L10n.l("oauth_token_invalid"), detail)
+        case .stateMismatch: return L10n.l("oauth_state_mismatch")
+        case .callbackTimeout: return L10n.l("oauth_callback_timeout")
+        case .serverError(let detail): return String(format: L10n.l("oauth_server_error"), detail)
         }
     }
 }

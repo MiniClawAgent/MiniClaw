@@ -1,0 +1,31 @@
+/* Usage descriptions (localized) */
+
+"NFCReaderUsageDescription" = "MiniClaw needs NFC to read tag information.";
+
+"NSAppleMusicUsageDescription" = "MiniClaw needs media library access to play and control music.";
+
+"NSBluetoothAlwaysUsageDescription" = "MiniClaw needs Bluetooth to scan and connect nearby Bluetooth devices.";
+
+"NSCalendarsUsageDescription" = "MiniClaw needs calendar access to manage and create events.";
+
+"NSCameraUsageDescription" = "MiniClaw needs the camera to take photos or scan QR codes.";
+
+"NSHealthShareUsageDescription" = "MiniClaw needs to read health data to provide health analysis and suggestions.";
+
+"NSHealthUpdateUsageDescription" = "MiniClaw needs to write health data to record your health information.";
+
+"NSHomeKitUsageDescription" = "MiniClaw needs HomeKit access to control your smart home devices.";
+
+"NSLocalNetworkUsageDescription" = "MiniClaw needs local network access to discover and connect local devices and services.";
+
+"NSLocationWhenInUseUsageDescription" = "MiniClaw needs your location to provide location-based services such as weather and location features.";
+
+"NSMicrophoneUsageDescription" = "MiniClaw needs the microphone for voice input and speech recognition.";
+
+"NSPhotoLibraryUsageDescription" = "MiniClaw needs photo library access to read and save images.";
+
+"NSRemindersUsageDescription" = "MiniClaw needs Reminders access to create and manage reminders.";
+
+"NSSpeechRecognitionUsageDescription" = "MiniClaw needs speech recognition to convert your voice to text.";
+
+"NSUserNotificationsUsageDescription" = "MiniClaw needs to send notifications to alert you about important information.";

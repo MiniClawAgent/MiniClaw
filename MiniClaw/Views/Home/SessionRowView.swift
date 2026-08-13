@@ -1,7 +1,9 @@
 import SwiftUI
 
 struct SessionRowView: View {
-    let session: ChatSession
+    /// 观察会话对象(2026-08-12 修复)：AI 生成标题/改图标/updatedAt 是成员对象原地改值,
+    /// 不触发首页数组 willSet——行必须订阅对象本身才能实时刷新标题。
+    @ObservedObject var session: ChatSession
     /// 搜索关键字（非空时高亮命中，并在命中消息内容时显示匹配片段）
     var highlight: String = ""
     /// 是否处于多选模式（决定左侧图标区替换为勾选圆）
@@ -10,8 +12,13 @@ struct SessionRowView: View {
     var isSelected: Bool = false
     /// 任务是否「未完成（暂停/中断、可续跑）」：驱动图标外圈橙色边框徽标。
     var isIncomplete: Bool = false
+    /// 草稿刷新令牌（2026-08-13）：首页监听 pendingDraftDidChange 后递增并传入，
+    /// 使 hasDraft 即时重算——异步落盘的草稿删除完成后笔图标立即消失，不再残留。
+    var draftRefreshID: Int = 0
 
     var body: some View {
+        // 引用草稿刷新令牌：参数变化强制本行重算 hasDraft（读时计算）。
+        let _ = draftRefreshID
         HStack(spacing: 12) {
             leadingView
 
@@ -107,7 +114,9 @@ struct SessionRowView: View {
                 // 优先级：未完成（暂停/中断、可续跑）> 进行中。两者互斥显示。
                 // 橙色静态环与 RotatingRing 同尺寸（48×48、lineWidth 2.5），仅颜色/动效不同，
                 // 表示该会话「上次回复未跑完、可继续」。
-                if isIncomplete {
+                // 2026-08-12 治本:session.status == .paused 直接显示橙环,与检查点双保险
+                // (重启后检查点存在但 reload 未触发时,首页也能正确显示暂停态而非转圈)。
+                if isIncomplete || session.status == .paused {
                     Circle()
                         .stroke(Color.orange, lineWidth: 2.5)
                         .frame(width: 48, height: 48)
@@ -156,7 +165,7 @@ struct SessionRowView: View {
             .padding(.horizontal, count >= 10 ? 5 : 0)
             .background(Color.secondary.opacity(0.12))
             .clipShape(Capsule())
-            .accessibilityLabel(String(format: L10n.tr("%@ 条消息"), NSNumber(value: count)))
+            .accessibilityLabel(String(format: L10n.l("messages"), NSNumber(value: count)))
     }
 
     /// SwiftData 关系数组不保证顺序，因此显式筛选并按 createdAt 取最后一条 智能体回复。
@@ -171,13 +180,13 @@ struct SessionRowView: View {
                 if $0.createdAt != $1.createdAt { return $0.createdAt < $1.createdAt }
                 return $0.id.uuidString < $1.id.uuidString
             })
-        else { return L10n.tr("暂无智能体回复") }
+        else { return L10n.l("no_agent_reply_yet") }
 
         let preferred = last.previewText?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let body = !preferred.isEmpty
             ? preferred
             : last.content.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !body.isEmpty else { return L10n.tr("暂无智能体回复") }
+        guard !body.isEmpty else { return L10n.l("no_agent_reply_yet") }
         return Self.stripLeadingThinking(body)
     }
 
@@ -193,25 +202,25 @@ struct SessionRowView: View {
                 if let end = trimmed.range(of: "</think>") {
                     result = String(trimmed[end.upperBound...]); continue
                 }
-                return L10n.tr("暂无智能体回复")
+                return L10n.l("no_agent_reply_yet")
             }
             if trimmed.hasPrefix("<thinking>") {
                 if let end = trimmed.range(of: "</thinking>") {
                     result = String(trimmed[end.upperBound...]); continue
                 }
-                return L10n.tr("暂无智能体回复")
+                return L10n.l("no_agent_reply_yet")
             }
             if trimmed.hasPrefix("【思考】") {
                 if let end = trimmed.range(of: "【/思考】") {
                     result = String(trimmed[end.upperBound...]); continue
                 }
-                return L10n.tr("暂无智能体回复")
+                return L10n.l("no_agent_reply_yet")
             }
             if trimmed.hasPrefix("【深度思考】") {
                 // 该标记常不带闭标签：直接去掉标记前缀，剩下的若仅为思考残留则清空。
                 let rest = String(trimmed.dropFirst("【深度思考】".count))
                 if rest.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    return L10n.tr("暂无智能体回复")
+                    return L10n.l("no_agent_reply_yet")
                 }
                 result = rest
                 continue
@@ -219,7 +228,7 @@ struct SessionRowView: View {
             break
         }
         let final = result.trimmingCharacters(in: .whitespacesAndNewlines)
-        return final.isEmpty ? L10n.tr("暂无智能体回复") : final
+        return final.isEmpty ? L10n.l("no_agent_reply_yet") : final
     }
 
     /// 搜索时该行小字展示的内容：优先取「第一个命中关键字的消息」内容并就地高亮；

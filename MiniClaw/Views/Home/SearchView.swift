@@ -1,10 +1,9 @@
 import SwiftUI
-import SwiftData
 
 struct SearchView: View {
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.modelContext) private var modelContext
-    @Query(sort: \ChatSession.updatedAt, order: .reverse) private var sessions: [ChatSession]
+    /// 会话列表：来自 SessionManager 内存态（启动全量加载,变更即时落盘）。
+    private var sessions: [ChatSession] { SessionManager.shared.sessions }
 
     @State private var searchText: String = ""
     @State private var searchResults: [ChatSession] = []
@@ -12,13 +11,13 @@ struct SearchView: View {
     var body: some View {
         List {
             if searchText.isEmpty {
-                Section(L10n.tr("最近会话")) {
+                Section(L10n.l("recent_sessions")) {
                     ForEach(sessions.prefix(10)) { session in
                         SessionRowView(session: session)
                     }
                 }
             } else if searchResults.isEmpty {
-                ContentUnavailableView.search(text: searchText)
+                EmptyStateView.search(text: searchText)
             } else {
                 ForEach(searchResults) { session in
                     SessionRowView(session: session)
@@ -26,10 +25,10 @@ struct SearchView: View {
             }
         }
         .listStyle(.plain)
-        .navigationTitle(Text(L10n.tr("搜索")))
+        .navigationTitle(Text(L10n.l("search")))
         .navigationBarTitleDisplayMode(.inline)
-        .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: L10n.tr("搜索会话..."))
-        .onChange(of: searchText) { _, newValue in
+        .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: L10n.l("search_sessions"))
+        .onChange(of: searchText) { newValue in
             if newValue.isEmpty {
                 searchResults = []
             } else {

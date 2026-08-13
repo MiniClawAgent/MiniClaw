@@ -1,4 +1,5 @@
 import Foundation
+import Combine
 import SwiftUI
 import MiniClawKit
 
@@ -24,25 +25,38 @@ final class MiniClawChatBridge: ObservableObject {
     /// (isResponding true→false):终态刷新若撞上 0.25s 节流窗口会被吞掉,
     /// UI 停在差几个字的旧内容,重进会话才完整(2026-08-11 方案一修复)。
     private var lastIsProcessing: Bool = false
-    /// OM 对象缓存(按 MiniClaw 持久消息 id):内容签名不变则复用旧对象,
+    /// Kit 对象缓存(按 MiniClaw 持久消息 id):内容签名不变则复用旧对象,
     /// 保持 message.id/block.id 稳定 → 列表高度缓存/contentKey memo 可命中,
     /// 消除每次刷新的全量缓存失效与估算↔实测落差(2026-08-10 滑动跳动/空白根因)。
-    private var omCache: [String: MiniClawKit.ChatMessage] = [:]
+    private var bridgeCache: [String: MiniClawKit.ChatMessage] = [:]
     /// 当前观察的 runtime(流式实时:SwiftData 消息终态落盘,流式中 content 不变,
     /// 需订阅 runtime.streamingContent 驱动刷新;2026-08-10 切默认路径前接通)。
     private weak var observedRuntime: ChatSessionRuntime?
+    /// 流式 Combine 订阅(iOS16 适配:替代 withObservationTracking)。
+    private var streamingSub: AnyCancellable?
+    private var streamingSubscriptions: [AnyPublisher<Void, Never>] = []
 
     func attach(session: ChatSession, appState: AppState) {
         self.session = session
         self.appState = appState
+        // 2026-08-12 治本:附件缩略图/媒体缓存按会话目录解析,必须设置 activeSessionId
+        // (Kit 的 TileImage/miniClawMediaCacheKey 据此定位 Documents/MiniClaw-Sessions/<sid>/;
+        // 此前宿主从不设置 → 缩略图 guard 直接 return,图片附件显示空白)。
+        AIChatViewModel.activeSessionId = session.id.uuidString
         // 浏览器工具指示器用的标签池必须是会话级池(与引擎工具执行同一对象):
         // 注入 sharedPool 会让工具导航的 tab 落在会话级池、指示器打开的是空池
         // → "No Page"(2026-08-10 修复)。attach 时按 session.id 取会话级池。
         vm.browserTabPool = BrowserEngineAdapter.shared.pool(for: session.id)
+        // 2026-08-12:浏览器接管内容注入主工程 BrowserView(照原版机制,
+        // 由 ToolLiveSheet 二级 sheet 呈现,稳定弹出;池与会话级池同一对象,标签同步)。
+        vm.browserContentProvider = { url in
+            AnyView(BrowserView(startURL: url)
+                .presentationDetents([.large]))
+        }
         // 重进会话:清空对象缓存 + 重置指纹,强制从磁盘重建 blocks
-        // (buildBlocks 按 timelineOrder 正确排序)。否则 omCache 复用流式期间
+        // (buildBlocks 按 timelineOrder 正确排序)。否则 bridgeCache 复用流式期间
         // 的中途乱序 blocks,重进会话仍错序(2026-08-10 修复)。
-        omCache.removeAll(keepingCapacity: true)
+        bridgeCache.removeAll(keepingCapacity: true)
         lastFingerprint = ""
         refresh(force: true)
     }
@@ -66,7 +80,11 @@ final class MiniClawChatBridge: ObservableObject {
             vm.canResume = runtime.isPaused
         } else {
             vm.isProcessing = false
-            vm.canResume = false
+            // 2026-08-12 治本:重启后无 runtime,暂停指示器从持久化的消息级 isPaused 恢复
+            // (暂停已同步落盘),不再依赖进程内运行时——否则退出重进后"已暂停"横幅消失,
+            // 重进会话又出现(用户报告的指示器不一致)。
+            let lastAssistant = session.messages.last(where: { $0.role == .assistant })
+            vm.canResume = lastAssistant?.isPaused ?? false
         }
         // 流式结束翻转检测(2026-08-11 方案一):isResponding true→false 瞬间,
         // 终态刷新可能撞上 0.25s 节流窗口被吞(UI 停在差几个字的旧内容,
@@ -75,7 +93,7 @@ final class MiniClawChatBridge: ObservableObject {
         let endTransition = lastIsProcessing && !vm.isProcessing
         lastIsProcessing = vm.isProcessing
 
-        var messages = sorted.map { omMessage(for: $0) }
+        let messages = sorted.map { bridgedMessage(for: $0) }
         // 流式实时合并(SwiftData 终态落盘,流式中 content 不更新):
         // 把 runtime 的实时缓冲(正文 streamingContent、思考段
         // streamingReasoningSegments、工具调用 streamingToolCalls)合并进
@@ -204,47 +222,45 @@ final class MiniClawChatBridge: ObservableObject {
     // MARK: - 流式实时观察(@Observable runtime)
 
     /// runtime 流式内容变化 → refresh(指纹节流 0.25s 合并)。
-    /// SwiftData 消息终态落盘,流式中必须靠此订阅驱动 OM 列表实时刷新。
+    /// SwiftData 消息终态落盘,流式中必须靠此订阅驱动 Kit 列表实时刷新。
     private func observeStreamingIfNeeded() {
         guard let runtime = appState?.chatRuntimes[session?.id ?? UUID()] else { return }
         if observedRuntime === runtime { return }
         observedRuntime = runtime
+        // 换观察对象时取消旧订阅(runtime 重建场景)。
+        streamingSub?.cancel()
         trackStreaming(runtime)
     }
 
     private func trackStreaming(_ runtime: ChatSessionRuntime) {
-        withObservationTracking {
-            _ = runtime.streamingContent
-            _ = runtime.isResponding
-            _ = runtime.isPaused
-            // 思考段/工具调用的实时缓冲也必须观察:它们的变化(新段/新工具/
-            // 状态流转)驱动 refresh → 合并进 blocks,否则思考/工具指示器
-            // 流式中不出现(2026-08-10 修复)。
-            _ = runtime.streamingReasoningSegments
-            _ = runtime.streamingToolCalls
-        } onChange: { [weak self] in
-            DispatchQueue.main.async { [weak self] in
-                guard let self else { return }
-                self.refresh()
-                // 重新注册(每次变化后需要重新观察)
-                if let rt = self.observedRuntime, rt === runtime {
-                    self.trackStreaming(runtime)
-                }
+        // iOS16 适配(2026-08-12):@Observable 宏的 withObservationTracking 是 iOS17 API,
+        // 改为 Combine 订阅(runtime 已改 ObservableObject + @Published)——语义等价:
+        // 任一被观察属性变化即触发 refresh(流式正文/思考段/工具调用/响应状态)。
+        streamingSubscriptions = [
+            runtime.$streamingContent.map { _ in () }.eraseToAnyPublisher(),
+            runtime.$streamingReasoningSegments.map { _ in () }.eraseToAnyPublisher(),
+            runtime.$streamingToolCalls.map { _ in () }.eraseToAnyPublisher(),
+            runtime.$isResponding.map { _ in () }.eraseToAnyPublisher(),
+            runtime.$isPaused.map { _ in () }.eraseToAnyPublisher(),
+        ]
+        streamingSub = Publishers.MergeMany(streamingSubscriptions)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] in
+                self?.refresh()
             }
-        }
     }
 
     // MARK: - 对象复用(稳定 id)
 
-    /// 按 MiniClaw 持久消息 id 取 OM 对象:内容签名不变则复用缓存对象,
+    /// 按 MiniClaw 持久消息 id 取 Kit 对象:内容签名不变则复用缓存对象,
     /// 避免每次 refresh 全量重建 UUID 导致列表高度缓存连坐失效。
     /// 流式增长特例:同一消息 content 变长但 blocks 结构相同(仅文本块增量)
     /// 时,复用旧对象并就地更新文本块 content——保持 block.id 恒定,
     /// diffable 列表只 reconfigure 不重建,消除流式/切回 app 抖动。
-    private func omMessage(for model: ChatMessage) -> MiniClawKit.ChatMessage {
+    private func bridgedMessage(for model: ChatMessage) -> MiniClawKit.ChatMessage {
         let key = model.id.uuidString
         let fresh = MiniClawChatAdapter.convert(model)
-        if let cached = omCache[key] {
+        if let cached = bridgeCache[key] {
             // 内容签名完全一致:复用缓存对象(block.id 稳定,高度缓存可命中)。
             if blockSignature(cached) == blockSignature(fresh) {
                 return cached
@@ -263,17 +279,17 @@ final class MiniClawChatBridge: ObservableObject {
             // timelineOrder 正确排序。不复用 cached——cached 可能是流式期间
             // 「正文堆末尾/思考逆序」的中途状态,复用会让重进会话仍错序
             // (2026-08-10 修复:重进会话排序混乱)。
-            omCache[key] = fresh
+            bridgeCache[key] = fresh
             return fresh
         }
-        omCache[key] = fresh
+        bridgeCache[key] = fresh
         return fresh
     }
 
     /// 块级结构签名(仅块数+类型,不含内容量):判断"能否就地复用"。
-    private func blockStructure(_ om: MiniClawKit.ChatMessage) -> String {
-        var s = "\(om.blocks.count)|"
-        for b in om.blocks {
+    private func blockStructure(_ msg: MiniClawKit.ChatMessage) -> String {
+        var s = "\(msg.blocks.count)|"
+        for b in msg.blocks {
             switch b.kind {
             case .text: s += "x|"
             case .thinking: s += "t|"
@@ -314,14 +330,15 @@ final class MiniClawChatBridge: ObservableObject {
         case .readImageTool: return "u"
         case .memoryTool: return "u"
         case .info: return "i"
+        case .file: return "f"
         }
     }
 
     /// 块级渲染签名(块类型+内容量+工具状态+流式标志):
     /// 签名相同 → 渲染等价 → 可安全复用旧对象(含 block.id/message.id)。
-    private func blockSignature(_ om: MiniClawKit.ChatMessage) -> String {
-        var s = "\(om.content.count)|\(om.isAwaitingModelResponse)|"
-        for b in om.blocks {
+    private func blockSignature(_ msg: MiniClawKit.ChatMessage) -> String {
+        var s = "\(msg.content.count)|\(msg.isAwaitingModelResponse)|"
+        for b in msg.blocks {
             switch b.kind {
             case .thinking: s += "t:\(b.content.count)|"
             case .text: s += "x:\(b.content.count)|"

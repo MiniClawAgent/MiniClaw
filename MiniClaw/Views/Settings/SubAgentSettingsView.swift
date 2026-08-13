@@ -7,10 +7,10 @@ struct SubAgentSettingsView: View {
     @State private var subagent: SubAgentSettings = SettingsStore.shared.settings.subagent
 
     private let thinkingOptions: [(id: String, label: String)] = [
-        ("follow", L10n.tr("跟随主模型")),
-        ("off", L10n.tr("关闭思考")),
-        ("low", L10n.tr("低")),
-        ("high", L10n.tr("高"))
+        ("follow", L10n.l("follow_main_model")),
+        ("off", L10n.l("thinking_off")),
+        ("low", L10n.l("level_low")),
+        ("high", L10n.l("high"))
     ]
 
     var body: some View {
@@ -18,26 +18,26 @@ struct SubAgentSettingsView: View {
             Section {
                 Toggle(isOn: $subagent.enabled) {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(L10n.tr("启用子代理"))
-                        Text(L10n.tr("关闭后智能体不再派发子代理，并被告知该能力已被用户关闭"))
+                        Text(L10n.l("enable_subagents"))
+                        Text(L10n.l("when_off_the_agent_no_longer_dispatches_subagents_and_is_told_this_capability_has_been_turned_off_by_the_user"))
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
                 }
                 .tint(.orange)
-                .onChange(of: subagent.enabled) { _, newValue in
-                    SettingsStore.shared.update(domain: .subagent, summary: L10n.tr("修改子代理开关")) { (s: inout SubAgentSettings) in
+                .onChange(of: subagent.enabled) { newValue in
+                    SettingsStore.shared.update(domain: .subagent, summary: L10n.l("toggle_subagents")) { (s: inout SubAgentSettings) in
                         s.enabled = newValue
                     }
                 }
             } footer: {
-                Text(L10n.tr("子代理用于并行/隔离处理复杂任务（调研、写作、规划等），可显著提升多步骤任务的完成质量。"))
+                Text(L10n.l("subagents_handle_complex_tasks_in_parallel_isolation_research_writing_planning_etc_and_can_significantly_improve_the_quality_of_multi_step_work"))
             }
 
             Section {
                 Stepper(value: $subagent.maxConcurrent, in: 1...4, label: {
                     HStack {
-                        Text(L10n.tr("最大并发"))
+                        Text(L10n.l("max_concurrency"))
                         Spacer()
                         Text("\(subagent.maxConcurrent)")
                             .foregroundStyle(.secondary)
@@ -45,36 +45,36 @@ struct SubAgentSettingsView: View {
                     }
                 })
                 .disabled(!subagent.enabled)
-                .onChange(of: subagent.maxConcurrent) { _, newValue in
-                    SettingsStore.shared.update(domain: .subagent, summary: L10n.tr("修改子代理最大并发")) { (s: inout SubAgentSettings) in
+                .onChange(of: subagent.maxConcurrent) { newValue in
+                    SettingsStore.shared.update(domain: .subagent, summary: L10n.l("change_subagent_max_concurrency")) { (s: inout SubAgentSettings) in
                         s.maxConcurrent = newValue
                     }
                 }
             } header: {
-                Text(L10n.tr("运行限制"))
+                Text(L10n.l("runtime_limits"))
             } footer: {
-                Text(L10n.tr("同时运行（含嵌套层级累计）的子代理数量上限，最大 4。"))
+                Text(L10n.l("maximum_number_of_simultaneously_running_subagents_including_nested_levels_up_to_4"))
             }
 
             Section {
-                Picker(L10n.tr("思考档位"), selection: $subagent.thinking) {
+                Picker(L10n.l("thinking_level"), selection: $subagent.thinking) {
                     ForEach(thinkingOptions, id: \.id) { opt in
                         Text(opt.label).tag(opt.id)
                     }
                 }
                 .disabled(!subagent.enabled)
-                .onChange(of: subagent.thinking) { _, newValue in
-                    SettingsStore.shared.update(domain: .subagent, summary: L10n.tr("修改子代理思考档位")) { (s: inout SubAgentSettings) in
+                .onChange(of: subagent.thinking) { newValue in
+                    SettingsStore.shared.update(domain: .subagent, summary: L10n.l("change_subagent_thinking_level")) { (s: inout SubAgentSettings) in
                         s.thinking = newValue
                     }
                 }
             } header: {
-                Text(L10n.tr("思考控制"))
+                Text(L10n.l("thinking_control"))
             } footer: {
-                Text(L10n.tr("「跟随主模型」= 不强制，按模型默认思考；「关闭思考」= 子代理快速直接作答，省 token 但质量下降。"))
+                Text(L10n.l("follow_main_model_no_override_use_the_model_s_default_thinking_thinking_off_subagents_answer_quickly_and_directly_saving_tokens_at_some_quality_cost"))
             }
         }
-        .navigationTitle(L10n.tr("子代理"))
+        .navigationTitle(L10n.l("subagents"))
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
             // 设置可能经审计回滚/其他路径刷新，进入页面时重新同步，避免显示陈旧值。

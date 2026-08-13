@@ -1,51 +1,51 @@
 import SwiftUI
 
 struct SettingsMenuView: View {
-    @Environment(AppState.self) private var appState
+    @EnvironmentObject private var appState: AppState
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         NavigationStack {
             List {
                 Section {
-                    MenuRow(icon: "brain.head.profile", color: .purple, title: L10n.tr("智能体")) {
+                    MenuRow(icon: "brain.head.profile", color: .purple, title: L10n.l("agent")) {
                         dismiss()
                         appState.navigationPath.append("settings")
                     }
 
-                    MenuRow(icon: "slider.horizontal.3", color: .blue, title: L10n.tr("管理")) {
+                    MenuRow(icon: "slider.horizontal.3", color: .blue, title: L10n.l("management")) {
                         dismiss()
                         appState.navigationPath.append("settings")
                     }
 
-                    MenuRow(icon: "externaldrive", color: .green, title: L10n.tr("存储")) {
+                    MenuRow(icon: "externaldrive", color: .green, title: L10n.l("storage")) {
                         dismiss()
                         appState.navigationPath.append("settings")
                     }
                 }
 
                 Section {
-                    MenuRow(icon: "doc.text.magnifyingglass", color: .gray, title: L10n.tr("日志")) {
+                    MenuRow(icon: "doc.text.magnifyingglass", color: .gray, title: L10n.l("logs")) {
                         dismiss()
                         appState.navigationPath.append("settings")
                     }
 
-                    MenuRow(icon: "info.circle", color: .teal, title: L10n.tr("关于 MiniClaw")) {
+                    MenuRow(icon: "info.circle", color: .teal, title: L10n.l("about_miniclaw_app")) {
                         dismiss()
                         appState.navigationPath.append("settings")
                     }
 
-                    MenuRow(icon: "envelope", color: .orange, title: L10n.tr("反馈")) {
+                    MenuRow(icon: "envelope", color: .orange, title: L10n.l("feedback")) {
                         dismiss()
                         appState.navigationPath.append("settings")
                     }
                 }
             }
-            .navigationTitle(Text(L10n.tr("设置")))
+            .navigationTitle(Text(L10n.l("settings")))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button(L10n.tr("完成")) { dismiss() }
+                    Button(L10n.l("done")) { dismiss() }
                 }
             }
         }

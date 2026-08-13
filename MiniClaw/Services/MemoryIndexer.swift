@@ -49,11 +49,13 @@ final class MemoryIndexer: @unchecked Sendable {
     ///   - scope: 检索范围
     ///   - topK: 最多返回条数
     func search(keyword: String, scope: MemorySearchScope = .all, topK: Int = 8) async -> [String] {
+        // 设置快照：后台线程不裸读 SettingsStore（2026-08-13 竞争修复）。
+        let settings = await SettingsStore.shared.snapshot()
         // 记忆总开关关闭时直接走纯关键词检索（无向量、无 embedding 调用）。
-        guard SettingsStore.shared.settings.memory.isEnabled else {
+        guard settings.memory.isEnabled else {
             return keywordSearch(keyword: keyword, scope: scope)
         }
-        let enabled = SettingsStore.shared.settings.memory.embeddingEnabled
+        let enabled = settings.memory.embeddingEnabled
         if !enabled {
             return keywordSearch(keyword: keyword, scope: scope)
         }
@@ -80,8 +82,10 @@ final class MemoryIndexer: @unchecked Sendable {
     /// 向量检索当前是否可用（embedding 端点探测成功）。供 system prompt 记忆注入等外部调用：
     /// 先确保索引就绪（内部会做 embedding 端点真实探测），再返回状态；开关未开/不可用时返回 false。
     func isEmbeddingAvailable() async -> Bool {
-        guard SettingsStore.shared.settings.memory.isEnabled,
-              SettingsStore.shared.settings.memory.embeddingEnabled else { return false }
+        // 设置快照：后台线程不裸读 SettingsStore（2026-08-13 竞争修复）。
+        let settings = await SettingsStore.shared.snapshot()
+        guard settings.memory.isEnabled,
+              settings.memory.embeddingEnabled else { return false }
         await ensureIndex()
         return withStateLock { embeddingAvailable }
     }
@@ -307,6 +311,8 @@ struct EmbeddingClient {
 
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
+        // 2026-08-12:补上漏设的请求体(消除 unused 警告,同时修复嵌入请求未带 body 的缺陷)。
+        req.httpBody = httpBody
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         req.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         req.timeoutInterval = 60

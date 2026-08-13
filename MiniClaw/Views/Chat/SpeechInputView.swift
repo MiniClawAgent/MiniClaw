@@ -40,7 +40,7 @@ final class SpeechController: @unchecked Sendable {
         }
         guard SFSpeechRecognizer.authorizationStatus() == .authorized else {
             AppLogger.shared.info("[SpeechController] start() 中止：语音识别未授权", category: "Voice", subsystem: "Recording")
-            onError?(L10n.tr("未授权语音识别，请在系统设置中开启。"))
+            onError?(L10n.l("speech_recognition_is_not_authorized_please_enable_it_in_system_settings"))
             return
         }
         // ── AVAudioSession 配置（必须在 GCD 主队列）──
@@ -55,7 +55,7 @@ final class SpeechController: @unchecked Sendable {
                 AppLogger.shared.info("[SpeechController] 音频会话已激活", category: "Voice", subsystem: "Recording")
             } catch {
                 AppLogger.shared.info("[SpeechController] 音频会话配置失败：\(error.localizedDescription)", category: "Voice", subsystem: "Recording")
-                self.onError?(String(format: L10n.tr("音频会话配置失败：%@"), error.localizedDescription))
+                self.onError?(String(format: L10n.l("audio_session_configuration_failed"), error.localizedDescription))
                 return
             }
             self.startAudioEngine()
@@ -88,7 +88,7 @@ final class SpeechController: @unchecked Sendable {
             AppLogger.shared.info("[SpeechController] audioEngine 已启动", category: "Voice", subsystem: "Recording")
         } catch {
             AppLogger.shared.info("[SpeechController] 启动录音失败：\(error.localizedDescription)", category: "Voice", subsystem: "Recording")
-            onError?(String(format: L10n.tr("无法启动录音：%@"), error.localizedDescription))
+            onError?(String(format: L10n.l("unable_to_start_recording"), error.localizedDescription))
             return
         }
         // 引擎已真正启动录音，标记 recording，使 stop() 与 UI 侧「松开麦克风」只在确有录音时才清理音频资源。
@@ -96,7 +96,7 @@ final class SpeechController: @unchecked Sendable {
 
         guard let recognizer, recognizer.isAvailable else {
             AppLogger.shared.info("[SpeechController] 语言不支持 → stop()", category: "Voice", subsystem: "Recording")
-            onError?(L10n.tr("当前语言不支持语音识别。"))
+            onError?(L10n.l("speech_recognition_is_not_supported_in_the_current_language"))
             stop()
             return
         }
@@ -164,7 +164,7 @@ final class SpeechController: @unchecked Sendable {
 final class SpeechViewModel: ObservableObject, @unchecked Sendable {
     @Published var recognizedText: String = ""
     @Published var isRecording: Bool = false
-    @Published var statusMessage: String = L10n.tr("按住麦克风开始说话")
+    @Published var statusMessage: String = L10n.l("hold_the_microphone_to_start_speaking")
     @Published var canSend: Bool = false
     @Published var showPermissionAlert: Bool = false
     @Published var permissionAlertMessage: String = ""
@@ -175,7 +175,7 @@ final class SpeechViewModel: ObservableObject, @unchecked Sendable {
     func reset() {
         recognizedText = ""
         isRecording = false
-        statusMessage = L10n.tr("按住麦克风开始说话")
+        statusMessage = L10n.l("hold_the_microphone_to_start_speaking")
         canSend = false
     }
 }

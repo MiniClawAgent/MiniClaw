@@ -58,7 +58,7 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
                 try? await Task.sleep(for: .milliseconds(400))
                 if let session = SessionManager.shared.session(id: uuid) {
                     AppState.shared?.selectedSession = session
-                    AppLogger.shared.info("[通知] 点击跳转会话 \(session.title)", category: "BG")
+                    AppLogger.shared.info(String(format: L10n.l("bg_notification_tap"), session.title), category: "BG")
                 }
             }
         }
@@ -70,7 +70,7 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
     func notifyTaskStarted(title: String, promptPreview: String, sessionID: UUID? = nil) async {
         let content = UNMutableNotificationContent()
         content.title = title
-        content.body = "已开始处理: \(promptPreview)"
+        content.body = String(format: L10n.l("started_processing"), promptPreview)
         content.sound = .default
         content.threadIdentifier = "miniclaw-agent"
         if let sessionID { content.userInfo["sessionID"] = sessionID.uuidString }
@@ -78,7 +78,7 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
         do {
             try await center.add(request)
         } catch {
-            AppLogger.shared.error("发送开始通知失败: \(error)", category: "BG")
+            AppLogger.shared.error(String(format: L10n.l("bg_start_notification_failed"), String(describing: error)), category: "BG")
         }
     }
 
@@ -94,7 +94,7 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
         do {
             try await center.add(request)
         } catch {
-            AppLogger.shared.error("发送完成通知失败: \(error)", category: "BG")
+            AppLogger.shared.error(String(format: L10n.l("bg_complete_notification_failed"), String(describing: error)), category: "BG")
         }
     }
 
@@ -102,7 +102,7 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
     /// 换行/空格/Tab 全部折叠为单个空格——正文紧凑连续，不会因模型排版换行显得稀碎。
     /// 无回复时回退完成/结束文案。
     private static func completionBody(reply: String?, success: Bool) -> String {
-        let fallback = success ? "智能体已完成本次处理。" : "智能体已结束本次处理。"
+        let fallback = success ? L10n.l("the_agent_has_completed_this_task") : L10n.l("the_agent_has_ended_this_task")
         guard let reply, !reply.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return fallback }
         return reply
             .split(whereSeparator: \.isWhitespace)
@@ -118,7 +118,8 @@ final class BackgroundLocationKeeper: NSObject, CLLocationManagerDelegate {
     private var manager: CLLocationManager?
 
     func startIfAuthorized() {
-        let status = CLLocationManager.authorizationStatus()
+        // iOS14+:authorizationStatus() 类方法已弃用,用实例查询(语义等价)。
+        let status = CLLocationManager().authorizationStatus
         guard status == .authorizedWhenInUse || status == .authorizedAlways else { return }
         let m = CLLocationManager()
         m.delegate = self
@@ -134,7 +135,7 @@ final class BackgroundLocationKeeper: NSObject, CLLocationManagerDelegate {
     }
 
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
-        AppLogger.shared.warn("后台定位保活失败: \(error.localizedDescription)", category: "BG")
+        AppLogger.shared.warn(String(format: L10n.l("bg_location_keepalive_failed"), error.localizedDescription), category: "BG")
     }
 }
 
@@ -155,7 +156,6 @@ final class BackgroundTaskController {
     nonisolated(unsafe) static let shared = BackgroundTaskController()
 
     /// 同一会话只维护一个 Live Activity 的句柄表（sessionID -> Activity）。
-    private var liveActivities: [String: Activity<MiniClawLiveActivityAttributes>] = [:]
     private let locationKeeper = BackgroundLocationKeeper()
 
     // MARK: 生命周期
@@ -164,10 +164,11 @@ final class BackgroundTaskController {
     /// 去重以【系统活动列表】为权威来源：按 attributes.sessionID 匹配，
     /// 内存缓存（liveActivities）仅作加速。这样即使缓存因并发/重入命中失败，
     /// 也能通过系统列表发现「该会话已有一个活动」从而避免重复创建。
+    @available(iOS 16.1, *)
     private func liveActivities(forSessionID sid: String) -> [Activity<MiniClawLiveActivityAttributes>] {
         var result: [Activity<MiniClawLiveActivityAttributes>] = []
         var seen = Set<String>()
-        if let cached = liveActivities[sid] {
+        if let cached = LiveActivityState.shared.liveActivities[sid] {
             result.append(cached); seen.insert(cached.id)
         }
         for act in Activity<MiniClawLiveActivityAttributes>.activities where act.attributes.sessionID == sid {
@@ -187,87 +188,93 @@ final class BackgroundTaskController {
             // 用户发消息后可能立马切 App,退后台时基础设施已就绪 → 系统立即自动启动,零延迟。
             TaskPipController.shared.ensurePipIfRunning()
         }
-        guard bg.backgroundRun, bg.liveActivity else { return }
+        if #available(iOS 16.1, *) {
+            guard bg.backgroundRun, bg.liveActivity else { return }
 
-        // ★ 会话级去重（以系统活动列表为权威）：
-        //   只要该系统会话已有一个【仍活跃】的 Live Activity，就【更新】它而非新建，
-        //   并顺手清理同会话下因历史竞态多出来的重复活动。
-        //   注意：上一轮结束后活动已被 end(.after)（系统待移除，activityState != .active）
-        //   或 App 重启后系统里残留已结束活动——这些都不能再 update，必须新建。
-        if let sid = sessionID {
+            // ★ 会话级去重（以系统活动列表为权威）：
+            //   只要该系统会话已有一个【仍活跃】的 Live Activity，就【更新】它而非新建，
+            //   并顺手清理同会话下因历史竞态多出来的重复活动。
+            //   注意：上一轮结束后活动已被 end(.after)（系统待移除，activityState != .active）
+            //   或 App 重启后系统里残留已结束活动——这些都不能再 update，必须新建。
+            if let sid = sessionID {
             let existing = liveActivities(forSessionID: sid)
             // 找第一个【仍活跃】的活动复用，而不是 existing.first——
             // Activity.activities 顺序不保证，first 可能是已结束的旧活动，
             // 导致误入 create 分支、遗漏清理仍活跃的重复活动。
             if let keep = existing.first(where: { $0.activityState == .active }) {
-                liveActivities[sid] = keep
-                // 兜底：清理同会话下所有其他活动（含活跃重复 + 已结束残留），
-                // 确保屏幕上不会叠出多个。仅捕获 dup.id（String），在 Task 内按 id 定位并结束。
-                for dup in existing where dup.id != keep.id {
-                    let dupID = dup.id
-                    Task { @MainActor in
-                        for activity in Activity<MiniClawLiveActivityAttributes>.activities where activity.id == dupID {
-                            await activity.end(
-                                using: MiniClawLiveActivityAttributes.ContentState(
-                                    sessionTitle: "", progressText: "已结束", phase: "完成"
-                                ),
-                                dismissalPolicy: .immediate
-                            )
-                        }
-                    }
-                }
-                Task { @MainActor in
-                    await BackgroundTaskController.shared.updateActivity(sessionID: sid) { s in
-                        var c = s
-                        c.progressText = "思考中…"
-                        c.timeText = Self.nowString()
-                        c.phase = "运行"
-                        c.status = "running"
-                        return c
-                    }
-                }
-                return
+            LiveActivityState.shared.liveActivities[sid] = keep
+            // 兜底：清理同会话下所有其他活动（含活跃重复 + 已结束残留），
+            // 确保屏幕上不会叠出多个。仅捕获 dup.id（String），在 Task 内按 id 定位并结束。
+            for dup in existing where dup.id != keep.id {
+            let dupID = dup.id
+            Task { @MainActor in
+            for activity in Activity<MiniClawLiveActivityAttributes>.activities where activity.id == dupID {
+            await activity.end(
+            using: MiniClawLiveActivityAttributes.ContentState(
+            sessionTitle: "", progressText: L10n.l("ended"), phase: "completed"
+            ),
+            dismissalPolicy: .immediate
+            )
+            }
+            }
+            }
+            Task { @MainActor in
+            await BackgroundTaskController.shared.updateActivity(sessionID: sid) { s in
+            var c = s
+            c.progressText = L10n.l("thinking")
+            c.timeText = Self.nowString()
+            c.phase = "running"
+            c.status = "running"
+            return c
+            }
+            }
+            return
             }
             // 没有活跃活动：先把同会话所有旧活动（含 dismissal 窗口内残留）立即结束，
             // 再新建——否则旧的会继续显示在锁屏，新的叠上去，产生多个通知。
-            liveActivities[sid] = nil
+            LiveActivityState.shared.liveActivities[sid] = nil
             for old in existing {
-                let oldID = old.id
-                Task { @MainActor in
-                    for activity in Activity<MiniClawLiveActivityAttributes>.activities where activity.id == oldID {
-                        await activity.end(
-                            using: MiniClawLiveActivityAttributes.ContentState(
-                                sessionTitle: "", progressText: "已结束", phase: "完成"
-                            ),
-                            dismissalPolicy: .immediate
-                        )
-                    }
-                }
+            let oldID = old.id
+            Task { @MainActor in
+            for activity in Activity<MiniClawLiveActivityAttributes>.activities where activity.id == oldID {
+            await activity.end(
+            using: MiniClawLiveActivityAttributes.ContentState(
+            sessionTitle: "", progressText: L10n.l("ended"), phase: "completed"
+            ),
+            dismissalPolicy: .immediate
+            )
             }
+            }
+            }
+            }
+            startLiveActivity(sessionID: sessionID, title: title, icon: icon)
         }
-        startLiveActivity(sessionID: sessionID, title: title, icon: icon)
     }
 
     func agentDidProgress(_ text: String, sessionID: String?) async {
         guard let sid = sessionID else { return }
         await TaskPipController.shared.updateProgress(sessionID: sid, text: text)
-        await updateActivity(sessionID: sid) { s in
+        if #available(iOS 16.1, *) {
+            await updateActivity(sessionID: sid) { s in
             var c = s
             c.progressText = text
             c.timeText = Self.nowString()
-            c.phase = "运行"
+            c.phase = "running"
             c.status = "running"
             return c
+            }
         }
     }
 
     /// 刷新时间戳（每次进度/速度更新时顺带刷新标题行右侧时间）。
     func agentDidUpdateTime(sessionID: String?) async {
         guard let sid = sessionID else { return }
-        await updateActivity(sessionID: sid) { s in
+        if #available(iOS 16.1, *) {
+            await updateActivity(sessionID: sid) { s in
             var c = s
             c.timeText = Self.nowString()
             return c
+            }
         }
     }
 
@@ -278,12 +285,14 @@ final class BackgroundTaskController {
             let session = SessionManager.shared.session(id: uuid)
             let title = session?.title ?? "MiniClaw"
             let icon = session?.iconName ?? ChatSession.defaultIcon
+        if #available(iOS 16.1, *) {
             await BackgroundTaskController.shared.updateActivity(sessionID: sid) { s in
-                var c = s
-                c.sessionTitle = title
-                c.sessionIcon = icon
-                return c
+            var c = s
+            c.sessionTitle = title
+            c.sessionIcon = icon
+            return c
             }
+        }
         }
     }
 
@@ -299,21 +308,23 @@ final class BackgroundTaskController {
         //   end(content, dismissalPolicy: .after(5min))，由【系统】在「指定时间」或
         //   「结束后 4 小时」先到者移除 UI —— 不依赖 App 进程存活，前后台/被杀均生效。
         //   终态内容（最后回复/已完成）随 end 一并展示，无需先 update 再 end。
-        if let sid = sessionID, let act = liveActivities(forSessionID: sid).first {
+        if #available(iOS 16.1, *) {
+            if let sid = sessionID, let act = liveActivities(forSessionID: sid).first {
             var c = act.contentState
             // 完成态中间内容：展示 智能体最后回复（而非「已完成」），最右侧状态图标已显示完成状态。
             let finishedText: String
             if success, let reply = lastReply, !reply.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                finishedText = String(reply.prefix(300))
+            finishedText = String(reply.prefix(300))
             } else {
-                finishedText = success ? "已完成" : "已结束"
+            finishedText = success ? L10n.l("completed") : L10n.l("ended")
             }
             c.progressText = finishedText
-            c.phase = success ? "完成" : "失败"
+            c.phase = success ? "completed" : "failed"
             c.status = success ? "completed" : "failed"
             c.timeText = Self.nowString()
             await endLiveActivity(sessionID: sid, state: c,
-                                  dismissalPolicy: .after(Date().addingTimeInterval(Self.completionAutoEndDelay)))
+            dismissalPolicy: .after(Date().addingTimeInterval(Self.completionAutoEndDelay)))
+        }
         }
         sendCompletionNotificationIfEnabled(success: success, lastReply: lastReply, sessionID: sessionID.flatMap(UUID.init(uuidString:)))
     }
@@ -322,6 +333,7 @@ final class BackgroundTaskController {
 
     /// 启动会话 Live Activity。默认前台调用；快捷指令意图遵循 LiveActivityIntent 时，
     /// 在 perform() 内调用可获系统后台启动授权（官方唯一无 UI 后台启动路径）。
+    @available(iOS 16.1, *)
     func startLiveActivity(sessionID: String?, title: String, icon: String) {
         guard ActivityAuthorizationInfo().areActivitiesEnabled else { return }
         // 第一排 智能体名字：读取用户在「灵魂（人格）」设置里配置的名字，而非写死。
@@ -334,9 +346,9 @@ final class BackgroundTaskController {
         let state = MiniClawLiveActivityAttributes.ContentState(
             sessionIcon: icon,
             sessionTitle: title,
-            progressText: "思考中…",
+            progressText: L10n.l("thinking"),
             timeText: Self.nowString(),
-            phase: "运行",
+            phase: "running",
             status: "running"
         )
         do {
@@ -345,9 +357,9 @@ final class BackgroundTaskController {
                 contentState: state,
                 pushType: nil
             )
-            if let sid = sessionID { liveActivities[sid] = activity }
+            if let sid = sessionID { LiveActivityState.shared.liveActivities[sid] = activity }
         } catch {
-            AppLogger.shared.error("Live Activity 启动失败: \(error)", category: "BG")
+            AppLogger.shared.error(String(format: L10n.l("bg_liveactivity_failed"), String(describing: error)), category: "BG")
         }
     }
 
@@ -356,13 +368,14 @@ final class BackgroundTaskController {
     private static let completionAutoEndDelay: TimeInterval = 5 * 60
 
     /// 结束该系统会话下【所有】活动并清理缓存（state 为终态展示内容）。
+    @available(iOS 16.1, *)
     private func endLiveActivity(sessionID: String, state: MiniClawLiveActivityAttributes.ContentState, dismissalPolicy: ActivityUIDismissalPolicy) async {
         for act in liveActivities(forSessionID: sessionID) {
             await act.end(using: state, dismissalPolicy: dismissalPolicy)
             // 先收集再删除：遍历字典的同时 removeValue 是 Swift 未定义行为。
-            let staleKeys = liveActivities.keys.filter { liveActivities[$0]?.id == act.id }
+            let staleKeys = LiveActivityState.shared.liveActivities.keys.filter { LiveActivityState.shared.liveActivities[$0]?.id == act.id }
             for k in staleKeys {
-                liveActivities.removeValue(forKey: k)
+                LiveActivityState.shared.liveActivities.removeValue(forKey: k)
             }
         }
     }
@@ -371,12 +384,14 @@ final class BackgroundTaskController {
     /// 删除即终局：立即移除，不保留。
     func endSessionActivity(sessionID: String) {
         Task { @MainActor in
+        if #available(iOS 16.1, *) {
             let state = MiniClawLiveActivityAttributes.ContentState(
-                sessionTitle: "",
-                progressText: "已结束",
-                phase: "完成"
+            sessionTitle: "",
+            progressText: L10n.l("ended"),
+            phase: "completed"
             )
             await BackgroundTaskController.shared.endLiveActivity(sessionID: sessionID, state: state, dismissalPolicy: .immediate)
+        }
         }
     }
 
@@ -384,18 +399,21 @@ final class BackgroundTaskController {
     ///（单例内存表在重启后为空，但系统里可能仍挂着旧会话的活动）。
     func endAllLiveActivities() {
         Task { @MainActor in
+        if #available(iOS 16.1, *) {
             for activity in Activity<MiniClawLiveActivityAttributes>.activities {
-                await activity.end(
-                    using: MiniClawLiveActivityAttributes.ContentState(sessionTitle: "", progressText: "已结束", phase: "完成"),
-                    dismissalPolicy: .immediate
-                )
+            await activity.end(
+            using: MiniClawLiveActivityAttributes.ContentState(sessionTitle: "", progressText: L10n.l("ended"), phase: "completed"),
+            dismissalPolicy: .immediate
+            )
             }
-            BackgroundTaskController.shared.liveActivities.removeAll()
+            LiveActivityState.shared.liveActivities.removeAll()
+        }
         }
     }
 
     /// 字段级更新：读取活动当前 ContentState，套用 mutate 后整体更新。
     /// 避免「每次更新都重建整段状态」导致其它动态字段（标题/速度）被清掉。
+    @available(iOS 16.1, *)
     private func updateActivity(sessionID sid: String, mutate: @Sendable (MiniClawLiveActivityAttributes.ContentState) -> MiniClawLiveActivityAttributes.ContentState) async {
         guard let activity = liveActivities(forSessionID: sid).first else { return }
         let newState = mutate(activity.contentState)
@@ -415,14 +433,16 @@ final class BackgroundTaskController {
     func agentDidPause(sessionID: String?) {
         guard let sid = sessionID else { return }
         Task { @MainActor in
+        if #available(iOS 16.1, *) {
             await BackgroundTaskController.shared.updateActivity(sessionID: sid) { s in
-                var c = s
-                c.progressText = "已暂停"
-                c.timeText = Self.nowString()
-                c.phase = "运行"
-                c.status = "paused"
-                return c
+            var c = s
+            c.progressText = L10n.l("paused")
+            c.timeText = Self.nowString()
+            c.phase = "running"
+            c.status = "paused"
+            return c
             }
+        }
         }
     }
 
@@ -434,17 +454,19 @@ final class BackgroundTaskController {
             TaskPipController.shared.taskEnded(sessionID: sessionID)
         }
         Task { @MainActor in
+        if #available(iOS 16.1, *) {
             guard let act = BackgroundTaskController.shared.liveActivities(forSessionID: sid).first else { return }
             var c = act.contentState
-            c.progressText = "已停止"
+            c.progressText = L10n.l("stopped")
             c.timeText = BackgroundTaskController.nowString()
-            c.phase = "运行"
+            c.phase = "running"
             c.status = "stopped"
             await BackgroundTaskController.shared.endLiveActivity(
-                sessionID: sid,
-                state: c,
-                dismissalPolicy: .after(Date().addingTimeInterval(BackgroundTaskController.completionAutoEndDelay))
+            sessionID: sid,
+            state: c,
+            dismissalPolicy: .after(Date().addingTimeInterval(BackgroundTaskController.completionAutoEndDelay))
             )
+        }
         }
     }
 
@@ -452,13 +474,15 @@ final class BackgroundTaskController {
     func agentDidInterrupt(sessionID: String?) {
         guard let sid = sessionID else { return }
         Task { @MainActor in
-            await BackgroundTaskController.shared.updateActivity(sessionID: sid) { s in
-                var c = s
-                c.progressText = "已中断"
-                c.timeText = Self.nowString()
-                c.phase = "失败"
-                c.status = "interrupted"
-                return c
+            if #available(iOS 16.1, *) {
+                await BackgroundTaskController.shared.updateActivity(sessionID: sid) { s in
+                    var c = s
+                    c.progressText = L10n.l("interrupted")
+                    c.timeText = Self.nowString()
+                    c.phase = "failed"
+                    c.status = "interrupted"
+                    return c
+                }
             }
         }
     }
@@ -471,7 +495,7 @@ final class BackgroundTaskController {
     func armForIntent(sessionID: String?) {
         let bg = SettingsStore.shared.settings.background
         guard bg.backgroundRun else {
-            AppLogger.shared.info("[Intent] 保活跳过：后台运行未开启（headless 任务可能被系统挂起）", category: "Intent")
+            AppLogger.shared.info(L10n.l("intent_keepalive_skipped"), category: "Intent")
             return
         }
         startLocationIfNeeded()
@@ -481,7 +505,7 @@ final class BackgroundTaskController {
                 AgentRuntimeStatus.shared.setActive(title: title)
             }
         }
-        AppLogger.shared.info("[Intent] 保活已启动（eager arm）", category: "Intent")
+        AppLogger.shared.info(L10n.l("intent_keepalive_armed"), category: "Intent")
     }
 
     private func startLocationIfNeeded() {
@@ -505,4 +529,15 @@ final class BackgroundTaskController {
             await NotificationManager.shared.notifyTaskComplete(title: title, success: success, lastReply: lastReply, sessionID: sessionID)
         }
     }
+}
+
+
+/// Live Activity 句柄表的可用性容器(iOS16 兼容 2026-08-12):
+/// ActivityKit 是 iOS16.1+ 框架,存储属性不能标 @available,
+/// 故把句柄表收进本 @available 单例;16.0 设备上 LiveActivityState.shared 不可访问,
+/// 所有访问点都在 if #available(iOS 16.1, *) 守卫内,不会触达。
+@available(iOS 16.1, *)
+private final class LiveActivityState: @unchecked Sendable {
+    static let shared = LiveActivityState()
+    var liveActivities: [String: Activity<MiniClawLiveActivityAttributes>] = [:]
 }

@@ -13,7 +13,7 @@ enum CloseSubagentTool {
         properties: [
             "subagent_id": JSONSchema.JSONProperty(
                 type: "string",
-                description: "必填：要关闭的子代理 id（来自 dispatch_subagent 返回结果或「当前会话的子代理」清单）。关闭后其会话与头像移除、上下文释放，不可再复用。"
+                description: L10n.l("param_close_subagent_id_required")
             )
         ],
         required: ["subagent_id"]

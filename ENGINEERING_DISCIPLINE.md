@@ -38,8 +38,8 @@ MiniClaw/
 | S3 | **entitlements 文件是最高敏感配置**——CloudKit / iCloud / Push 等能力的增删必须关联模型适配方案，不可单独改 | 2026-08-03 崩溃教训 |
 | S4 | **第三方源码严格只放 `第三方源码/`**——禁止在主代码目录放 vendored 二进制、副本或框架；用 project.yml 相对路径引用（`$(SRCROOT)/../第三方源码/...`），项目自己的桥接包装收敛在显式桥接层 | 2026-08-04 用户纪律 |
 | S5 | **一切 bug 修复必须从源头解决，禁止补丁/兼容/特例分支治标**——判定：Q1 追问过上游机制？Q2 同类问题在别处不再犯？Q3 减少而非新增特例分支？Q4 符合架构分层？防御性编程（针对外部不可控因素的明确架构边界）不算补丁 | 2026-08-04 用户纪律 |
-| S6 | **项目内不出现任何其他作者的项目/产品名**（如 OpenMinis、OmniBot、Claude Code 等）——注释、文档、UI 文案、资源文件一律不得引用，防止侵权与影响上架；厂商/模型名（OpenAI、Claude、Gemini、Grok 等）是功能标识，必须保留。检查方式：`grep -rn "OpenMinis\|OmniBot\|Claude Code"` 应无命中 | 2026-08-04 用户纪律 |
-| S7 | **命名一律使用本产品（MiniClaw / miniclaw）命名**——工具名、参数名、标识符、序列化 key 不得使用任何第三方名或其变体（如 minis*、openai-* 前缀）；新命名以 `MiniClaw`/`miniclaw` 为前缀（例：`miniclawConfigWrite`、`MiniClawOpenTool`）。厂商适配文件名（OpenAIProviderAdapter 等）与 OAuth 服务名（OpenAIOAuthManager）是功能标识例外 | 2026-08-04 用户纪律 |
+| S6 | **项目内不出现任何其他作者的项目/产品名**——注释、文档、UI 文案、资源文件一律不得引用，防止侵权与影响上架；厂商/模型名（OpenAI、Claude、Gemini、Grok 等）是功能标识，必须保留。检查方式：按团队记忆中的禁用词清单全库检索应无命中 | 2026-08-04 用户纪律 |
+| S7 | **命名一律使用本产品（MiniClaw / miniclaw）命名**——工具名、参数名、标识符、序列化 key 不得使用任何第三方名或其变体（任何非本产品前缀，含曾用/上游项目名）；新命名以 `MiniClaw`/`miniclaw` 为前缀（例：`miniclawConfigWrite`、`MiniClawOpenTool`）。厂商适配文件名（OpenAIProviderAdapter 等）与 OAuth 服务名（OpenAIOAuthManager）是功能标识例外 | 2026-08-04 用户纪律 |
 
 ---
 

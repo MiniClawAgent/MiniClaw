@@ -1,0 +1,31 @@
+/* Usage descriptions (localized) */
+
+"NFCReaderUsageDescription" = "MiniClaw 需要使用 NFC 读取标签信息。";
+
+"NSAppleMusicUsageDescription" = "MiniClaw 需要访问媒体库以播放和控制音乐。";
+
+"NSBluetoothAlwaysUsageDescription" = "MiniClaw 需要使用蓝牙来扫描和连接附近的蓝牙设备。";
+
+"NSCalendarsUsageDescription" = "MiniClaw 需要访问日历以管理和创建日程事件。";
+
+"NSCameraUsageDescription" = "MiniClaw 需要使用相机拍照或扫描二维码。";
+
+"NSHealthShareUsageDescription" = "MiniClaw 需要读取健康数据以提供健康分析和建议。";
+
+"NSHealthUpdateUsageDescription" = "MiniClaw 需要写入健康数据以记录您的健康信息。";
+
+"NSHomeKitUsageDescription" = "MiniClaw 需要访问 HomeKit 以控制您的智能家居设备。";
+
+"NSLocalNetworkUsageDescription" = "MiniClaw 需要访问本地网络以发现和连接本地设备与服务。";
+
+"NSLocationWhenInUseUsageDescription" = "MiniClaw 需要使用您的位置信息来提供基于位置的服务，如天气查询和定位相关功能。";
+
+"NSMicrophoneUsageDescription" = "MiniClaw 需要使用麦克风进行语音输入和语音识别。";
+
+"NSPhotoLibraryUsageDescription" = "MiniClaw 需要访问照片库以读取和保存图片。";
+
+"NSRemindersUsageDescription" = "MiniClaw 需要访问提醒事项以创建和管理提醒。";
+
+"NSSpeechRecognitionUsageDescription" = "MiniClaw 需要使用语音识别将您的语音转换为文字。";
+
+"NSUserNotificationsUsageDescription" = "MiniClaw 需要发送通知来提醒您重要信息。";

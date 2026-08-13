@@ -21,7 +21,7 @@ enum WidgetDeepLink {
         comps.host = "task"
         comps.queryItems = [
             URLQueryItem(name: "prompt", value: trimmed),
-            URLQueryItem(name: "agent", value: "小组件任务")
+            URLQueryItem(name: "agent", value: String(localized: "widget_task_agent"))
         ]
         return comps.url ?? newChat
     }
@@ -78,7 +78,8 @@ private struct QuickActionsView: View {
         switch family {
         case .systemSmall:
             smallBody
-                .containerBackground(.fill.tertiary, for: .widget)
+                // iOS16 兼容:containerBackground 是 iOS17 API,16 下用系统默认背景。
+                .modifier(WidgetBackgroundCompat())
                 .widgetURL(WidgetDeepLink.newChat)
         case .accessoryCircular:
             ZStack {
@@ -92,14 +93,15 @@ private struct QuickActionsView: View {
                 Image(systemName: "sparkles")
                 VStack(alignment: .leading, spacing: 1) {
                     Text("MiniClaw").font(.headline)
-                    Text("新建对话").font(.caption)
+                    Text("new_chat").font(.caption)
                 }
                 Spacer(minLength: 0)
             }
             .widgetURL(WidgetDeepLink.newChat)
         default:
             mediumBody
-                .containerBackground(.fill.tertiary, for: .widget)
+                // iOS16 兼容:containerBackground 是 iOS17 API,16 下用系统默认背景。
+                .modifier(WidgetBackgroundCompat())
         }
     }
 
@@ -117,9 +119,9 @@ private struct QuickActionsView: View {
             Image(systemName: "plus.bubble.fill")
                 .font(.system(size: 30, weight: .medium))
                 .foregroundStyle(.tint)
-            Text("新建对话")
+            Text("new_chat")
                 .font(.system(size: 14, weight: .semibold))
-            Text("点按直接开始一段新会话")
+            Text("widget_new_chat_hint")
                 .font(.system(size: 10))
                 .foregroundStyle(.secondary)
                 .lineLimit(2)
@@ -136,19 +138,19 @@ private struct QuickActionsView: View {
                 Text("MiniClaw")
                     .font(.system(size: 12, weight: .semibold))
                 Spacer(minLength: 0)
-                Text("快捷入口")
+                Text("quick_actions")
                     .font(.system(size: 10))
                     .foregroundStyle(.secondary)
             }
             HStack(spacing: 8) {
                 Link(destination: WidgetDeepLink.newChat) {
-                    ActionTile(icon: "plus.bubble.fill", title: "新建对话", tint: .blue)
+                    ActionTile(icon: "plus.bubble.fill", title: String(localized: "new_chat"), tint: .blue)
                 }
                 Link(destination: WidgetDeepLink.terminal) {
-                    ActionTile(icon: "terminal.fill", title: "终端", tint: .green)
+                    ActionTile(icon: "terminal.fill", title: String(localized: "terminal"), tint: .green)
                 }
                 Link(destination: WidgetDeepLink.settings) {
-                    ActionTile(icon: "gearshape.fill", title: "设置", tint: .orange)
+                    ActionTile(icon: "gearshape.fill", title: String(localized: "settings"), tint: .orange)
                 }
             }
             Spacer(minLength: 0)
@@ -162,8 +164,8 @@ struct MiniClawQuickActionsWidget: Widget {
         StaticConfiguration(kind: "MiniClawQuickActions", provider: QuickActionsProvider()) { entry in
             QuickActionsView(entry: entry)
         }
-        .configurationDisplayName("MiniClaw 快捷入口")
-        .description("一步进入新对话、终端或设置。")
+        .configurationDisplayName("widget_quick_actions_name")
+        .description("widget_quick_actions_desc")
         .supportedFamilies([.systemSmall, .systemMedium, .accessoryCircular, .accessoryRectangular])
     }
 }
@@ -171,31 +173,33 @@ struct MiniClawQuickActionsWidget: Widget {
 // MARK: - 一键派任务小组件（可配置 prompt）
 
 /// 长按小组件「编辑」即可填写常用指令；点按把它作为任务直接派给智能体。
+@available(iOS 17.0, *)
 struct QuickTaskConfigurationIntent: WidgetConfigurationIntent {
-    static let title: LocalizedStringResource = "一键任务"
-    static let description = IntentDescription("配置一句常用指令，点按小组件即可直接派发给 MiniClaw 执行。")
+    static let title: LocalizedStringResource = "quick_task"
+    static let description = IntentDescription("quick_task_config_desc")
 
-    @Parameter(title: "标题", default: "一键任务")
+    @Parameter(title: "label_title", default: "一键任务")
     var label: String
 
-    @Parameter(title: "指令内容", default: "总结我今天的待办并给出优先级建议")
+    @Parameter(title: "prompt_title", default: "总结我今天的待办并给出优先级建议")
     var prompt: String
 
-    @Parameter(title: "图标", default: .bolt)
+    @Parameter(title: "symbol_title", default: .bolt)
     var symbol: QuickTaskSymbol
 }
 
 /// 可选图标（AppEnum 才能出现在小组件配置面板里）。
+@available(iOS 17.0, *)
 enum QuickTaskSymbol: String, AppEnum {
     case bolt, checklist, doc, brain, terminal
 
-    static let typeDisplayRepresentation = TypeDisplayRepresentation(name: "图标")
+    static let typeDisplayRepresentation = TypeDisplayRepresentation(name: "symbol_title")
     static let caseDisplayRepresentations: [QuickTaskSymbol: DisplayRepresentation] = [
-        .bolt: "闪电",
-        .checklist: "清单",
-        .doc: "文稿",
-        .brain: "思考",
-        .terminal: "终端"
+        .bolt: "symbol_bolt",
+        .checklist: "symbol_checklist",
+        .doc: "symbol_doc",
+        .brain: "symbol_brain",
+        .terminal: "symbol_terminal"
     ]
 
     var systemName: String {
@@ -209,6 +213,7 @@ enum QuickTaskSymbol: String, AppEnum {
     }
 }
 
+@available(iOS 17.0, *)
 private struct QuickTaskEntry: TimelineEntry {
     let date: Date
     let label: String
@@ -216,9 +221,10 @@ private struct QuickTaskEntry: TimelineEntry {
     let symbol: String
 }
 
+@available(iOS 17.0, *)
 private struct QuickTaskProvider: AppIntentTimelineProvider {
     func placeholder(in context: Context) -> QuickTaskEntry {
-        QuickTaskEntry(date: Date(), label: "一键任务", prompt: "", symbol: "bolt.fill")
+        QuickTaskEntry(date: Date(), label: String(localized: "quick_task"), prompt: "", symbol: "bolt.fill")
     }
 
     func snapshot(for configuration: QuickTaskConfigurationIntent, in context: Context) async -> QuickTaskEntry {
@@ -234,6 +240,7 @@ private struct QuickTaskProvider: AppIntentTimelineProvider {
     }
 }
 
+@available(iOS 17.0, *)
 private struct QuickTaskView: View {
     @Environment(\.widgetFamily) private var family
     let entry: QuickTaskEntry
@@ -267,14 +274,14 @@ private struct QuickTaskView: View {
                             .lineLimit(1)
                         Spacer(minLength: 0)
                     }
-                    Text(entry.prompt.isEmpty ? "长按编辑，填入常用指令" : entry.prompt)
+                    Text(entry.prompt.isEmpty ? String(localized: "quick_task_edit_hint") : entry.prompt)
                         .font(.system(size: 12))
                         .foregroundStyle(.secondary)
                         .lineLimit(family == .systemSmall ? 4 : 2)
                     Spacer(minLength: 0)
                     HStack(spacing: 4) {
                         Image(systemName: "paperplane.fill").font(.system(size: 10))
-                        Text("点按派发").font(.system(size: 10, weight: .medium))
+                        Text("quick_task_dispatch").font(.system(size: 10, weight: .medium))
                     }
                     .foregroundStyle(.tint)
                 }
@@ -286,6 +293,7 @@ private struct QuickTaskView: View {
     }
 }
 
+@available(iOS 17.0, *)
 struct MiniClawQuickTaskWidget: Widget {
     var body: some WidgetConfiguration {
         AppIntentConfiguration(
@@ -295,8 +303,21 @@ struct MiniClawQuickTaskWidget: Widget {
         ) { entry in
             QuickTaskView(entry: entry)
         }
-        .configurationDisplayName("MiniClaw 一键任务")
-        .description("把一句常用指令固定到桌面，点按直接派给智能体执行。")
+        .configurationDisplayName("widget_quick_task_name")
+        .description("widget_quick_task_desc")
         .supportedFamilies([.systemSmall, .systemMedium, .accessoryCircular, .accessoryRectangular])
+    }
+}
+
+
+/// iOS16 兼容:containerBackground(_:for:) 是 iOS17 API。
+/// 16 下保持系统默认 widget 背景(视觉一致,系统提供的标准背景)。
+private struct WidgetBackgroundCompat: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(iOS 17.0, *) {
+            content.containerBackground(.fill.tertiary, for: .widget)
+        } else {
+            content
+        }
     }
 }

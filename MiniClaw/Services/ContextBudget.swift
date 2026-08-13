@@ -440,11 +440,10 @@ final class ContextCalibrator: @unchecked Sendable {
 
 /// 各会话最新的上下文占用快照。引擎写入、UI 读取，避免占用率只在有活跃 runtime 时才存在。
 @MainActor
-@Observable
-final class ContextUsageStore {
+final class ContextUsageStore: ObservableObject {
     static let shared = ContextUsageStore()
 
-    private(set) var snapshots: [UUID: ContextUsageSnapshot] = [:]
+    @Published private(set) var snapshots: [UUID: ContextUsageSnapshot] = [:]
 
     private init() {}
 

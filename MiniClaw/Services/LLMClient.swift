@@ -1452,7 +1452,9 @@ final class LLMClient: @unchecked Sendable {
     static func geminiSchema(from schema: JSONSchema) -> GeminiSchema {
         var props: [String: GeminiSchema]?
         if let p = schema.properties, !p.isEmpty {
-            props = Dictionary(uniqueKeysWithValues: p.map { (k, v) in (k, geminiSchema(fromProp: v)) })
+            var built: [String: GeminiSchema] = [:]
+            for (k, v) in p { built[k] = geminiSchema(fromProp: v) }
+            props = built
         }
         return GeminiSchema(
             type: schema.type.uppercased(),
@@ -1468,9 +1470,10 @@ final class LLMClient: @unchecked Sendable {
         var items: GeminiSchema?
         if let itemSchema = prop.items { items = geminiSchema(from: itemSchema) }
         let properties = prop.properties.map { values in
-            Dictionary(uniqueKeysWithValues: values.map { key, value in
+            // 2026-08-12 修复:重复 key 用 uniquingKeysWith 避免崩溃(全维度审计)。
+            Dictionary(values.map { key, value in
                 (key, geminiSchema(fromProp: value))
-            })
+            }, uniquingKeysWith: { _, new in new })
         }
         return GeminiSchema(
             type: prop.type.uppercased(),
@@ -1494,13 +1497,13 @@ enum LLMError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .encodingFailed: return "请求体编码失败"
-        case .decodingFailed: return "服务商响应无法解析"
-        case .noData: return "服务商没有返回有效内容"
-        case .invalidResponse(let statusCode): return "服务商返回 HTTP \(statusCode)"
-        case .rateLimited: return "服务商请求频率受限"
+        case .encodingFailed: return L10n.l("llm_encoding_failed")
+        case .decodingFailed: return L10n.l("llm_decoding_failed")
+        case .noData: return L10n.l("llm_no_data")
+        case .invalidResponse(let statusCode): return String(format: L10n.l("llm_invalid_response"), statusCode)
+        case .rateLimited: return L10n.l("llm_rate_limited")
         case .providerRejected(let message): return message
-        case .streamTruncated: return "回复流被截断（未收到服务端完成事件）"
+        case .streamTruncated: return L10n.l("llm_stream_truncated")
         }
     }
 }

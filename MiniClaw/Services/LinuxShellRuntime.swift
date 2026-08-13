@@ -150,7 +150,7 @@ final class LinuxShellRuntime: ShellRuntime, @unchecked Sendable {
             let deployed = try deployedRootfsURL()
             guard let bundled = Bundle.main.url(forResource: "rootfs", withExtension: nil),
                   validateRootfs(at: bundled) else {
-                throw ShellError.invalidRootfs("App Bundle 内 rootfs 缺少 /bin/sh 执行链")
+                throw ShellError.invalidRootfs(L10n.l("shell_rootfs_missing_bin_sh"))
             }
 
             if validateRootfs(at: deployed) {
@@ -165,7 +165,7 @@ final class LinuxShellRuntime: ShellRuntime, @unchecked Sendable {
             do {
                 try fm.copyItem(at: bundled, to: staging)
                 guard validateRootfs(at: staging) else {
-                    throw ShellError.invalidRootfs("rootfs 临时副本完整性校验失败")
+                    throw ShellError.invalidRootfs(L10n.l("shell_rootfs_staging_invalid"))
                 }
                 ensureResolvConf(at: staging)
 
@@ -517,10 +517,10 @@ enum ShellError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .runtimeNotReady: return "iSH Shell 运行时尚未就绪"
-        case .invalidRootfs(let reason): return "iSH rootfs 无效：\(reason)"
-        case .launchFailed(let code): return "Shell 进程启动失败 (code: \(code))"
-        case .timeout: return "Shell 命令执行超时"
+        case .runtimeNotReady: return L10n.l("shell_runtime_not_ready")
+        case .invalidRootfs(let reason): return String(format: L10n.l("shell_invalid_rootfs"), reason)
+        case .launchFailed(let code): return String(format: L10n.l("shell_launch_failed"), code)
+        case .timeout: return L10n.l("shell_timeout")
         }
     }
 }

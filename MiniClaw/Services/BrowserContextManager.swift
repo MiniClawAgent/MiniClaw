@@ -13,8 +13,14 @@ final class BrowserContextManager {
     /// WKWebsiteDataStore(forIdentifier:) 官方 API（iOS 9+），数据存于 App 沙盒，
     /// 按 identifier 隔离；固定 ID 保证跨启动指向同一份数据。
     static let sharedDataStore: WKWebsiteDataStore = {
-        let fixedID = UUID(uuidString: "B0A1E57C-0000-4000-8000-00000000CAFE")!
-        return WKWebsiteDataStore(forIdentifier: fixedID)
+        // iOS16 兼容(2026-08-12):WKWebsiteDataStore(forIdentifier:) 是 iOS17 API,
+        // 16 下回退全局持久 dataStore(cookie/localStorage 同样落盘,仅少一层 identifier 隔离)。
+        if #available(iOS 17.0, *) {
+            let fixedID = UUID(uuidString: "B0A1E57C-0000-4000-8000-00000000CAFE")!
+            return WKWebsiteDataStore(forIdentifier: fixedID)
+        } else {
+            return WKWebsiteDataStore.default()
+        }
     }()
 
     private var contexts: [UUID: BrowserContext] = [:]

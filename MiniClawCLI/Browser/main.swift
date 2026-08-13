@@ -1,6 +1,6 @@
 import Foundation
 
-// MARK: - minis-browser-cli — 浏览器控制专用 CLI（Layer 2）
+// MARK: - miniclaw-browser-cli — 浏览器控制专用 CLI（Layer 2）
 //
 // 只读/可达性检查可无头完成；
 // 需要 WKWebView 上下文的交互控制（render/screenshot/click/fill）经 SecurityGate 路由宿主 App。
@@ -64,10 +64,10 @@ func settings() -> Int32 {
 
 func usage() {
     print("""
-    minis-browser-cli — 浏览器控制专用 CLI（Layer 2）
+    miniclaw-browser-cli — 浏览器控制专用 CLI（Layer 2）
 
     用法:
-      minis-browser-cli <command> [参数]
+      miniclaw-browser-cli <command> [参数]
 
     命令:
       open <url>        无头可达性检查（curl 探活，不渲染）

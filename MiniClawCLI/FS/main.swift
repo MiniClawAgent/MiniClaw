@@ -1,6 +1,6 @@
 import Foundation
 
-// MARK: - minis-fs-cli — 文件与 Shell 专用 CLI（Layer 2）
+// MARK: - miniclaw-fs-cli — 文件与 Shell 专用 CLI（Layer 2）
 //
 // 普通文件读/写/编辑可无头完成（受 /var/MiniClaw/ 边界约束）；
 // Shell 执行为高风险操作，经 SecurityGate 标记需宿主 App 确认。
@@ -192,10 +192,10 @@ func shell(command: String?, args: Args) -> Int32 {
 
 func usage() {
     print("""
-    minis-fs-cli — 文件与 Shell 专用 CLI（Layer 2）
+    miniclaw-fs-cli — 文件与 Shell 专用 CLI（Layer 2）
 
     用法:
-      minis-fs-cli <command> [参数]
+      miniclaw-fs-cli <command> [参数]
 
     命令:
       read <path> [--offset N] [--limit N] [--tail N]

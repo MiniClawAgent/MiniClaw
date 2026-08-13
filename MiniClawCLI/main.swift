@@ -48,7 +48,7 @@ func printUsage() {
     MiniClaw-sessions-cli — 会话数据库 CLI（方案1：直接读模拟器 SwiftData 存储）
 
     用法:
-      minis-sessions-cli [--store <path>] <command> [参数]
+      miniclaw-sessions-cli [--store <path>] <command> [参数]
 
     命令:
       list [--limit N]                     列出会话（默认全部）

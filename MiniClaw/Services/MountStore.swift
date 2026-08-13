@@ -12,7 +12,7 @@ import Foundation
 ///   显式开启「允许写入」，开启后 Agent 可通过 `file_write` / `file_edit` 把内容写到外部真实文件夹
 ///   （写入经 `FileSystemManager.validateWrite` 校验该挂载 `isWritable` 且在授权范围内）。
 final class MountStore: @unchecked Sendable {
-    nonisolated(unsafe) static let shared = MountStore()
+    static let shared = MountStore()
 
     private let queue = DispatchQueue(label: "com.miniclaw.mountstore")
     private var mounts: [MountPoint] = []
@@ -93,7 +93,7 @@ final class MountStore: @unchecked Sendable {
             throw MountError.bookmarkFailed(error.localizedDescription)
         }
 
-        return try queue.sync {
+        return queue.sync {
             loadLocked()
                 // 诊断：刚创建的书签能否立即解析？能→说明书签本身 OK（后续失败多为 JSON 存取 / 进程生命周期问题）；
             // 不能→说明创建环节就有问题（iOS 安全范围 / fileImporter URL 处置）。
@@ -330,7 +330,7 @@ enum MountError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .bookmarkFailed(let msg): return "创建文件夹访问书签失败：\(msg)"
+        case .bookmarkFailed(let msg): return String(format: L10n.l("mount_bookmark_failed"), msg)
         }
     }
 }

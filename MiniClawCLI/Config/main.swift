@@ -1,6 +1,6 @@
 import Foundation
 
-// MARK: - minis-config-cli — 配置管理专用 CLI（Layer 2）
+// MARK: - miniclaw-config-cli — 配置管理专用 CLI（Layer 2）
 //
 // 管理 providers.json（服务商配置，App 通过 ProviderFileStore 持久化）。
 // 普通读取 / 列出 / 非敏感字段写 可无头完成；
@@ -180,10 +180,10 @@ func coerce(_ raw: String, existing: Any?) -> Any {
 
 func usage() {
     print("""
-    minis-config-cli — 配置管理专用 CLI（Layer 2）
+    miniclaw-config-cli — 配置管理专用 CLI（Layer 2）
 
     用法:
-      minis-config-cli <command> [参数]
+      miniclaw-config-cli <command> [参数]
 
     命令:
       list                                 列出所有服务商

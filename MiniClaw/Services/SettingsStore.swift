@@ -27,6 +27,16 @@ final class SettingsStore: ObservableObject {
     private let auditURL: URL
     private let maxAuditEntries = 1000
 
+    /// 主线程配置快照：后台线程（工具执行 / 记忆整理 / 复盘）读设置统一走这里。
+    /// 直接读 `settings` 会与主线程写（设置页改动）竞争——`@Published var` 无锁，
+    /// 数组等引用类型字段的写时复制计数竞争可产生悬垂对象（2026-08-13 真机
+    /// EXC_BAD_ACCESS：offloadIfLarge → writeFile 崩溃，根因即后台线程裸读 envvars）。
+    /// 标记 @MainActor：调用方 await 时自动 hop 到主线程执行，避免闭包捕获 self。
+    @MainActor
+    func snapshot() -> AppSettings {
+        settings
+    }
+
     /// 落盘串行队列（线程治理 2026-08-09）：编码+写盘移后台，主线程只做内存态变更。
     private let ioQueue = DispatchQueue(label: "settings-store-io")
 
@@ -42,9 +52,7 @@ final class SettingsStore: ObservableObject {
         self.auditURL = configDir.appendingPathComponent("settings_audit.json")
         // 优先 config 新路径；缺失时回退根层旧文件（兼容迁移前布局）。
         self.settings = SettingsStore.loadSettings(from: fileURL)
-            ?? SettingsStore.loadSettings(from: legacyFileURL)
         self.auditLog = SettingsStore.loadAudit(from: auditURL)
-            ?? SettingsStore.loadAudit(from: legacyAuditURL)
         // 把根层旧文件搬到 config/（config 已存在则跳过，避免覆盖新数据）。
         SettingsStore.migrateIfNeeded(from: legacyFileURL, to: fileURL)
         SettingsStore.migrateIfNeeded(from: legacyAuditURL, to: auditURL)

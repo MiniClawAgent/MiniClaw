@@ -18,12 +18,12 @@ struct MiniClawOpenTool: AgentTool {
         type: "function",
         function: ToolSchema.FunctionDef(
             name: "miniclaw-open",
-            description: "内部路由：打开文件预览、浏览器、设置页面等。",
+            description: L10n.l("internal_routing_desc"),
             parameters: JSONSchema(
                 type: "object",
                 properties: [
-                    "target": JSONSchema.JSONProperty(type: "string", description: "目标: browser / file:<path> / settings:<section>", enum: nil),
-                    "path": JSONSchema.JSONProperty(type: "string", description: "文件路径或 URL"),
+                    "target": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_route_target"), enum: nil),
+                    "path": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_file_path_or_url")),
                 ],
                 required: ["target"]
             )
@@ -32,12 +32,12 @@ struct MiniClawOpenTool: AgentTool {
 
     func execute(_ parameters: [String: Any]) async throws -> ToolResult {
         guard let target = parameters["target"] as? String else {
-            throw ToolError.invalidParameters("缺少 target 参数")
+            throw ToolError.invalidParameters(L10n.l("err_missing_target"))
         }
 
         if target == "browser" {
             let url = parameters["path"] as? String ?? "https://www.baidu.com"
-            return ToolResult(success: true, text: "✅ 请在浏览器中打开: \(url)")
+            return ToolResult(success: true, text: String(format: L10n.l("infra_open_url"), url))
         } else if target.hasPrefix("file:") {
             let rawPath = String(target.dropFirst(5))
             // 将 /var/MiniClaw/ 虚拟路径通过 FileSystemManager 解析为真实 host 路径
@@ -50,14 +50,14 @@ struct MiniClawOpenTool: AgentTool {
                 resolvedURL = URL(fileURLWithPath: rawPath)
             }
             guard let url = resolvedURL else {
-                return ToolResult(success: false, text: "无法解析路径: \(rawPath)")
+                return ToolResult(success: false, text: String(format: L10n.l("infra_path_parse_failed"), rawPath))
             }
             let exists = FileManager.default.fileExists(atPath: url.path)
-            return ToolResult(success: exists, text: exists ? "文件可访问: \(url.path)" : "文件不存在: \(rawPath)")
+            return ToolResult(success: exists, text: exists ? String(format: L10n.l("infra_file_accessible"), url.path) : String(format: L10n.l("infra_file_not_found"), rawPath))
         } else if target.hasPrefix("settings:") {
-            return ToolResult(success: true, text: "✅ 已导航到设置: \(target)")
+            return ToolResult(success: true, text: String(format: L10n.l("infra_navigated_settings"), target))
         } else {
-            return ToolResult(success: false, text: "不支持的目标: \(target)。支持: browser, file:<path>, settings:<section>")
+            return ToolResult(success: false, text: String(format: L10n.l("infra_unsupported_target"), target))
         }
     }
 }
@@ -70,15 +70,15 @@ struct MiniClawModelUseTool: AgentTool {
         type: "function",
         function: ToolSchema.FunctionDef(
             name: "miniclaw-model-use",
-            description: "调用其他 LLM 模型执行子任务。可选择不同提供商和模型。",
+            description: L10n.l("model_use_tool_desc"),
             parameters: JSONSchema(
                 type: "object",
                 properties: [
-                    "prompt": JSONSchema.JSONProperty(type: "string", description: "要发给子模型的提示词"),
-                    "model_id": JSONSchema.JSONProperty(type: "string", description: "模型 ID（使用已配置的模型组或单独模型名）"),
-                    "system_prompt": JSONSchema.JSONProperty(type: "string", description: "系统提示词（可选）"),
-                    "temperature": JSONSchema.JSONProperty(type: "number", description: "温度参数 0-2（可选）"),
-                    "max_tokens": JSONSchema.JSONProperty(type: "integer", description: "最大词元数（可选）"),
+                    "prompt": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_submodel_prompt")),
+                    "model_id": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_model_id")),
+                    "system_prompt": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_system_prompt")),
+                    "temperature": JSONSchema.JSONProperty(type: "number", description: L10n.l("param_temperature")),
+                    "max_tokens": JSONSchema.JSONProperty(type: "integer", description: L10n.l("param_max_tokens")),
                 ],
                 required: ["prompt"]
             )
@@ -86,7 +86,7 @@ struct MiniClawModelUseTool: AgentTool {
     )
 
     func execute(_ parameters: [String: Any]) async throws -> ToolResult {
-        return ToolResult(success: false, text: "🔴 model-use 尚未接入。子模型调用需要多提供商 API 编排。")
+        return ToolResult(success: false, text: L10n.l("not_implemented_model_use"))
     }
 }
 
@@ -106,14 +106,14 @@ struct MiniClawBrowserUseTool: AgentTool {
         type: "function",
         function: ToolSchema.FunctionDef(
             name: "miniclaw-browser-use",
-            description: "浏览器 CLI 封装。操作参数统一放入 params。navigate 必须提供 params.url；max_length 仅用于 get_readable。每次调用必须提供 activity，用6-16字中文描述当前具体业务行为。",
+            description: L10n.l("browser_tool_desc"),
             parameters: JSONSchema(
                 type: "object",
                 properties: [
-                    "activity": JSONSchema.JSONProperty(type: "string", description: "必填。工具指示器显示的具体行为，如：搜索世界杯赛程"),
-                    "action": JSONSchema.JSONProperty(type: "string", description: "浏览器操作: navigate, screenshot, click, type, get_text, scroll, execute_js, get_page_info, find_elements, hover, get_readable, set_user_agent, set_viewport, new_tab, close_tab, list_tabs, get_cookies, set_cookies, scroll_and_collect, wait_for_dom_stable, get_backbone, fetch"),
-                    "params": JSONSchema.JSONProperty(type: "object", description: "操作参数字典。navigate 必须包含 url；get_readable 才可包含 max_length"),
-                    "tab_index": JSONSchema.JSONProperty(type: "integer", description: "标签索引（0-based）"),
+                    "activity": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_skill_action_hint")),
+                    "action": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_browser_actions")),
+                    "params": JSONSchema.JSONProperty(type: "object", description: L10n.l("param_browser_params")),
+                    "tab_index": JSONSchema.JSONProperty(type: "integer", description: L10n.l("param_tab_index")),
                 ],
                 required: ["activity", "action"]
             )
@@ -142,13 +142,13 @@ struct MiniClawDebugTool: AgentTool {
         type: "function",
         function: ToolSchema.FunctionDef(
             name: "miniclaw-debug",
-            description: "Debug 工具：查看视图树、沙盒文件列表、内存日志、截屏、应用状态。",
+            description: L10n.l("debug_tool_desc"),
             parameters: JSONSchema(
                 type: "object",
                 properties: [
-                    "action": JSONSchema.JSONProperty(type: "string", description: "操作: view_tree/sandbox_files/memory_logs/screenshot/app_state/disk_usage", enum: ["view_tree", "sandbox_files", "memory_logs", "screenshot", "app_state", "disk_usage"]),
-                    "path": JSONSchema.JSONProperty(type: "string", description: "沙盒路径（用于 sandbox_files，默认 /var/MiniClaw/）"),
-                    "max_depth": JSONSchema.JSONProperty(type: "integer", description: "最大递归深度（默认 2）"),
+                    "action": JSONSchema.JSONProperty(type: "string", description: L10n.l("op_debug_actions"), enum: ["view_tree", "sandbox_files", "memory_logs", "screenshot", "app_state", "disk_usage"]),
+                    "path": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_sandbox_path")),
+                    "max_depth": JSONSchema.JSONProperty(type: "integer", description: L10n.l("param_max_recursion_depth")),
                 ],
                 required: ["action"]
             )
@@ -157,7 +157,7 @@ struct MiniClawDebugTool: AgentTool {
 
     func execute(_ parameters: [String: Any]) async throws -> ToolResult {
         guard let action = parameters["action"] as? String else {
-            throw ToolError.invalidParameters("缺少 action 参数")
+            throw ToolError.invalidParameters(L10n.l("err_missing_action"))
         }
 
         let fs = FileSystemManager.shared
@@ -176,7 +176,7 @@ struct MiniClawDebugTool: AgentTool {
             }
             let depth = (parameters["max_depth"] as? Int) ?? 2
             let listing = listDirectory(at: base, maxDepth: depth, currentDepth: 0, prefix: "")
-            return ToolResult(success: true, text: listing.isEmpty ? "(空目录)" : listing)
+            return ToolResult(success: true, text: listing.isEmpty ? L10n.l("empty_directory") : listing)
 
         case "memory_logs":
             let dir = fs.memoryDir
@@ -184,7 +184,7 @@ struct MiniClawDebugTool: AgentTool {
                 .filter { $0.pathExtension == "md" }
                 .sorted { $0.lastPathComponent > $1.lastPathComponent } ?? []
             if files.isEmpty {
-                return ToolResult(success: true, text: "(暂无记忆日志)")
+                return ToolResult(success: true, text: L10n.l("no_memory_logs"))
             }
             let list = files.map { url in
                 let size = (try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
@@ -196,8 +196,8 @@ struct MiniClawDebugTool: AgentTool {
             let root = fs.miniClawRoot
             let keys: [URLResourceKey] = [.volumeTotalCapacityKey, .volumeAvailableCapacityKey]
             let values = try? root.resourceValues(forKeys: Set(keys))
-            let total = values?.volumeTotalCapacity.map { ByteCountFormatter.string(fromByteCount: Int64($0), countStyle: .file) } ?? "未知"
-            let free = values?.volumeAvailableCapacity.map { ByteCountFormatter.string(fromByteCount: Int64($0), countStyle: .file) } ?? "未知"
+            let total = values?.volumeTotalCapacity.map { ByteCountFormatter.string(fromByteCount: Int64($0), countStyle: .file) } ?? L10n.l("unknown")
+            let free = values?.volumeAvailableCapacity.map { ByteCountFormatter.string(fromByteCount: Int64($0), countStyle: .file) } ?? L10n.l("unknown")
             return ToolResult(success: true, text: """
             MiniClaw 根目录: \(root.path)
             文件系统总容量: \(total)
@@ -206,20 +206,20 @@ struct MiniClawDebugTool: AgentTool {
 
         case "disk_usage":
             let usage = ByteCountFormatter.string(fromByteCount: Int64(diskUsage(at: fs.miniClawRoot)), countStyle: .file)
-            return ToolResult(success: true, text: "MiniClaw 目录占用量: \(usage)")
+            return ToolResult(success: true, text: String(format: L10n.l("infra_usage"), usage))
 
         case "view_tree", "screenshot":
-            return ToolResult(success: false, text: "🔴 \(action) 尚未实现。需要 UIApplication 级别的窗口访问。")
+            return ToolResult(success: false, text: String(format: L10n.l("infra_not_implemented"), action))
 
         default:
-            return ToolResult(success: false, text: "不支持的操作: \(action)")
+            return ToolResult(success: false, text: String(format: L10n.l("infra_unsupported_action"), action))
         }
     }
 
     private func listDirectory(at path: String, maxDepth: Int, currentDepth: Int, prefix: String) -> String {
         guard currentDepth <= maxDepth else { return "" }
         let fm = FileManager.default
-        guard let items = try? fm.contentsOfDirectory(atPath: path) else { return "\(prefix)(无法读取)" }
+        guard let items = try? fm.contentsOfDirectory(atPath: path) else { return String(format: L10n.l("infra_prefix_unreadable"), prefix) }
         var result = ""
         for item in items.sorted() {
             let full = (path as NSString).appendingPathComponent(item)

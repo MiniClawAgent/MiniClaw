@@ -1,11 +1,12 @@
 import SwiftUI
 import UIKit
 import UniformTypeIdentifiers
+import MiniClawKit
 
 // MARK: - Appearance Settings
 
 struct AppearanceSettingsView: View {
-    @Environment(AppState.self) private var appState
+    @EnvironmentObject private var appState: AppState
     /// 订阅界面语言单例：语言切换时 `current` 变化触发本视图重渲染，
     /// 让所有 `L10n.tr` 文案（含语言 Picker 的「语言」标签、footer 说明等）以新语言重新求值。
     @ObservedObject private var l10n = L10n.shared
@@ -13,7 +14,6 @@ struct AppearanceSettingsView: View {
     @State private var chat: ChatSettings = SettingsStore.shared.settings.chat
 
     var body: some View {
-        @Bindable var appState = appState
         List {
             Section {
                 ForEach(ColorSchemePreference.allCases, id: \.self) { pref in
@@ -40,9 +40,9 @@ struct AppearanceSettingsView: View {
                     }
                 }
             } header: {
-                Text(L10n.tr("外观模式"))
+                Text(L10n.l("appearance_mode"))
             } footer: {
-                Text(L10n.tr("选择浅色模式、深色模式或跟随系统设置。更改将立即生效。"))
+                Text(L10n.l("choose_light_dark_or_follow_system_settings_changes_apply_immediately"))
             }
 
             Section {
@@ -51,51 +51,51 @@ struct AppearanceSettingsView: View {
                         Text(lang.nativeName).tag(lang)
                     }
                 } label: {
-                    Text(L10n.tr("语言"))
+                    Text(L10n.l("language"))
                 }
             } footer: {
-                Text(L10n.tr("更改界面显示语言，立即生效。"))
+                Text(L10n.l("change_the_interface_display_language_applies_immediately"))
             }
 
             Section {
                 Picker(selection: $chat.codeBlockTheme) {
-                    Text(L10n.tr("跟随系统")).tag("auto")
-                    Text(L10n.tr("浅色")).tag("light")
-                    Text(L10n.tr("深色")).tag("dark")
+                    Text(L10n.l("system")).tag("auto")
+                    Text(L10n.l("light")).tag("light")
+                    Text(L10n.l("dark")).tag("dark")
                 } label: {
-                    Text(L10n.tr("代码块主题"))
+                    Text(L10n.l("code_block_theme"))
                 }
             } header: {
-                Text(L10n.tr("聊天显示"))
+                Text(L10n.l("chat_display"))
             }
         }
-        .navigationTitle(L10n.tr("外观"))
+        .navigationTitle(L10n.l("appearance"))
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
             selection = appState.colorSchemePreference
             // 重新进入时从持久化源同步聊天显示设置，避免缓存视图 @State 停留旧值。
             chat = SettingsStore.shared.settings.chat
         }
-        .onChange(of: chat) { _, _ in saveChat() }
+        .onChange(of: chat) { _ in saveChat() }
     }
 
     private func saveChat() {
-        SettingsStore.shared.set(chat, domain: .chat, summary: L10n.tr("修改外观-聊天显示"))
+        SettingsStore.shared.set(chat, domain: .chat, summary: L10n.l("edit_appearance_chat_display"))
     }
 
     private func title(for pref: ColorSchemePreference) -> String {
         switch pref {
-        case .system: return L10n.tr("跟随系统")
-        case .dark:   return L10n.tr("深色")
-        case .light:  return L10n.tr("浅色")
+        case .system: return L10n.l("system")
+        case .dark:   return L10n.l("dark")
+        case .light:  return L10n.l("light")
         }
     }
 
     private func subtitle(for pref: ColorSchemePreference) -> String {
         switch pref {
-        case .system: return L10n.tr("与 iOS 系统设置保持一致")
-        case .dark: return L10n.tr("始终使用深色界面")
-        case .light: return L10n.tr("始终使用浅色界面")
+        case .system: return L10n.l("match_ios_system_settings")
+        case .dark: return L10n.l("always_use_dark_interface")
+        case .light: return L10n.l("always_use_light_interface")
         }
     }
 }
@@ -114,9 +114,9 @@ struct SyncSettingsView: View {
     var body: some View {
         List {
             Section {
-                Toggle(L10n.tr("iCloud 同步"), isOn: $iCloudEnabled)
-                    .onChange(of: iCloudEnabled) { _, newValue in
-                        SettingsStore.shared.update(domain: .sync, summary: L10n.tr("修改同步设置")) { (config: inout SyncConfig) in
+                Toggle(L10n.l("icloud_sync"), isOn: $iCloudEnabled)
+                    .onChange(of: iCloudEnabled) { newValue in
+                        SettingsStore.shared.update(domain: .sync, summary: L10n.l("modify_sync_settings")) { (config: inout SyncConfig) in
                             config.iCloudEnabled = newValue
                         }
                         if newValue {
@@ -127,18 +127,18 @@ struct SyncSettingsView: View {
                         }
                     }
                 if iCloudEnabled {
-                    Toggle(L10n.tr("自动同步"), isOn: $autoSync)
+                    Toggle(L10n.l("auto_sync"), isOn: $autoSync)
                 }
             } footer: {
-                Text(L10n.tr("开启后，会话数据、配置和 Skill 将通过 iCloud 在设备间同步。"))
+                Text(L10n.l("when_enabled_session_data_configuration_and_skills_will_sync_across_devices_via_icloud"))
             }
 
             if iCloudEnabled {
                 // 账号状态
                 if !accountStatus.isEmpty {
-                    Section(L10n.tr("账号状态")) {
+                    Section(L10n.l("account_status")) {
                         HStack {
-                            Text(L10n.tr("iCloud 账号"))
+                            Text(L10n.l("icloud_account"))
                             Spacer()
                             Text(accountStatus)
                                 .foregroundStyle(.secondary)
@@ -147,7 +147,7 @@ struct SyncSettingsView: View {
                 }
 
                 // 同步内容
-                Section(L10n.tr("同步内容")) {
+                Section(L10n.l("sync_contents")) {
                     SyncContentRow(icon: "bubble.left.and.bubble.right.fill", title: "聊天记录")
                     SyncContentRow(icon: "server.rack", title: "模型供应商配置")
                     SyncContentRow(icon: "square.stack.3d.up.fill", title: "模型分组")
@@ -158,30 +158,30 @@ struct SyncSettingsView: View {
                 }
 
                 // 同步状态
-                Section(L10n.tr("同步状态")) {
+                Section(L10n.l("sync_status")) {
                     HStack {
-                        Text(L10n.tr("最近同步"))
+                        Text(L10n.l("last_synced"))
                         Spacer()
                         if let date = lastSyncDate {
                             Text(date, style: .relative)
                                 .foregroundStyle(.secondary)
                         } else {
-                            Text(L10n.tr("尚未同步"))
+                            Text(L10n.l("not_yet_synced"))
                                 .foregroundStyle(.secondary)
                         }
                     }
 
                     if totalSent > 0 || totalReceived > 0 {
                         HStack {
-                            Text(L10n.tr("已发送"))
+                            Text(L10n.l("sent"))
                             Spacer()
-                            Text(String(format: L10n.tr("%@ 条记录"), "\(totalSent)"))
+                            Text(String(format: L10n.l("records"), "\(totalSent)"))
                                 .foregroundStyle(.secondary)
                         }
                         HStack {
-                            Text(L10n.tr("已接收"))
+                            Text(L10n.l("received"))
                             Spacer()
-                            Text(String(format: L10n.tr("%@ 条记录"), "\(totalReceived)"))
+                            Text(String(format: L10n.l("records"), "\(totalReceived)"))
                                 .foregroundStyle(.secondary)
                         }
                     }
@@ -194,14 +194,14 @@ struct SyncSettingsView: View {
                                 ProgressView()
                                     .scaleEffect(0.8)
                             }
-                            Text(isSyncing ? L10n.tr("同步中...") : L10n.tr("立即同步"))
+                            Text(isSyncing ? L10n.l("syncing") : L10n.l("sync_now"))
                         }
                     }
                     .disabled(isSyncing)
                 }
             }
         }
-        .navigationTitle(L10n.tr("同步"))
+        .navigationTitle(L10n.l("sync"))
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
             let config = SettingsStore.shared.settings.sync
@@ -277,10 +277,10 @@ struct TokenUsageView: View {
                         Image(systemName: "chart.bar.xaxis")
                             .font(.system(size: 32))
                             .foregroundStyle(.secondary)
-                        Text(L10n.tr("还没有用量数据"))
+                        Text(L10n.l("no_usage_data_yet"))
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
-                        Text(L10n.tr("开始一次对话后，这里会累计你的词元消耗。"))
+                        Text(L10n.l("your_token_usage_accumulates_here_after_you_start_a_conversation"))
                             .font(.caption)
                             .foregroundStyle(.tertiary)
                             .multilineTextAlignment(.center)
@@ -290,18 +290,18 @@ struct TokenUsageView: View {
                 }
             }
 
-            Section(L10n.tr("总用量")) {
-                UsageRow(label: L10n.tr("总输入（含缓存）"), value: compact(totalInput), color: .blue)
-                UsageRow(label: L10n.tr("总输出"), value: compact(totalOutput), color: .green)
-                UsageRow(label: L10n.tr("缓存读取"), value: compact(totalCachedRead), color: .purple)
-                UsageRow(label: L10n.tr("缓存命中率"), value: hitRateString, color: .orange)
+            Section(L10n.l("total_usage")) {
+                UsageRow(label: L10n.l("total_input_incl_cache"), value: compact(totalInput), color: .blue)
+                UsageRow(label: L10n.l("total_output"), value: compact(totalOutput), color: .green)
+                UsageRow(label: L10n.l("cache_reads"), value: compact(totalCachedRead), color: .purple)
+                UsageRow(label: L10n.l("cache_hit_rate"), value: hitRateString, color: .orange)
             }
 
-            Section(L10n.tr("近期用量")) {
-                UsageRow(label: L10n.tr("今日输入"), value: compact(todayInput), color: .blue)
-                UsageRow(label: L10n.tr("今日输出"), value: compact(todayOutput), color: .green)
-                UsageRow(label: L10n.tr("本月输入"), value: compact(monthInput), color: .blue)
-                UsageRow(label: L10n.tr("本月输出"), value: compact(monthOutput), color: .green)
+            Section(L10n.l("recent_usage")) {
+                UsageRow(label: L10n.l("today_s_input"), value: compact(todayInput), color: .blue)
+                UsageRow(label: L10n.l("today_s_output"), value: compact(todayOutput), color: .green)
+                UsageRow(label: L10n.l("input_this_month"), value: compact(monthInput), color: .blue)
+                UsageRow(label: L10n.l("this_month_output"), value: compact(monthOutput), color: .green)
             }
 
             ForEach(providerSections) { section in
@@ -320,28 +320,28 @@ struct TokenUsageView: View {
             }
 
             Section {
-                Button(L10n.tr("重置统计"), role: .destructive) {
+                Button(L10n.l("reset_statistics"), role: .destructive) {
                     showResetConfirm = true
                 }
                 .frame(maxWidth: .infinity, alignment: .center)
                 .disabled(!TokenUsageTracker.hasData())
             } footer: {
-                Text(L10n.tr("数据来自实际对话的词元消耗，跨会话累计。缓存命中率 = 缓存读取 ÷ 总输入（含缓存）。部分服务商在流式响应中不上报用量时，将使用本地估算值（中文约 1.6 字/词元，英文约 4 字符/词元）。"))
+                Text(L10n.l("data_from_real_conversations_accumulated_across_sessions_cache_hit_rate_cache_reads_total_input_including_cache_when_a_provider_doesn_t_report_usage_in_streaming_responses_a_local_estimate_is_used_1_6_cjk_chars_token_4_latin_chars_token"))
                     .font(.caption)
             }
         }
-        .navigationTitle(L10n.tr("词元用量"))
+        .navigationTitle(L10n.l("token_usage_alias"))
         .navigationBarTitleDisplayMode(.inline)
         .onAppear(perform: reload)
         .refreshable { reload() }
-        .alert(L10n.tr("重置 Token 统计"), isPresented: $showResetConfirm) {
-            Button(L10n.tr("取消"), role: .cancel) {}
-            Button(L10n.tr("重置"), role: .destructive) {
+        .alert(L10n.l("reset_token_statistics"), isPresented: $showResetConfirm) {
+            Button(L10n.l("cancel"), role: .cancel) {}
+            Button(L10n.l("reset"), role: .destructive) {
                 TokenUsageTracker.reset()
                 reload()
             }
         } message: {
-            Text(L10n.tr("将清空全部 Token 用量记录（含总用量、厂商分类与近期统计），此操作不可撤销。"))
+            Text(L10n.l("this_will_clear_all_token_usage_records_including_total_usage_provider_breakdown_and_recent_stats_this_action_cannot_be_undone"))
         }
     }
 
@@ -379,7 +379,7 @@ struct TokenUsageView: View {
 
         var grouped: [String: [(name: String, input: Int, output: Int)]] = [:]
         for row in TokenUsageTracker.byModel() {
-            let provider = info[row.model]?.provider ?? L10n.tr("其他")
+            let provider = info[row.model]?.provider ?? L10n.l("others")
             let name = info[row.model]?.name ?? ModelConfig.titleCasedModelId(row.model)
             grouped[provider, default: []].append((name: name, input: row.input, output: row.output))
         }
@@ -452,29 +452,29 @@ struct SessionTokenUsageView: View {
                 }
                 if let d = data {
                     if contextSnapshot == nil || contextSnapshot?.tokens == 0 {
-                        Section(L10n.tr("上下文")) {
-                            UsageRow(label: L10n.tr("已使用上下文"), value: compact(d.input), color: .blue)
-                            UsageRow(label: L10n.tr("上下文窗口"), value: windowString, color: .gray)
+                        Section(L10n.l("context")) {
+                            UsageRow(label: L10n.l("context_used"), value: compact(d.input), color: .blue)
+                            UsageRow(label: L10n.l("context_window"), value: windowString, color: .gray)
                         }
                     }
 
-                    Section(L10n.tr("词元（会话总计）")) {
-                        UsageRow(label: L10n.tr("输入（含缓存）"), value: compact(d.input), color: .blue)
-                        UsageRow(label: L10n.tr("输出"), value: compact(d.output), color: .green)
+                    Section(L10n.l("tokens_session_total")) {
+                        UsageRow(label: L10n.l("input_with_cache"), value: compact(d.input), color: .blue)
+                        UsageRow(label: L10n.l("output"), value: compact(d.output), color: .green)
                     }
 
-                    Section(L10n.tr("缓存（会话总计）")) {
-                        UsageRow(label: L10n.tr("缓存读取"), value: compact(d.cachedRead ?? 0), color: .purple)
-                        UsageRow(label: L10n.tr("缓存写入"), value: compact(d.cachedWrite ?? 0), color: .indigo)
-                        UsageRow(label: L10n.tr("缓存命中率"), value: sessionHitRate(d), color: .orange)
+                    Section(L10n.l("cache_session_total")) {
+                        UsageRow(label: L10n.l("cache_reads"), value: compact(d.cachedRead ?? 0), color: .purple)
+                        UsageRow(label: L10n.l("cache_write"), value: compact(d.cachedWrite ?? 0), color: .indigo)
+                        UsageRow(label: L10n.l("cache_hit_rate"), value: sessionHitRate(d), color: .orange)
                     }
 
-                    Section(L10n.tr("速度")) {
-                        UsageRow(label: L10n.tr("输出速度（平均值）"), value: speedString(d), color: .teal)
+                    Section(L10n.l("speed")) {
+                        UsageRow(label: L10n.l("output_speed_average"), value: speedString(d), color: .teal)
                     }
 
-                    Section(L10n.tr("AGENT 循环")) {
-                        UsageRow(label: L10n.tr("总循环次数"), value: "\(d.agentLoops)", color: .red)
+                    Section(L10n.l("agent_loop")) {
+                        UsageRow(label: L10n.l("total_loop_count"), value: "\(d.agentLoops)", color: .red)
                     }
                 } else {
                     Section {
@@ -482,10 +482,10 @@ struct SessionTokenUsageView: View {
                             Image(systemName: "chart.bar.xaxis")
                                 .font(.system(size: 32))
                                 .foregroundStyle(.secondary)
-                            Text(L10n.tr("本会话还没有用量数据"))
+                            Text(L10n.l("no_usage_data_for_this_session_yet"))
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
-                            Text(L10n.tr("开始一次对话后，这里会累计本会话的 Token 消耗。"))
+                            Text(L10n.l("after_starting_a_conversation_this_will_accumulate_the_session_s_token_usage"))
                                 .font(.caption)
                                 .foregroundStyle(.tertiary)
                                 .multilineTextAlignment(.center)
@@ -495,11 +495,11 @@ struct SessionTokenUsageView: View {
                     }
                 }
             }
-            .navigationTitle(L10n.tr("会话 Token 用量"))
+            .navigationTitle(L10n.l("session_token_usage"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button(L10n.tr("完成")) { dismiss() }
+                    Button(L10n.l("done")) { dismiss() }
                 }
             }
             .onAppear(perform: reload)
@@ -512,33 +512,33 @@ struct SessionTokenUsageView: View {
     private func contextSection(_ s: ContextUsageSnapshot) -> some View {
         Section {
             UsageRow(
-                label: L10n.tr("当前占用"),
+                label: L10n.l("current_usage"),
                 value: s.isUnlimited ? compact(s.tokens) : "\(compact(s.tokens)) / \(compact(s.window))（\(Int(s.ratio * 100))%）",
                 color: s.ratio >= s.thresholdRatio ? .red : (s.ratio >= s.thresholdRatio * 0.8 ? .orange : .green)
             )
             if !s.isUnlimited, s.compactThreshold > 0 {
                 UsageRow(
-                    label: L10n.tr("压缩触发线"),
+                    label: L10n.l("compaction_trigger_line"),
                     value: "\(compact(s.compactThreshold))（\(Int(s.thresholdRatio * 100))%）",
                     color: .gray
                 )
             }
-            UsageRow(label: L10n.tr("系统提示词"), value: compact(s.breakdown.system), color: .purple)
-            UsageRow(label: L10n.tr("工具定义"), value: compact(s.breakdown.tools), color: .indigo)
-            UsageRow(label: L10n.tr("历史对话"), value: compact(s.breakdown.history), color: .blue)
-            UsageRow(label: L10n.tr("本轮输入"), value: compact(s.breakdown.current), color: .teal)
+            UsageRow(label: L10n.l("system_prompt"), value: compact(s.breakdown.system), color: .purple)
+            UsageRow(label: L10n.l("tool_definitions"), value: compact(s.breakdown.tools), color: .indigo)
+            UsageRow(label: L10n.l("history_chats"), value: compact(s.breakdown.history), color: .blue)
+            UsageRow(label: L10n.l("this_turn_input"), value: compact(s.breakdown.current), color: .teal)
             if s.breakdown.media > 0 {
-                UsageRow(label: L10n.tr("图片/附件"), value: compact(s.breakdown.media), color: .pink)
+                UsageRow(label: L10n.l("images_attachments"), value: compact(s.breakdown.media), color: .pink)
             }
             if !s.isUnlimited {
-                UsageRow(label: L10n.tr("剩余可用"), value: compact(max(0, s.window - s.tokens)), color: .gray)
+                UsageRow(label: L10n.l("remaining"), value: compact(max(0, s.window - s.tokens)), color: .gray)
             }
         } header: {
-            Text(L10n.tr("上下文占用"))
+            Text(L10n.l("context_usage_label"))
         } footer: {
             Text(s.measured
-                 ? L10n.tr("数据来自服务商回传的真实用量。")
-                 : L10n.tr("本地估算值（服务商未回传用量时按校准后的估算显示）。"))
+                 ? L10n.l("data_from_real_usage_reported_by_the_provider")
+                 : L10n.l("local_estimate_shown_when_the_provider_doesn_t_report_usage_based_on_calibrated_estimates"))
         }
     }
 
@@ -653,16 +653,16 @@ struct StorageSettingsView: View {
         List {
             // 存储概览（真实扫描）
             Section {
-                StorageUsageRow(label: L10n.tr("工作区"), size: fmt(overview.workspace), icon: "folder")
-                StorageUsageRow(label: L10n.tr("附件"), size: fmt(overview.attachments), icon: "photo")
-                StorageUsageRow(label: L10n.tr("浏览器缓存"), size: fmt(overview.browserCache), icon: "globe")
-                StorageUsageRow(label: L10n.tr("会话缓存"), size: fmt(overview.sessionCache), icon: "clock.arrow.circlepath")
-                StorageUsageRow(label: L10n.tr("运行日志"), size: fmt(overview.logs), icon: "doc.text")
-                StorageUsageRow(label: L10n.tr("总计"), size: fmt(overview.total), icon: "externaldrive", isTotal: true)
+                StorageUsageRow(label: L10n.l("workspace"), size: fmt(overview.workspace), icon: "folder")
+                StorageUsageRow(label: L10n.l("attachments"), size: fmt(overview.attachments), icon: "photo")
+                StorageUsageRow(label: L10n.l("browser_cache"), size: fmt(overview.browserCache), icon: "globe")
+                StorageUsageRow(label: L10n.l("session_cache"), size: fmt(overview.sessionCache), icon: "clock.arrow.circlepath")
+                StorageUsageRow(label: L10n.l("runtime_logs"), size: fmt(overview.logs), icon: "doc.text")
+                StorageUsageRow(label: L10n.l("total"), size: fmt(overview.total), icon: "externaldrive", isTotal: true)
             } header: {
-                Text(L10n.tr("存储概览"))
+                Text(L10n.l("storage_overview"))
             } footer: {
-                Text(L10n.tr("含每个会话隔离目录与共享工作区中真实占用的磁盘空间。"))
+                Text(L10n.l("real_disk_space_used_by_each_session_s_isolated_directory_and_the_shared_workspace"))
             }
 
             // 清理（均真实生效）
@@ -670,47 +670,47 @@ struct StorageSettingsView: View {
                 if isBusy {
                     HStack(spacing: 10) {
                         ProgressView()
-                        Text(L10n.tr("处理中…")).foregroundStyle(.secondary)
+                        Text(L10n.l("processing_ellipsis")).foregroundStyle(.secondary)
                     }
                 } else {
-                    Button(L10n.tr("清理浏览器缓存")) { cleanBrowserCache() }
-                    Button(L10n.tr("清理会话缓存")) { cleanSessionCache() }
-                    Button(L10n.tr("清理旧附件")) { cleanOldAttachments() }
-                    Button(L10n.tr("清除所有数据"), role: .destructive) { showClearConfirm = true }
+                    Button(L10n.l("clear_browser_cache")) { cleanBrowserCache() }
+                    Button(L10n.l("clear_session_cache")) { cleanSessionCache() }
+                    Button(L10n.l("clean_old_attachments")) { cleanOldAttachments() }
+                    Button(L10n.l("clear_all_data"), role: .destructive) { showClearConfirm = true }
                 }
             } header: {
-                Text(L10n.tr("清理"))
+                Text(L10n.l("cleanup"))
             } footer: {
-                Text(L10n.tr("「清理浏览器缓存」清理网页缓存（WebKit 缓存、URLCache、共享浏览器数据）；「清理会话缓存」清理各会话内可重建的缓存数据（会话浏览器数据、子代理运行期记录），不影响会话内容；「清理旧附件」删除超过清理周期的附件；「清除所有数据」删除全部会话隔离文件与本地工作数据（设置、模型与技能不受影响）。运行日志与崩溃日志由「日志」页的开关控制。"))
+                Text(L10n.l("clear_browser_cache_clears_web_caches_webkit_cache_urlcache_shared_browser_data_clear_session_cache_clears_rebuildable_cache_data_in_each_session_session_browser_data_subagent_runtime_records_without_affecting_conversation_content_clear_old_attachments_deletes_attachments_older_than_the_cleanup_period_clear_all_data_deletes_all_session_isolated_files_and_local_working_data_settings_models_and_skills_are_unaffected_run_logs_and_crash_logs_are_controlled_by_toggles_on_the_logs_page"))
             }
 
             // 文件设置
             Section {
-                TextField(L10n.tr("默认工作区目录名"), text: $files.defaultWorkspace)
+                TextField(L10n.l("default_workspace_directory_name"), text: $files.defaultWorkspace)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                 Stepper(value: $files.autoOffloadThresholdKB, in: 1...100) {
-                    Text(String(format: L10n.tr("大输出转存阈值：%@ KB"), "\(files.autoOffloadThresholdKB)"))
+                    Text(String(format: L10n.l("large_output_dump_threshold_kb"), "\(files.autoOffloadThresholdKB)"))
                 }
-                    .onChange(of: files.autoOffloadThresholdKB) { _, _ in FileSystemManager.shared.ensureDefaultWorkspace() }
+                    .onChange(of: files.autoOffloadThresholdKB) { _ in FileSystemManager.shared.ensureDefaultWorkspace() }
                 Stepper(value: $files.cleanupAttachmentsDays, in: 1...365) {
-                    Text(String(format: L10n.tr("附件自动清理周期：%@ 天"), "\(files.cleanupAttachmentsDays)"))
+                    Text(String(format: L10n.l("attachment_auto_cleanup_period_days"), "\(files.cleanupAttachmentsDays)"))
                 }
             } header: {
-                Text(L10n.tr("文件"))
+                Text(L10n.l("files"))
             } footer: {
-                Text(L10n.tr("默认工作区目录名：无会话时 Shell/文件工具落地的共享工作区（位于 /var/MiniClaw/ 下）；大输出转存阈值：Shell 输出超过该值自动转存到 offloads/；附件自动清理周期：「清理旧附件」据此删除过期附件。"))
+                Text(L10n.l("default_workspace_directory_name_the_shared_workspace_where_shell_file_tools_land_when_no_session_is_bound_under_var_miniclaw_large_output_offload_threshold_shell_output_exceeding_this_value_is_auto_offloaded_to_offloads_attachment_auto_cleanup_period_clean_old_attachments_uses_this_to_delete_expired_attachments"))
             }
 
             // 会话占用列表
             Section {
                 if sessionRows.isEmpty {
-                    Text(L10n.tr("暂无会话")).foregroundStyle(.secondary)
+                    Text(L10n.l("no_sessions")).foregroundStyle(.secondary)
                 } else {
                     ForEach(sessionRows) { row in
                         HStack(spacing: 10) {
                             VStack(alignment: .leading, spacing: 2) {
-                                Text(row.title.isEmpty ? L10n.tr("未命名会话") : row.title)
+                                Text(row.title.isEmpty ? L10n.l("untitled_session") : row.title)
                                     .font(.body)
                                     .lineLimit(1)
                                 Text(row.updatedAt, style: .date)
@@ -725,41 +725,41 @@ struct StorageSettingsView: View {
                         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                             Button(role: .destructive) {
                                 pendingDeleteID = row.id
-                                pendingDeleteTitle = row.title.isEmpty ? L10n.tr("未命名会话") : row.title
+                                pendingDeleteTitle = row.title.isEmpty ? L10n.l("untitled_session") : row.title
                                 showDeleteSessionConfirm = true
                             } label: {
-                                Label(L10n.tr("删除"), systemImage: "trash")
+                                Label(L10n.l("delete_action"), systemImage: "trash")
                             }
                         }
                     }
                 }
             } header: {
-                Text(L10n.tr("会话占用"))
+                Text(L10n.l("session_usage"))
             } footer: {
-                Text(L10n.tr("列出每个会话在设备上的文件占用（工作区/附件/浏览器/转存），不含聊天记录本身。按占用从大到小排序。"))
+                Text(L10n.l("lists_each_session_s_on_device_file_usage_workspace_attachments_browser_offloads_excluding_the_chat_history_itself_sorted_by_size_largest_first"))
             }
         }
-        .navigationTitle(L10n.tr("存储"))
+        .navigationTitle(L10n.l("storage"))
         .navigationBarTitleDisplayMode(.inline)
         .onAppear(perform: reload)
         .refreshable { await reloadAsync() }
-        .alert(L10n.tr("清除所有数据"), isPresented: $showClearConfirm) {
-            Button(L10n.tr("取消"), role: .cancel) {}
-            Button(L10n.tr("清除"), role: .destructive) { clearAllData() }
+        .alert(L10n.l("clear_all_data"), isPresented: $showClearConfirm) {
+            Button(L10n.l("cancel"), role: .cancel) {}
+            Button(L10n.l("clear"), role: .destructive) { clearAllData() }
         } message: {
-            Text(L10n.tr("将删除全部会话隔离文件与本地工作数据（工作区/附件/浏览器/转存/日志），此操作不可撤销。设置、模型与技能不受影响。"))
+            Text(L10n.l("this_will_delete_all_session_isolated_files_and_local_working_data_workspace_attachments_browser_dumps_logs_this_action_cannot_be_undone_settings_models_and_skills_are_unaffected"))
         }
-        .alert(L10n.tr("清理完成"), isPresented: $showCleanupResult) {
-            Button(L10n.tr("好"), role: .cancel) {}
+        .alert(L10n.l("cleanup_complete"), isPresented: $showCleanupResult) {
+            Button(L10n.l("ok"), role: .cancel) {}
         } message: {
             Text(cleanupMessage)
         }
-        .alert(L10n.tr("删除会话"), isPresented: $showDeleteSessionConfirm) {
-            Button(L10n.tr("取消"), role: .cancel) {
+        .alert(L10n.l("delete_session"), isPresented: $showDeleteSessionConfirm) {
+            Button(L10n.l("cancel"), role: .cancel) {
                 pendingDeleteID = nil
                 pendingDeleteTitle = ""
             }
-            Button(L10n.tr("删除"), role: .destructive) {
+            Button(L10n.l("delete_action"), role: .destructive) {
                 if let id = pendingDeleteID {
                     SessionManager.shared.deleteSession(id: id)
                     pendingDeleteID = nil
@@ -768,7 +768,7 @@ struct StorageSettingsView: View {
                 }
             }
         } message: {
-            Text(L10n.tr("将删除会话")) + Text("「\(pendingDeleteTitle)」") + Text(L10n.tr("的全部隔离文件与聊天记录，释放其占用的存储空间。此操作不可撤销。"))
+            Text(L10n.l("this_will_delete_the_session")) + Text("「\(pendingDeleteTitle)」") + Text(L10n.l("all_isolated_files_and_chat_history_freeing_the_storage_space_they_occupy_this_action_cannot_be_undone"))
         }
         .onChange(of: files) { _ in saveFiles() }
     }
@@ -795,12 +795,7 @@ struct StorageSettingsView: View {
                     else if sub == "attachments" { ov.attachments += size }
                     else if sub == "browser" { ov.sessionCache += size }
                 }
-                // 会话缓存：子代理运行期记录（runtime_records.json，可重建）计入会话缓存
-                let runtimeURL = sessionDir.appendingPathComponent("subagent").appendingPathComponent("runtime_records.json")
-                if let attrs = try? FileManager.default.attributesOfItem(atPath: runtimeURL.path),
-                   let sz = attrs[.size] as? NSNumber {
-                    ov.sessionCache += sz.int64Value
-                }
+                // 会话缓存：子代理运行期记录已随会话数据入库 SQLite(可重建)，不再单独统计文件。
                 rows.append(SessionStorageRow(id: id, title: title, updatedAt: updated, bytes: sessionBytes))
             }
             rows.sort { $0.bytes > $1.bytes }
@@ -856,7 +851,7 @@ struct StorageSettingsView: View {
             await BrowserController.shared.clearBrowserCaches()
             await MainActor.run {
                 isBusy = false
-                cleanupMessage = L10n.tr("已清理浏览器缓存")
+                cleanupMessage = L10n.l("browser_cache_cleared")
                 showCleanupResult = true
                 reload()
             }
@@ -864,7 +859,7 @@ struct StorageSettingsView: View {
     }
 
     /// 清理会话缓存（2026-08-07 新增）：各会话目录下可重建的缓存数据——
-    /// 会话浏览器数据（browser/）+ 子代理运行期记录（runtime_records.json）。
+    /// 会话浏览器数据（browser/）+ 子代理运行期记录（SQLite 中 runtimeRecords，可重建）。
     /// 不影响会话内容、附件、工作区文件与子代理对话记录。
     private func cleanSessionCache() {
         isBusy = true
@@ -875,12 +870,14 @@ struct StorageSettingsView: View {
                 for s in sessionDirs where UUID(uuidString: s) != nil {
                     let dir = base.appendingPathComponent(s)
                     removeContents(of: dir.appendingPathComponent("browser"))
-                    try? fm.removeItem(at: dir.appendingPathComponent("subagent").appendingPathComponent("runtime_records.json"))
+                    if let sid = UUID(uuidString: s) {
+                        SQLiteStore.shared.deleteBlob(sessionID: sid, kind: .runtimeRecords)
+                    }
                 }
             }
             DispatchQueue.main.async {
                 isBusy = false
-                cleanupMessage = L10n.tr("已清理会话缓存")
+                cleanupMessage = L10n.l("session_cache_cleared")
                 showCleanupResult = true
                 reload()
             }
@@ -919,7 +916,7 @@ struct StorageSettingsView: View {
             }
             DispatchQueue.main.async {
                 isBusy = false
-                cleanupMessage = String(format: L10n.tr("已清理 %@ 旧附件"), fmt(removed))
+                cleanupMessage = String(format: L10n.l("cleaned_of_old_attachments"), fmt(removed))
                 showCleanupResult = true
                 reload()
             }
@@ -943,7 +940,7 @@ struct StorageSettingsView: View {
             }
             DispatchQueue.main.async {
                 isBusy = false
-                cleanupMessage = L10n.tr("已清除所有本地数据")
+                cleanupMessage = L10n.l("all_local_data_cleared")
                 showCleanupResult = true
                 reload()
             }
@@ -951,7 +948,7 @@ struct StorageSettingsView: View {
     }
 
     private func saveFiles() {
-        SettingsStore.shared.set(files, domain: .files, summary: L10n.tr("修改文件设置"))
+        SettingsStore.shared.set(files, domain: .files, summary: L10n.l("edit_file_settings"))
     }
 }
 
@@ -984,7 +981,7 @@ struct SharedFolderSettingsView: View {
 
     var body: some View {
         List {
-            Section(L10n.tr("共享文件夹")) {
+            Section(L10n.l("shared_folders")) {
                 ForEach(sharedFolders, id: \.self) { folder in
                     HStack {
                         Image(systemName: "folder.fill")
@@ -1000,18 +997,18 @@ struct SharedFolderSettingsView: View {
                 Button(action: {}) {
                     HStack {
                         Image(systemName: "plus.circle.fill")
-                        Text(L10n.tr("添加共享文件夹"))
+                        Text(L10n.l("add_shared_folder"))
                     }
                 }
             }
 
             Section {
-                Text(L10n.tr("共享文件夹中的文件在会话间持久保存，Agent 和 Shell 均可读写。"))
+                Text(L10n.l("files_in_the_shared_folder_persist_across_sessions_both_the_agent_and_shell_can_read_and_write_them"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
         }
-        .navigationTitle(L10n.tr("共享文件夹"))
+        .navigationTitle(L10n.l("shared_folders"))
         .navigationBarTitleDisplayMode(.inline)
     }
 }
@@ -1028,17 +1025,17 @@ struct MountSettingsView: View {
             if mounts.isEmpty {
                 Section {
                     VStack(alignment: .leading, spacing: 6) {
-                        Text(L10n.tr("暂无挂载文件夹"))
+                        Text(L10n.l("no_mounted_folders_yet"))
                             .font(.body)
                             .foregroundStyle(.secondary)
-                        Text(L10n.tr("点击下方「添加挂载文件夹」，从文件 App 中选择一个文件夹。"))
+                        Text(L10n.l("tap_add_mount_folder_below_then_choose_a_folder_from_the_files_app"))
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
                     .padding(.vertical, 4)
                 }
             } else {
-                Section(L10n.tr("已挂载")) {
+                Section(L10n.l("mounted")) {
                     ForEach(mounts) { mount in
                         mountRow(mount)
                     }
@@ -1052,14 +1049,14 @@ struct MountSettingsView: View {
                 } label: {
                     HStack {
                         Image(systemName: "plus.circle.fill")
-                        Text(L10n.tr("添加挂载文件夹"))
+                        Text(L10n.l("add_mount_folder"))
                     }
                 }
             } footer: {
-                Text(L10n.tr("通过 iOS 文件 App 选择一个文件夹挂载到 MiniClaw。默认只读：Agent 可通过 `/var/MiniClaw/mounts/<名称>/…` 读取其中内容；如需让 Agent 写入，请在对应挂载上开启「允许写入」开关（写入会真实落盘到外部文件夹，请谨慎）。挂载信息在 App 重启后依然有效。"))
+                Text(L10n.l("select_a_folder_via_the_ios_files_app_to_mount_into_miniclaw_read_only_by_default_the_agent_can_read_its_contents_via_var_miniclaw_mounts_name_to_let_the_agent_write_enable_the_allow_write_switch_on_that_mount_writes_are_persisted_to_the_external_folder_so_please_be_careful_mount_info_remains_valid_after_the_app_restarts"))
             }
         }
-        .navigationTitle(L10n.tr("挂载"))
+        .navigationTitle(L10n.l("mounts"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             if !mounts.isEmpty {
@@ -1074,13 +1071,13 @@ struct MountSettingsView: View {
             handleImport(result)
         }
         .alert(
-            L10n.tr("挂载失败"),
+            L10n.l("mount_failed"),
             isPresented: Binding(
                 get: { errorMessage != nil },
                 set: { if !$0 { errorMessage = nil } }
             )
         ) {
-            Button(L10n.tr("好"), role: .cancel) { errorMessage = nil }
+            Button(L10n.l("ok"), role: .cancel) { errorMessage = nil }
         } message: {
             Text(errorMessage ?? "")
         }
@@ -1100,14 +1097,14 @@ struct MountSettingsView: View {
                         Text(mount.name)
                             .font(.body)
                         if mount.isWritable {
-                            Text(L10n.tr("可写"))
+                            Text(L10n.l("writable"))
                                 .font(.caption2)
                                 .padding(.horizontal, 5)
                                 .padding(.vertical, 1)
                                 .background(Color.green.opacity(0.15), in: Capsule())
                                 .foregroundStyle(.green)
                         } else {
-                            Text(L10n.tr("只读"))
+                            Text(L10n.l("read_only"))
                                 .font(.caption2)
                                 .padding(.horizontal, 5)
                                 .padding(.vertical, 1)
@@ -1210,8 +1207,8 @@ struct MountDetailView: View {
             }
 
             // 权限：允许写入（默认开启，点击可禁止）
-            Section(L10n.tr("权限")) {
-                Toggle(L10n.tr("允许写入"), isOn: Binding(
+            Section(L10n.l("permissions")) {
+                Toggle(L10n.l("allow_writing"), isOn: Binding(
                     get: { mount.isWritable },
                     set: { setWritable($0) }
                 ))
@@ -1219,11 +1216,11 @@ struct MountDetailView: View {
 
             // 浏览文件：点「打开」以模态方式进入外部文件夹真实内容
             // （与另外两处文件管理器一致用 .sheet 呈现，避免「外层设置导航栈 + 内层 NavigationStack」嵌套导致首次 push 被弹回）
-            Section(L10n.tr("浏览文件")) {
+            Section(L10n.l("browse_files")) {
                 Button {
                     showBrowser = true
                 } label: {
-                    Label(L10n.tr("打开"), systemImage: "folder")
+                    Label(L10n.l("open_action"), systemImage: "folder")
                 }
             }
 
@@ -1232,18 +1229,18 @@ struct MountDetailView: View {
                 Button(role: .destructive) {
                     showUnmount = true
                 } label: {
-                    Label(L10n.tr("卸载"), systemImage: "eject.fill")
+                    Label(L10n.l("uninstall"), systemImage: "eject.fill")
                         .foregroundStyle(.red)
                 }
             }
         }
-        .navigationTitle(L10n.tr("挂载详情"))
+        .navigationTitle(L10n.l("mount_details"))
         .navigationBarTitleDisplayMode(.inline)
-        .alert(L10n.tr("确认卸载该挂载？"), isPresented: $showUnmount) {
-            Button(L10n.tr("卸载"), role: .destructive) { performUnmount() }
-            Button(L10n.tr("取消"), role: .cancel) { }
+        .alert(L10n.l("confirm_unmounting_this_folder"), isPresented: $showUnmount) {
+            Button(L10n.l("uninstall"), role: .destructive) { performUnmount() }
+            Button(L10n.l("cancel"), role: .cancel) { }
     } message: {
-        Text(L10n.tr("卸载「") + mount.name + "」" + L10n.tr("后，智能体将无法通过虚拟路径访问此文件夹。外部文件夹本身的文件不会被删除。"))
+        Text(L10n.l("unmount") + mount.name + "」" + L10n.l("the_agent_will_no_longer_be_able_to_access_this_folder_via_the_virtual_path_files_inside_the_external_folder_itself_will_not_be_deleted"))
     }
     .sheet(isPresented: $showBrowser) {
         MountFileBrowserView(mountName: mount.name, subPath: "")
@@ -1251,7 +1248,7 @@ struct MountDetailView: View {
 }
 
     private var permissionBadge: some View {
-        Text(mount.isWritable ? L10n.tr("可写") : L10n.tr("只读"))
+        Text(mount.isWritable ? L10n.l("writable") : L10n.l("read_only"))
             .font(.caption2)
             .padding(.horizontal, 5)
             .padding(.vertical, 1)
@@ -1312,11 +1309,8 @@ struct MountFileBrowserView: View {
                         UnifiedFileBrowser(location: loc, path: $path)
                     }
             } else {
-                ContentUnavailableView {
-                    Label(L10n.tr("挂载不可用"), systemImage: "tray")
-                } description: {
-                    Text(L10n.tr("该挂载当前无法访问，可能外部文件夹已被移除或权限失效。"))
-                }
+                EmptyStateView(label: L10n.l("mount_unavailable"), systemImage: "tray",
+                           description: L10n.l("this_mount_is_currently_inaccessible_the_external_folder_may_have_been_removed_or_its_permission_revoked"))
                 .navigationTitle(subPath.isEmpty ? mountName : (subPath as NSString).lastPathComponent)
                 .navigationBarTitleDisplayMode(.inline)
             }
@@ -1351,14 +1345,14 @@ struct LogsView: View {
             crashSection
             auditEntrySection
         }
-        .navigationTitle(L10n.tr("日志"))
+        .navigationTitle(L10n.l("logs"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 ShareLink(items: allLogURLs) {
                     Image(systemName: "square.and.arrow.up")
                 }
-                .help(L10n.tr("导出全部日志（运行日志 + 崩溃日志）"))
+                .help(L10n.l("export_all_logs_runtime_logs_crash_logs"))
                 .disabled(allLogURLs.isEmpty)
             }
         }
@@ -1371,7 +1365,7 @@ struct LogsView: View {
     private var runtimeSection: some View {
         Section {
             Toggle(isOn: $loggingEnabled) {
-                Label(L10n.tr("启用日志记录"), systemImage: "power")
+                Label(L10n.l("enable_logging"), systemImage: "power")
             }
             .onChange(of: loggingEnabled) { newValue in
                 AppLogger.shared.setEnabled(newValue)
@@ -1380,8 +1374,8 @@ struct LogsView: View {
 
             if runtimeFiles.isEmpty {
                 Text(loggingEnabled
-                     ? L10n.tr("暂无运行日志（应用运行后会按天生成调试日志）。")
-                     : L10n.tr("日志记录已关闭，将不再生成新的运行日志。"))
+                     ? L10n.l("no_run_logs_yet_debug_logs_are_generated_daily_once_the_app_runs")
+                     : L10n.l("logging_is_off_no_new_run_logs_will_be_generated"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             } else {
@@ -1410,9 +1404,9 @@ struct LogsView: View {
                 }
             }
         } header: {
-            Text(L10n.tr("运行日志"))
+            Text(L10n.l("runtime_logs"))
         } footer: {
-            Text(L10n.tr("按天记录应用调试日志（报错 / 卡死 / 死循环 / 闪退）。关闭开关后将停止记录。左滑可删除单个日志。"))
+            Text(L10n.l("records_app_debug_logs_by_day_errors_freezes_infinite_loops_crashes_logging_stops_when_the_switch_is_off_swipe_left_to_delete_a_single_log"))
         }
     }
 
@@ -1421,7 +1415,7 @@ struct LogsView: View {
     private var crashSection: some View {
         Section {
             if crashFiles.isEmpty {
-                Text(L10n.tr("暂无崩溃日志（发生闪退 / 异常退出后会自动记录）。"))
+                Text(L10n.l("no_crash_logs_yet_automatically_recorded_after_a_crash_or_abnormal_exit"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             } else {
@@ -1450,9 +1444,9 @@ struct LogsView: View {
                 }
             }
         } header: {
-            Text(L10n.tr("崩溃日志"))
+            Text(L10n.l("crash_log"))
         } footer: {
-            Text(L10n.tr("应用闪退或异常退出时自动生成的结构化崩溃报告（crash-年月日-时分秒.log）。左滑可删除。crash- 前缀为 App 内信号/启动检测报告；mxcrash- 前缀为系统级（MetricKit）报告，兜底 App 内抓不到的崩溃。"))
+            Text(L10n.l("crash_report_full_description"))
         }
     }
 
@@ -1466,14 +1460,14 @@ struct LogsView: View {
                 HStack(spacing: 10) {
                     Image(systemName: "doc.text.magnifyingglass")
                         .foregroundStyle(.gray)
-                    Text(L10n.tr("审计日志"))
+                    Text(L10n.l("audit_log"))
                     Spacer()
                 }
             }
         } header: {
-            Text(L10n.tr("审计日志"))
+            Text(L10n.l("audit_log"))
         } footer: {
-            Text(L10n.tr("记录设置变更与回滚操作，点击进入查看全部审计内容。"))
+            Text(L10n.l("records_setting_changes_and_rollback_actions_tap_to_view_all_audit_content"))
         }
     }
 
@@ -1500,7 +1494,7 @@ struct AuditLogsView: View {
     var body: some View {
         List {
             if auditEntries.isEmpty {
-                Text(L10n.tr("暂无审计记录（修改任意配置后将自动记录）"))
+                Text(L10n.l("no_audit_records_yet_automatically_logged_after_any_config_change"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -1525,7 +1519,7 @@ struct AuditLogsView: View {
             }
         }
         .listStyle(.plain)
-        .navigationTitle(L10n.tr("审计日志"))
+        .navigationTitle(L10n.l("audit_log"))
         .navigationBarTitleDisplayMode(.inline)
         .onAppear(perform: loadAudit)
         .refreshable { loadAudit() }
@@ -1557,7 +1551,7 @@ struct AboutView: View {
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
 
-                        Text(L10n.tr("iOS Agent 应用"))
+                        Text(L10n.l("ios_agent_app"))
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -1566,25 +1560,25 @@ struct AboutView: View {
                 .padding(.vertical, 20)
             }
 
-            Section(L10n.tr("关于MiniClaw")) {
-                NavigationLink(L10n.tr("关于MiniClaw")) {
-                    DocumentView(filename: "关于MiniClaw.md", title: L10n.tr("关于MiniClaw"))
+            Section(L10n.l("about_miniclaw_doc")) {
+                NavigationLink(L10n.l("about_miniclaw_doc")) {
+                    DocumentView(filename: "关于MiniClaw.md", title: L10n.l("about_miniclaw_doc"))
                 }
-                NavigationLink(L10n.tr("用户使用协议")) {
-                    DocumentView(filename: "用户使用协议.md", title: L10n.tr("用户使用协议"))
+                NavigationLink(L10n.l("user_agreement")) {
+                    DocumentView(filename: "用户使用协议.md", title: L10n.l("user_agreement"))
                 }
-                NavigationLink(L10n.tr("用户隐私政策")) {
-                    DocumentView(filename: "用户隐私政策.md", title: L10n.tr("用户隐私政策"))
+                NavigationLink(L10n.l("privacy_policy")) {
+                    DocumentView(filename: "用户隐私政策.md", title: L10n.l("privacy_policy"))
                 }
             }
 
-            Section(L10n.tr("开源组件")) {
-                Text(L10n.tr("• SwiftSoup - HTML 解析\n• Highlightr - 代码高亮\n• MarkdownUI - Markdown 渲染"))
+            Section(L10n.l("open_source_components")) {
+                Text(L10n.l("swiftsoup_html_parsing_n_highlightr_code_highlighting_n_markdownui_markdown_rendering"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
         }
-        .navigationTitle(L10n.tr("关于"))
+        .navigationTitle(L10n.l("about"))
         .navigationBarTitleDisplayMode(.inline)
     }
 }
@@ -1599,46 +1593,50 @@ struct GeneralSettingsView: View {
     var body: some View {
         Form {
             Section {
-                Toggle(L10n.tr("工具调用前确认"), isOn: $defaults.confirmBeforeToolCall)
+                Toggle(L10n.l("confirm_before_tool_calls"), isOn: $defaults.confirmBeforeToolCall)
             } header: {
-                Text(L10n.tr("默认行为"))
+                Text(L10n.l("default_behavior"))
             } footer: {
-                Text(L10n.tr("开启后，Agent 每次调用工具（文件/浏览器/Shell 等）前会先征求你的确认。"))
+                Text(L10n.l("when_enabled_the_agent_will_ask_for_your_confirmation_before_each_tool_call_file_browser_shell_etc"))
             }
 
             Section {
-                Toggle(L10n.tr("显示思考过程"), isOn: $chat.showThinking)
-                Toggle(L10n.tr("回车发送（关则换行）"), isOn: $chat.enterToSend)
+                Toggle(L10n.l("show_thinking_process"), isOn: $chat.showThinking)
+                Toggle(L10n.l("enter_to_send_off_newline"), isOn: $chat.enterToSend)
             } header: {
-                Text(L10n.tr("聊天"))
+                Text(L10n.l("chat"))
             }
 
             Section {
                 Stepper(value: $browser.maxTabs, in: 1...5) {
-                    Text(String(format: L10n.tr("最大标签数：%@"), "\(browser.maxTabs)"))
+                    Text(String(format: L10n.l("max_tabs"), "\(browser.maxTabs)"))
                 }
-                Toggle(L10n.tr("拦截弹窗"), isOn: $browser.blockPopups)
-                Picker(L10n.tr("User-Agent 形态"), selection: $browser.uaMode) {
-                    Text(L10n.tr("移动端")).tag("mobile")
-                    Text(L10n.tr("桌面端")).tag("desktop")
-                    Text(L10n.tr("自定义")).tag("custom")
+                Toggle(L10n.l("block_pop_ups"), isOn: $browser.blockPopups)
+                Toggle(L10n.l("open_in_builtin_browser"), isOn: Binding(
+                    get: { MiniClawOpenURLHandler.openLinksInline() },
+                    set: { UserDefaults.standard.set($0, forKey: MiniClawOpenURLHandler.openLinksInlineKey) }
+                ))
+                Picker(L10n.l("user_agent_form"), selection: $browser.uaMode) {
+                    Text(L10n.l("mobile")).tag("mobile")
+                    Text(L10n.l("desktop")).tag("desktop")
+                    Text(L10n.l("custom")).tag("custom")
                 }
                 if browser.uaMode == "custom" {
-                    TextField(L10n.tr("自定义 User-Agent"), text: $browser.userAgent)
+                    TextField(L10n.l("custom_user_agent"), text: $browser.userAgent)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                 }
             } header: {
-                Text(L10n.tr("浏览器"))
+                Text(L10n.l("browser"))
             } footer: {
-                Text(L10n.tr("选择浏览器使用的 User-Agent 形态；选「自定义」后在下方填写具体 UA 字符串。"))
+                Text(L10n.l("choose_the_user_agent_form_used_by_the_browser_if_custom_is_selected_fill_in_the_ua_string_below"))
             }
         }
-        .navigationTitle(L10n.tr("通用设置"))
+        .navigationTitle(L10n.l("general_settings"))
         .navigationBarTitleDisplayMode(.inline)
-        .onChange(of: defaults) { _, _ in saveDefaults() }
-        .onChange(of: chat) { _, _ in saveChat() }
-        .onChange(of: browser) { _, _ in saveBrowser() }
+        .onChange(of: defaults) { _ in saveDefaults() }
+        .onChange(of: chat) { _ in saveChat() }
+        .onChange(of: browser) { _ in saveBrowser() }
         .onAppear {
             // 每次进入都从持久化源重新同步，避免 NavigationStack 缓存视图实例
             // 导致 @State 停留在进入时的旧值（表现为「返回后再进显示回之前的设置」）。
@@ -1649,15 +1647,15 @@ struct GeneralSettingsView: View {
     }
 
     private func saveDefaults() {
-        SettingsStore.shared.set(defaults, domain: .defaults, summary: L10n.tr("修改通用设置"))
+        SettingsStore.shared.set(defaults, domain: .defaults, summary: L10n.l("edit_general_settings"))
     }
 
     private func saveChat() {
-        SettingsStore.shared.set(chat, domain: .chat, summary: L10n.tr("修改聊天设置"))
+        SettingsStore.shared.set(chat, domain: .chat, summary: L10n.l("edit_chat_settings"))
     }
 
     private func saveBrowser() {
-        SettingsStore.shared.set(browser, domain: .browser, summary: L10n.tr("修改浏览器设置"))
+        SettingsStore.shared.set(browser, domain: .browser, summary: L10n.l("edit_browser_settings"))
         // 立即把 UA 形态同步到浏览器运行时（若当前有打开的标签）。
         BrowserController.shared.applyUAProfileToAllTabs()
     }
@@ -1685,15 +1683,15 @@ struct PermissionsSettingsView: View {
     /// execute 为占位空壳），隐藏其授权入口，避免半成品入口暴露。
     /// 恢复 = 取消下方对应行注释（与用户沟通开发 HealthKit/HomeKit 工具后再恢复显示）。
     private let permissionItems: [(key: String, label: String)] = [
-        // ("healthData",L10n.tr("健康数据")),   // 待 HealthKit 工具接入后恢复
-        ("calendar",  L10n.tr("日历")),
-        ("photos",    L10n.tr("图片")),
-        // ("homeKit",   L10n.tr("家庭配件")),   // 待 HomeKit 工具接入后恢复
-        ("pasteboard",L10n.tr("剪贴板")),
-        ("reminders", L10n.tr("提醒事项")),
-        ("microphone",L10n.tr("麦克风")),
-        ("speech",    L10n.tr("语音识别")),
-        ("localNetwork", L10n.tr("本地网络")),   // iSH 内网 DNS/局域网设备访问依赖（NWBrowser 触发系统弹窗）
+        // ("healthData",L10n.l("health_data")),   // 待 HealthKit 工具接入后恢复
+        ("calendar",  L10n.l("calendar")),
+        ("photos",    L10n.l("images")),
+        // ("homeKit",   L10n.l("home_accessories")),   // 待 HomeKit 工具接入后恢复
+        ("pasteboard",L10n.l("clipboard")),
+        ("reminders", L10n.l("reminders")),
+        ("microphone",L10n.l("microphone")),
+        ("speech",    L10n.l("speech_recognition")),
+        ("localNetwork", L10n.l("local_network")),   // iSH 内网 DNS/局域网设备访问依赖（NWBrowser 触发系统弹窗）
     ]
 
     /// 权限状态实时从统一配置读取。
@@ -1702,13 +1700,13 @@ struct PermissionsSettingsView: View {
     var body: some View {
         Form {
             Section {
-                NavigationLink(L10n.tr("后台")) {
+                NavigationLink(L10n.l("background")) {
                     BackgroundSettingsView()
                 }
             } header: {
-                Text(L10n.tr("后台"))
+                Text(L10n.l("background"))
             } footer: {
-                Text(L10n.tr("后台运行、实时活动（灵动岛）、通知与定位保活设置。"))
+                Text(L10n.l("background_running_live_activities_dynamic_island_notifications_and_location_keepalive_settings"))
             }
 
             Section {
@@ -1718,12 +1716,12 @@ struct PermissionsSettingsView: View {
                     permissionRow(item)
                 }
             } header: {
-                Text(L10n.tr("权限"))
+                Text(L10n.l("permissions"))
             } footer: {
-                Text(L10n.tr("列出本应用可能申请的权限及其当前授权状态。点击未授权项可在 App 内申请，或跳转系统设置开启。"))
+                Text(L10n.l("lists_the_permissions_this_app_may_request_and_their_current_authorization_status_tap_an_unauthorized_item_to_request_it_in_app_or_jump_to_system_settings_to_enable_it"))
             }
         }
-        .navigationTitle(L10n.tr("权限与后台"))
+        .navigationTitle(L10n.l("permissions_background"))
         .navigationBarTitleDisplayMode(.inline)
         .task {
             await MainActor.run { PermissionManager.shared.refreshStatuses() }
@@ -1744,8 +1742,8 @@ struct PermissionsSettingsView: View {
                 }
             }
         }
-        .alert(L10n.tr("提示"), isPresented: $showInfo) {
-            Button(L10n.tr("知道了"), role: .cancel) {}
+        .alert(L10n.l("tip"), isPresented: $showInfo) {
+            Button(L10n.l("got_it"), role: .cancel) {}
         } message: { Text(infoText) }
     }
 
@@ -1753,21 +1751,21 @@ struct PermissionsSettingsView: View {
     @ViewBuilder
     private var notificationRow: some View {
         if notifAuthorized {
-            Toggle(L10n.tr("通知"), isOn: Binding(
+            Toggle(L10n.l("notifications"), isOn: Binding(
                 get: { store.settings.background.notifications },
                 set: { newValue in
                     var b = store.settings.background
                     b.notifications = newValue
-                    store.set(b, domain: .background, summary: L10n.tr("修改通知设置"))
+                    store.set(b, domain: .background, summary: L10n.l("modify_notification_settings"))
                 }
             ))
         } else {
             HStack {
-                Text(L10n.tr("通知"))
+                Text(L10n.l("notifications"))
                 Spacer()
                 // 与其它权限行的授权徽标同款（PermissionBadgeView 单一来源）：红字红底胶囊，
                 // 但保持可点击（点击申请通知授权）。
-                Button(L10n.tr("未授权")) { requestNotification() }
+                Button(L10n.l("not_authorized")) { requestNotification() }
                     .font(.caption)
                     .fontWeight(.medium)
                     .padding(.horizontal, 8)
@@ -1787,7 +1785,7 @@ struct PermissionsSettingsView: View {
             Task { await requestLocation() }
         } label: {
             HStack {
-                Text(L10n.tr("定位"))
+                Text(L10n.l("locate_action"))
                 Spacer()
                 // 申请中显示菊花（与其它权限行同款）
                 if busyKey == "location" {
@@ -1831,7 +1829,7 @@ struct PermissionsSettingsView: View {
                 if granted, !store.settings.background.notifications {
                     var b = store.settings.background
                     b.notifications = true
-                    store.set(b, domain: .background, summary: L10n.tr("修改通知设置"))
+                    store.set(b, domain: .background, summary: L10n.l("modify_notification_settings"))
                 }
             }
         }
@@ -1844,7 +1842,7 @@ struct PermissionsSettingsView: View {
             handleTap(item)
         } label: {
             HStack {
-                Text(L10n.tr(item.label))
+                Text(item.label)
                 Spacer()
                 // 申请中显示菊花（名称后、徽标前），返回后恢复徽标
                 if busyKey == item.key {
@@ -1861,7 +1859,7 @@ struct PermissionsSettingsView: View {
     private func handleTap(_ item: (key: String, label: String)) {
         let key = item.key
         if key == "pasteboard" {
-            infoText = L10n.tr("剪贴板无需授权，App 始终可读写，无需在系统设置中开启。")
+            infoText = L10n.l("the_clipboard_requires_no_authorization_the_app_can_always_read_and_write_it_and_no_system_setting_needs_to_be_enabled")
             showInfo = true
             return
         }
@@ -1872,7 +1870,7 @@ struct PermissionsSettingsView: View {
             // 已拒绝：系统不再重复弹窗，点击无意义——直接引导去系统设置手动开启
             // （本地网络开关在「设置 → 隐私与安全性 → 本地网络」，openSettingsURLString 到不了）。
             if store.settings.permissions.localNetwork == .denied {
-                infoText = L10n.tr("本地网络权限已被拒绝。请前往「系统设置 → 隐私与安全性 → 本地网络」开启 MiniClaw，开启后即可自动解析内网域名与访问局域网设备。")
+                infoText = L10n.l("local_network_permission_was_denied_go_to_settings_privacy_security_local_network_and_enable_miniclaw_once_enabled_internal_dns_names_and_lan_devices_will_work_automatically")
                 showInfo = true
                 return
             }
@@ -1933,7 +1931,7 @@ struct PermissionBadgeView: View {
     let state: PermissionState
 
     var body: some View {
-        Text(L10n.tr(state.rawValue))
+        Text(L10n.l(state.label))
             .font(.caption)
             .fontWeight(.medium)
             .padding(.horizontal, 8)
@@ -1964,31 +1962,31 @@ struct FeedbackView: View {
 
     var body: some View {
         Form {
-            Section(L10n.tr("反馈类型")) {
-                Picker(L10n.tr("类型"), selection: $feedbackType) {
-                    Text(L10n.tr("Bug 报告")).tag("bug")
-                    Text(L10n.tr("功能建议")).tag("feature")
-                    Text(L10n.tr("使用改进")).tag("improvement")
-                    Text(L10n.tr("其他")).tag("other")
+            Section(L10n.l("feedback_type")) {
+                Picker(L10n.l("type"), selection: $feedbackType) {
+                    Text(L10n.l("bug_report")).tag("bug")
+                    Text(L10n.l("feature_suggestion")).tag("feature")
+                    Text(L10n.l("usage_improvements")).tag("improvement")
+                    Text(L10n.l("others")).tag("other")
                 }
             }
 
-            Section(L10n.tr("详细描述")) {
+            Section(L10n.l("detailed_description")) {
                 TextEditor(text: $feedbackContent)
                     .frame(minHeight: 150)
             }
 
             Section {
-                Toggle(L10n.tr("附带每日记忆"), isOn: $includeLogs)
+                Toggle(L10n.l("include_daily_memory"), isOn: $includeLogs)
             } footer: {
-                Text(L10n.tr("日志将帮助开发者快速定位问题。"))
+                Text(L10n.l("logs_help_developers_quickly_pinpoint_issues"))
             }
 
             Section {
                 Button(action: {}) {
                     HStack {
                         Spacer()
-                        Label(L10n.tr("提交反馈"), systemImage: "paperplane.fill")
+                        Label(L10n.l("submit_feedback"), systemImage: "paperplane.fill")
                             .fontWeight(.semibold)
                         Spacer()
                     }
@@ -1996,7 +1994,7 @@ struct FeedbackView: View {
                 .disabled(feedbackContent.isEmpty)
             }
         }
-        .navigationTitle(L10n.tr("反馈"))
+        .navigationTitle(L10n.l("feedback"))
         .navigationBarTitleDisplayMode(.inline)
     }
 }
@@ -2018,7 +2016,7 @@ struct LogDetailView: View {
                     ShareLink(item: url) {
                         Image(systemName: "square.and.arrow.up")
                     }
-                    .help(L10n.tr("导出整个日志文件"))
+                    .help(L10n.l("export_entire_log_file"))
                 }
             }
             .onAppear { content = AppLogger.shared.readTail(of: url) }

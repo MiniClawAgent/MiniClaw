@@ -11,17 +11,17 @@ struct ConfigTool: AgentTool {
         type: "function",
         function: ToolSchema.FunctionDef(
             name: "miniclaw_config",
-            description: "运行时配置读写工具（等价于 miniclaw_config 工具）。子命令：get 读取、set 写入、add 新增子项、audit-list 查看变更历史、audit-revert 回滚、list-topics 列出域、topic-help 查看域字段。路径形如 topic.field 或 topic.<id>.field（数组域按 UUID 定位）。敏感字段（apiKey）只写不可回读。",
+            description: L10n.l("config_tool_desc"),
             parameters: JSONSchema(
                 type: "object",
                 properties: [
-                    "subcommand": JSONSchema.JSONProperty(type: "string", description: "子命令", enum: ["get", "set", "add", "audit-list", "audit-revert", "list-topics", "topic-help"]),
-                    "topic": JSONSchema.JSONProperty(type: "string", description: "配置域：providers/groups/soul/envvars/session/chat/speech/memory/browser/appearance/background/files/permissions/defaults"),
-                    "path": JSONSchema.JSONProperty(type: "string", description: "点分路径，如 providers.<uuid>.label"),
-                    "value": JSONSchema.JSONProperty(type: "string", description: "set 的值（字符串，自动按字段类型转换）"),
-                    "json": JSONSchema.JSONProperty(type: "string", description: "add 的子项 JSON（如新增 provider）"),
-                    "id": JSONSchema.JSONProperty(type: "string", description: "audit-revert 的审计记录 id"),
-                    "limit": JSONSchema.JSONProperty(type: "integer", description: "audit-list 返回条数（默认 20）"),
+                    "subcommand": JSONSchema.JSONProperty(type: "string", description: L10n.l("subcommand_label"), enum: ["get", "set", "add", "audit-list", "audit-revert", "list-topics", "topic-help"]),
+                    "topic": JSONSchema.JSONProperty(type: "string", description: L10n.l("config_domains_list")),
+                    "path": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_dotted_path")),
+                    "value": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_set_value")),
+                    "json": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_add_item_json")),
+                    "id": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_audit_revert_id")),
+                    "limit": JSONSchema.JSONProperty(type: "integer", description: L10n.l("param_audit_list_limit")),
                 ],
                 required: ["subcommand"]
             )
@@ -30,7 +30,7 @@ struct ConfigTool: AgentTool {
 
     func execute(_ parameters: [String: Any]) async throws -> ToolResult {
         guard let sub = parameters["subcommand"] as? String else {
-            return ToolResult(success: false, text: "缺少 subcommand 参数")
+            return ToolResult(success: false, text: L10n.l("err_missing_subcommand"))
         }
 
         switch sub {
@@ -42,7 +42,7 @@ struct ConfigTool: AgentTool {
         case "set":          return setConfig(topic: parameters["topic"] as? String, path: parameters["path"] as? String, value: parameters["value"] as? String)
         case "add":          return addItem(topic: parameters["topic"] as? String, json: parameters["json"] as? String)
         default:
-            return ToolResult(success: false, text: "未知子命令: \(sub)")
+            return ToolResult(success: false, text: String(format: L10n.l("config_unknown_subcommand"), sub))
         }
     }
 
@@ -55,65 +55,65 @@ struct ConfigTool: AgentTool {
 
     private func denied() -> ToolResult {
         ToolResult(success: false,
-                   text: "⛔ 写入被拒绝：请在 设置 → 权限 中开启「允许 miniclaw-config 写入」后重试。")
+                   text: L10n.l("err_write_rejected_perm"))
     }
 
     // MARK: - 子命令实现
 
     private func listTopics() -> ToolResult {
         let lines = TOPIC_DESCRIPTIONS.map { "• \($0.key) — \($0.value)" }
-        return ToolResult(success: true, text: "可配置域：\n" + lines.joined(separator: "\n"))
+        return ToolResult(success: true, text: L10n.l("configurable_domains_header") + lines.joined(separator: "\n"))
     }
 
     private func topicHelp(_ topic: String?) -> ToolResult {
         guard let t = topic, let fields = TOPIC_FIELDS[t] else {
-            return ToolResult(success: false, text: "未知或缺失 topic。先用 list-topics 查看可用域。")
+            return ToolResult(success: false, text: L10n.l("err_unknown_topic"))
         }
         let lines = fields.map { "  - \($0.key) (\($0.type)): \($0.desc)" }
-        return ToolResult(success: true, text: "域 `\(t)` 字段：\n" + lines.joined(separator: "\n"))
+        return ToolResult(success: true, text: String(format: L10n.l("config_domain_fields"), t) + lines.joined(separator: "\n"))
     }
 
     private func auditList(_ limit: Int?) -> ToolResult {
         let max = min(limit ?? 20, 100)
         let entries = SettingsStore.shared.auditEntries.prefix(max)
         if entries.isEmpty {
-            return ToolResult(success: true, text: "暂无审计记录。")
+            return ToolResult(success: true, text: L10n.l("no_audit_records"))
         }
         let lines = entries.map { e in
             let ts = ISO8601DateFormatter().string(from: e.timestamp)
             return "[\(e.id.uuidString.prefix(8))] \(ts) \(e.domain) — \(e.summary)"
         }
-        return ToolResult(success: true, text: "最近 \(entries.count) 条变更：\n" + lines.joined(separator: "\n"))
+        return ToolResult(success: true, text: String(format: L10n.l("config_recent_entries"), entries.count) + lines.joined(separator: "\n"))
     }
 
     private func auditRevert(_ idStr: String?) -> ToolResult {
         guard let idStr, let id = UUID(uuidString: idStr) else {
-            return ToolResult(success: false, text: "缺少或无效的 audit id（需完整 UUID）。")
+            return ToolResult(success: false, text: L10n.l("err_missing_audit_id"))
         }
         let ok = SettingsStore.shared.rollback(to: id)
-        return ToolResult(success: ok, text: ok ? "已回滚至审计记录 \(id.uuidString.prefix(8))" : "回滚失败：未找到该记录。")
+        return ToolResult(success: ok, text: ok ? String(format: L10n.l("config_rollback_done"), String(id.uuidString.prefix(8))) : L10n.l("config_rollback_failed"))
     }
 
     private func getConfig(topic: String?, path: String?) -> ToolResult {
         let (t, idStr, field) = resolvePath(topic: topic, path: path)
         guard let t else {
-            return ToolResult(success: false, text: "缺少 topic 或 path。")
+            return ToolResult(success: false, text: L10n.l("err_missing_topic_path"))
         }
         let isArray = (t == "providers" || t == "groups")
 
         // 数组域（providers / groups）
         if isArray {
             guard let arr = loadArray(topic: t) else {
-                return ToolResult(success: false, text: "域 \(t) 加载失败。")
+                return ToolResult(success: false, text: String(format: L10n.l("config_domain_load_failed"), t))
             }
             if let idStr {
                 guard let idx = arr.firstIndex(where: { ($0["id"] as? String) == idStr }) else {
-                    return ToolResult(success: false, text: "未找到 id=\(idStr) 的 \(t) 子项。")
+                    return ToolResult(success: false, text: String(format: L10n.l("config_item_not_found"), idStr, t))
                 }
                 let item = arr[idx]
                 if let field {
                     if isSensitive(field: field) {
-                        return ToolResult(success: true, text: "\(field): *** 受保护，不可回读 ***")
+                        return ToolResult(success: true, text: String(format: L10n.l("config_protected_field"), field))
                     }
                     return ToolResult(success: true, text: "\(field): \(stringify(item[field]))")
                 }
@@ -124,11 +124,11 @@ struct ConfigTool: AgentTool {
 
         // 域级（单对象）
         guard let obj = loadDomainObject(topic: t) else {
-            return ToolResult(success: false, text: "域 \(t) 不存在。")
+            return ToolResult(success: false, text: String(format: L10n.l("config_domain_not_found"), t))
         }
         if let field {
             if isSensitive(field: field) {
-                return ToolResult(success: true, text: "\(field): *** 受保护，不可回读 ***")
+                return ToolResult(success: true, text: String(format: L10n.l("config_protected_field"), field))
             }
             return ToolResult(success: true, text: "\(field): \(stringify(obj[field]))")
         }
@@ -139,73 +139,73 @@ struct ConfigTool: AgentTool {
         guard writeAllowed() else { return denied() }
         let (t, idStr, field) = resolvePath(topic: topic, path: path)
         guard let t, let field else {
-            return ToolResult(success: false, text: "set 需要 topic.field 形式的 path（数组域需含 <id>）。")
+            return ToolResult(success: false, text: L10n.l("err_set_need_path"))
         }
         guard let raw = value else {
-            return ToolResult(success: false, text: "缺少 value 参数。")
+            return ToolResult(success: false, text: L10n.l("err_missing_value"))
         }
         let isArray = (t == "providers" || t == "groups")
 
         // 数组域（providers / groups）
         if isArray {
             guard let idStr else {
-                return ToolResult(success: false, text: "数组域 \(t) 的 set 需包含 <id>，如 \(t).<uuid>.<field>。")
+                return ToolResult(success: false, text: String(format: L10n.l("config_array_set_need_id"), t, t, field))
             }
             guard var arr = loadArray(topic: t) else {
-                return ToolResult(success: false, text: "域 \(t) 加载失败。")
+                return ToolResult(success: false, text: String(format: L10n.l("config_domain_load_failed"), t))
             }
             guard let idx = arr.firstIndex(where: { ($0["id"] as? String) == idStr }) else {
-                return ToolResult(success: false, text: "未找到 id=\(idStr) 的 \(t) 子项。")
+                return ToolResult(success: false, text: String(format: L10n.l("config_item_not_found"), idStr, t))
             }
             let existing = arr[idx][field] ?? ""
             arr[idx][field] = coerce(raw: raw, existing: existing)
             guard saveArray(topic: t, arr: arr) else {
-                return ToolResult(success: false, text: "保存 \(t) 失败。")
+                return ToolResult(success: false, text: String(format: L10n.l("config_save_failed"), t))
             }
-            return ToolResult(success: true, text: "已更新 \(t).<\(idStr)>).\(field)")
+            return ToolResult(success: true, text: String(format: L10n.l("config_updated_array"), t, idStr, field))
         }
 
         // 域级单对象
         guard var obj = loadDomainObject(topic: t) else {
-            return ToolResult(success: false, text: "域 \(t) 不存在。")
+            return ToolResult(success: false, text: String(format: L10n.l("config_domain_not_found"), t))
         }
         let existing = obj[field] ?? ""
         obj[field] = coerce(raw: raw, existing: existing)
         guard saveDomainObject(topic: t, dict: obj) else {
-            return ToolResult(success: false, text: "保存 \(t) 失败。")
+            return ToolResult(success: false, text: String(format: L10n.l("config_save_failed"), t))
         }
-        return ToolResult(success: true, text: "已更新 \(t).\(field)")
+        return ToolResult(success: true, text: String(format: L10n.l("config_updated_field"), t, field))
     }
 
     private func addItem(topic: String?, json: String?) -> ToolResult {
         guard writeAllowed() else { return denied() }
         guard let t = topic, let json, !json.isEmpty else {
-            return ToolResult(success: false, text: "add 需要 topic 与 json 参数。")
+            return ToolResult(success: false, text: L10n.l("err_add_need_topic_json"))
         }
         guard let data = json.data(using: .utf8),
-              let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            return ToolResult(success: false, text: "json 解析失败。")
+              (try? JSONSerialization.jsonObject(with: data) as? [String: Any]) != nil else {
+            return ToolResult(success: false, text: L10n.l("err_json_parse"))
         }
 
         switch t {
         case "providers":
             guard let p = try? JSONDecoder().decode(LLMProvider.self, from: json.data(using: .utf8)!) else {
-                return ToolResult(success: false, text: "provider JSON 解析失败（需含 label/providerType 等）。")
+                return ToolResult(success: false, text: L10n.l("err_provider_json_parse"))
             }
             var c = ProviderFileStore.load()
             c.providers.append(p)
             ProviderFileStore.save(c)
-            return ToolResult(success: true, text: "已新增 provider: \(p.label) (id=\(p.id.uuidString.prefix(8)))")
+            return ToolResult(success: true, text: String(format: L10n.l("config_provider_added"), p.label, String(p.id.uuidString.prefix(8))))
         case "groups":
             guard let g = try? JSONDecoder().decode(ModelGroup.self, from: json.data(using: .utf8)!) else {
-                return ToolResult(success: false, text: "group JSON 解析失败。")
+                return ToolResult(success: false, text: L10n.l("err_group_json_parse"))
             }
             SettingsStore.shared.update(domain: .groups, summary: "config add group") { (groups: inout [ModelGroup]) in
                 groups.append(g)
             }
-            return ToolResult(success: true, text: "已新增 group: \(g.name) (id=\(g.id.uuidString.prefix(8)))")
+            return ToolResult(success: true, text: String(format: L10n.l("config_group_added"), g.name, String(g.id.uuidString.prefix(8))))
         default:
-            return ToolResult(success: false, text: "topic \(t) 不支持 add（仅 providers / groups）。")
+            return ToolResult(success: false, text: String(format: L10n.l("config_add_not_supported"), t))
         }
     }
 
@@ -311,7 +311,7 @@ struct ConfigTool: AgentTool {
         if var dict = value as? [String: Any] {
             for (k, v) in dict {
                 if isSensitive(field: k) {
-                    dict[k] = "*** 受保护，不可回读 ***"
+                    dict[k] = L10n.l("protected_not_readable")
                 } else {
                     dict[k] = maskSensitive(v)
                 }
@@ -370,120 +370,120 @@ struct ConfigTool: AgentTool {
     // MARK: - 字段说明（spec 9.2）
 
     private let TOPIC_DESCRIPTIONS: [String: String] = [
-        "providers": "LLM 提供商实例（API Key / base URL / 模型）",
-        "groups": "模型路由组（fallback / loadBalance）",
-        "soul": "Agent 人格（对应 memory/SOUL.md）",
-        "envvars": "注入 shell 的环境变量（机密，只写）",
-        "session": "当前会话设置",
-        "chat": "聊天 UI 设置",
-        "speech": "语音 STT / TTS 设置",
-        "memory": "记忆开关",
-        "browser": "浏览器设置",
-        "appearance": "外观主题",
-        "background": "后台任务行为",
-        "files": "文件管理设置",
-        "permissions": "功能权限开关（含 miniclaw-config 写入）",
-        "defaults": "Agent Loop 默认值",
+        "providers": L10n.l("llm_provider_instance"),
+        "groups": L10n.l("param_routing_group"),
+        "soul": L10n.l("agent_persona_soul"),
+        "envvars": L10n.l("param_shell_env"),
+        "session": L10n.l("current_session_settings"),
+        "chat": L10n.l("chat_ui_settings"),
+        "speech": L10n.l("speech_stt_tts_settings"),
+        "memory": L10n.l("memory_toggle"),
+        "browser": L10n.l("browser_settings"),
+        "appearance": L10n.l("appearance_theme"),
+        "background": L10n.l("background_task_behavior"),
+        "files": L10n.l("file_management_settings"),
+        "permissions": L10n.l("permission_switches_desc"),
+        "defaults": L10n.l("agent_loop_defaults"),
     ]
 
     private let TOPIC_FIELDS: [String: [(key: String, type: String, desc: String)]] = [
         "providers": [
-            ("id", "UUID", "实例唯一标识（只读）"),
-            ("label", "string", "用户可见昵称"),
-            ("providerType", "enum", "Anthropic/OpenAI/Gemini/OpenRouter/OpenAI-compatible（只读）"),
-            ("credentialType", "enum", "apiKey / oauth（只读）"),
-            ("apiKey", "string", "API Key，只写不可回读"),
-            ("customBaseURL", "string", "自定义 API 端点，空=默认"),
-            ("customUserAgent", "string", "自定义 User-Agent"),
-            ("appendV1Suffix", "bool", "自动追加 /v1 到 base URL"),
+            ("id", "UUID", L10n.l("param_instance_id")),
+            ("label", "string", L10n.l("user_visible_nickname")),
+            ("providerType", "enum", L10n.l("provider_types_readonly")),
+            ("credentialType", "enum", L10n.l("api_key_oauth_readonly")),
+            ("apiKey", "string", L10n.l("api_key_write_only")),
+            ("customBaseURL", "string", L10n.l("param_custom_endpoint")),
+            ("customUserAgent", "string", L10n.l("custom_user_agent")),
+            ("appendV1Suffix", "bool", L10n.l("auto_append_v1")),
             ("imageEndpointMode", "enum", "auto/images_generations/chat_completions"),
-            ("isEnabled", "bool", "为 false 时 Agent Loop 不使用此实例"),
+            ("isEnabled", "bool", L10n.l("param_use_provider_flag")),
         ],
         "groups": [
-            ("id", "UUID", "组唯一标识（只读）"),
-            ("name", "string", "用户可见名称"),
-            ("modelIds", "[string]", "关联的模型 ID 列表"),
+            ("id", "UUID", L10n.l("param_group_id")),
+            ("name", "string", L10n.l("user_visible_name")),
+            ("modelIds", "[string]", L10n.l("param_associated_model_ids")),
             ("strategy", "enum", "fallback / loadBalance"),
             ("fallbackStrategy", "enum", "limited / always"),
-            ("contextLimitTokens", "int", "上下文上限，0=无限制"),
+            ("contextLimitTokens", "int", L10n.l("param_context_limit")),
             ("defaultThinkingLevel", "enum", "off/low/medium/high/xhigh/max/ultra"),
         ],
         "soul": [
-            ("name", "string", "Agent 显示名称"),
-            ("style", "string", "响应风格描述"),
+            ("name", "string", L10n.l("agent_display_name")),
+            ("style", "string", L10n.l("param_response_style")),
             ("lang", "enum", "auto / zh / en"),
-            ("body", "string", "Markdown 人格文本"),
+            ("body", "string", L10n.l("markdown_persona_text")),
         ],
         "envvars": [
-            ("key", "string", "变量名（只读）"),
-            ("value", "string", "值，只写不可回读"),
-            ("isSecret", "bool", "是否为机密"),
-            ("privacyMode", "bool", "开启后输出中的变量值被掩码（域级）"),
+            ("key", "string", L10n.l("param_var_name")),
+            ("value", "string", L10n.l("param_write_only_value")),
+            ("isSecret", "bool", L10n.l("param_is_secret")),
+            ("privacyMode", "bool", L10n.l("param_mask_enabled")),
         ],
         "session": [
-            ("autoGenerateTitle", "bool", "自动生成会话标题"),
-            ("defaultModelId", "string", "默认模型 ID"),
-            ("maxContextMessages", "int", "上下文最大消息数"),
-            ("streamResponses", "bool", "流式响应"),
+            ("autoGenerateTitle", "bool", L10n.l("auto_generate_title")),
+            ("defaultModelId", "string", L10n.l("default_model_id")),
+            ("maxContextMessages", "int", L10n.l("param_context_max_messages")),
+            ("streamResponses", "bool", L10n.l("streaming_response")),
         ],
         "chat": [
-            ("showThinking", "bool", "显示思考过程"),
+            ("showThinking", "bool", L10n.l("show_thinking_process")),
             ("codeBlockTheme", "enum", "auto/light/dark"),
-            ("enterToSend", "bool", "回车发送"),
+            ("enterToSend", "bool", L10n.l("enter_to_send")),
         ],
         "speech": [
-            ("sttEnabled", "bool", "语音输入"),
-            ("ttsEnabled", "bool", "语音输出"),
-            ("voiceIdentifier", "string", "语音标识符"),
-            ("speechRate", "double", "语速"),
+            ("sttEnabled", "bool", L10n.l("voice_input")),
+            ("ttsEnabled", "bool", L10n.l("voice_output")),
+            ("voiceIdentifier", "string", L10n.l("voice_identifier")),
+            ("speechRate", "double", L10n.l("speech_rate")),
             ("preferredLanguage", "enum", "auto/zh-CN/en-US"),
         ],
         "memory": [
-            ("isEnabled", "bool", "记忆功能开关"),
-            ("autoSaveDaily", "bool", "每日记忆自动保存"),
-            ("retentionDays", "int", "保留天数"),
+            ("isEnabled", "bool", L10n.l("memory_feature_switch")),
+            ("autoSaveDaily", "bool", L10n.l("daily_memory_auto_save")),
+            ("retentionDays", "int", L10n.l("param_retention_days")),
         ],
         "browser": [
-            ("maxTabs", "int", "最大标签数"),
+            ("maxTabs", "int", L10n.l("param_max_tabs")),
             ("uaMode", "enum", "mobile/desktop/custom"),
-            ("userAgent", "string", "自定义 UA（uaMode=custom 时生效）"),
-            ("blockPopups", "bool", "拦截弹窗"),
+            ("userAgent", "string", L10n.l("param_custom_ua")),
+            ("blockPopups", "bool", L10n.l("block_pop_ups")),
         ],
         "appearance": [
             ("colorSchemeRaw", "enum", "system/dark/light"),
-            ("useLargeText", "bool", "大文本"),
-            ("accentColorRaw", "string", "强调色"),
+            ("useLargeText", "bool", L10n.l("large_text")),
+            ("accentColorRaw", "string", L10n.l("accent_color")),
         ],
         "background": [
-            ("backgroundRun", "bool", "后台运行"),
-            ("liveActivity", "bool", "实时活动"),
-            ("notifications", "bool", "通知"),
+            ("backgroundRun", "bool", L10n.l("background_run")),
+            ("liveActivity", "bool", L10n.l("live_activity")),
+            ("notifications", "bool", L10n.l("notifications")),
         ],
         "files": [
-            ("defaultWorkspace", "string", "默认工作区目录名"),
-            ("autoOffloadThresholdKB", "int", "大输出转存阈值(KB)"),
-            ("cleanupAttachmentsDays", "int", "附件清理周期(天)"),
+            ("defaultWorkspace", "string", L10n.l("default_workspace_directory_name")),
+            ("autoOffloadThresholdKB", "int", L10n.l("param_offload_threshold")),
+            ("cleanupAttachmentsDays", "int", L10n.l("param_attachment_cleanup_days")),
         ],
         "permissions": [
-            ("miniclawConfigWrite", "bool", "允许 miniclaw-config 写入"),
-            ("location", "enum", "定位权限"),
-            ("bluetooth", "enum", "蓝牙权限"),
-            ("microphone", "enum", "麦克风权限"),
-            ("speechRecognition", "enum", "语音识别权限"),
-            ("camera", "enum", "相机权限"),
-            ("photoLibrary", "enum", "相册权限"),
-            ("notifications", "enum", "通知权限"),
-            ("calendar", "enum", "日历权限"),
-            ("reminders", "enum", "提醒权限"),
-            ("healthKit", "enum", "健康权限"),
-            ("homeKit", "enum", "HomeKit 权限"),
-            ("nfc", "enum", "NFC 权限"),
-            ("localNetwork", "enum", "本地网络权限"),
+            ("miniclawConfigWrite", "bool", L10n.l("allow_config_write")),
+            ("location", "enum", L10n.l("location_permission")),
+            ("bluetooth", "enum", L10n.l("bluetooth_permission")),
+            ("microphone", "enum", L10n.l("microphone_permission")),
+            ("speechRecognition", "enum", L10n.l("speech_recognition_permission")),
+            ("camera", "enum", L10n.l("camera_permission")),
+            ("photoLibrary", "enum", L10n.l("photo_library_permission")),
+            ("notifications", "enum", L10n.l("notification_permission")),
+            ("calendar", "enum", L10n.l("calendar_permission")),
+            ("reminders", "enum", L10n.l("reminder_permission")),
+            ("healthKit", "enum", L10n.l("health_permission")),
+            ("homeKit", "enum", L10n.l("homekit_permission")),
+            ("nfc", "enum", L10n.l("nfc_permission")),
+            ("localNetwork", "enum", L10n.l("local_network_permission")),
         ],
         "defaults": [
-            ("defaultAgentName", "string", "默认 Agent 名称"),
+            ("defaultAgentName", "string", L10n.l("default_agent_name")),
             ("defaultLanguage", "enum", "auto/zh-CN/en-US"),
-            ("confirmBeforeToolCall", "bool", "工具调用前确认"),
+            ("confirmBeforeToolCall", "bool", L10n.l("confirm_before_tool_calls")),
         ],
     ]
 }

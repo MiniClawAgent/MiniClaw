@@ -1,6 +1,6 @@
 import Foundation
 
-// MARK: - minis-model-cli — 模型调用专用 CLI（Layer 2）
+// MARK: - miniclaw-model-cli — 模型调用专用 CLI（Layer 2）
 //
 // 无头调用已配置的服务商（OpenAI 兼容 /chat/completions）。
 // apiKey 从 providers.json 读取并作为 Bearer 注入；也可用 --env API_KEY=... 覆盖（spec 12.2.1）。
@@ -158,10 +158,10 @@ func awaitCompletion(args: Args) -> Int32 {
 
 func usage() {
     print("""
-    minis-model-cli — 模型调用专用 CLI（Layer 2）
+    miniclaw-model-cli — 模型调用专用 CLI（Layer 2）
 
     用法:
-      minis-model-cli <command> [参数]
+      miniclaw-model-cli <command> [参数]
 
     命令:
       completion --prompt "<文本>" [--id <providerId>] [--model <modelId>] [--env API_KEY=...]

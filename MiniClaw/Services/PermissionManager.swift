@@ -192,7 +192,7 @@ final class PermissionManager: @unchecked Sendable {
     }
 
     private static func locationStatus() -> PermissionState {
-        switch CLLocationManager.authorizationStatus() {
+        switch CLLocationManager().authorizationStatus {
         case .authorizedWhenInUse, .authorizedAlways: return .authorized
         case .denied, .restricted:                    return .denied
         default:                                      return .notDetermined
@@ -344,11 +344,11 @@ final class PermissionManager: @unchecked Sendable {
             let pollTask = Task { @MainActor in
                 for _ in 0..<10 {
                     try? await Task.sleep(nanoseconds: 1_000_000_000)
-                    let s = CLLocationManager.authorizationStatus()
+                    let s = CLLocationManager().authorizationStatus
                     if s != .notDetermined { box.finish(mapStatus(s)); return }
                 }
                 // 10s 用户仍未响应弹窗：返回当前状态，避免调用方菊花永久卡死。
-                box.finish(mapStatus(CLLocationManager.authorizationStatus()))
+                box.finish(mapStatus(CLLocationManager().authorizationStatus))
             }
             _ = pollTask // 任务自持运行，无需保留
         }

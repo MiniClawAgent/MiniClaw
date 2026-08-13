@@ -1,4 +1,4 @@
-import SwiftUI
+@preconcurrency import SwiftUI
 import AVKit
 import PDFKit
 
@@ -515,7 +515,7 @@ struct MarkdownContentView: View {
         // 先替换 `[ref][]` 短形式（CommonMark：文本与引用名相同），再替换 `[text][ref]`。
         // ref 需转义正则元字符（如 v1.2 的 `.`）；输出不带尖括号（防 normalizeBareURLs 二次处理）。
         for (ref, url) in refs {
-            let escaped = NSRegularExpression.escapedPattern(for: ref)
+            _ = ref
             // 2026-08-11 修复:原正则 `\[ref\]\[\]\]` 无捕获组,模板 `$1` 替换成空串
             // → [text][] 链接文字丢失显示为空白链接。加捕获组保留文本。
             result = result.replacingOccurrences(
@@ -917,15 +917,15 @@ struct MarkdownContentView: View {
             case .audio:
                 AudioPlayerView(audioURL: mediaURL, title: alt)
             case .code:
-                fileCard(alt: alt, url: urlString, icon: "doc.text", label: L10n.tr("代码文件"), color: .blue)
+                fileCard(alt: alt, url: urlString, icon: "doc.text", label: L10n.l("code_files"), color: .blue)
             case .pdf:
-                fileCard(alt: alt, url: urlString, icon: "doc.richtext", label: L10n.tr("PDF 文档"), color: .red)
+                fileCard(alt: alt, url: urlString, icon: "doc.richtext", label: L10n.l("pdf_document"), color: .red)
             case .office:
-                fileCard(alt: alt, url: urlString, icon: "doc.fill", label: L10n.tr("Office 文档"), color: .orange)
+                fileCard(alt: alt, url: urlString, icon: "doc.fill", label: L10n.l("office_documents"), color: .orange)
             case .html:
-                fileCard(alt: alt, url: urlString, icon: "safari", label: L10n.tr("网页文件"), color: .teal)
+                fileCard(alt: alt, url: urlString, icon: "safari", label: L10n.l("web_files"), color: .teal)
             case .file:
-                fileCard(alt: alt, url: urlString, icon: "doc.fill", label: L10n.tr("文件"), color: .gray)
+                fileCard(alt: alt, url: urlString, icon: "doc.fill", label: L10n.l("files"), color: .gray)
             }
         } else {
             fallbackLabel(alt: alt, url: urlString, type: type)
@@ -975,7 +975,7 @@ struct MarkdownContentView: View {
                     .foregroundStyle(.secondary)
             }
             Spacer()
-            Button(L10n.tr("预览")) {
+            Button(L10n.l("preview")) {
                 openFilePreview(urlString: urlString)
             }
             .font(.caption)
@@ -1824,7 +1824,7 @@ struct CodeBlockView: View {
                 Button(action: copyCode) {
                     HStack(spacing: 4) {
                         Image(systemName: isCopied ? "checkmark" : "doc.on.doc")
-                        Text(isCopied ? L10n.tr("已复制") : L10n.tr("复制"))
+                        Text(isCopied ? L10n.l("copied") : L10n.l("copy_action"))
                     }
                     .font(.caption)
                 }
@@ -1866,11 +1866,15 @@ struct CodeBlockView: View {
 /// 类型判定与聊天消息媒体同一来源（classifyMediaType），不再各自维护清单。
 struct FilePreviewView: View {
     let fileURL: URL
+    @Environment(\.dismiss) private var dismiss
     @State private var mediaType: MediaType
     @State private var textContent: String?
     @State private var isTruncated: Bool
     @State private var fileSize: Int64
     @State private var modifiedAt: Date?
+    @State private var showShare = false
+    @State private var dragOffset: CGFloat = 0
+    @State private var isImageZoomed = false
 
     /// 本地文件 **同步预读**（读取上限 2MB，毫秒级）：
     /// 打开预览即见内容，无「加载中」转圈——本地小文件预览不该有任何加载态。
@@ -1915,7 +1919,13 @@ struct FilePreviewView: View {
     }
 
     var body: some View {
-        NavigationStack {
+        ZStack {
+            // 图片/视频 = 微信式黑色 80% 透明背景;其余(文档/文本/office/音频)= 系统默认背景。
+            if mediaType == .image || mediaType == .video {
+                Color.black.opacity(0.8).ignoresSafeArea()
+            } else {
+                Color(.systemBackground).ignoresSafeArea()
+            }
             Group {
                 switch mediaType {
                 case .image: imageViewer
@@ -1928,19 +1938,56 @@ struct FilePreviewView: View {
                     fileInfoCard
                 }
             }
-            // 内容区强制占满并左上对齐：否则 sheet 高度收缩、内容垂直居中
-            // （文本预览打开时显示在正中间的根因）。
+            // 内容区强制占满并左上对齐：否则内容垂直居中。
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            .navigationTitle(fileURL.lastPathComponent)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    ShareLink(item: fileURL) {
-                        Image(systemName: "square.and.arrow.up")
-                    }
+            // 右上角:分享 + 关闭(样式参考会话页选项按钮)。
+            VStack {
+                HStack(spacing: 12) {
+                    Spacer()
+                    previewButton("square.and.arrow.up") { showShare = true }
+                    previewButton("xmark") { dismiss() }
+                }
+                Spacer()
+            }
+            .padding(.top, 12)
+            .padding(.trailing, 12)
+        }
+        .sheet(isPresented: $showShare) {
+            ActivityView(items: [fileURL])
+        }
+    }
+
+    /// 右上角按钮:圆形 secondarySystemBackground 底 + primary 图标 32×32。
+    private func previewButton(_ systemName: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            ZStack {
+                Circle().fill(Color(.secondarySystemBackground))
+                Image(systemName: systemName)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(.primary)
+            }
+            .frame(width: 32, height: 32)
+            .contentShape(Circle())
+        }
+    }
+
+    /// 下滑关闭:图片向下拖动超过阈值即关闭,否则回弹。
+    private var downToDismissGesture: some Gesture {
+        DragGesture()
+            .onChanged { value in
+                // 放大状态下下滑是看图(由 UIScrollView 滚动),不触发关闭(2026-08-13)。
+                guard !isImageZoomed else { return }
+                let dy = value.translation.height
+                if dy > 0 { dragOffset = dy }
+            }
+            .onEnded { value in
+                guard !isImageZoomed else { return }
+                if value.translation.height > 150 || value.predictedEndTranslation.height > 300 {
+                    dismiss()
+                } else {
+                    withAnimation(.spring()) { dragOffset = 0 }
                 }
             }
-        }
     }
 
     // MARK: - 各类型统一查看器
@@ -1952,7 +1999,7 @@ struct FilePreviewView: View {
         ReadonlyLogTextView(text: textContent ?? "")
             .overlay(alignment: .topTrailing) {
             if isTruncated {
-                Text(L10n.tr("文件过大，已截断显示"))
+                Text(L10n.l("file_too_large_truncated_for_preview"))
                     .font(.caption2)
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 8)
@@ -1963,22 +2010,28 @@ struct FilePreviewView: View {
         }
     }
 
-    /// 图片：居中显示 + 捏合缩放。
+    /// 图片:原比例 + 双指捏合放大 + 双击恢复/放大 + 下滑关闭。
     private var imageViewer: some View {
         Group {
             if let image = UIImage(contentsOfFile: fileURL.path) {
-                ZoomableImageView(image: image)
+                PreviewZoomableImageView(image: image, onZoomChange: { zoomed in
+                    isImageZoomed = zoomed
+                    // 放大时复位下滑偏移,避免残留的位移影响看图。
+                    if zoomed { dragOffset = 0 }
+                })
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .offset(y: dragOffset)
+                    .simultaneousGesture(downToDismissGesture)
             } else {
                 fileInfoCard
             }
         }
     }
 
-    /// 视频：AVPlayer 播放器。
+    /// 视频:AVPlayer 播放器(背景由外层 80% 黑承载)。
     private var videoPlayer: some View {
         VideoPlayer(player: AVPlayer(url: fileURL))
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Color.black)
     }
 
     /// 音频：统一音频播放器（与会话消息内同一组件）。
@@ -2012,34 +2065,13 @@ struct FilePreviewView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
-            Text(L10n.tr("此类型暂不支持内容预览，可通过右上角分享导出"))
+            Text(L10n.l("content_preview_is_not_supported_for_this_type_use_the_share_button_in_the_top_right_to_export"))
                 .font(.caption)
                 .foregroundStyle(.tertiary)
                 .multilineTextAlignment(.center)
         }
         .padding()
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-}
-
-/// 可捏合缩放的图片查看器（图片类预览共用）。
-private struct ZoomableImageView: View {
-    let image: UIImage
-    @State private var scale: CGFloat = 1
-
-    var body: some View {
-        Image(uiImage: image)
-            .resizable()
-            .scaledToFit()
-            .scaleEffect(scale)
-            .gesture(
-                MagnificationGesture()
-                    .onChanged { scale = $0 }
-                    .onEnded { _ in
-                        withAnimation(.easeOut(duration: 0.2)) { scale = 1 }
-                    }
-            )
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 
@@ -2058,211 +2090,6 @@ private struct PDFKitView: UIViewRepresentable {
     func updateUIView(_ uiView: PDFView, context: Context) {}
 }
 
-// MARK: - Fullscreen Image Viewer
-
-struct FullscreenImageView: View {
-    let imageURL: URL
-    @Binding var isPresented: Bool
-    @State private var showSaveAlert = false
-    @State private var saveError: String?
-    @State private var scale: CGFloat = 1
-    @State private var lastScale: CGFloat = 1
-    @State private var offset: CGSize = .zero
-    @State private var lastOffset: CGSize = .zero
-    @State private var dragOffset: CGFloat = 0
-
-    var body: some View {
-        ZStack {
-            Color.black.ignoresSafeArea()
-
-            // 本地文件（附件/会话目录里的图片）用 UIImage 直接加载更可靠：
-            // AsyncImage 在 iOS 上对 file:// 协议经常静默失败。远程 https 才走 AsyncImage。
-            if imageURL.isFileURL {
-                fileImageView
-            } else {
-                AsyncImage(url: imageURL) { phase in
-                    switch phase {
-                    case .success(let image):
-                        zoomedImage(image)
-                    case .failure:
-                        ContentUnavailableView(
-                            L10n.tr("图片加载失败"),
-                            systemImage: "exclamationmark.triangle",
-                            description: Text(L10n.tr("无法加载该图片"))
-                        )
-                    case .empty:
-                        ProgressView()
-                            .tint(.white)
-                    @unknown default: EmptyView()
-                    }
-                }
-            }
-
-            // 关闭按钮 + 系统分享按钮：右上角并排，圆形毛玻璃底、同尺寸（32pt）。
-            // 全屏模态已隐藏导航栏，仅留状态栏安全间距。
-            VStack {
-                HStack {
-                    Spacer()
-                    ShareLink(item: imageURL) {
-                        Image(systemName: "square.and.arrow.up")
-                            .font(.system(size: 14, weight: .bold))
-                            .foregroundStyle(.white)
-                            .frame(width: 32, height: 32)
-                            .background(.ultraThinMaterial, in: Circle())
-                    }
-                    .padding(.top, 50)
-                    Button(action: dismiss) {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 14, weight: .bold))
-                            .foregroundStyle(.white)
-                            .frame(width: 32, height: 32)
-                            .background(.ultraThinMaterial, in: Circle())
-                    }
-                    .padding(.top, 50)
-                    .padding(.trailing, 16)
-                }
-                Spacer()
-            }
-        }
-        .alert(L10n.tr("保存失败"), isPresented: $showSaveAlert) {
-            Button(L10n.tr("好"), role: .cancel) {}
-        } message: {
-            Text(saveError ?? L10n.tr("未知错误"))
-        }
-    }
-
-    // 双指捏合缩放（1x~5x），松手若回到 ≤1x 则归位。
-    private var magnification: some Gesture {
-        MagnificationGesture()
-            .onChanged { value in
-                let delta = value / (lastScale == 0 ? 1 : lastScale)
-                lastScale = value
-                scale = min(max(scale * delta, 1), 5)
-            }
-            .onEnded { _ in
-                lastScale = 1
-                if scale <= 1 {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                        scale = 1
-                        offset = .zero
-                        lastOffset = .zero
-                    }
-                }
-            }
-    }
-
-    // 单指拖拽：放大态下平移图片；未放大态下作为「下滑关闭」手势（下滑超过 120pt 关闭）。
-    private var drag: some Gesture {
-        DragGesture()
-            .onChanged { value in
-                if scale > 1 {
-                    offset = CGSize(
-                        width: lastOffset.width + value.translation.width,
-                        height: lastOffset.height + value.translation.height
-                    )
-                } else {
-                    dragOffset = value.translation.height
-                }
-            }
-            .onEnded { value in
-                if scale > 1 {
-                    lastOffset = offset
-                } else {
-                    if value.translation.height > 120 {
-                        dismiss()
-                    }
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                        dragOffset = 0
-                    }
-                }
-            }
-    }
-
-    /// 本地文件图片：用 UIImage(contentsOfFile:) 加载，规避 AsyncImage 对 file:// 的不可靠性。
-    private var fileImageView: some View {
-        Group {
-            if let ui = UIImage(contentsOfFile: imageURL.path) {
-                zoomedImage(Image(uiImage: ui))
-            } else {
-                ContentUnavailableView(
-                    L10n.tr("图片加载失败"),
-                    systemImage: "exclamationmark.triangle",
-                    description: Text(L10n.tr("无法读取该图片文件"))
-                )
-            }
-        }
-    }
-
-    /// 统一的「缩放 + 拖拽 + 双击 + 右键菜单」修饰，文件图与远程图共用。
-    private func zoomedImage(_ image: Image) -> some View {
-        image
-            .resizable()
-            .scaledToFit()
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .scaleEffect(scale)
-            .offset(x: offset.width, y: offset.height + dragOffset)
-            .gesture(magnification.simultaneously(with: drag))
-            .onTapGesture(count: 2) {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                    if scale > 1 {
-                        scale = 1
-                        offset = .zero
-                        lastOffset = .zero
-                    } else {
-                        scale = 2.5
-                    }
-                }
-            }
-            .contextMenu {
-                Button { saveToPhotos() } label: { Label(L10n.tr("保存到相册"), systemImage: "photo") }
-                Button { saveToFiles() } label: { Label(L10n.tr("保存到文件"), systemImage: "folder") }
-            }
-    }
-
-    private func dismiss() {
-        withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
-            isPresented = false
-        }
-    }
-
-    private func saveToPhotos() {
-        Task {
-            do {
-                let (data, _) = try await URLSession.shared.data(from: imageURL)
-                guard let image = UIImage(data: data) else {
-                    saveError = L10n.tr("无法解码图片")
-                    showSaveAlert = true
-                    return
-                }
-                UIImageWriteToSavedPhotosAlbum(image, nil, nil, nil)
-            } catch {
-                saveError = error.localizedDescription
-                showSaveAlert = true
-            }
-        }
-    }
-
-    private func saveToFiles() {
-        Task {
-            do {
-                let (data, _) = try await URLSession.shared.data(from: imageURL)
-                let tempURL = FileManager.default.temporaryDirectory
-                    .appendingPathComponent(imageURL.lastPathComponent)
-                try data.write(to: tempURL)
-                let controller = UIActivityViewController(activityItems: [tempURL], applicationActivities: nil)
-                if let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-                   let root = scene.windows.first?.rootViewController {
-                    root.present(controller, animated: true)
-                }
-            } catch {
-                saveError = error.localizedDescription
-                showSaveAlert = true
-            }
-        }
-    }
-}
-
-// MARK: - Audio Player
 
 struct AudioPlayerView: View {
     let audioURL: URL
@@ -2313,13 +2140,18 @@ struct AudioPlayerView: View {
     }
 
     private func addTimeObserver() {
+        // iOS16 兼容:闭包标注 @Sendable 的 API 内访问 MainActor 属性需 assumeIsolated(队列已是 .main)。
         player.addPeriodicTimeObserver(forInterval: CMTime(seconds: 0.5, preferredTimescale: 600), queue: .main) { time in
-            currentTime = time.seconds
-            duration = player.currentItem?.duration.seconds ?? 1
+            MainActor.assumeIsolated {
+                currentTime = time.seconds
+                duration = player.currentItem?.duration.seconds ?? 1
+            }
         }
         NotificationCenter.default.addObserver(forName: .AVPlayerItemDidPlayToEndTime, object: player.currentItem, queue: .main) { _ in
-            isPlaying = false
-            player.seek(to: .zero)
+            MainActor.assumeIsolated {
+                isPlaying = false
+                player.seek(to: .zero)
+            }
         }
     }
 }

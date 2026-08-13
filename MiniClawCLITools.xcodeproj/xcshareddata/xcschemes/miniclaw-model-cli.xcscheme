@@ -14,9 +14,9 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "239DE744AA43044811387851F1856C84"
-               BuildableName = "minis-model-cli"
-               BlueprintName = "minis-model-cli"
+               BlueprintIdentifier = "5A3CA3ED50810032EC204B75E36F8DC7"
+               BuildableName = "miniclaw-model-cli"
+               BlueprintName = "miniclaw-model-cli"
                ReferencedContainer = "container:MiniClawCLITools.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
@@ -32,9 +32,9 @@
       <MacroExpansion>
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "239DE744AA43044811387851F1856C84"
-            BuildableName = "minis-model-cli"
-            BlueprintName = "minis-model-cli"
+            BlueprintIdentifier = "5A3CA3ED50810032EC204B75E36F8DC7"
+            BuildableName = "miniclaw-model-cli"
+            BlueprintName = "miniclaw-model-cli"
             ReferencedContainer = "container:MiniClawCLITools.xcodeproj">
          </BuildableReference>
       </MacroExpansion>
@@ -55,9 +55,9 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "239DE744AA43044811387851F1856C84"
-            BuildableName = "minis-model-cli"
-            BlueprintName = "minis-model-cli"
+            BlueprintIdentifier = "5A3CA3ED50810032EC204B75E36F8DC7"
+            BuildableName = "miniclaw-model-cli"
+            BlueprintName = "miniclaw-model-cli"
             ReferencedContainer = "container:MiniClawCLITools.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
@@ -74,9 +74,9 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "239DE744AA43044811387851F1856C84"
-            BuildableName = "minis-model-cli"
-            BlueprintName = "minis-model-cli"
+            BlueprintIdentifier = "5A3CA3ED50810032EC204B75E36F8DC7"
+            BuildableName = "miniclaw-model-cli"
+            BlueprintName = "miniclaw-model-cli"
             ReferencedContainer = "container:MiniClawCLITools.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>

@@ -29,10 +29,10 @@ enum StatusState {
 
     var label: String {
         switch self {
-        case .ok: return "正常"
-        case .warning: return "需注意"
-        case .error: return "异常"
-        case .unknown: return "未知"
+        case .ok: return L10n.l("status_ok")
+        case .warning: return L10n.l("status_warning")
+        case .error: return L10n.l("status_error")
+        case .unknown: return L10n.l("status_unknown")
         }
     }
 }
@@ -60,10 +60,10 @@ enum BootPhase {
     /// “iSH 运行时”那一行的详细说明
     var runtimeDetail: String {
         switch self {
-        case .booted:     return "已启动（init / pid 1 运行中，App 打开即后台预热完成）"
-        case .prewarming: return "后台预热中（App 打开后自动启动内核，无需等待命令）"
-        case .failed:     return "启动失败（运行 Shell 命令时会自动重试）"
-        case .idle:       return "尚未启动（App 打开即自动预热）"
+        case .booted:     return L10n.l("status_booted")
+        case .prewarming: return L10n.l("status_prewarming")
+        case .failed:     return L10n.l("status_failed")
+        case .idle:       return L10n.l("status_idle")
         }
     }
 }
@@ -97,16 +97,16 @@ struct RuntimeStatusSnapshot {
 
     /// 顶部列表行的快速摘要
     var summary: String {
-        if !ishCompiledIn { return "未集成 iSH 运行环境" }
+        if !ishCompiledIn { return L10n.l("status_ish_not_integrated") }
         switch bootPhase {
         case .booted:
             let version = alpineRelease ?? "（未识别版本）"
             let arch = liveArch ?? alpineArch ?? "（未识别架构）"
-            return "iSH 运行中 · Alpine\(version) · \(arch)"
+            return String(format: L10n.l("status_ish_running"), version, arch)
         case .prewarming:
-            return "内核后台预热中（App 打开即自动启动）"
+            return L10n.l("status_kernel_prewarming")
         case .failed:
-            return "内核启动失败（运行 Shell 时自动重试）"
+            return L10n.l("status_kernel_failed")
         case .idle:
             return rootfsDeployed ? "已就绪 · 等待内核启动" : "rootfs 未部署"
         }

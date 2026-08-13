@@ -1,5 +1,4 @@
 import Foundation
-import SwiftData
 
 /// Agent 人格配置（对齐 SOUL.md frontmatter：name / style / lang + body）
 struct SoulConfig: Codable {
@@ -145,12 +144,12 @@ enum ProviderType: String, Codable, CaseIterable {
         }
     }
 
-    /// 按兼容格式分类说明（用于设置列表分组）
+    /// 按兼容格式分类（用于设置列表分组与匹配，英文语义 key；显示走 L10n.l）
     var compatFormat: String {
         switch self {
-        case .openai, .openRouter, .custom, .grok, .deepSeek, .qwen, .xiaomi, .zhipu: return "OpenAI 兼容"
-        case .anthropic: return "Anthropic 兼容"
-        case .google: return "Google Gemini"
+        case .openai, .openRouter, .custom, .grok, .deepSeek, .qwen, .xiaomi, .zhipu: return "openai_compatible"
+        case .anthropic: return "anthropic_compatible"
+        case .google: return "google_gemini"
         }
     }
 
@@ -486,13 +485,18 @@ enum EnvVarStore {
     /// 当前已配置的环境变量表（key -> value），用于**真实注入进程环境**
     /// （而非字符串替换）。iSH 子进程（/bin/sh 及其后续 fork 的整条进程树）将
     /// 通过 getenv / os.environ / process.env 等读取到这些值。
-    static var environmentDictionary: [String: String] {
-        let table = SettingsStore.shared.settings.envvars
+    /// 参数版从传入快照构造（后台线程用，2026-08-13 竞争修复）。
+    static func environmentDictionary(using vars: [EnvVariable]) -> [String: String] {
         var dict: [String: String] = [:]
-        for v in table where !v.key.isEmpty {
+        for v in vars where !v.key.isEmpty {
             dict[v.key] = v.value
         }
         return dict
+    }
+
+    /// 主线程便捷入口：直接读 SettingsStore（仅主线程调用）。
+    static var environmentDictionary: [String: String] {
+        environmentDictionary(using: SettingsStore.shared.settings.envvars)
     }
 }
 
@@ -593,6 +597,16 @@ enum PermissionState: String, Codable {
     case authorized = "已授权"
     case denied = "已拒绝"
     case restricted = "受限"
+
+    /// 显示标签(英文 key,经 L10n.l 查表);rawValue 保持中文以兼容 Codable 持久化。
+    var label: String {
+        switch self {
+        case .notDetermined: "permission_not_determined"
+        case .authorized: "permission_authorized"
+        case .denied: "permission_denied"
+        case .restricted: "permission_restricted"
+        }
+    }
 }
 
 // MARK: - 统一配置域（对齐 spec 9.1：Swift 原生配置存储）
@@ -812,7 +826,7 @@ struct ChatSettings: Codable, Equatable {
     // 2026-08-09 字体适配：移除 fontSize 设置，统一跟随系统动态字体（body 17pt 基准）。
     var showThinking: Bool = true
     var codeBlockTheme: String = "auto"
-    var enterToSend: Bool = true
+    var enterToSend: Bool = false
 }
 
 /// 语音设置（speech）

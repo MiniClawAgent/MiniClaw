@@ -11,7 +11,7 @@ struct BrowserSheetSettingsView: View {
     @State private var searchEngine: SearchEngine =
         SearchEngine(rawValue: SettingsStore.shared.settings.browser.searchEngine) ?? .bing
     /// 缓存大小文本（WebKit 磁盘缓存 + URLCache，后台计算，不卡主线程）。
-    @State private var cacheSizeText: String = L10n.tr("计算中…")
+    @State private var cacheSizeText: String = L10n.l("calculating")
 
     /// 按域名聚合的 Cookie 数量
     struct CookieGroup: Identifiable {
@@ -23,8 +23,8 @@ struct BrowserSheetSettingsView: View {
     var body: some View {
         List {
             // MARK: UA 设置
-            Section(L10n.tr("UA 设置")) {
-                Picker(L10n.tr("UA 预设"), selection: $uaProfile) {
+            Section(L10n.l("user_agent")) {
+                Picker(L10n.l("ua_preset"), selection: $uaProfile) {
                     Text("Mobile Safari").tag(BrowserController.UAProfile.mobile)
                     Text("Desktop Safari").tag(BrowserController.UAProfile.desktop)
                 }
@@ -38,29 +38,29 @@ struct BrowserSheetSettingsView: View {
 
             // MARK: 搜索引擎
             // 仅切换「地址栏搜索词」跳转的引擎（默认 bing），与默认首页无关。
-            Section(L10n.tr("搜索引擎")) {
-                Picker(L10n.tr("搜索引擎"), selection: $searchEngine) {
+            Section(L10n.l("search_engine")) {
+                Picker(L10n.l("search_engine"), selection: $searchEngine) {
                     ForEach(SearchEngine.allCases) { engine in
                         Text(engine.displayName).tag(engine)
                     }
                 }
                 .pickerStyle(.menu)
                 // 切换立即显示（本地状态驱动）；写回 SettingsStore 持久化并即时生效。
-                .onChange(of: searchEngine) { _, newValue in
+                .onChange(of: searchEngine) { newValue in
                     var b = SettingsStore.shared.settings.browser
                     b.searchEngine = newValue.rawValue
-                    SettingsStore.shared.set(b, domain: .browser, summary: L10n.tr("修改搜索引擎"))
+                    SettingsStore.shared.set(b, domain: .browser, summary: L10n.l("change_search_engine"))
                 }
 
-                Text(L10n.tr("仅在地址栏输入搜索词时生效，不影响默认首页。"))
+                Text(L10n.l("only_takes_effect_when_a_search_term_is_typed_in_the_address_bar_the_default_homepage_is_unaffected"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
 
             // MARK: 缓存
-            Section(L10n.tr("缓存")) {
+            Section(L10n.l("cache")) {
                 HStack {
-                    Text(L10n.tr("缓存大小"))
+                    Text(L10n.l("cache_size"))
                     Spacer()
                     Text(cacheSizeText)
                         .foregroundStyle(.secondary)
@@ -69,14 +69,14 @@ struct BrowserSheetSettingsView: View {
                 Button(role: .destructive) {
                     Task { await clearCache() }
                 } label: {
-                    Text(L10n.tr("清理缓存"))
+                    Text(L10n.l("clear_cache"))
                 }
             }
 
             // MARK: Cookie 和数据
-            Section(L10n.tr("Cookie 和数据")) {
+            Section(L10n.l("cookies_and_data")) {
                 HStack {
-                    Text(L10n.tr("Cookie 总数"))
+                    Text(L10n.l("total_cookies"))
                     Spacer()
                     Text("\(totalCount)")
                         .foregroundStyle(.secondary)
@@ -90,28 +90,28 @@ struct BrowserSheetSettingsView: View {
                         await reloadCookies()
                     }
                 } label: {
-                    Text(L10n.tr("清除所有 Cookie"))
+                    Text(L10n.l("clear_all_cookies"))
                 }
             }
 
             if !cookieGroups.isEmpty {
-                Section(L10n.tr("按域名分类")) {
+                Section(L10n.l("group_by_domain")) {
                     ForEach(cookieGroups) { group in
                         HStack {
                             Text(group.domain)
                             Spacer()
-                            Text("\(group.count) " + L10n.tr("个 Cookie"))
+                            Text("\(group.count) " + L10n.l("cookie_count_suffix"))
                                 .foregroundStyle(.secondary)
                         }
                     }
                 }
             }
         }
-        .navigationTitle(L10n.tr("浏览器设置"))
+        .navigationTitle(L10n.l("browser_settings"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Button(L10n.tr("完成")) { dismiss() }
+                Button(L10n.l("done")) { dismiss() }
             }
         }
         .onAppear {
@@ -120,7 +120,7 @@ struct BrowserSheetSettingsView: View {
             // 外部可能已修改（如设置页）：进入时同步一次。
             searchEngine = SearchEngine(rawValue: SettingsStore.shared.settings.browser.searchEngine) ?? .bing
         }
-        .onChange(of: uaProfile) { _, newVal in
+        .onChange(of: uaProfile) { newVal in
             BrowserController.shared.uaProfile = newVal
             BrowserController.shared.applyUAProfileToAllTabs()
             // UA 变更只影响后续 HTTP 请求：立即刷新当前页让新 UA 生效。

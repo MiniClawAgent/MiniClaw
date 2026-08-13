@@ -100,7 +100,7 @@ indirect enum JSONSchemaValue: Codable, Sendable, Equatable {
         case let value as [String: Any]:
             self = .object(try value.mapValues { try JSONSchemaValue(jsonObject: $0) })
         default:
-            throw ToolError.invalidParameters("无法转换 JSON 值: \(type(of: jsonObject))")
+            throw ToolError.invalidParameters(String(format: L10n.l("tool_json_convert_failed"), String(describing: type(of: jsonObject))))
         }
     }
 
@@ -345,7 +345,7 @@ enum ToolError: Error, LocalizedError {
     var errorDescription: String? {
         switch self {
         case .unknownTool(let name):
-            return "未知工具: \(name)"
+            return String(format: L10n.l("tool_unknown"), name)
         case .executionFailed(let message), .invalidParameters(let message):
             return message
         }

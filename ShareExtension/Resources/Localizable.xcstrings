@@ -1,0 +1,57 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "share_send_title": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "发送给 MiniClaw 执行"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Send to MiniClaw to run"
+          }
+        }
+      }
+    },
+    "share_hint": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "将作为任务直接派发给 MiniClaw 智能体"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Will be dispatched to the MiniClaw Agent as a task"
+          }
+        }
+      }
+    },
+    "share_file_prefix": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[文件] "
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[File] "
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}

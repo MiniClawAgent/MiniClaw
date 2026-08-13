@@ -1,5 +1,4 @@
 import SwiftUI
-import SwiftData
 import UIKit
 
 @main
@@ -10,19 +9,19 @@ struct MiniClawApp: App {
     @State private var appState = AppState()
     @StateObject private var l10n = L10n.shared
 
-    /// 显式构建的 SwiftData 容器（自愈式初始化，见 `makeContainer()`）。
-    /// 早期 iCloud 实验曾把容器配成 CloudKit 后端，导致真机上遗留的存储文件与当前本地
-    /// schema 不兼容：`save()` 全部静默失败、数据无法落盘、切后台/重启即清空。
-    private let modelContainer: ModelContainer = Self.makeContainer()
-
     init() {
         // 早期置位 AppState.shared，缩短 AppIntent（Siri/快捷指令）在冷启动后
         // 立刻派发任务时的竞态窗口（原先只在 WindowGroup 的 .task 里置位）。
         AppState.shared = appState
-        // 提前配置 SessionManager：快捷指令/深链冷启动拉起 App 进程时即可建会话/查会话，
+        // iOS16 适配:持久层由 SwiftData 切换为 JSON 文件存储,首次启动迁移旧库数据。
+        LegacySwiftDataMigrator.migrateIfNeeded()
+        // SQLite 单库迁移(2026-08-12):JSON 会话文件 → miniclaw.db(会话主数据+会话附属),
+        // 已迁移 JSON 移入 migration-backup 冷备份。须在 SessionManager.load 之前执行。
+        SessionsSQLiteMigrator.migrateIfNeeded()
+        // 提前加载会话持久层：快捷指令/深链冷启动拉起 App 进程时即可建会话/查会话，
         // 不再等 HomeView 出现（后台 intent 无 UI 时 HomeView 可能不出现，任务会静默丢失）。
-        // HomeView 处仍保留 configure 调用（幂等，仅覆盖 modelContext）。
-        SessionManager.shared.configure(with: modelContainer.mainContext)
+        // HomeView 处仍保留 load 调用（幂等，仅重读磁盘）。
+        SessionManager.shared.load()
         // App 启动即创建运行时目录，并同步随版本发布的项目托管规则。
         _ = FileSystemManager.shared
         // 安装崩溃/信号处理器与主线程卡死看门狗（依赖 FileSystemManager 已创建根目录）。
@@ -51,16 +50,9 @@ struct MiniClawApp: App {
             await FileSystemManager.shared.waitForBundledSync()
             await Task.detached(priority: .userInitiated) { SubAgentProfileStore.shared.reload() }.value
         }
-        // 数据预热：冷启动时 sqlite 页缓存为空，首页首次 fetch 要几百 ms 磁盘 IO，
-        // 导致首页首帧空白后再「突然」恢复全部会话。启动屏显示期间同步 fetch 一次，
-        // 把存储页读入内存缓存（与首页同一 mainContext，页缓存共享），
-        // 首页 fetch 命中缓存，首帧即可显示数据，消除空列表闪烁。
-        do {
-            let preloaded = try modelContainer.mainContext.fetch(FetchDescriptor<ChatSession>())
-            AppLogger.shared.info("启动预热：已加载 \(preloaded.count) 个会话", category: "Lifecycle", subsystem: "Startup")
-        } catch {
-            AppLogger.shared.error("启动预热 fetch 失败（可忽略，首页会自行加载）: \(error.localizedDescription)", category: "Lifecycle", subsystem: "Startup")
-        }
+        // 数据预热：启动时同步加载会话持久层（SessionManager.load 已预热内存缓存），
+        // 首页首帧即可显示数据，消除空列表闪烁。
+        AppLogger.shared.info("启动预热：已加载 \(SessionManager.shared.sessions.count) 个会话", category: "Lifecycle", subsystem: "Startup")
         // 清理上一运行残留的 Live Activity（单例内存表重启后为空，但系统里可能仍挂着旧的）。
         BackgroundTaskController.shared.endAllLiveActivities()
         // 同步系统初始化：注册 hydrator + transport（不启动，需用户开启 iCloud 同步后才 start）。
@@ -76,41 +68,13 @@ struct MiniClawApp: App {
         // （详见 ChatInputBar.requestMicThenStart）。
     }
 
-    // MARK: - SwiftData 容器（自愈式）
-
-    /// 构建会话持久化容器。
-    /// - 优先尝试默认本地存储（保留健康设备上的既有数据）；
-    /// - 若默认存储不可用（早期 iCloud 实验遗留的 CloudKit 存储与当前本地 schema 不兼容，
-    ///   表现为 `save()` 静默失败、数据无法落盘、切后台/重启即清空），则改用专用文件名
-    ///   `miniclaw.sqlite` 创建干净的本地 SQLite，绕过损坏的旧存储，使 App 自愈、
-    ///   无需用户手动删除重装。
-    private static func makeContainer() -> ModelContainer {
-        let schema = Schema([ChatSession.self, ChatMessage.self])
-        // 早期 iCloud 实验在本机遗留了一个 CloudKit 格式的默认存储文件。
-        // 同步打开它会触发 SwiftData 内部致命错误（SQLite 格式不兼容，无法被 try 捕获），
-        // 导致 App 启动即崩溃——所以【绝不直接打开默认存储文件】。
-        // 始终使用一个独立命名的干净本地文件，从根本上绕开损坏/CloudKit 遗留存储。
-        let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        let url = dir.appendingPathComponent("miniclaw.sqlite")
-        let config = ModelConfiguration(schema: schema, url: url)
-        if let c = try? ModelContainer(for: ChatSession.self, ChatMessage.self, configurations: config) {
-            return c
-        }
-        // 极端兜底：内存容器（不会致命），保证 App 至少能打开，本次运行数据不持久化。
-        AppLogger.shared.error("miniclaw.sqlite 创建失败，回退内存容器（本次运行数据不持久化）")
-        return (try? ModelContainer(for: ChatSession.self, ChatMessage.self,
-                                    configurations: ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)))
-            ?? (try! ModelContainer(for: ChatSession.self, ChatMessage.self,
-                                    configurations: ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)))
-    }
-
     var body: some Scene {
         WindowGroup {
             ContentView()
-                .environment(appState)
+                .environmentObject(appState)
                 .environmentObject(l10n)
                 .environment(\.locale, l10n.current.locale)
-                .onChange(of: appState.colorSchemePreference) { applyColorScheme() }
+                .onChange(of: appState.colorSchemePreference) { _ in applyColorScheme() }
                 .task {
                     AppState.shared = appState
                     applyColorScheme()
@@ -125,7 +89,6 @@ struct MiniClawApp: App {
                 }
             ScenePhaseBridge()
         }
-        .modelContainer(modelContainer)
     }
 
     /// 轻量视图：观察场景生命周期并记录到运行日志（前台/后台/活跃切换）。
@@ -209,7 +172,7 @@ struct MiniClawApp: App {
         guard url.scheme == "miniclaw" else { return }
 
         let absolute = url.absoluteString
-        let lower = absolute.lowercased()
+        let _ = absolute.lowercased()
         let host = (url.host ?? "").lowercased()
         let path = url.path.lowercased()
 
@@ -226,7 +189,7 @@ struct MiniClawApp: App {
         // 新建会话（桌面小组件「新建对话」快捷入口）：建一个空会话并直接进入。
         if host == "new" {
             Task { @MainActor in
-                if let s = SessionManager.shared.createSession(title: L10n.tr("新对话"), source: "widget") {
+                if let s = SessionManager.shared.createSession(title: L10n.l("new_chat"), source: "widget") {
                     appState.selectedSession = s
                 }
             }

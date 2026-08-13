@@ -12,7 +12,7 @@ import Foundation
 // 3. 思考内容经 `delta.reasoning_content` 返回(基类解析已支持);
 // 4. 上下文缓存全自动,命中经 `usage.prompt_tokens_details.cached_tokens` 上报(基类 usage 解析已支持)。
 
-final class ZhipuProviderAdapter: OpenAIProviderAdapter {
+final class ZhipuProviderAdapter: OpenAIProviderAdapter, @unchecked Sendable {
     init(config: OpenAICompatConfig) {
         super.init(name: "Zhipu 智谱", config: config)
     }

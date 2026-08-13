@@ -51,11 +51,11 @@ struct BrowserTool: AgentTool {
                 properties: [
                     "activity": JSONSchema.JSONProperty(
                         type: "string",
-                        description: "必填。6-16字中文具体行为名，用于 UI 展示，如：查看新闻列表、打开新闻联播首页、读取今日头条正文"
+                        description: L10n.l("param_skill_action_name")
                     ),
                     "action": JSONSchema.JSONProperty(
                         type: "string",
-                        description: "操作名，见上方列表",
+                        description: L10n.l("param_action_name"),
                         enum: [
                             "navigate", "screenshot", "click", "type", "get_text", "get_readable",
                             "get_page_info", "get_backbone", "scroll", "scroll_and_collect",
@@ -66,10 +66,10 @@ struct BrowserTool: AgentTool {
                     ),
                     "params": JSONSchema.JSONProperty(
                         type: "object",
-                        description: "操作参数字典。navigate 必须包含 url；get_readable 才可包含 max_length。不要把操作参数放在顶层"
+                        description: L10n.l("param_browser_params_flat")
                     ),
-                    "tab_index": JSONSchema.JSONProperty(type: "integer", description: "目标标签索引（0 起）；省略则使用当前激活标签。注意：开/关标签会使索引漂移失效，务必优先用 tab_id"),
-                    "tab_id": JSONSchema.JSONProperty(type: "string", description: "稳定标签 id（list_tabs 返回；标签增删后依然有效）。与 tab_index 二选一，推荐优先使用 tab_id"),
+                    "tab_index": JSONSchema.JSONProperty(type: "integer", description: L10n.l("param_target_tab_index")),
+                    "tab_id": JSONSchema.JSONProperty(type: "integer", description: "Tab id (Int, from navigate/new_tab/list_tabs). 与 list_tabs 返回的 tab_id 一致。"),
                 ],
                 required: ["activity", "action"]
             )
@@ -78,12 +78,15 @@ struct BrowserTool: AgentTool {
 
     func execute(_ parameters: [String: Any]) async throws -> ToolResult {
         guard let action = parameters["action"] as? String else {
-            return ToolResult(success: false, text: "缺少 action 参数")
+            return ToolResult(success: false, text: L10n.l("err_missing_action"))
         }
 
         var params = parameters["params"] as? [String: Any] ?? [:]
         let tabIndex = parameters["tab_index"] as? Int
-        let tabID = parameters["tab_id"] as? String
+        // 2026-08-12 修复:tab_id 兼容 Int(引擎池返回数字 id,如 0/1)与 UUID 字符串(旧实现)。
+        // 此前 `as? String` 会把数字 tab_id 解析成 nil → 引擎寻址断裂,截图/读取静默截错标签。
+        let tabIDRaw = parameters["tab_id"]
+        let tabID: String? = (tabIDRaw as? String) ?? (tabIDRaw as? Int).map(String.init)
 
         if action == "navigate",
            ((params["url"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true) {
@@ -93,7 +96,7 @@ struct BrowserTool: AgentTool {
             } else {
                 return ToolResult(
                     success: false,
-                    text: "navigate 缺少必填参数 params.url。请使用 params: {\"url\": \"https://...\"} 重新调用；max_length 仅适用于 get_readable。"
+                    text: L10n.l("browser_need_params_url")
                 )
             }
         }
@@ -108,7 +111,7 @@ struct BrowserTool: AgentTool {
         do {
             paramsData = try JSONSerialization.data(withJSONObject: params)
         } catch {
-            return ToolResult(success: false, text: "参数无法序列化: \(error.localizedDescription)")
+            return ToolResult(success: false, text: String(format: L10n.l("browser_param_serialize_failed"), error.localizedDescription))
         }
 
         do {
@@ -118,7 +121,7 @@ struct BrowserTool: AgentTool {
             let result = try await BrowserController.shared.run(action: action, paramsData: paramsData, tabIndex: tabIndex, tabID: tabID, sessionID: scopeSessionID)
             return ToolResult(success: true, text: result)
         } catch {
-            return ToolResult(success: false, text: "浏览器操作「\(action)」失败：\(error.localizedDescription)")
+            return ToolResult(success: false, text: String(format: L10n.l("browser_action_failed"), action, error.localizedDescription))
         }
     }
 
@@ -140,7 +143,7 @@ struct BrowserTool: AgentTool {
         let trimmed = activity.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
 
-        let searchPrefixes = ["搜索", "查询", "查找", "检索"]
+        let searchPrefixes = [L10n.l("search"), L10n.l("query_action"), L10n.l("find_action"), L10n.l("search_action")]
         guard let prefix = searchPrefixes.first(where: { trimmed.hasPrefix($0) }) else {
             return nil
         }

@@ -35,7 +35,7 @@ final class MetricKitCollector: NSObject, MXMetricManagerSubscriber, @unchecked 
         AppLogger.shared.info("[MetricKit] 收到诊断负载 \(payloads.count) 个", category: "Crash")
 
         for payload in payloads {
-            let timeStamp = payload.timeStampBegin ?? Date()
+            let timeStamp = payload.timeStampBegin
             // 崩溃诊断:本收集器唯一关心的负载类型。
             if let crash = payload.crashDiagnostics?.first {
                 writeCrashDiagnostic(crash, at: timeStamp)
@@ -59,12 +59,8 @@ final class MetricKitCollector: NSObject, MXMetricManagerSubscriber, @unchecked 
         let type = "MetricKit Crash\(reasonDetail)"
 
         // 调用栈:callStackTree 的 JSON 序列化(系统符号化,比 App 内 backtrace 完整)。
-        let stack: String
-        if let json = try? crash.callStackTree.jsonRepresentation() {
-            stack = String(decoding: json, as: UTF8.self)
-        } else {
-            stack = "(callStackTree unavailable)"
-        }
+        // callStackTree.jsonRepresentation() 为非可选 Data(同步),无失败分支。
+        let stack = String(decoding: crash.callStackTree.jsonRepresentation(), as: UTF8.self)
 
         // 崩溃发生时刻的日志尾部(尽力而为——崩溃可能发生在数小时前,
         // 当前日志尾部不一定对应崩溃时刻,但作为上下文仍有价值)。

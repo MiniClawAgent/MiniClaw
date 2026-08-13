@@ -10,7 +10,7 @@ import Foundation
 // 2. `system` 角色仅允许出现在 messages[0](我方消息构造满足,无需处理);
 // 3. usage 需 `stream_options.include_usage` 才返回(基类已支持)。
 
-final class QwenProviderAdapter: OpenAIProviderAdapter {
+final class QwenProviderAdapter: OpenAIProviderAdapter, @unchecked Sendable {
     init(config: OpenAICompatConfig) {
         super.init(name: "Qwen 千问", config: config)
     }

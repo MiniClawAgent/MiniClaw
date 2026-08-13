@@ -105,6 +105,7 @@ final class ToolConfirmationBridge: ObservableObject {
     }
 
     private func rebuildPending() {
-        pendingItems = slots.values.map(\.item).sorted { $0.id < $1.id }
+        // iOS16 兼容:UUID 的 Comparable 是 iOS17 才提供,用 uuidString 排序(等价语义)。
+        pendingItems = slots.values.map(\.item).sorted { $0.id.uuidString < $1.id.uuidString }
     }
 }

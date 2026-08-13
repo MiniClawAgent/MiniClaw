@@ -22,16 +22,13 @@ struct RootfsManagerView: View {
     var body: some View {
         NavigationStack(path: $path) {
             if RootfsManagerView.rootBase == nil {
-                ContentUnavailableView {
-                    Label(L10n.tr("Rootfs 未部署"), systemImage: "tray")
-                } description: {
-                    Text(L10n.tr("容器内文件系统尚未部署，请稍候或重启 App。"))
-                }
-                .navigationTitle(L10n.tr("Rootfs 管理"))
+                EmptyStateView(label: L10n.l("rootfs_not_deployed"), systemImage: "tray",
+                                 description: L10n.l("the_in_container_filesystem_is_not_deployed_yet_please_wait_or_restart_the_app"))
+                .navigationTitle(L10n.l("rootfs_management"))
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .topBarTrailing) {
-                        Button(L10n.tr("完成")) { dismiss() }
+                        Button(L10n.l("done")) { dismiss() }
                     }
                 }
             } else {
@@ -42,14 +39,14 @@ struct RootfsManagerView: View {
                     sessionID: nil
                 )
                 UnifiedFileBrowser(location: rootLoc, path: $path)
-                    .navigationTitle(L10n.tr("Rootfs 管理"))
+                    .navigationTitle(L10n.l("rootfs_management"))
                     .navigationBarTitleDisplayMode(.inline)
                     .navigationDestination(for: FileBrowserLocation.self) { loc in
                         UnifiedFileBrowser(location: loc, path: $path)
                     }
                     .toolbar {
                         ToolbarItem(placement: .topBarTrailing) {
-                            Button(L10n.tr("完成")) { dismiss() }
+                            Button(L10n.l("done")) { dismiss() }
                         }
                     }
             }

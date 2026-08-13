@@ -55,7 +55,9 @@ final class MountMirrorManager: @unchecked Sendable {
         ) { [weak self] _ in
             // 通知可能由主线程发出；观察者块本身只做轻量 async 派发，
             // 真正的同步工作落到独立的 observerQueue 后台队列，彻底隔离主线程。
-            self?.observerQueue.async { self?.syncEnabledNow() }
+            // iOS16 兼容:提前捕获 self 引用避免 Sendable 闭包内捕获警告。
+            guard let self else { return }
+            self.observerQueue.async { self.syncEnabledNow() }
         }
         // 初始对账（App 启动时可能已错过首次通知）。
         syncEnabledNow()

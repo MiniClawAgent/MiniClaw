@@ -18,8 +18,7 @@ struct TokenUsageReport {
 
 // MARK: - Agent Loop Engine
 
-@Observable
-final class AgentLoopEngine: @unchecked Sendable {
+final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
     private let toolRouter: ToolRouter
     private var routingPlan: ModelRoutingPlan?
     /// system prompt 拆成稳定段与易变段，分开放置以配合各家提示词缓存：
@@ -36,12 +35,12 @@ final class AgentLoopEngine: @unchecked Sendable {
     private var forceThinkingOverride: String?
     private var activeRequestTask: URLSessionDataTask?
     /// 当前正在执行的工具 Task 集合（供 cancel/pause 中断挂起的工具调用）。
-    /// [Fix 2026-08-11 并发工具崩溃·OpenMinis 模式] 原 `toolExecutionTask: Any?` 是
+    /// [Fix 2026-08-11 并发工具崩溃·参考实现] 原 `toolExecutionTask: Any?` 是
     /// 单一共享可变属性——并发工具(executeToolsConcurrently 的 withTaskGroup)同时写
     /// 1925/1927 行,主线程 pause/cancel 同时读写,ARC 引用计数竞争 → swift_release_dealloc
     /// 崩溃(用户实证:两个 shell 并发执行时偶发)。改为 NSLock 保护的按 callID 集合
     /// (照 SubagentEngineBag 范式),每个工具写自己的槽位,暂停/取消枚举全部取消——
-    /// 与 OpenMinis ISHExecutionCoordinator(actor 持有 in-flight 集合)同构。
+    /// 与 iSH 执行协调器(actor 持有 in-flight 集合)同构。
     private let toolExecutionTasks = ToolTaskBag()
     /// 取消 的全部可变状态统一由 actor 保护。
     /// 因为 cancel() 从主线程调用，
@@ -126,6 +125,9 @@ final class AgentLoopEngine: @unchecked Sendable {
     private static let convergenceToolCallBudget = 12
     /// 当前任务所属会话（检查点落盘文件名 key）。
     private var sessionID: UUID? = nil
+    /// 本轮 run 的 history 对应的 session 消息 id（与 history 参数一一对应），
+    /// 自动压缩成功时据此定位锚点消息，写回 session 持久层。
+    private var historySourceIDs: [UUID] = []
     /// 暂停/恢复时续写的助手气泡 ID（恢复时写回同一气泡，避免第二个回复气泡）。
     private var streamingMessageID: UUID? = nil
 
@@ -265,30 +267,30 @@ final class AgentLoopEngine: @unchecked Sendable {
             .map { "- `\($0.name)`：\($0.displayName)（\($0.summary)）" }
             .joined(separator: "\n")
         let profileDescription = profileList.isEmpty
-            ? "可选：子代理角色，默认 general（通用助手）。"
-            : "可选：子代理角色（默认 `general`）。可用角色：\n\(profileList)"
+            ? L10n.l("param_subagent_role_default")
+            : String(format: L10n.l("loop_subagent_roles"), profileList)
         return ToolSchema(
             type: "function",
             function: ToolSchema.FunctionDef(
                 name: Self.subagentToolName,
-                description: "把一个明确、可独立完成的子任务派发给一个专注的子代理（subagent）去独立完成，并回收它的结果。当你判断某部分工作可以并行或被隔离处理、或需要更聚焦的上下文、或会占据大量上下文时使用。子代理会独立使用手上的工具完成任务。若后续出现的任务与某个已派出的子代理相关，应优先用上一轮返回的 subagent_id 续派同一子代理（它保留之前上下文），而不是每次都新建。",
+                description: L10n.l("dispatch_subagent_tool_desc"),
                 parameters: JSONSchema(
                     type: "object",
                     properties: [
-                        "task": JSONSchema.JSONProperty(type: "string", description: "子任务的清晰描述，父代理期待子代理独立完成并返回结果。"),
-                        "focus": JSONSchema.JSONProperty(type: "string", description: "可选：子代理的聚焦领域/名称标注，便于在界面上区分多个子代理。"),
+                        "task": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_subtask_desc_independent")),
+                        "focus": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_subagent_focus_label")),
                         "profile": JSONSchema.JSONProperty(type: "string", description: profileDescription),
-                        "subagent_id": JSONSchema.JSONProperty(type: "string", description: "可选：传入上一轮 dispatch_subagent 返回结果里给出的 id，即可把新任务派发给【同一个】子代理（它保留之前的上下文）。不传则新建一个子代理。"),
+                        "subagent_id": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_subagent_id_reuse")),
                         "tasks": JSONSchema.JSONProperty(
                             type: "array",
-                            description: "可选：一次并行派发多个互不依赖的子任务（最多 \(maxParallelSubagents) 个）。数组元素为对象 {task, focus?, profile?, subagent_id?}，也可直接给字符串表示纯任务描述。填了 tasks 时忽略顶层 task。只有当子任务之间【确实互不依赖】时才用并行，否则请依次派发。",
+                            description: String(format: L10n.l("loop_parallel_tasks_desc"), maxParallelSubagents),
                             items: JSONSchema(
                                 type: "object",
                                 properties: [
-                                    "task": JSONSchema.JSONProperty(type: "string", description: "子任务的清晰描述。"),
-                                    "focus": JSONSchema.JSONProperty(type: "string", description: "可选：聚焦领域/名称标注。"),
-                                    "profile": JSONSchema.JSONProperty(type: "string", description: "可选：子代理角色（不填继承顶层 profile 或默认 general）。"),
-                                    "subagent_id": JSONSchema.JSONProperty(type: "string", description: "可选：复用已有子代理的 id。")
+                                    "task": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_subtask_desc")),
+                                    "focus": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_focus_label")),
+                                    "profile": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_subagent_role_inherit")),
+                                    "subagent_id": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_reuse_subagent_id"))
                                 ],
                                 required: ["task"]
                             )
@@ -307,7 +309,7 @@ final class AgentLoopEngine: @unchecked Sendable {
             type: "function",
             function: ToolSchema.FunctionDef(
                 name: Self.closeSubagentToolName,
-                description: "关闭一个已存在但后续不再需要的子代理（如某调研任务已彻底完成）。关闭后其会话与上方头像一并移除、上下文释放，不可再复用（如再需要，重新派发新建即可）。",
+                description: L10n.l("close_subagent_tool_desc"),
                 parameters: CloseSubagentTool.schema
             )
         )
@@ -317,8 +319,8 @@ final class AgentLoopEngine: @unchecked Sendable {
     /// `canDispatchDeeper` 为 true 时（P2-4 多层编排，深度未触顶）允许继续往下派子代理。
     private static func subagentEngineSuffix(focus: String?, depth: Int, canDispatchDeeper: Bool) -> String {
         let recursionRule = canDispatchDeeper
-        ? "- 你当前处于子代理层级 \(depth)（上限 \(maxSubagentDepth) 层）。若子任务仍可继续拆分成互不依赖的部分，你可以调用 dispatch_subagent 继续向下派发（可用 tasks 数组一次并行派多个），但只在确有必要时这么做。"
-        : "- 你已处于子代理最深层级（\(depth)/\(maxSubagentDepth)），不要尝试调用 dispatch_subagent，你必须自己完成任务。"
+        ? String(format: L10n.l("loop_subagent_depth_hint"), depth, maxSubagentDepth)
+        : String(format: L10n.l("loop_subagent_max_depth"), depth, maxSubagentDepth)
         return """
         规则：
         - 只使用你手上的工具完成任务。
@@ -358,9 +360,8 @@ final class AgentLoopEngine: @unchecked Sendable {
     }
 
     /// 压缩冷却：距上次压缩不足该轮数则跳过，避免重复压缩抖动。
+    /// 轮次计数存 AppState（会话级、跨引擎存活）；引擎实例每轮重建，放实例内会随重建失效。
     private let compressionCooldownTurns: Int = 3
-    private var compressionTurnCounter: Int = 0
-    private var lastCompressionTurn: Int = -100
 
     /// 本轮 run 的工具 schema 快照。工具定义是每次请求的固定开销（可达数千 词元），
     /// 估算上下文时必须计入，否则系统性低估（旧实现的主要漏算源）。
@@ -404,7 +405,7 @@ final class AgentLoopEngine: @unchecked Sendable {
         activeRequestTask = nil
         // 一并取消正在执行的工具调用（解决工具挂起时点停止无响应的问题）。
         // [Fix 2026-08-11 并发工具崩溃] 枚举取消全部 in-flight 工具 Task
-        // （OpenMinis stopCurrentCommand 语义:一次停止 = 取消整个批次）。
+        // （stopCurrentCommand 语义:一次停止 = 取消整个批次）。
         toolExecutionTasks.drain().forEach { $0.cancel() }
         // 一并取消正在运行的子代理，避免父循环停止后子代理仍在后台空跑（并行派发时全部取消）。
         activeSubagents.drain().forEach { $0.cancel() }
@@ -443,10 +444,12 @@ final class AgentLoopEngine: @unchecked Sendable {
     func run(
         userMessage: String,
         history: [ChatCompletionMessage],
+        historySourceIDs: [UUID] = [],
         attachments: [String] = [],
         forceThinkingLevel: String? = nil
     ) async {
         self.forceThinkingOverride = forceThinkingLevel
+        self.historySourceIDs = historySourceIDs
         guard let routingPlan, !routingPlan.endpoints.isEmpty else {
             onError?(AgentError.notConfigured)
             return
@@ -511,7 +514,6 @@ final class AgentLoopEngine: @unchecked Sendable {
         // 避免单轮直接超出模型上下文窗口导致截断或报错。压缩失败则静默跳过、照常继续。
         // 含冷却（短窗口内不重复压缩）与 /compact 强制触发。
         // 估算前先备好工具 schema——工具定义是每次请求的固定开销，必须计入占用。
-        compressionTurnCounter += 1
         activeToolSchemas = buildToolSchemas()
         if let primaryEndpoint = routingPlan.endpoints.first {
             messages = await applyPreRunCompression(messages, endpoint: primaryEndpoint)
@@ -639,7 +641,7 @@ final class AgentLoopEngine: @unchecked Sendable {
             iterations += 1
             // 安全阀：避免模型不断调工具导致无限循环
             if iterations > 50 {
-                AppLogger.shared.error("POSSIBLE INFINITE LOOP: AgentLoop 命中安全阀（iterations=\(iterations)），强制停止", category: "Agent", subsystem: "AgentLoop")
+                AppLogger.shared.error(String(format: L10n.l("loop_infinite_safety"), iterations), category: "Agent", subsystem: "AgentLoop")
                 break
             }
 
@@ -657,7 +659,7 @@ final class AgentLoopEngine: @unchecked Sendable {
             while endpointIndex < routingPlan.endpoints.count && !passSucceeded {
                 guard await !state.isCancelled() else { return }
                 let endpoint = routingPlan.endpoints[endpointIndex]
-                print("[ModelRouter] 使用候选 \(endpointIndex + 1)/\(routingPlan.endpoints.count): \(endpoint.modelName)")
+                print(String(format: L10n.l("loop_router_candidate"), endpointIndex + 1, routingPlan.endpoints.count, endpoint.modelName))
                 let llmClient = LLMClient(
                     endpointURL: endpoint.url,
                     apiKey: endpoint.apiKey,
@@ -762,7 +764,7 @@ final class AgentLoopEngine: @unchecked Sendable {
                     let pausedNow = await state.isPausedRequested()
                     let cancelledNow = await state.isCancelled()
                     if reached, !pausedNow, !cancelledNow {
-                        AppLogger.shared.warn("请求失败，第 \(retryCount)/\(maxRetries) 次自动重试（3s 后）: \(lastErr.localizedDescription)", category: "Agent", subsystem: "AgentLoop")
+                        AppLogger.shared.warn(String(format: L10n.l("loop_retry_notice"), retryCount, maxRetries, lastErr.localizedDescription), category: "Agent", subsystem: "AgentLoop")
                         do {
                             // 等待 3s 或手动重试信号（点击指示器重试按钮立即重试）。
                             try await waitRetryInterval()
@@ -864,8 +866,8 @@ final class AgentLoopEngine: @unchecked Sendable {
                           collectedToolCalls.isEmpty,
                           shouldTryNextEndpoint(after: error, fallbackStrategy: endpoint.fallbackStrategy),
                           endpointIndex + 1 < routingPlan.endpoints.count {
-                    print("[ModelRouter] 候选失败，按 \(endpoint.fallbackStrategy) 策略切换: \(error.localizedDescription)")
-                    AppLogger.shared.warn("模型候选失败，按 \(endpoint.fallbackStrategy) 策略切换端点: \(error.localizedDescription)", category: "Agent", subsystem: "ModelRouter")
+                    print(String(format: L10n.l("loop_router_fallback"), endpoint.fallbackStrategy, error.localizedDescription))
+                    AppLogger.shared.warn(String(format: L10n.l("loop_model_fallback"), endpoint.fallbackStrategy, error.localizedDescription), category: "Agent", subsystem: "ModelRouter")
                     endpointIndex += 1
                     emitRouteChange(routingPlan.endpoints[endpointIndex].displayName)
                 } else {
@@ -879,7 +881,7 @@ final class AgentLoopEngine: @unchecked Sendable {
 
             if let error = passError, !passSucceeded {
                 await state.markStopped()
-                AppLogger.shared.error("Agent 停止：模型调用最终失败 \(error.localizedDescription)", category: "Agent", subsystem: "AgentLoop")
+                AppLogger.shared.error(String(format: L10n.l("loop_model_final_failed"), error.localizedDescription), category: "Agent", subsystem: "AgentLoop")
                 if let sid = sessionID { AgentTaskStore.shared.clear(sessionID: sid) }
                 emitError(error)
                 return
@@ -915,21 +917,21 @@ final class AgentLoopEngine: @unchecked Sendable {
                     messages.append(ChatCompletionMessage(role: "assistant", content: streamedText, reasoningContent: streamedReasoning.isEmpty ? nil : streamedReasoning))
                     lengthContinuationRounds += 1
                     if lengthContinuationRounds <= 3 {
-                        messages.append(ChatCompletionMessage(role: "user", content: "（请继续你刚才未写完的内容，从断开处接着写，不要重复已经写出的部分。）"))
-                        AppLogger.shared.warn("回复被截断（finish_reason=\(fr)），续写第 \(lengthContinuationRounds)/3 轮", category: "Agent", subsystem: "AgentLoop")
+                        messages.append(ChatCompletionMessage(role: "user", content: L10n.l("continue_reply_hint")))
+                        AppLogger.shared.warn(String(format: L10n.l("loop_reply_continuation"), fr, lengthContinuationRounds), category: "Agent", subsystem: "AgentLoop")
                         continue
                     }
-                    AppLogger.shared.warn("回复续写已达 3 轮上限，以当前截断内容作为最终回答", category: "Agent", subsystem: "AgentLoop")
+                    AppLogger.shared.warn(L10n.l("loop_continuation_limit"), category: "Agent", subsystem: "AgentLoop")
                 } else if let fr = lastFinishReason, fr == "tool_calls" {
                     // 缺工具自愈：意图调工具但流格式漏发有效 tool_call，注入一次自愈提示，最多 1 轮。
                     messages.append(ChatCompletionMessage(role: "assistant", content: streamedText.isEmpty ? nil : streamedText))
                     missingToolRecoveryRounds += 1
                     if missingToolRecoveryRounds <= 1 {
-                        messages.append(ChatCompletionMessage(role: "user", content: "⚠️ 系统提示：你本轮意图调用工具（finish_reason=tool_calls）但未发出有效的工具调用，请重新以正确格式调用工具，或说明无法完成的原因。"))
-                        AppLogger.shared.warn("检测到缺工具调用（finish_reason=tool_calls 但无有效 tool_call），自愈第 \(missingToolRecoveryRounds)/1 轮", category: "Agent", subsystem: "AgentLoop")
+                        messages.append(ChatCompletionMessage(role: "user", content: L10n.l("sys_tool_calls_mismatch")))
+                        AppLogger.shared.warn(String(format: L10n.l("loop_missing_tool_recover"), missingToolRecoveryRounds), category: "Agent", subsystem: "AgentLoop")
                         continue
                     }
-                    AppLogger.shared.warn("缺工具调用自愈已达 1 轮上限，按完成处理", category: "Agent", subsystem: "AgentLoop")
+                    AppLogger.shared.warn(L10n.l("tool_call_recovery_limited"), category: "Agent", subsystem: "AgentLoop")
                 }
             }
 
@@ -955,9 +957,9 @@ final class AgentLoopEngine: @unchecked Sendable {
             // 连续两轮只收到空名/未知工具时立即熔断。call id 每轮都会变化，不能按 id 计数；
             // 这是服务端流格式残缺/不兼容，不应继续追加备注无限请求模型。
             if validToolCalls.isEmpty && consecutiveInvalidToolRounds >= 2 {
-                let names = invalidToolCalls.map { $0.function.name.isEmpty ? "(空名)" : $0.function.name }.joined(separator: "、")
-                let visibleMessage = "\n\n⚠️ 模型连续返回无法识别的工具调用（\(names)），已停止自动重试，避免会话一直停留在正在思考。该模型服务可能使用了不兼容的工具调用流格式，请改用文字回答或切换兼容模型。"
-                AppLogger.shared.error("无效工具调用连续 \(consecutiveInvalidToolRounds) 轮，触发熔断：\(names)", category: "Agent", subsystem: "AgentLoop")
+                let names = invalidToolCalls.map { $0.function.name.isEmpty ? L10n.l("empty_name") : $0.function.name }.joined(separator: "、")
+                let visibleMessage = String(format: L10n.l("loop_unrecognized_tools"), names)
+                AppLogger.shared.error(String(format: L10n.l("loop_invalid_tool_fuse"), consecutiveInvalidToolRounds, names), category: "Agent", subsystem: "AgentLoop")
                 emitToken(visibleMessage)
                 if let sid = sessionID { AgentTaskStore.shared.clear(sessionID: sid) }
                 await state.markStopped()
@@ -986,10 +988,10 @@ final class AgentLoopEngine: @unchecked Sendable {
             // 无效工具调用：不写入 assistant.tool_calls（避免空名进入 API 请求），
             // 改为追加一条 user 备注，让模型知道并重新发起正确调用或改用文字回答。
             if !invalidToolCalls.isEmpty {
-                let names = invalidToolCalls.map { $0.function.name.isEmpty ? "(空名)" : $0.function.name }.joined(separator: "、")
-                let note = "⚠️ 系统提示：本次有 \(invalidToolCalls.count) 个工具调用无法执行（函数名无效：\(names)），服务端可能返回了残缺或非标准工具调用格式。请重新以正确格式调用工具，或直接用文字回答。"
+                let names = invalidToolCalls.map { $0.function.name.isEmpty ? L10n.l("empty_name") : $0.function.name }.joined(separator: "、")
+                let note = String(format: L10n.l("loop_invalid_tool_hint"), invalidToolCalls.count, names)
                 messages.append(ChatCompletionMessage(role: "user", content: note))
-                AppLogger.shared.warn("本轮存在无效工具调用（已转为备注重试）：\(names)", category: "Agent", subsystem: "AgentLoop")
+                AppLogger.shared.warn(String(format: L10n.l("loop_invalid_tool_note"), names), category: "Agent", subsystem: "AgentLoop")
             }
 
             // 仅为有效工具调用执行并追加 tool 结果，下一轮继续问模型。
@@ -1023,8 +1025,8 @@ final class AgentLoopEngine: @unchecked Sendable {
                 }
             }
             if let reason = breakerBreakReason {
-                AppLogger.shared.error("工具空转断路器触发：\(reason)", category: "Agent", subsystem: "AgentLoop")
-                let visibleMessage = "\n\n⚠️ 检测到工具调用陷入空转循环（\(reason)），已自动终止。请检查任务是否已完成，或换一种方式推进。"
+                AppLogger.shared.error(String(format: L10n.l("loop_idle_circuit"), reason), category: "Agent", subsystem: "AgentLoop")
+                let visibleMessage = String(format: L10n.l("loop_idle_loop"), reason)
                 emitToken(visibleMessage)
                 if let sid = sessionID { AgentTaskStore.shared.clear(sessionID: sid) }
                 await state.markStopped()
@@ -1032,10 +1034,10 @@ final class AgentLoopEngine: @unchecked Sendable {
                 return
             }
             if let reason = breakerWarnReason {
-                AppLogger.shared.warn("工具空转预警：\(reason)", category: "Agent", subsystem: "AgentLoop")
+                AppLogger.shared.warn(String(format: L10n.l("loop_idle_warning"), reason), category: "Agent", subsystem: "AgentLoop")
                 messages.append(ChatCompletionMessage(
                     role: "user",
-                    content: "⚠️ 系统提示：\(reason)。若任务仍在进行，请改变参数或换一种推进方式，避免重复无效调用。"
+                    content: String(format: L10n.l("loop_idle_system_hint"), reason)
                 ))
             }
 
@@ -1051,12 +1053,12 @@ final class AgentLoopEngine: @unchecked Sendable {
             }
             if toolCallsSinceOutput >= Self.convergenceToolCallBudget, !convergenceHintInjected {
                 convergenceHintInjected = true
-                let hint = "⚠️ 系统提示：你已连续 \(toolCallsSinceOutput) 次调用工具，期间没有向用户输出任何内容。"
-                    + "若任务涉及检索/查证且仍未找到结果：请停止扩大搜索范围，"
-                    + "总结已确认的信息（含已查证渠道与结论），直接给出结论或下一步建议；"
-                    + "若需要用户决策，请直接询问用户。"
+                let hint = String(format: L10n.l("loop_no_output_hint"), toolCallsSinceOutput)
+                    + L10n.l("search_give_up_hint")
+                    + L10n.l("read_subagent_result_suffix")
+                    + L10n.l("ask_user_hint")
                 messages.append(ChatCompletionMessage(role: "user", content: hint))
-                AppLogger.shared.warn("检索收敛提示已注入（连续 \(toolCallsSinceOutput) 次工具调用无输出）", category: "Agent", subsystem: "AgentLoop")
+                AppLogger.shared.warn(String(format: L10n.l("loop_search_converge"), toolCallsSinceOutput), category: "Agent", subsystem: "AgentLoop")
             }
 
             var trippedFailureCircuit: (name: String, result: ToolResult)?
@@ -1077,7 +1079,7 @@ final class AgentLoopEngine: @unchecked Sendable {
                     failedToolCallCounts[signature] = count
                     if count >= 2 {
                         trippedFailureCircuit = (tc.function.name, result)
-                        AppLogger.shared.error("重复失败工具调用熔断：\(tc.function.name) 已连续失败 \(count) 次", category: "Agent", subsystem: "AgentLoop")
+                        AppLogger.shared.error(String(format: L10n.l("loop_repeat_fail_fuse"), tc.function.name, count), category: "Agent", subsystem: "AgentLoop")
                         break
                     }
                 }
@@ -1094,7 +1096,7 @@ final class AgentLoopEngine: @unchecked Sendable {
             }
 
             if let tripped = trippedFailureCircuit {
-                let visibleMessage = "\n\n⚠️ 工具「\(tripped.name)」连续执行失败，已停止自动重试，避免会话一直停留在正在思考。最后一次错误：\(tripped.result.text)"
+                let visibleMessage = String(format: L10n.l("loop_tool_fail_fuse"), tripped.name, tripped.result.text)
                 emitToken(visibleMessage)
                 if let sid = sessionID { AgentTaskStore.shared.clear(sessionID: sid) }
                 await state.markStopped()
@@ -1307,7 +1309,7 @@ final class AgentLoopEngine: @unchecked Sendable {
         guard !isSubagentEngine else { return }
         guard let sid = sessionID else { return }
         guard await state.keepRunning() else {
-            AppLogger.shared.info("检查点写入被跳过：引擎已停止/取消（status=\(status.rawValue)）", category: "Agent", subsystem: "Checkpoint")
+            AppLogger.shared.info(String(format: L10n.l("loop_checkpoint_skipped"), status.rawValue), category: "Agent", subsystem: "Checkpoint")
             return
         }
         let task = AgentTask(
@@ -1492,7 +1494,19 @@ final class AgentLoopEngine: @unchecked Sendable {
     /// 占用量取 `max(校准后的估算, 上一轮服务商真值)`——真值权威，但新增消息只有估算能覆盖，
     /// 取大值可避免「刚被真值校准过就低估新增内容」而漏压。
     private func applyPreRunCompression(_ messages: [ChatCompletionMessage], endpoint: ModelRouteEndpoint) async -> [ChatCompletionMessage] {
-        let forceCompress = await consumeForceCompressionFlag()
+        // 会话级冷却读取 + /compact 强制标志消费（主线程；引擎在后台线程运行）。
+        // 轮次计数与上次压缩轮次均存 AppState（跨引擎存活）：引擎实例每轮重建，
+        // 冷却若放引擎内会随重建失效，长会话几乎每轮触发压缩（2026-08-13 修复）。
+        let (forceCompress, cooldownOK, turn) = await MainActor.run {
+            guard let sid = sessionID else { return (false, true, 0) }
+            let runtime = AppState.shared.chatRuntimes[sid]
+            let flag = runtime?.requestCompression ?? false
+            if flag { runtime?.requestCompression = false }
+            let turn = (AppState.shared.sessionCompressionTurn[sid] ?? 0) + 1
+            AppState.shared.sessionCompressionTurn[sid] = turn
+            let last = AppState.shared.sessionLastCompressionTurn[sid] ?? -100
+            return (flag, turn - last >= compressionCooldownTurns, turn)
+        }
         let policy = ContextPolicy(window: endpoint.contextLimitTokens, reservedOutputTokens: endpoint.maxOutputTokens ?? 0)
 
         let rawBreakdown = currentContextBreakdown(messages, endpoint: endpoint)
@@ -1506,7 +1520,6 @@ final class AgentLoopEngine: @unchecked Sendable {
         )
 
         // 窗口未配置（0）时无法判断占用，不自动压缩（仅 /compact 强制可用）。
-        let cooldownOK = (compressionTurnCounter - lastCompressionTurn) >= compressionCooldownTurns
         let overThreshold = policy.shouldCompact(tokens: tokens)
 
         guard forceCompress || (overThreshold && cooldownOK) else { return messages }
@@ -1517,12 +1530,21 @@ final class AgentLoopEngine: @unchecked Sendable {
             category: "Agent",
             subsystem: "Context"
         )
-        let compressed = await compressHistory(messages, endpoint: endpoint, modelId: endpoint.modelId)
-        lastCompressionTurn = compressionTurnCounter
+        guard let compressed = await compressHistory(messages, endpoint: endpoint, modelId: endpoint.modelId) else {
+            AppLogger.shared.warn("自动压缩失败（空摘要或对话过短），跳过压缩", category: "Agent", subsystem: "Context")
+            // 失败也进入冷却（恢复原语义），避免每轮超阈值都重试烧 token（2026-08-13 review）。
+            if let sid = sessionID {
+                await MainActor.run { AppState.shared.sessionLastCompressionTurn[sid] = turn }
+            }
+            return messages
+        }
+        // 摘要/锚点写回 session 持久层（与手动折叠同一机制，buildHistory 消费），
+        // 使自动压缩跨轮、跨重启生效；冷却轮次同时写回（仅成功才进入冷却）。
+        await persistAutoCompression(anchorID: compressed.anchorID, summary: compressed.summary, turn: turn)
         // 压缩后立刻重算并上报，用户能直接看到圆环回落。
         // 真值基线在压缩后已失效（历史被替换为摘要），清零等待下一轮真实 usage 重建。
         lastMeasuredPromptTokens = 0
-        let afterBreakdown = currentContextBreakdown(compressed, endpoint: endpoint)
+        let afterBreakdown = currentContextBreakdown(compressed.messages, endpoint: endpoint)
         let afterTokens = contextCalibrator.adjust(afterBreakdown.total)
         publishContextUsage(
             tokens: afterTokens,
@@ -1530,60 +1552,92 @@ final class AgentLoopEngine: @unchecked Sendable {
             measured: false,
             breakdown: AgentLoopEngine.scale(afterBreakdown, to: afterTokens)
         )
-        return compressed
+        return compressed.messages
     }
 
-    /// 读取并清除 ChatSessionRuntime.requestCompression 标志（主线程）。
-    private func consumeForceCompressionFlag() async -> Bool {
-        guard let sid = sessionID else { return false }
-        return await MainActor.run {
-            let runtime = AppState.shared.chatRuntimes[sid]
-            let flag = runtime?.requestCompression ?? false
-            if flag { runtime?.requestCompression = false }
-            return flag
+    /// 自动压缩成功后持久化：冷却轮次写回 + 摘要/锚点写 session + 插入「已自动压缩」指示器消息。
+    /// 与手动折叠共用 compactAnchorID/compactSummary 机制（buildHistory 消费：锚点之上丢弃、
+    /// 摘要作 system 置 history 首位），跨轮、跨重启生效。
+    /// 指示器消息为 system 角色，被 buildHistory 的 user/assistant 过滤剔除，不进 API 上下文。
+    private func persistAutoCompression(anchorID: UUID?, summary: String, turn: Int) async {
+        guard let sid = sessionID else { return }
+        await MainActor.run {
+            AppState.shared.sessionLastCompressionTurn[sid] = turn
+            // 仅当能定位锚点时写回 session（主会话引擎才有 historySourceIDs）；
+            // 子代理/复盘/记忆整理引擎无锚点，只更新冷却，不污染主会话的压缩状态。
+            guard let anchorID else { return }
+            guard let session = SessionManager.shared.session(id: sid), !summary.isEmpty else { return }
+            session.compactAnchorID = anchorID
+            session.compactSummary = summary
+            if let idx = session.messages.firstIndex(where: { $0.id == anchorID }) {
+                let indicator = ChatMessage(role: .system, content: L10n.l("auto_compact_indicator"))
+                indicator.session = session
+                // UI 按 createdAt 排序(Bridge/消息列表),createdAt 设为锚点消息前一刻,
+                // 指示器显示在锚点上方而非会话末尾(2026-08-13 review)。
+                indicator.createdAt = session.messages[idx].createdAt.addingTimeInterval(-0.001)
+                session.messages.insert(indicator, at: idx)
+            }
+            session.updatedAt = Date()
+            SessionManager.shared.persist(session)
+            AppLogger.shared.info(
+                "自动压缩已持久化:锚点=\(anchorID.uuidString),摘要前 60 字=\(String(summary.prefix(60)))",
+                category: "Agent", subsystem: "Context"
+            )
         }
     }
 
     /// 在 user 消息边界切分历史：保留最近一段完整对话，其余交给 LLM 压缩为摘要。
     /// 切分点选在倒数第二个 user 消息，确保最近一轮（含 tool_use/tool_result 配对）完整保留、不被拆散。
+    /// 返回压缩后的消息流 + 锚点（= 切分点对应的 session 消息 id，供持久化写回）+ 摘要文本；
+    /// 对话过短或摘要为空时返回 nil（上层跳过压缩）。
     private func compressHistory(
         _ messages: [ChatCompletionMessage],
         endpoint: ModelRouteEndpoint,
         modelId: String
-    ) async -> [ChatCompletionMessage] {
-        let systemMsg = messages.first { $0.role == "system" }
+    ) async -> (messages: [ChatCompletionMessage], anchorID: UUID?, summary: String)? {
+        // systemMsg 只取真正的稳定段,排除历史摘要 system 消息(header 前缀)——否则
+        // systemStable 为空且已有摘要时,摘要会被当 systemMsg 吞掉,压缩结果出现两条摘要(2026-08-13 review)。
+        let header = L10n.l("history_summary_header")
+        let systemMsg = messages.first { $0.role == "system" && !($0.content?.asText ?? "").hasPrefix(header) }
         let rest = Array(messages.dropFirst()) // 去掉最前的 system（若存在）
         let userIndices = rest.indices.filter { rest[$0].role == "user" }
         // 至少 2 个 user 消息才能切出「旧历史 + 最近一段」；否则对话太短，不压缩。
-        guard userIndices.count >= 2 else { return messages }
+        guard userIndices.count >= 2 else { return nil }
         let splitAt = userIndices[userIndices.count - 2]
         let toSummarize = Array(rest[..<splitAt])
         let recent = Array(rest[splitAt...])
-        guard !toSummarize.isEmpty else { return messages }
+        guard !toSummarize.isEmpty else { return nil }
 
-        let prompt = buildSummaryPrompt(toSummarize)
+        let prompt = buildSummaryPrompt(toSummarize, compressionRules: (await SettingsStore.shared.snapshot()).memory.compressionRules)
         let summary = await requestSummary(prompt, endpoint: endpoint, modelId: modelId)
         guard !summary.isEmpty else {
-            AppLogger.shared.warn("上下文压缩摘要为空（LLM 未返回有效内容），跳过压缩", category: "Agent", subsystem: "Context")
-            return messages
+            AppLogger.shared.warn(L10n.l("err_compress_empty"), category: "Agent", subsystem: "Context")
+            return nil
         }
 
         var result: [ChatCompletionMessage] = []
         if let systemMsg { result.append(systemMsg) }
         result.append(ChatCompletionMessage(
             role: "system",
-            content: "【历史对话摘要（已自动压缩，仅保留要点）】\n" + summary
+            content: L10n.l("history_summary_header") + summary
         ))
         result.append(contentsOf: recent)
-        return result
+        // 锚点 = 切分点消息在 history 中的对应 session 消息。
+        // 注意 rest 可能以「历史摘要 system 消息」开头（二次压缩 / 手动折叠后，buildHistory 置 history 首位），
+        // 该消息无对应 session 消息，锚点索引须相应偏移 1，否则 compactAnchorID 逐轮漂移（2026-08-13 review）。
+        let summaryOffset = (rest.first?.role == "system" && (rest.first?.content?.asText ?? "").hasPrefix(header)) ? 1 : 0
+        let anchorIdx = splitAt - summaryOffset
+        let anchorID: UUID? = anchorIdx >= 0 && anchorIdx < historySourceIDs.count ? historySourceIDs[anchorIdx] : nil
+        return (result, anchorID, summary)
     }
 
     /// 将待压缩消息序列化为易读的对话文本，交给 LLM 生成摘要。
-    private func buildSummaryPrompt(_ msgs: [ChatCompletionMessage]) -> String {
+    /// compressionRules 由调用方传主线程快照（2026-08-13 竞争修复）。
+    private func buildSummaryPrompt(_ msgs: [ChatCompletionMessage], compressionRules: String) -> String {
         var lines: [String] = []
         for m in msgs {
             if let calls = m.toolCalls, !calls.isEmpty {
-                let parts = calls.map { "调用工具 \($0.function.name)，参数：\($0.function.arguments)" }
+                let parts = calls.map { String(format: L10n.l("loop_calling_tool_args"), $0.function.name, $0.function.arguments) }
                 lines.append("[assistant] " + parts.joined(separator: "；"))
             } else if m.role == "tool" {
                 lines.append("[tool:\(m.toolCallID ?? "?")] " + (m.content?.asText ?? ""))
@@ -1591,11 +1645,11 @@ final class AgentLoopEngine: @unchecked Sendable {
                 lines.append("[\(m.role)] " + (m.content?.asText ?? ""))
             }
         }
-        var prompt = "请压缩以下对话记录，仅保留关键决策、用户意图、已完成的任务、重要结论与未决事项，用简洁中文输出，不要添加额外内容：\n\n" + lines.joined(separator: "\n")
-        let customRules = SettingsStore.shared.settings.memory.compressionRules
+        var prompt = L10n.l("compress_prompt_zh") + lines.joined(separator: "\n")
+        let customRules = compressionRules
             .trimmingCharacters(in: .whitespacesAndNewlines)
         if !customRules.isEmpty {
-            prompt += "\n\n额外压缩要求：\(customRules)"
+            prompt += String(format: L10n.l("loop_extra_compress"), customRules)
         }
         return prompt
     }
@@ -1618,7 +1672,7 @@ final class AgentLoopEngine: @unchecked Sendable {
             )
             var summaryText = ""
             let summarizeMessages: [ChatCompletionMessage] = [
-                ChatCompletionMessage(role: "system", content: "你是一个对话压缩助手。请将用户提供的对话记录压缩为简洁的中文摘要，保留关键决策、用户意图、已完成的任务、重要结论和未决事项。不要使用任何工具，只输出摘要文本。"),
+                ChatCompletionMessage(role: "system", content: L10n.l("compress_prompt")),
                 ChatCompletionMessage(role: "user", content: text)
             ]
             let task = client.streamChat(
@@ -1694,10 +1748,12 @@ final class AgentLoopEngine: @unchecked Sendable {
     /// 受 sampling.parallelToolCalls 控制：显式 false 时退回串行，避免共享资源（如 shell 单例）竞态；
     /// 其余情况（默认）并发执行以缩短多工具轮次的墙钟时间。回写顺序始终与模型给出的 tool_calls 一致。
     private func executeToolsConcurrently(_ calls: [ToolCall]) async -> [(ToolCall, ToolResult)] {
+        // 确认开关快照：后台线程不裸读 SettingsStore（2026-08-13 竞争修复）。
+        let confirmEnabled = await MainActor.run { SettingsStore.shared.settings.defaults.confirmBeforeToolCall }
         // 确认开启时强制串行：同一时刻只有一个待确认项，避免并发请求抢占单一确认槽。
         guard calls.count > 1,
               sampling?.parallelToolCalls ?? true,
-              !SettingsStore.shared.settings.defaults.confirmBeforeToolCall
+              !confirmEnabled
         else {
             var seq: [(ToolCall, ToolResult)] = []
             for tc in calls {
@@ -1709,7 +1765,12 @@ final class AgentLoopEngine: @unchecked Sendable {
             }
             return seq
         }
-        let order = Dictionary(uniqueKeysWithValues: calls.enumerated().map { ($0.element.id, $0.offset) })
+        // 2026-08-12 修复:模型可能返回重复 tool_call id,Dictionary(uniqueKeysWithValues:)
+        // 遇重复 key 直接 fatalError 崩溃(全维度审计高危项)。改用 uniquingKeysWith 保留首次出现顺序。
+        var order: [String: Int] = [:]
+        for (offset, call) in calls.enumerated() {
+            if order[call.id] == nil { order[call.id] = offset }
+        }
         return await withTaskGroup(of: (ToolCall, ToolResult).self) { group in
             for tc in calls {
                 group.addTask { (tc, await self.executeTool(tc)) }
@@ -1725,7 +1786,7 @@ final class AgentLoopEngine: @unchecked Sendable {
     private func operationSummary(toolName: String, arguments: String) -> String {
         guard let data = arguments.data(using: .utf8),
               let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            return "调用 \(toolName)"
+            return String(format: L10n.l("loop_calling_tool"), toolName)
         }
         let lower = toolName.lowercased()
         let pick: (String...) -> String? = { keys in
@@ -1736,32 +1797,32 @@ final class AgentLoopEngine: @unchecked Sendable {
         }
         // 浏览器 / 网络
         if lower.contains("browser") || lower.contains("web") || lower.contains("search") || lower.contains("url") {
-            if let q = pick("query", "search", "keyword", "q") { return "搜索 \(String(q.prefix(24)))" }
+            if let q = pick("query", "search", "keyword", "q") { return String(format: L10n.l("loop_searching"), String(q.prefix(24))) }
             if let u = pick("url", "link", "href") {
-                if let host = URL(string: u)?.host { return "打开 \(host)" }
-                return "打开 \(String(u.prefix(24)))"
+                if let host = URL(string: u)?.host { return String(format: L10n.l("loop_opening"), host) }
+                return String(format: L10n.l("loop_opening"), String(u.prefix(24)))
             }
         }
         // 终端 / 命令执行
-        if let c = pick("command", "cmd", "code", "script", "expression") { return "执行 \(String(c.prefix(24)))" }
+        if let c = pick("command", "cmd", "code", "script", "expression") { return String(format: L10n.l("loop_executing"), String(c.prefix(24))) }
         // 文件读取 / 写入 / 编辑
         if let p = pick("path", "file", "filename", "file_path", "target") {
-            let verb = lower.contains("read") ? "读取" : (lower.contains("write") || lower.contains("edit") || lower.contains("create")) ? "写入" : "文件"
+            let verb = lower.contains("read") ? L10n.l("read_action") : (lower.contains("write") || lower.contains("edit") || lower.contains("create")) ? L10n.l("write_action") : L10n.l("files")
             return "\(verb) \(String(p.prefix(28)))"
         }
         // 通用：取第一个有意义的字符串字段
         for (_, v) in dict {
-            if let s = v as? String, !s.isEmpty { return "调用 \(toolName)：\(String(s.prefix(24)))" }
+            if let s = v as? String, !s.isEmpty { return String(format: L10n.l("loop_calling_tool_detail"), toolName, String(s.prefix(24))) }
         }
-        return "调用 \(toolName)"
+        return String(format: L10n.l("loop_calling_tool"), toolName)
     }
 
     private func executeTool(_ tc: ToolCall) async -> ToolResult {
         let rawName = tc.function.name.trimmingCharacters(in: .whitespacesAndNewlines)
         // 防御：name 为空或未注册时直接返回明确错误，不抛异常导致循环中断
         guard !rawName.isEmpty else {
-            AppLogger.shared.error("工具调用被拒绝：function.name 为空 (id=\(tc.id))", category: "Agent", subsystem: "ToolRouter")
-            return ToolResult(success: false, text: "Error: 模型返回的工具调用缺少函数名（服务端可能使用了残缺或非标准工具调用格式），请重新表述需求或切换兼容模型。")
+            AppLogger.shared.error(String(format: L10n.l("loop_empty_fn_rejected"), tc.id), category: "Agent", subsystem: "ToolRouter")
+            return ToolResult(success: false, text: L10n.l("err_tool_call_no_name"))
         }
         // 子代理调度：拦截保留工具名，派生子代理并同步等待其返回，作为本工具结果回传父循环。
         // 硬深度守卫：不依赖 schema 剔除（模型可能幻觉输出旧工具名），执行前校验深度上限，
@@ -1770,10 +1831,10 @@ final class AgentLoopEngine: @unchecked Sendable {
             // 用户关闭子代理：返回明确提示（模型幻觉直调时兜底），
             // 引导段已告知「子代理已被用户关闭」，此处再次确认。
             guard SettingsStore.shared.settings.subagent.enabled else {
-                return ToolResult(success: false, text: "Error: 子代理已被用户关闭（设置 → 智能体 → 子代理），无法派发。请直接在本层完成任务，不要调用 dispatch_subagent。")
+                return ToolResult(success: false, text: L10n.l("err_subagent_disabled"))
             }
             guard Self.canDispatchSubagents(subagentEngine: isSubagentEngine, depth: subagentDepth) else {
-                return ToolResult(success: false, text: "Error: 子代理深度已达上限（\(Self.maxSubagentDepth) 层），无法继续派发子代理。请直接在本层完成任务，不要调用 dispatch_subagent。")
+                return ToolResult(success: false, text: String(format: L10n.l("loop_subagent_depth_error"), Self.maxSubagentDepth))
             }
             return await spawnSubagent(toolCall: tc)
         }
@@ -1781,16 +1842,16 @@ final class AgentLoopEngine: @unchecked Sendable {
         // 子代理可能幻觉直调旧工具名，若放行会误删兄弟子代理并销毁其浏览器上下文）。
         if rawName == Self.closeSubagentToolName {
             guard !isSubagentEngine else {
-                return ToolResult(success: false, text: "Error: 子代理无权调用 close_subagent。请把关闭需求交给父代理处理。")
+                return ToolResult(success: false, text: L10n.l("err_subagent_no_close_perm"))
             }
             let closeArgs: [String: Any] = (try? JSONSerialization.jsonObject(
                 with: Data(tc.function.arguments.utf8)
             ) as? [String: Any]) ?? [:]
             guard let subagentID = CloseSubagentTool.parseSubagentID(closeArgs) else {
-                return ToolResult(success: false, text: "Error: close_subagent 需要有效的 subagent_id（来自 dispatch_subagent 返回结果或当前会话的子代理清单）。")
+                return ToolResult(success: false, text: L10n.l("err_close_subagent_need_id"))
             }
             guard let parentSID = sessionID else {
-                return ToolResult(success: false, text: "Error: 当前引擎未绑定会话，无法关闭子代理。")
+                return ToolResult(success: false, text: L10n.l("err_engine_no_session"))
             }
             let (ok, text) = await SubagentLifecycle.close(sessionID: parentSID, subagentID: subagentID, cancel: { [weak self] id in
                 self?.cancelSubagent(subagentID: id)
@@ -1804,7 +1865,7 @@ final class AgentLoopEngine: @unchecked Sendable {
             // 按类别分组列出可用工具，帮助模型快速定位正确工具名
             let sortedNames = registeredNames.sorted()
             let toolList = sortedNames.joined(separator: "、")
-            return ToolResult(success: false, text: "Error: 未知工具「\(rawName)」。该工具不存在，请勿重复调用。你只能使用以下已注册工具：\(toolList)。如果需要的功能（如搜索新闻、联网查询等）不在上述工具范围内，请直接用文字回答用户，不要编造新工具名。")
+            return ToolResult(success: false, text: String(format: L10n.l("loop_unknown_tool"), rawName, toolList))
         }
 
         // ── 工具调用前确认：开启时在执行前请求用户批准 ──
@@ -1813,11 +1874,13 @@ final class AgentLoopEngine: @unchecked Sendable {
         // 弹窗会显示「未知会话」且无人归因，永久挂起。用户对主会话的授权语义上已继承。
         let sid = self.sessionID ?? UUID()
         // 先查该会话是否已获「允许本次会话」授权（避免弹确认框）；需在主线程访问单例。
-        let autoApproved = await MainActor.run { ToolConfirmationBridge.shared.isAutoApproved(sessionID: sid) }
-        if !isSubagentEngine,
-           SettingsStore.shared.settings.defaults.confirmBeforeToolCall,
-           !autoApproved {
-            let title = await MainActor.run { SessionManager.shared.session(id: sid)?.title ?? "未知会话" }
+        // 确认开关同帧取主线程快照（2026-08-13 竞争修复：后台线程不裸读 SettingsStore）。
+        let (autoApproved, confirmEnabled) = await MainActor.run {
+            (ToolConfirmationBridge.shared.isAutoApproved(sessionID: sid),
+             SettingsStore.shared.settings.defaults.confirmBeforeToolCall)
+        }
+        if !isSubagentEngine, confirmEnabled, !autoApproved {
+            let title = await MainActor.run { SessionManager.shared.session(id: sid)?.title ?? L10n.l("unknown_session") }
             let approved = await ToolConfirmationBridge.shared.request(
                 toolName: rawName,
                 summary: operationSummary(toolName: rawName, arguments: tc.function.arguments),
@@ -1825,24 +1888,24 @@ final class AgentLoopEngine: @unchecked Sendable {
                 sessionTitle: title
             )
             if !approved {
-                AppLogger.shared.info("工具调用被用户拒绝：\(rawName)", category: "Agent", subsystem: "ToolRouter")
-                return ToolResult(success: false, text: "Error: 用户拒绝了工具「\(rawName)」的执行。")
+                AppLogger.shared.info(String(format: L10n.l("loop_tool_rejected"), rawName), category: "Agent", subsystem: "ToolRouter")
+                return ToolResult(success: false, text: String(format: L10n.l("loop_tool_rejected_error"), rawName))
             }
         }
 
         // 后台 Live Activity 进度更新：进入真实执行阶段时刷新（子代理引擎不污染父 LA）。
         if !isSubagentEngine {
             Task { @MainActor in
-                await BackgroundTaskController.shared.agentDidProgress("调用工具：\(rawName)", sessionID: sessionID?.uuidString)
+                await BackgroundTaskController.shared.agentDidProgress(String(format: L10n.l("loop_calling_tool_colon"), rawName), sessionID: sessionID?.uuidString)
             }
         }
 
         // ── 取消/暂停快速路径：执行前先检查，避免进入可能挂起的工具 ──
         if await state.isCancelled() {
-            return ToolResult(success: false, text: "Error: 用户已取消本次回复。")
+            return ToolResult(success: false, text: L10n.l("err_user_cancelled"))
         }
         if await state.isPausedRequested() {
-            return ToolResult(success: false, text: "Error: 用户已暂停本次回复（工具未执行）。")
+            return ToolResult(success: false, text: L10n.l("err_user_paused"))
         }
 
         let args: [String: Any]
@@ -1869,18 +1932,18 @@ final class AgentLoopEngine: @unchecked Sendable {
         // deliverOnMain（main.async，FIFO）回到主线程，不影响界面刷新，也不再同步等待主线程。
         let execTask: Task<ToolResult, Never> = Task.detached(priority: .userInitiated) { [weak self] in
             guard let self else {
-                return ToolResult(success: false, text: "Error: 引擎已释放。")
+                return ToolResult(success: false, text: L10n.l("err_engine_released"))
             }
             // 若 pause/cancel 在 Task 创建与赋值之间触发，此处快速退出。
             guard !Task.isCancelled else {
-                return ToolResult(success: false, text: "Error: 用户已暂停/取消本次回复（工具未执行）。")
+                return ToolResult(success: false, text: L10n.l("err_user_paused_cancelled"))
             }
 
             do {
                 return try await withThrowingTaskGroup(of: ToolResult.self) { group in
                 group.addTask { [weak self] in
                     guard let self else {
-                        return ToolResult(success: false, text: "Error: 引擎已释放。")
+                        return ToolResult(success: false, text: L10n.l("err_engine_released"))
                     }
                     // 在闭包内重建参数，避免捕获外部非 Sendable 的 [String:Any]。
                     let innerArgs: [String: Any]
@@ -1903,10 +1966,10 @@ final class AgentLoopEngine: @unchecked Sendable {
                 group.addTask {
                     do {
                         try await Task.sleep(nanoseconds: 120_000_000_000)
-                        return ToolResult(success: false, text: "Error: 工具「\(rawName)」执行超时（>120秒），已自动终止。")
+                        return ToolResult(success: false, text: String(format: L10n.l("loop_tool_timeout"), rawName))
                     } catch {
                         // CancellationError → pause/cancel 触发，立即返回"中断"而非等工具跑完。
-                        return ToolResult(success: false, text: "Error: 工具「\(rawName)」执行被用户中断。")
+                        return ToolResult(success: false, text: String(format: L10n.l("loop_tool_interrupted"), rawName))
                     }
                 }
                 // 取第一个完成的结果（工具完成/失败 / 超时 / 用户取消），随后 cancelAll()
@@ -1915,13 +1978,13 @@ final class AgentLoopEngine: @unchecked Sendable {
                 // 却要等满 120s 循环才拿到结果（表现为"模型硬等到 120 秒限制才继续回复"）。
                 guard let first = try await group.next() else {
                     group.cancelAll()
-                    return ToolResult(success: false, text: "Error: 工具执行被异常中断。")
+                    return ToolResult(success: false, text: L10n.l("err_tool_abnormal_interrupt"))
                 }
                 group.cancelAll()
                 return first
             }
             } catch {
-                return ToolResult(success: false, text: "Error: 工具执行被中断。")
+                return ToolResult(success: false, text: L10n.l("err_tool_interrupted"))
             }
         }
         // [Fix 2026-08-11 并发工具崩溃] 按 callID 注册到集合(NSLock 保护):
@@ -1965,7 +2028,7 @@ final class AgentLoopEngine: @unchecked Sendable {
     /// 模型选择（P1-3）：优先使用「子代理模型」槽位（`subagentRoutingPlan`），未配置时沿用父引擎路由。
     private func spawnSubagent(toolCall tc: ToolCall) async -> ToolResult {
         guard let parentPlan = routingPlan else {
-            return ToolResult(success: false, text: "Error: 子代理无法启动：当前会话未配置模型路由。")
+            return ToolResult(success: false, text: L10n.l("err_subagent_no_route"))
         }
         let childPlan = subagentRoutingPlan ?? parentPlan
 
@@ -1977,7 +2040,7 @@ final class AgentLoopEngine: @unchecked Sendable {
 
         let specs = Self.parseSubagentSpecs(from: args)
         guard !specs.isEmpty else {
-            return ToolResult(success: false, text: "Error: dispatch_subagent 缺少必填参数 task（子任务描述），也未提供有效的 tasks 数组。")
+            return ToolResult(success: false, text: L10n.l("err_dispatch_need_task"))
         }
 
         let parentSessionID = self.sessionID ?? UUID()
@@ -1995,7 +2058,7 @@ final class AgentLoopEngine: @unchecked Sendable {
             for (idx, spec) in limited.enumerated() {
                 group.addTask { [weak self] in
                     guard let self else {
-                        return (idx, SubagentRunResult(id: UUID(), name: "子代理", body: "(引擎已释放)", ok: false))
+                        return (idx, SubagentRunResult(id: UUID(), name: L10n.l("subagents"), body: L10n.l("engine_released"), ok: false))
                     }
                     let r = await self.runSubagent(spec: spec, parentSessionID: parentSessionID, plan: childPlan)
                     return (idx, r)
@@ -2007,10 +2070,10 @@ final class AgentLoopEngine: @unchecked Sendable {
             return collected.sorted { $0.0 < $1.0 }.map(\.1)
         }
 
-        var text = "并行派发 \(limited.count) 个子代理，全部完成：\n\n"
+        var text = String(format: L10n.l("loop_parallel_all_done"), limited.count)
         text += results.map(\.rendered).joined(separator: "\n\n")
         if dropped > 0 {
-            text += "\n\n（注意：本次请求包含 \(specs.count) 个子任务，超出单次并行上限 \(maxParallelSubagents)，后 \(dropped) 个未执行，请再发起一次 dispatch_subagent。）"
+            text += String(format: L10n.l("loop_parallel_dropped"), specs.count, maxParallelSubagents, dropped)
         }
         return ToolResult(success: true, text: text)
     }
@@ -2021,7 +2084,7 @@ final class AgentLoopEngine: @unchecked Sendable {
         let name: String
         let body: String
         let ok: Bool
-        var rendered: String { "[子代理 \(name) (id: \(id.uuidString))] \(body)" }
+        var rendered: String { String(format: L10n.l("loop_subagent_prefix"), name, id.uuidString, body) }
     }
 
     /// 解析 dispatch_subagent 参数为子任务列表：优先读 `tasks` 数组（对象或纯字符串元素），
@@ -2071,8 +2134,8 @@ final class AgentLoopEngine: @unchecked Sendable {
         guard Self.subagentSlotCounter.acquire(limit: maxGlobalParallelSubagents) else {
             return SubagentRunResult(
                 id: UUID(),
-                name: "子代理",
-                body: "Error: 并行子代理已达全局上限（\(maxGlobalParallelSubagents)），请等待现有子代理完成后再派发。",
+                name: L10n.l("subagents"),
+                body: String(format: L10n.l("loop_parallel_global_limit"), maxGlobalParallelSubagents),
                 ok: false
             )
         }
@@ -2111,7 +2174,7 @@ final class AgentLoopEngine: @unchecked Sendable {
             emitSubagentEvent(.taskAdded(rec.info, task))
         } else {
             subID = UUID()
-            subName = (spec.focus?.isEmpty == false) ? "子代理·\(spec.focus!)" : "子代理"
+            subName = (spec.focus?.isEmpty == false) ? String(format: L10n.l("loop_subagent_focus"), spec.focus!) : L10n.l("subagents")
             baseFocus = spec.focus
             baseHistory = []
             recProfile = nil
@@ -2133,10 +2196,10 @@ final class AgentLoopEngine: @unchecked Sendable {
         }()
         let thinkingDisplay: String = {
             switch childThinking {
-            case "off": return L10n.tr("无思考")
-            case "low": return L10n.tr("低")
-            case "high": return L10n.tr("高")
-            default: return L10n.tr("默认")
+            case "off": return L10n.l("no_thinking")
+            case "low": return L10n.l("level_low")
+            case "high": return L10n.l("high")
+            default: return L10n.l("default")
             }
         }()
         if !modelDisplay.isEmpty {
@@ -2210,7 +2273,7 @@ final class AgentLoopEngine: @unchecked Sendable {
         emitSubagentEvent(cancelled ? .cancelled(info) : .finished(info))
 
         let summary = collector.value.trimmingCharacters(in: .whitespacesAndNewlines)
-        return SubagentRunResult(id: subID, name: subName, body: summary.isEmpty ? "(子代理未返回内容)" : summary, ok: !summary.isEmpty)
+        return SubagentRunResult(id: subID, name: subName, body: summary.isEmpty ? L10n.l("subagent_no_content") : summary, ok: !summary.isEmpty)
     }
 
     /// 构造一个子代理子引擎（方案 C：不长期持有活实例，复用前重建并用历史续接上下文）。
@@ -2310,17 +2373,17 @@ final class SubagentEngineBag: @unchecked Sendable {
     }
 }
 
-/// 活跃工具执行 Task 容器（线程安全）。[Fix 2026-08-11 并发工具崩溃·OpenMinis 模式]
+/// 活跃工具执行 Task 容器（线程安全）。[Fix 2026-08-11 并发工具崩溃·参考实现]
 ///
 /// 原实现是 `AgentLoopEngine.toolExecutionTask: Any?` 单一共享可变属性：
 /// 并发工具(executeToolsConcurrently 的 withTaskGroup 同时跑多个 executeTool)
 /// 在同一属性上写入/清空,主线程 pause/cancel 也同时读写,ARC 引用计数竞争导致
 /// `swift_release_dealloc` 崩溃(用户实证:两个 shell 并发执行时偶发闪退)。
 ///
-/// 本容器照 OpenMinis 的 in-flight 集合模型(ISHExecutionCoordinator actor 持有
+/// 本容器照 in-flight 集合模型(ISHExecutionCoordinator actor 持有
 /// perSessionInflight PID 队列)与项目内 SubagentEngineBag 范式实现:NSLock 保护的
 /// [callID: Task] 字典,每个并发工具写自己的槽位;pause/cancel 用 drain() 枚举
-/// 取消**全部** in-flight 工具(OpenMinis stopCurrentCommand 语义:一次停止=取消整批)。
+/// 取消**全部** in-flight 工具(stopCurrentCommand 语义:一次停止=取消整批)。
 final class ToolTaskBag: @unchecked Sendable {
     private let lock = NSLock()
     private var tasks: [String: Task<ToolResult, Never>] = [:]
@@ -2404,10 +2467,10 @@ enum AgentError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .notConfigured: return "尚未配置可用模型"
-        case .requestFailed: return "模型请求失败"
+        case .notConfigured: return L10n.l("err_no_model_configured")
+        case .requestFailed: return L10n.l("err_model_request_failed")
         case .toolExecutionFailed(let message): return message
-        case .iterationLimitReached: return "工具调用已达到 8 轮上限"
+        case .iterationLimitReached: return L10n.l("err_tool_call_limit")
         }
     }
 }

@@ -14,9 +14,9 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "EBF86F41ECCE2CCA07A07A0F3D158716"
-               BuildableName = "minis-fs-cli"
-               BlueprintName = "minis-fs-cli"
+               BlueprintIdentifier = "383953F0D5E252734B15D0ABBD210EBE"
+               BuildableName = "miniclaw-config-cli"
+               BlueprintName = "miniclaw-config-cli"
                ReferencedContainer = "container:MiniClawCLITools.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
@@ -32,9 +32,9 @@
       <MacroExpansion>
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "EBF86F41ECCE2CCA07A07A0F3D158716"
-            BuildableName = "minis-fs-cli"
-            BlueprintName = "minis-fs-cli"
+            BlueprintIdentifier = "383953F0D5E252734B15D0ABBD210EBE"
+            BuildableName = "miniclaw-config-cli"
+            BlueprintName = "miniclaw-config-cli"
             ReferencedContainer = "container:MiniClawCLITools.xcodeproj">
          </BuildableReference>
       </MacroExpansion>
@@ -55,9 +55,9 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "EBF86F41ECCE2CCA07A07A0F3D158716"
-            BuildableName = "minis-fs-cli"
-            BlueprintName = "minis-fs-cli"
+            BlueprintIdentifier = "383953F0D5E252734B15D0ABBD210EBE"
+            BuildableName = "miniclaw-config-cli"
+            BlueprintName = "miniclaw-config-cli"
             ReferencedContainer = "container:MiniClawCLITools.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
@@ -74,9 +74,9 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "EBF86F41ECCE2CCA07A07A0F3D158716"
-            BuildableName = "minis-fs-cli"
-            BlueprintName = "minis-fs-cli"
+            BlueprintIdentifier = "383953F0D5E252734B15D0ABBD210EBE"
+            BuildableName = "miniclaw-config-cli"
+            BlueprintName = "miniclaw-config-cli"
             ReferencedContainer = "container:MiniClawCLITools.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>

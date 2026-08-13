@@ -4,6 +4,14 @@ import UniformTypeIdentifiers
 import Speech
 import AVFoundation
 
+/// 输入框外部注入指令(id 递增触发、text 为注入文本)——打包为单一 Equatable 值,
+/// 使 onChange 闭包参数能携带新值(2026-08-13 修复「添加到输入框」draft 空 bug:
+/// 原 onChange(of: injectionID) 捕获旧渲染时的 injectedText)。
+struct ChatInputInjection: Equatable {
+    var id: Int
+    var text: String
+}
+
 // MARK: - 待发送附件（输入栏内选中、发送前展示）
 
 /// 输入框里已选中的附件：复制进 attachments/ 目录后的本地副本 + 展示信息。
@@ -62,10 +70,11 @@ struct ChatInputBar: View {
     // 整个会话视图树重算（消息多时每次击键 O(N) 的根因）。
     // 与外部同步走两条通道：
     //  · onDraftChanged：草稿变化防抖 300ms 上报（草稿落盘用）；
-    //  · injectedText/injectionID：外部注入（斜杠命令插入/清空/草稿恢复）。
+    //  · injection：外部注入（斜杠命令插入/清空/草稿恢复/「添加到输入框」）。
+    //  · 2026-08-13 修复：注入文本与序号打包为单一 Equatable 值——原实现 onChange(of:
+    //    injectionID) 闭包捕获的是旧渲染时的 injectedText(空)，注入文本永远落不进来。
     @State private var draft: String = ""
-    var injectedText: String = ""
-    var injectionID: Int = 0
+    var injection: ChatInputInjection = ChatInputInjection(id: 0, text: "")
     var onDraftChanged: ((String) -> Void)? = nil
     @State private var draftSyncTask: Task<Void, Never>?
 
@@ -84,7 +93,7 @@ struct ChatInputBar: View {
 
     /// 用于把权限不足的引导跳转到 App 内「权限与后台」设置页（该页的麦克风/语音识别开关能正常申请权限，
     /// 不会触发聊天输入栏手势上下文里的 ccserver 崩溃）。
-    @Environment(AppState.self) private var appState
+    @EnvironmentObject private var appState: AppState
 
     @State private var showSourcePicker: Bool = false
     @State private var activeSource: AttachmentSource?
@@ -188,30 +197,30 @@ struct ChatInputBar: View {
         .padding(.bottom, 10)
         .gesture(voiceOpenGesture)
         // ★ 权限请求解耦：手势只设标志，onChange 在视图更新周期中执行实际请求 ★
-        .onChange(of: shouldRequestMicPermission) { _, newValue in
+        .onChange(of: shouldRequestMicPermission) { newValue in
             if newValue {
                 // 立即复位标志（避免重复触发）
                 shouldRequestMicPermission = false
                 performMicPermissionRequest()
             }
         }
-        .alert(L10n.tr("需要权限"), isPresented: $speechVM.showPermissionAlert) {
-            Button(L10n.tr("去设置")) {
+        .alert(L10n.l("permission_required"), isPresented: $speechVM.showPermissionAlert) {
+            Button(L10n.l("go_to_settings")) {
                 // 跳转到 App 内「权限与后台」页（该页的麦克风/语音识别开关可由 App 内正常申请权限，
                 // 不会像聊天输入栏的手势上下文那样触发系统 TCC 回调崩溃）。
                 appState.showSettings = true
                 appState.settingsDeepLink = "permissions"
             }
-            Button(L10n.tr("取消"), role: .cancel) {
+            Button(L10n.l("cancel"), role: .cancel) {
                 collapseVoiceToText()
             }
         } message: { Text(speechVM.permissionAlertMessage) }
         // 三选项弹窗：附件 / 拍照 / 图片或视频
-        .confirmationDialog(L10n.tr("添加附件"), isPresented: $showSourcePicker, titleVisibility: .visible) {
-            Button(L10n.tr("附件")) { activeSource = .document }
-            Button(L10n.tr("拍照")) { activeSource = .camera }
-            Button(L10n.tr("图片或视频")) { activeSource = .photoVideo }
-            Button(L10n.tr("取消"), role: .cancel) { }
+        .confirmationDialog(L10n.l("add_attachment"), isPresented: $showSourcePicker, titleVisibility: .visible) {
+            Button(L10n.l("attachments")) { activeSource = .document }
+            Button(L10n.l("take_photo")) { activeSource = .camera }
+            Button(L10n.l("image_or_video")) { activeSource = .photoVideo }
+            Button(L10n.l("cancel"), role: .cancel) { }
         }
         // 拉起对应的系统选择器
         .sheet(item: $activeSource) { source in
@@ -233,7 +242,7 @@ struct ChatInputBar: View {
             }
         }
         // 输入本地化配套：草稿防抖上报（300ms）、外部注入应用、离开时强制同步最新文本。
-        .onChange(of: draft) { _, newValue in
+        .onChange(of: draft) { newValue in
             draftSyncTask?.cancel()
             draftSyncTask = Task { @MainActor in
                 try? await Task.sleep(for: .milliseconds(300))
@@ -241,10 +250,12 @@ struct ChatInputBar: View {
                 onDraftChanged?(newValue)
             }
         }
-        .onChange(of: injectionID) { _, _ in
+        .onChange(of: injection) { newInjection in
             draftSyncTask?.cancel()
-            draft = injectedText
-            onDraftChanged?(injectedText)
+            // 运行时打点(2026-08-13):ChatInputBar 应用注入。onChange 参数即新值。
+            AppLogger.shared.info("ChatInputBar: 应用注入 injectionID=\(newInjection.id) draft=\(String(newInjection.text.prefix(40)))", category: "ChatInputInject")
+            draft = newInjection.text
+            onDraftChanged?(newInjection.text)
         }
         .onDisappear {
             draftSyncTask?.cancel()
@@ -292,13 +303,13 @@ struct ChatInputBar: View {
         let thinkingCommand: SlashCommandItem
         if thinkingSupported {
             let levels = thinkingLevels.isEmpty
-                ? [("low", L10n.tr("低")), ("medium", L10n.tr("中")), ("high", L10n.tr("高"))]
+                ? [("low", L10n.l("level_low")), ("medium", L10n.l("level_medium")), ("high", L10n.l("high"))]
                 : thinkingLevels
             thinkingCommand = SlashCommandItem(
                 id: "thinking",
                 icon: "wand.and.sparkles",
                 title: "/thinking",
-                subtitle: thinkingSelectedLevel == "off" ? L10n.tr("深度思考已关闭") : L10n.tr("深度思考已开启"),
+                subtitle: thinkingSelectedLevel == "off" ? L10n.l("deep_thinking_off") : L10n.l("deep_thinking_enabled"),
                 kind: .thinkingPicker(selectedLevel: thinkingSelectedLevel, levels: levels),
                 thinkingLevel: nil  // 由 row 内 pill 点击设置
             )
@@ -307,8 +318,8 @@ struct ChatInputBar: View {
                 id: "thinking",
                 icon: "wand.and.sparkles",
                 title: "/thinking",
-                subtitle: L10n.tr("当前模型不支持"),
-                kind: .disabled(L10n.tr("当前模型不支持"))
+                subtitle: L10n.l("current_model_not_supported"),
+                kind: .disabled(L10n.l("current_model_not_supported"))
             )
         }
         let base = SlashCommandOverlay.defaultCommands.map { $0.id == "thinking" ? thinkingCommand : $0 }
@@ -451,11 +462,11 @@ struct ChatInputBar: View {
 
     private var textFieldPlaceholder: String {
         if isAgentResponding && !isPaused {
-            return L10n.tr("智能体正在回复，可继续输入加入队列...")
+            return L10n.l("the_agent_is_replying_you_can_keep_typing_to_queue_more_messages")
         } else if isPaused {
-            return L10n.tr("已暂停，输入消息点发送可加入队列...")
+            return L10n.l("paused_type_a_message_and_tap_send_to_join_the_queue")
         } else {
-            return L10n.tr("输入消息...")
+            return L10n.l("type_a_message")
         }
     }
 
@@ -623,7 +634,7 @@ struct ChatInputBar: View {
                 if isFinal {
                     vm.canSend = !vm.recognizedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                     if !spoken.isEmpty {
-                        vm.statusMessage = L10n.tr("识别完成，点「发送」发送")
+                        vm.statusMessage = L10n.l("recognition_complete_tap_send_to_send")
                     }
                 }
             }
@@ -640,9 +651,9 @@ struct ChatInputBar: View {
                 guard let vm = speechVM else { return }
                 vm.isRecording = recording
                 if recording {
-                    vm.statusMessage = L10n.tr("正在聆听…松开结束")
+                    vm.statusMessage = L10n.l("listening_release_to_finish")
                 } else if vm.recognizedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    vm.statusMessage = L10n.tr("按住麦克风开始说话")
+                    vm.statusMessage = L10n.l("hold_the_microphone_to_start_speaking")
                 }
             }
         }
@@ -709,7 +720,7 @@ struct ChatInputBar: View {
             TextField(textFieldPlaceholder, text: $draft,
                       axis: SettingsStore.shared.settings.chat.enterToSend ? .horizontal : .vertical)
                 .focused(focused)
-                .onChange(of: focused.wrappedValue) { _, now in
+                .onChange(of: focused.wrappedValue) { now in
                     // [KbdDiag 2026-08-11] 输入焦点变化(键盘弹出/收起直接信号)。
                     AppLogger.shared.info("[InputFocus] focused=\(now) draftLen=\(draft.count)", category: "KbdDiag")
                 }
@@ -730,7 +741,7 @@ struct ChatInputBar: View {
                             }
                         }
                 )
-            .onChange(of: focused.wrappedValue) { _, now in
+            .onChange(of: focused.wrappedValue) { now in
                 // [KbdDiag 2026-08-11] 输入焦点变化(键盘弹出/收起直接信号)。
                 AppLogger.shared.info("[InputFocus] focused=\(now) draftLen=\(draft.count)", category: "KbdDiag")
             }
@@ -801,7 +812,7 @@ struct ChatInputBar: View {
                 }
             }
             ScrollView {
-                Text(speechVM.recognizedText.isEmpty ? L10n.tr("识别出的文字会显示在这里") : speechVM.recognizedText)
+                Text(speechVM.recognizedText.isEmpty ? L10n.l("recognized_text_will_appear_here") : speechVM.recognizedText)
                     .font(.body)
                     .foregroundStyle(speechVM.recognizedText.isEmpty ? .secondary : .primary)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -896,7 +907,8 @@ struct ChatInputBar: View {
     /// 由 App 内常规 Button 上下文正常申请权限（该页开关已验证不崩）。
     private func requestMicThenStart(controller: SpeechController, vm: SpeechViewModel) {
         // ── 第一步：检查麦克风权限（不请求，只查）──
-        let micStatus = AVAudioApplication.shared.recordPermission
+        // iOS16 兼容:AVAudioApplication(iOS17 API) 改回 AVAudioSession 查询(语义等价)。
+        let micStatus = AVAudioSession.sharedInstance().recordPermission
         AppLogger.shared.info("麦克风权限状态：\(micStatus.rawValue)", category: "Voice", subsystem: "Permission")
 
         let proceedToSpeech: () -> Void = {
@@ -907,7 +919,7 @@ struct ChatInputBar: View {
                     self.startRecordingOnMainQueue(controller)
                 } else {
                     AppLogger.shared.info("语音识别未授权（\(speechStatus)）→ 弹引导框", category: "Voice", subsystem: "Permission")
-                    vm.permissionAlertMessage = L10n.tr("MiniClaw 需要「语音识别」权限才能把你说的话转成文字。\n\n请点击下方「去设置」，在 App 设置 → 权限与后台 → 语音识别 中开启开关，返回即可使用。")
+                    vm.permissionAlertMessage = L10n.l("miniclaw_needs_speech_recognition_permission_to_transcribe_your_voice_n_ntap_go_to_settings_below_enable_speech_recognition_in_app_settings_permissions_background_then_return")
                     vm.showPermissionAlert = true
                 }
             }
@@ -918,15 +930,15 @@ struct ChatInputBar: View {
             proceedToSpeech()
         case .denied:
             AppLogger.shared.info("麦克风被拒绝 → 弹提示", category: "Voice", subsystem: "Permission")
-            vm.permissionAlertMessage = L10n.tr("MiniClaw 被拒绝使用麦克风。\n\n请点击下方「去设置」，在 App 设置 → 权限与后台 → 麦克风 中开启开关，返回即可使用。")
+            vm.permissionAlertMessage = L10n.l("miniclaw_was_denied_microphone_access_n_ntap_go_to_settings_below_enable_microphone_in_app_settings_permissions_background_microphone_then_return")
             vm.showPermissionAlert = true
         case .undetermined:
             // 未决定：引导用户去 App 内「权限与后台」页点麦克风开关申请（那里能正常弹系统授权框）。
             AppLogger.shared.info("麦克风权限未决定 → 弹引导框（去 App 内权限与后台）", category: "Voice", subsystem: "Permission")
-            vm.permissionAlertMessage = L10n.tr("MiniClaw 需要使用麦克风进行语音输入。\n\n请点击下方「去设置」，在 App 设置 → 权限与后台 → 麦克风 中开启开关，返回即可使用。")
+            vm.permissionAlertMessage = L10n.l("miniclaw_needs_microphone_access_for_voice_input_n_ntap_go_to_settings_below_enable_microphone_in_app_settings_permissions_background_microphone_then_return")
             vm.showPermissionAlert = true
         @unknown default:
-            vm.permissionAlertMessage = L10n.tr("无法确定麦克风权限状态，请前往 App 设置 → 权限与后台 查看。")
+            vm.permissionAlertMessage = L10n.l("could_not_determine_microphone_permission_status_check_app_settings_permissions_background")
             vm.showPermissionAlert = true
         }
     }
@@ -1063,11 +1075,11 @@ struct SlashCommandOverlay: View {
         SlashCommandItem(id: "clear", icon: "trash", title: "/clear", subtitle: "Clear all messages in this session", kind: .action),
         SlashCommandItem(id: "compact", icon: "arrow.up.arrow.down", title: "/compact", subtitle: "Compress conversation history into summary", kind: .action),
         SlashCommandItem(id: "memory", icon: "brain", title: "/memory", subtitle: "Writes off — tap to toggle", kind: .toggle(false)),
-        SlashCommandItem(id: "thinking", icon: "wand.and.sparkles", title: "/thinking", subtitle: L10n.tr("当前模型不支持"), kind: .disabled(L10n.tr("当前模型不支持"))),
-        SlashCommandItem(id: "search", icon: "globe", title: "/search", subtitle: L10n.tr("网页搜索"), kind: .insertText("/search ")),
-        SlashCommandItem(id: "image", icon: "photo", title: "/image", subtitle: L10n.tr("图片生成"), kind: .insertText("/image ")),
-        SlashCommandItem(id: "analyze", icon: "doc.text", title: "/analyze", subtitle: L10n.tr("文件分析"), kind: .insertText("/analyze ")),
-        SlashCommandItem(id: "exec", icon: "terminal", title: "/exec", subtitle: L10n.tr("执行命令"), kind: .insertText("/exec ")),
+        SlashCommandItem(id: "thinking", icon: "wand.and.sparkles", title: "/thinking", subtitle: L10n.l("current_model_not_supported"), kind: .disabled(L10n.l("current_model_not_supported"))),
+        SlashCommandItem(id: "search", icon: "globe", title: "/search", subtitle: L10n.l("web_search"), kind: .insertText("/search ")),
+        SlashCommandItem(id: "image", icon: "photo", title: "/image", subtitle: L10n.l("image_generation"), kind: .insertText("/image ")),
+        SlashCommandItem(id: "analyze", icon: "doc.text", title: "/analyze", subtitle: L10n.l("file_analysis"), kind: .insertText("/analyze ")),
+        SlashCommandItem(id: "exec", icon: "terminal", title: "/exec", subtitle: L10n.l("run_command"), kind: .insertText("/exec ")),
     ]
 
     /// 按过滤关键词筛选命令：匹配命令名或副标题。
@@ -1086,7 +1098,7 @@ struct SlashCommandOverlay: View {
                     slashCommandRow(cmd)
                 }
                 if filteredCommands.isEmpty {
-                    Text(L10n.tr("无匹配命令"))
+                    Text(L10n.l("no_matching_command"))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity)
@@ -1178,7 +1190,7 @@ struct SlashCommandOverlay: View {
                             subtitle: cmd.subtitle, kind: cmd.kind, thinkingLevel: level.id
                         ))
                     }) {
-                        Text(L10n.tr(level.label))
+                        Text(level.label)
                             .font(.system(size: 12, weight: .medium))
                             .foregroundColor(isActive && isSelected ? .white : (isActive ? Color.accentColor : .secondary))
                             .padding(.horizontal, 10)

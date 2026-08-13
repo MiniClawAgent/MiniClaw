@@ -46,9 +46,9 @@ enum MirrorKind: String, CaseIterable, Identifiable {
 
     var footer: String {
         switch self {
-        case .apk: return "切换 Alpine APK 软件源，解决官方 CDN 在国内慢/不稳导致的安装失败。"
-        case .pip: return "切换 Python Pip 软件源（写入容器内 ~/.pip/pip.conf）。"
-        case .npm: return "切换 Node.js npm 软件源（写入容器内 ~/.npmrc）。"
+        case .apk: return L10n.l("mirror_apk_desc")
+        case .pip: return L10n.l("mirror_pip_desc")
+        case .npm: return L10n.l("mirror_npm_desc")
         }
     }
 
@@ -215,7 +215,8 @@ enum MirrorManager {
             .sorted { $0.1 < $1.1 }
             .map { MirrorProbeResult(entry: $0.0, latencyMs: $0.1) }
         // 记录全部结果（含失败 -1），UI 行尾能区分「超时」与「未测试」。
-        let dict = Dictionary(uniqueKeysWithValues: results.map { ($0.0.id, $0.1) })
+        var dict: [String: Int] = [:]
+        for (entry, ms) in results { dict[entry.id] = ms }
         UserDefaults.standard.set(dict, forKey: kind.probeKey)
         return reachable
     }
@@ -283,9 +284,9 @@ enum MirrorError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .rootfsNotDeployed:
-            return "rootfs 尚未部署，无法切换镜像源"
+            return L10n.l("mirror_rootfs_not_deployed")
         case .unknownSource(let id):
-            return "未知镜像源: \(id)"
+            return String(format: L10n.l("mirror_unknown_source"), id)
         }
     }
 }

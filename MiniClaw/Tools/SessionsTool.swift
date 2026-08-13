@@ -18,22 +18,22 @@ struct SessionsTool: AgentTool {
             type: "function",
             function: ToolSchema.FunctionDef(
                 name: "sessions_cli",
-                description: "会话数据库 CRUD。当前会话操作优先使用 target=current，不要先 list 再猜 UUID。子命令: list/get/create/delete/update/append/messages/search。update/get/messages/append 默认操作当前会话；只有用户明确要求操作其他会话时，才使用 target=explicit 并提供 id。delete 必须使用 target=explicit 和 id。",
+                description: L10n.l("sessions_tool_desc"),
                 parameters: JSONSchema(
                     type: "object",
                     properties: [
-                        "command": JSONSchema.JSONProperty(type: "string", description: "子命令", enum: ["list", "get", "create", "delete", "update", "append", "messages", "search"]),
-                        "target": JSONSchema.JSONProperty(type: "string", description: "目标会话。current=当前打开的会话（默认）；explicit=其他指定会话，必须同时提供 id", enum: ["current", "explicit"]),
-                        "id": JSONSchema.JSONProperty(type: "string", description: "仅 target=explicit 时使用的其他会话 UUID；不要为当前会话猜测或从 list 选择 UUID"),
-                        "title": JSONSchema.JSONProperty(type: "string", description: "会话标题（create 或 update field=title 时提供）"),
-                        "model": JSONSchema.JSONProperty(type: "string", description: "模型名（create 或 update field=model 时提供）"),
-                        "agentName": JSONSchema.JSONProperty(type: "string", description: "Agent 显示名（create 或 update field=agentName 时提供）"),
-                        "field": JSONSchema.JSONProperty(type: "string", description: "update 的字段名，可选: title/model/agentName/status/icon/iconColor。icon 为 SF Symbol 名称（如 'bookmark.fill'、'brain.head.profile'），传空字符串可清除自定义图标回退默认；iconColor 为十六进制颜色（如 '#FF6B6B'），与会话主题匹配，背景自动取该色 0.12 透明，传空字符串清除。注意：禁止使用纯黑(#000000)、纯白(#FFFFFF)或接近的黑/白色，它们在深色/浅色背景下会不可见，请选用明确的彩色，否则将被忽略回退默认蓝"),
-                        "value": JSONSchema.JSONProperty(type: "string", description: "update 的字段新值"),
-                        "role": JSONSchema.JSONProperty(type: "string", description: "append 的消息角色，可选: user/assistant/tool/system（默认 user）"),
-                        "content": JSONSchema.JSONProperty(type: "string", description: "append 的消息正文 / search 的关键词"),
-                        "keyword": JSONSchema.JSONProperty(type: "string", description: "search 的关键词（与 content 等价，任一即可）"),
-                        "limit": JSONSchema.JSONProperty(type: "integer", description: "list 返回数量上限（0 = 全部）")
+                        "command": JSONSchema.JSONProperty(type: "string", description: L10n.l("subcommand_label"), enum: ["list", "get", "create", "delete", "update", "append", "messages", "search"]),
+                        "target": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_target_session"), enum: ["current", "explicit"]),
+                        "id": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_target_explicit_note")),
+                        "title": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_session_title")),
+                        "model": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_model_name")),
+                        "agentName": JSONSchema.JSONProperty(type: "string", description: L10n.l("agent_display_name_param")),
+                        "field": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_update_field_desc")),
+                        "value": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_update_value")),
+                        "role": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_append_role")),
+                        "content": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_message_content_or_keyword")),
+                        "keyword": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_search_keyword")),
+                        "limit": JSONSchema.JSONProperty(type: "integer", description: L10n.l("param_list_limit"))
                     ],
                     required: ["command"]
                 )
@@ -80,8 +80,8 @@ struct SessionsTool: AgentTool {
         }
 
         let failedPrefixes = [
-            "未知命令", "未找到", "缺少", "创建会话失败",
-            "update 需要", "append 需要", "search 需要"
+            L10n.l("unknown_command"), L10n.l("not_found"), L10n.l("missing_label"), L10n.l("err_create_session_failed"),
+            L10n.l("update_requires"), L10n.l("append_requires"), L10n.l("search_requires")
         ]
         let success = !failedPrefixes.contains { output.hasPrefix($0) }
 
@@ -107,7 +107,7 @@ enum SessionsCLI {
         case "messages":return messages(id: id)
         case "search":  return search(keyword: keyword)
         default:
-            return "未知命令: \(command)。可用: list / get / create / delete / update / append / messages / search"
+            return String(format: L10n.l("sessions_unknown_command"), command)
         }
     }
 
@@ -120,7 +120,7 @@ enum SessionsCLI {
     static func get(id: String?) -> String {
         guard let id, let uuid = UUID(uuidString: id),
               let s = SessionManager.shared.session(id: uuid) else {
-            return "未找到会话 id=\(id ?? "nil")"
+            return L10n.l("session_not_found_id") + (id ?? L10n.l("none"))
         }
         var d = sessionToDict(s)
         d["messages"] = s.messages
@@ -131,30 +131,30 @@ enum SessionsCLI {
 
     static func create(title: String?, model: String?, agentName: String?) -> String {
         guard let s = SessionManager.shared.createSession(
-            title: title ?? "新会话",
-            model: model ?? "未配置",
+            title: title ?? L10n.l("new_chat_title"),
+            model: model ?? L10n.l("not_configured"),
             agentName: agentName ?? "MiniClaw"
         ) else {
-            return "创建会话失败（SwiftData ModelContext 未配置）"
+            return L10n.l("err_create_session_no_context")
         }
-        return "已创建会话:\n" + prettyJSON(sessionToDict(s))
+        return L10n.l("session_created_header") + prettyJSON(sessionToDict(s))
     }
 
     static func delete(id: String?) -> String {
         guard let id, let uuid = UUID(uuidString: id) else {
-            return "缺少或无效的 id"
+            return L10n.l("err_missing_id")
         }
         return SessionManager.shared.deleteSession(id: uuid)
-            ? "已删除会话 \(id)"
-            : "未找到会话 \(id)"
+            ? String(format: L10n.l("sessions_deleted"), id)
+            : String(format: L10n.l("sessions_not_found"), id)
     }
 
     static func update(id: String?, field: String?, value: String?) -> String {
         guard let id, let uuid = UUID(uuidString: id) else {
-            return "缺少或无效的 id"
+            return L10n.l("err_missing_id")
         }
         guard let field, let value else {
-            return "update 需要 field 与 value 参数"
+            return L10n.l("err_update_need_field_value")
         }
         // icon / iconColor 字段：空字符串表示清除（回退默认），其余原样透传给 SessionManager。
         let iconValue: String? = (field == "icon" || field == "iconColor") ? value : nil
@@ -169,32 +169,32 @@ enum SessionsCLI {
         )
         if field == "icon" {
             return ok
-                ? (value.isEmpty ? "已清除会话 \(id) 的自定义图标，回退默认" : "已更新 \(id).icon = \(value)")
-                : "未找到会话 \(id)"
+                ? (value.isEmpty ? String(format: L10n.l("sessions_icon_cleared"), id) : String(format: L10n.l("sessions_updated_icon"), id, value))
+                : String(format: L10n.l("sessions_not_found"), id)
         }
         if field == "iconColor" {
             return ok
-                ? (value.isEmpty ? "已清除会话 \(id) 的自定义图标配色，回退多样兜底色" : "已更新 \(id).iconColor = \(value)")
-                : "未找到会话 \(id)"
+                ? (value.isEmpty ? String(format: L10n.l("sessions_iconcolor_cleared"), id) : String(format: L10n.l("sessions_updated_iconcolor"), id, value))
+                : String(format: L10n.l("sessions_not_found"), id)
         }
-        return ok ? "已更新 \(id).\(field)" : "未找到会话 \(id) 或字段无效（可选: title/model/agentName/status/icon/iconColor）"
+        return ok ? String(format: L10n.l("sessions_updated_field"), id, field) : String(format: L10n.l("sessions_not_found_or_field"), id)
     }
 
     static func append(id: String?, role: String?, content: String?) -> String {
         guard let id, let uuid = UUID(uuidString: id) else {
-            return "缺少或无效的 id"
+            return L10n.l("err_missing_id")
         }
         guard let content, !content.isEmpty else {
-            return "append 需要 content 参数"
+            return L10n.l("err_append_need_content")
         }
         let ok = SessionManager.shared.appendMessage(sessionId: uuid, role: role ?? "user", content: content)
-        return ok ? "已追加消息到会话 \(id)" : "未找到会话 \(id)"
+        return ok ? String(format: L10n.l("sessions_message_appended"), id) : String(format: L10n.l("sessions_not_found"), id)
     }
 
     static func messages(id: String?) -> String {
         guard let id, let uuid = UUID(uuidString: id),
               let s = SessionManager.shared.session(id: uuid) else {
-            return "未找到会话 \(id ?? "nil")"
+            return L10n.l("session_not_found_ws") + (id ?? L10n.l("none"))
         }
         let arr = s.messages
             .sorted { $0.createdAt < $1.createdAt }
@@ -204,7 +204,7 @@ enum SessionsCLI {
 
     static func search(keyword: String?) -> String {
         guard let keyword, !keyword.isEmpty else {
-            return "search 需要 keyword 参数"
+            return L10n.l("err_search_need_keyword")
         }
         let results = SessionManager.shared.searchAllMessages(keyword: keyword)
         let arr = results.map { item -> [String: Any] in

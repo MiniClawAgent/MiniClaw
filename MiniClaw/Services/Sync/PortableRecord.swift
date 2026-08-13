@@ -110,7 +110,7 @@ final class SyncableTypeRegistry {
 
     private init() {}
 
-    func register<T: Syncable>(_ type: T.Type) {
+    func register<T: Syncable & Sendable>(_ type: T.Type) {
         let meta = T.syncMetadata
         let recordType = meta.recordType
         let fields = meta.fields

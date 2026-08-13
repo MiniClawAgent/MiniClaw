@@ -1,6 +1,6 @@
 import Foundation
 
-// MARK: - minis-ios-cli — iOS 原生能力专用 CLI（Layer 2）
+// MARK: - miniclaw-ios-cli — iOS 原生能力专用 CLI（Layer 2）
 //
 // 本 CLI 是「原生能力请求代理」：它描述需要的能力与用途，
 // 但**绝不自行发起 iOS 系统授权**——所有涉及系统授权、敏感数据的操作
@@ -85,10 +85,10 @@ func availability() -> Int32 {
 
 func usage() {
     print("""
-    minis-ios-cli — iOS 原生能力专用 CLI（Layer 2 · 请求代理）
+    miniclaw-ios-cli — iOS 原生能力专用 CLI（Layer 2 · 请求代理）
 
     用法:
-      minis-ios-cli <command> [参数]
+      miniclaw-ios-cli <command> [参数]
 
     命令:
       request --capability <cap> [--purpose <用途>]   请求某原生能力（始终路由宿主 App 确认）

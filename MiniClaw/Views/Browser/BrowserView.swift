@@ -4,7 +4,7 @@ import UIKit
 
 struct BrowserView: View {
     @Environment(\.dismiss) private var dismiss
-    @Environment(AppState.self) private var appState
+    @EnvironmentObject private var appState: AppState
     @StateObject private var controller = BrowserEngineAdapter.shared
 
     @State private var urlString: String = ""
@@ -82,6 +82,7 @@ struct BrowserView: View {
         .background(Color(.systemBackground))
         .animation(.easeInOut(duration: 0.2), value: isFullscreen)
         .onAppear {
+            AppLogger.shared.info("[BrowserView][BrowserTakeover] onAppear startURL=\(startURL?.absoluteString ?? "nil")", category: "Browser")
             // 重新打开浏览器视图 = 新一轮会话期：重置「用户取消托管」标记，智能体可恢复操作。
             controller.resetAgentTakeover()
             // 重置上次浏览会话残留的进度条状态（源头修复）：关闭浏览器时若
@@ -99,7 +100,10 @@ struct BrowserView: View {
                 _ = controller.uiAddTab(urlString: url.absoluteString)
             }
         }
-        .onChange(of: controller.loadingProgress) { _, newValue in
+        .onDisappear {
+            AppLogger.shared.info("[BrowserView][BrowserTakeover] onDisappear", category: "Browser")
+        }
+        .onChange(of: controller.loadingProgress) { newValue in
             if newValue >= 1 {
                 // 加载完成：绿色保持满格，停 1s 后整体淡出（原地褪色）。
                 fadeTask?.cancel()
@@ -116,14 +120,14 @@ struct BrowserView: View {
                 greenFillOpacity = 0.35
             }
         }
-        .onChange(of: controller.activeIndex) { _, _ in syncURL() }
+        .onChange(of: controller.activeIndex) { _ in syncURL() }
         // 网页内导航（didFinish 更新 tabInfos）后地址栏同步真实网址；编辑中不覆盖输入。
-        .onChange(of: controller.tabInfos) { _, _ in
+        .onChange(of: controller.tabInfos) { _ in
             if !isEditingURL {
                 syncURL()
             }
         }
-        .onChange(of: appState.pendingBrowserResourceURL) { _, newValue in
+        .onChange(of: appState.pendingBrowserResourceURL) { newValue in
             if let url = newValue {
                 controller.uiNavigate(urlString: url.absoluteString)
                 appState.pendingBrowserResourceURL = nil
@@ -150,7 +154,7 @@ struct BrowserView: View {
                             controller.uiClearHistory()
                             showHistory = false
                         } label: {
-                            Text(L10n.tr("清空浏览记录"))
+                            Text(L10n.l("clear_browsing_history"))
                         }
                         .disabled(controller.uiHistoryItems().isEmpty)
                     }
@@ -188,7 +192,7 @@ struct BrowserView: View {
                     // 用最接近的 cpu.fill（芯片）作为机器人/硬件图标。
                     Image(systemName: "cpu.fill")
                         .font(.body)
-                    Text(L10n.tr("操作中"))
+                    Text(L10n.l("in_progress"))
                         .font(.body)
                 }
                 .padding(.horizontal, 16)
@@ -244,15 +248,15 @@ struct BrowserView: View {
             HStack(spacing: 2) {
                 // 选项按钮（历史记录 / 前进 / 新标签 / 关闭标签 / 截图 / 设置 / 全屏 / 关闭浏览器）
                 Menu {
-                    Button(L10n.tr("历史记录")) { showHistory = true }
-                    Button(L10n.tr("前进")) { controller.uiForward() }
+                    Button(L10n.l("history_records")) { showHistory = true }
+                    Button(L10n.l("forward_action")) { controller.uiForward() }
                         .disabled(!controller.canGoForward)
-                    Button(L10n.tr("新标签")) { _ = controller.uiAddTab() }
-                    Button(L10n.tr("关闭当前标签")) {
+                    Button(L10n.l("new_tab_action")) { _ = controller.uiAddTab() }
+                    Button(L10n.l("close_current_tab")) {
                         controller.uiCloseTab(index: controller.activeIndex)
                     }
                     .disabled(controller.tabInfos.count <= 1)
-                    Button(L10n.tr("全页截图并分享")) {
+                    Button(L10n.l("capture_full_page_share")) {
                         Task {
                             if let link = await controller.uiScreenshot(fullPage: true),
                                let local = controller.resolveResourceURL(link) {
@@ -261,9 +265,9 @@ struct BrowserView: View {
                             }
                         }
                     }
-                    Button(L10n.tr("浏览器设置")) { showBrowserSettings = true }
-                    Button(L10n.tr("全屏浏览")) { isFullscreen = true }
-                    Button(L10n.tr("关闭浏览器"), role: .destructive) { dismiss() }
+                    Button(L10n.l("browser_settings")) { showBrowserSettings = true }
+                    Button(L10n.l("fullscreen_browse")) { isFullscreen = true }
+                    Button(L10n.l("close_browser"), role: .destructive) { dismiss() }
                 } label: {
                     Image(systemName: "ellipsis")
                         .font(.body.weight(.semibold))
@@ -272,7 +276,7 @@ struct BrowserView: View {
                         .contentShape(Rectangle())
                 }
 
-                TextField(L10n.tr("输入网址或搜索..."), text: $urlString, onEditingChanged: { editing in
+                TextField(L10n.l("enter_url_or_search"), text: $urlString, onEditingChanged: { editing in
                     isEditingURL = editing
                 })
                     .font(.body)
@@ -349,16 +353,17 @@ struct BrowserView: View {
         ScrollView {
             LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 16) {
                 ForEach(Array(controller.tabInfos.enumerated()), id: \.element.id) { index, info in
-                    Button {
-                        controller.uiSelectTab(index: index)
-                        // 关闭概览并放大回到所选标签页
-                        withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) {
-                            showTabOverview = false
+                    // 外层用 onTapGesture 而非 Button:嵌套 Button 点击会冒泡,
+                    // 点关闭按钮会误触发卡片切换(2026-08-12)。
+                    tabCardLabel(index: index, info: info)
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            controller.uiSelectTab(index: index)
+                            // 关闭概览并放大回到所选标签页
+                            withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) {
+                                showTabOverview = false
+                            }
                         }
-                    } label: {
-                        tabCardLabel(index: index, info: info)
-                    }
-                    .buttonStyle(.plain)
                 }
 
                 // 新建标签卡
@@ -377,7 +382,7 @@ struct BrowserView: View {
                                     .font(.title2.weight(.semibold))
                                     .foregroundStyle(.secondary)
                             )
-                        Text(L10n.tr("新标签"))
+                        Text(L10n.l("new_tab_action"))
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -446,6 +451,21 @@ struct BrowserView: View {
                     .strokeBorder(index == controller.activeIndex ? Color.accentColor : Color(.separator),
                                   lineWidth: index == controller.activeIndex ? 2 : 0.5)
             )
+            // 2026-08-12:标签右上角圆底叉按钮,点击关闭该标签(不触发卡片切换)
+            .overlay(alignment: .topTrailing) {
+                Button {
+                    tabSnapshots.removeValue(forKey: info.id)
+                    controller.uiCloseTab(index: index)
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(.white)
+                        .frame(width: 20, height: 20)
+                        .background(Color.black.opacity(0.55), in: Circle())
+                }
+                .buttonStyle(.plain)
+                .padding(6)
+            }
 
             Text(displayTabTitle(info))
                 .font(.caption)
@@ -457,7 +477,7 @@ struct BrowserView: View {
     private func displayTabTitle(_ info: BrowserEngineAdapter.TabInfo) -> String {
         if !info.title.isEmpty { return info.title }
         if let host = URL(string: info.url)?.host { return host }
-        return L10n.tr("新标签页")
+        return L10n.l("new_tab_page")
     }
 }
 
@@ -528,7 +548,7 @@ struct BrowserHistoryView: View {
     var body: some View {
         List {
             if items.isEmpty {
-                ContentUnavailableView(L10n.tr("暂无历史记录"), systemImage: "clock")
+                EmptyStateView(label: L10n.l("no_history_yet"), systemImage: "clock")
             }
             ForEach(items) { item in
                 Button(action: { onSelect(item.url) }) {
@@ -541,7 +561,7 @@ struct BrowserHistoryView: View {
                                 .lineLimit(1)
                                 .truncationMode(.tail)
                             if item.isCurrent {
-                                Text(L10n.tr("当前"))
+                                Text(L10n.l("current"))
                                     .font(.caption2)
                                     .padding(.horizontal, 6)
                                     .padding(.vertical, 2)
@@ -559,7 +579,7 @@ struct BrowserHistoryView: View {
                 }
             }
         }
-        .navigationTitle(L10n.tr("历史记录"))
+        .navigationTitle(L10n.l("history_records"))
         .navigationBarTitleDisplayMode(.inline)
     }
 }

@@ -1,4 +1,6 @@
 import SwiftUI
+import UIKit
+import MiniClawKit
 
 /// 「智能体 ↔ 子代理」对话详情页。
 ///
@@ -14,8 +16,8 @@ import SwiftUI
 /// 从 `SubagentStore` 取好后传入，本页直接观察该实例本身，流式 词元 仅驱动本页重绘，
 /// 且不存在「首帧读取 store 未命中而停在空态」的时序空窗。
 struct SubagentChatView: View {
-    /// 直接持有的对话实例（@Observable 类），由父视图点击时从 `SubagentStore` 取好传入。
-    let conversation: SubagentConversation
+    /// 直接持有的对话实例（ObservableObject），由父视图点击时从 `SubagentStore` 取好传入。
+    @ObservedObject var conversation: SubagentConversation
     /// 会话 ID，仅用于 `MessageBubbleView` 解析图片/文件等附属资源。
     let sessionID: UUID
 
@@ -41,12 +43,16 @@ struct SubagentChatView: View {
                                         agentName: conversation.name,
                                         showThinking: SettingsStore.shared.settings.chat.showThinking,
                                         onOpenURL: { url in
-                                            // 设置类深链 → 设置页路由；其余 → 浏览器（与主会话一致）。
+                                            // 设置类深链 → 设置页路由；其余 → 按链接打开策略(内置浏览器默认/Safari)。
                                             if url.scheme?.lowercased() == "miniclaw",
                                                AppState.shared?.routeSettingsDeepLink(url) == true {
                                                 return
                                             }
-                                            browserURL = url
+                                            if MiniClawOpenURLHandler.openLinksInline() {
+                                                browserURL = url
+                                            } else {
+                                                UIApplication.shared.open(url)
+                                            }
                                         },
                                         onImageTap: { url in fullscreenImageItem = FullscreenImageItem(url: url) },
                                         sessionID: sessionID
@@ -59,7 +65,7 @@ struct SubagentChatView: View {
                         }
                         // 仅在「新增消息」时整体滚到底（新任务/新回复出现），避免每条 词元 都滚动造成抖动；
                         // 流式正文增长由气泡自身可见，无需逐字强滚。
-                        .onChange(of: conversation.messages.count) { _, _ in
+                        .onChange(of: conversation.messages.count) { _ in
                             withAnimation(.easeOut(duration: 0.2)) {
                                 proxy.scrollTo("subBottom", anchor: .bottom)
                             }
@@ -67,7 +73,7 @@ struct SubagentChatView: View {
                     }
                 } else {
                     Spacer()
-                    ProgressView(L10n.tr("子代理准备中…"))
+                    ProgressView(L10n.l("preparing_subagent"))
                         .foregroundStyle(.secondary)
                     Spacer()
                 }
@@ -80,13 +86,7 @@ struct SubagentChatView: View {
             if let url = browserURL { BrowserView(startURL: url) }
         }
         .fullScreenCover(item: $fullscreenImageItem) { item in
-            FullscreenImageView(
-                imageURL: item.url,
-                isPresented: Binding(
-                    get: { fullscreenImageItem != nil },
-                    set: { if !$0 { fullscreenImageItem = nil } }
-                )
-            )
+            FilePreviewView(fileURL: item.url)
         }
     }
 
@@ -137,7 +137,7 @@ struct SubagentChatView: View {
                 }
             }
             Spacer()
-            Button(L10n.tr("完成")) { dismiss() }
+            Button(L10n.l("done")) { dismiss() }
                 .font(.callout)
         }
         .padding(.horizontal, 16)
@@ -149,10 +149,10 @@ struct SubagentChatView: View {
 
     private func statusText(_ s: SubagentStatus) -> String {
         switch s {
-        case .running:    return L10n.tr("处理中")
-        case .error:      return L10n.tr("出错")
-        case .completed:  return L10n.tr("已完成")
-        case .cancelled:  return L10n.tr("已取消")
+        case .running:    return L10n.l("processing_status")
+        case .error:      return L10n.l("error_title")
+        case .completed:  return L10n.l("completed")
+        case .cancelled:  return L10n.l("cancelled")
         }
     }
 

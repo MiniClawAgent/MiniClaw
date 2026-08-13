@@ -316,7 +316,7 @@ actor RemoteMCPClient {
                     Task { [legacyResponseTimeoutNanoseconds] in
                         do {
                             try await Task.sleep(nanoseconds: legacyResponseTimeoutNanoseconds)
-                            await self.timeoutLegacyResponse(requestID: requestID)
+                            self.timeoutLegacyResponse(requestID: requestID)
                         } catch {
                             // Timer task only ends early during shutdown; waiter cleanup is handled elsewhere.
                         }
@@ -357,7 +357,7 @@ actor RemoteMCPClient {
                 Task { [legacyEndpointTimeoutNanoseconds] in
                     do {
                         try await Task.sleep(nanoseconds: legacyEndpointTimeoutNanoseconds)
-                        await self.timeoutLegacyEndpoint(waiterID: waiterID)
+                        self.timeoutLegacyEndpoint(waiterID: waiterID)
                     } catch {
                         // Cancellation cleanup is handled by the caller/shutdown path.
                     }
@@ -470,7 +470,7 @@ actor RemoteMCPClient {
 
     private func decodeResponse(_ data: Data) throws -> MCPJSONRPCResponse {
         do { return try JSONDecoder().decode(MCPJSONRPCResponse.self, from: data) }
-        catch { throw MCPClientError.invalidResponse("无法解析 MCP JSON-RPC response: \(error.localizedDescription)") }
+        catch { throw MCPClientError.invalidResponse(String(format: L10n.l("mcp_parse_failed"), error.localizedDescription)) }
     }
 
     private func decodeTool(_ value: MCPJSONValue) throws -> MCPRemoteToolDefinition {

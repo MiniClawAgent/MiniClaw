@@ -49,6 +49,7 @@ final class AgentRunService {
         toolRouter.register(AppleNLPTool())
         toolRouter.register(AppleNotificationTool())
         toolRouter.register(AppleOpenTool())
+        toolRouter.register(SafariOpenTool())
         toolRouter.register(AppleSpeakTool())
         // 4.3 MiniClaw 基础设施工具
         toolRouter.register(ConfigTool())
@@ -107,7 +108,7 @@ final class AgentRunService {
             case .failure(let error):
                 store.updateDiscovery(id: server.id, toolCount: 0, error: error)
                 AppLogger.shared.error(
-                    "MCP 工具发现失败（\(server.name)）: \(error.localizedDescription)",
+                    String(format: L10n.l("agent_mcp_discover_failed"), server.name, error.localizedDescription),
                     category: "MCP"
                 )
             case nil:
@@ -120,17 +121,32 @@ final class AgentRunService {
 
     /// 从会话历史构建发送给模型的 `history`（排除当前轮 user / 本轮 assistant 气泡，
     /// 且过滤掉 tool 角色消息——工具配对存在于引擎的检查点，不在此重建）。
-    func buildHistory(session: ChatSession, userMessageID: UUID, responseMessageID: UUID) -> [ChatCompletionMessage] {
+    /// 返回 history 消息及与之一一对应的 session 消息 id（供引擎自动压缩时定位锚点）。
+    func buildHistory(session: ChatSession, userMessageID: UUID, responseMessageID: UUID)
+        -> (messages: [ChatCompletionMessage], sourceIDs: [UUID]) {
         let maxHistoryMessages = SettingsStore.shared.settings.session.maxContextMessages
-        let historyMessages = session.messages
+        let sorted = session.messages
             .filter { $0.id != userMessageID && $0.id != responseMessageID }
             .filter { $0.role == .user || ($0.role == .assistant && !$0.content.isEmpty) }
             .sorted {
                 if $0.createdAt == $1.createdAt { return $0.id.uuidString < $1.id.uuidString }
                 return $0.createdAt < $1.createdAt
             }
-            .suffix(maxHistoryMessages)
+        // 2026-08-13「折叠上方」:锚点之上的历史已压缩为摘要——锚点之前消息丢弃,
+        // 摘要作为 system 消息置于 history 首位(会话可见结构不变,仅 API 上下文变化)。
+        var effective = Array(sorted)
+        var prefixSummary: String? = nil
+        if let anchorID = session.compactAnchorID,
+           let summary = session.compactSummary, !summary.isEmpty,
+           let idx = effective.firstIndex(where: { $0.id == anchorID }) {
+            prefixSummary = summary
+            effective = Array(effective[idx...])
+        }
+        let historyMessages = effective.suffix(maxHistoryMessages)
         var history: [ChatCompletionMessage] = []
+        if let summary = prefixSummary {
+            history.append(ChatCompletionMessage(role: "system", content: L10n.l("history_summary_header") + summary))
+        }
         for m in historyMessages {
             let role = m.role == .user ? "user" : "assistant"
             var content = m.content
@@ -139,15 +155,15 @@ final class AgentRunService {
             // 从而略过用户最新消息（如强制发送的队列消息2）继续补全消息1。
             // 软暂停→继续的回复不会被打此标记（onPaused 不置 wasStopped/wasInterrupted），故不受影响。
             if m.role == .assistant, m.wasStopped == true || m.wasInterrupted {
-                content += "\n\n[系统提示：以上回复因被中断或出错而提前结束，内容不完整且已终止，请勿续写或补全，直接响应用户的最新消息。]"
+                content += L10n.l("sys_interrupted_reply_hint")
             }
-            // 思考过程回传:DeepSeek 官方要求带 tools 的后续请求必须回传 reasoning_content
-            // (否则 400);其余厂商由适配器基类在构造请求体时剥离,统一携带无副作用。
-            let reasoning = (m.role == .assistant && !(m.reasoning ?? "").isEmpty)
-                ? m.reasoning : nil
-            history.append(ChatCompletionMessage(role: role, content: content, reasoningContent: reasoning))
+            // 2026-08-12 修复:思考内容不回灌上下文(与 ChatMessage 纪律注释一致)。
+            // 历史 assistant 消息只取 content;当前轮内模型需要的 reasoning_content
+            // 由 AgentLoopEngine 在 loop 内实时回传(DeepSeek 带 tools 请求要求),
+            // 跨轮历史不回灌——避免历史思考文本持续占用 token 并影响后续输出。
+            history.append(ChatCompletionMessage(role: role, content: content))
         }
-        return history
+        return (messages: history, sourceIDs: historyMessages.map(\.id))
     }
 
     // MARK: - 附件过滤
@@ -226,7 +242,7 @@ final class AgentRunService {
                 let preview = String(runtime.streamingContent.prefix(30))
                 TaskPipController.shared.updateProgress(
                     sessionID: sessionID.uuidString,
-                    text: preview.isEmpty ? L10n.tr("生成中…") : String(format: L10n.tr("生成中: %@"), preview)
+                    text: preview.isEmpty ? L10n.l("generating_ellipsis") : String(format: L10n.l("generating_format"), preview)
                 )
                 // 节流：词元 先入缓冲，由 ~100ms 定时器批量刷入 streamingContent（约 10fps），
                 // 不再每 token 触发整页重绘；也不再每 令牌 写持久化对象（统一在终态落盘，见 onComplete 等）。
@@ -244,7 +260,7 @@ final class AgentRunService {
                 // 画中画启动时机(用户定 2026-08-08):AI 第一步行动(思考/回复)即开启
                 TaskPipController.shared.ensurePipIfRunning()
                 // PiP 悬浮窗实时进度：深度思考阶段
-                TaskPipController.shared.updateProgress(sessionID: sessionID.uuidString, text: L10n.tr("深度思考…"))
+                TaskPipController.shared.updateProgress(sessionID: sessionID.uuidString, text: L10n.l("deep_thinking_ellipsis"))
                 // 空/纯空白思考不产生垃圾段（多步 agent 循环里模型可能发空 reasoning_content 事件）。
                 let trimmed = piece.trimmingCharacters(in: .whitespacesAndNewlines)
                 guard !trimmed.isEmpty else { return }
@@ -333,7 +349,13 @@ final class AgentRunService {
         }
         engine.onComplete = { [weak engine, session, assistantMessage, weak runtime] in
             MainActor.assumeIsolated {
-                guard let runtime, runtime.streamingMessageID == responseMessageID else { return }
+                guard let runtime, runtime.streamingMessageID == responseMessageID else {
+                    // 终态兜底(2026-08-12 修复)：guard 失败(runtime 已释放/被替换,如 /clear、
+                    // Siri 取消等"丢弃运行时但不写终态"的路径)时,若该会话已无其他存活引擎,
+                    // 仍写回终态——否则 status 永久卡 .running,首页图标转圈不停。
+                    Self.terminalFallback(session: session, sessionID: sessionID, status: .completed)
+                    return
+                }
                 // 兜底：整轮完成时清除残留的重试指示器（正常完成路径不应再显示）。
                 runtime.retryState = nil
                 // 所有流事件由 engine 串行同步投递到 MainActor，完成事件不会越过尾 token。
@@ -359,7 +381,7 @@ final class AgentRunService {
                 session.updatedAt = Date()
                 runtime.isResponding = false
                 runtime.isPaused = false
-                AppLogger.shared.info("[落盘] onComplete: content=\(assistantMessage.content.count)字 toolCalls=\(assistantMessage.toolCalls.count) reasoningSegments=\(assistantMessage.reasoningSegments.count) elapsed=\(assistantMessage.taskElapsedSeconds ?? -1)s", category: "Agent", subsystem: "Persist")
+                AppLogger.shared.info(String(format: L10n.l("agent_persist_oncomplete"), assistantMessage.content.count, assistantMessage.toolCalls.count, assistantMessage.reasoningSegments.count, assistantMessage.taskElapsedSeconds ?? -1), category: "Agent", subsystem: "Persist")
                 AppState.shared?.chatRuntimes[sessionID] = nil
                 // P1-4 升级：整轮 Agent 跑完（成功）后才回跳 x-success，并把回复文本交给等待中的快捷指令。
                 if let cb = deepLinkCallback { AppState.shared?.fireDeepLinkSuccess(cb.xSuccess, replyText: assistantMessage.content) }
@@ -367,12 +389,12 @@ final class AgentRunService {
                 // 否则回会话页 recoverIfNeeded 误判为「中断续跑」→ 重建空 runtime 遮蔽落盘数据 + 引擎误重跑。
                 AgentTaskStore.shared.clear(sessionID: session.id)
                 // 方案A：终态落盘，进程被杀后回复文本/状态不丢，消除「空气泡」隐患。
-                if let ctx = session.modelContext { try? ctx.save() }
+                SessionManager.shared.persist(session)
                 // iOS 27+ LongRunningIntent 官方路径：performBackgroundTask 轮询此信号作为「完成上报」。
                 AppState.shared?.markIntentEngineFinished(sessionID: sessionID, result: .success(assistantMessage.content))
             }
         }
-        engine.onRetryState = { [session, assistantMessage, weak runtime] state in
+        engine.onRetryState = { [weak runtime] state in
             MainActor.assumeIsolated {
                 guard let runtime, runtime.streamingMessageID == responseMessageID else { return }
                 switch state.phase {
@@ -399,14 +421,17 @@ final class AgentRunService {
         }
         engine.onError = { [session, assistantMessage, weak runtime] error in
             MainActor.assumeIsolated {
-                guard let runtime, runtime.streamingMessageID == responseMessageID else { return }
+                guard let runtime, runtime.streamingMessageID == responseMessageID else {
+                    Self.terminalFallback(session: session, sessionID: sessionID, status: .error)
+                    return
+                }
                 runtime.commitStreamBuffer()
                 runtime.commitReasoningBuffer()
                 // 重试耗尽（统一重试机制）：onError 紧随 exhausted 状态在同一 runloop 触发并
                 // 移除 runtime → 指示器消失，错误信息必须由文本承载，确保用户可见最终错误。
-                runtime.streamingContent += String(format: L10n.tr("\n\n⚠️ 请求失败：%@"), error.localizedDescription)
+                runtime.streamingContent += String(format: L10n.l("n_n_request_failed"), error.localizedDescription)
                 assistantMessage.content = runtime.streamingContent
-                AppLogger.shared.info("[落盘] onError: content=\(assistantMessage.content.count)字 toolCalls=\(assistantMessage.toolCalls.count) reasoningSegments=\(assistantMessage.reasoningSegments.count)", category: "Agent", subsystem: "Persist")
+                AppLogger.shared.info(String(format: L10n.l("agent_persist_onerror"), assistantMessage.content.count, assistantMessage.toolCalls.count, assistantMessage.reasoningSegments.count), category: "Agent", subsystem: "Persist")
                 // 失败也是终态：结算耗时（if nil 防用户停止路径已结算）。
                 if !runtime.taskTimingInvalid, assistantMessage.taskElapsedSeconds == nil {
                     assistantMessage.taskElapsedSeconds = runtime.taskSettle()
@@ -428,13 +453,13 @@ final class AgentRunService {
                 // 终态清检查点（与 onComplete 一致，见其注释）。
                 AgentTaskStore.shared.clear(sessionID: session.id)
                 // 方案A：出错终态同样落盘。
-                if let ctx = session.modelContext { try? ctx.save() }
+                SessionManager.shared.persist(session)
                 AppState.shared?.markIntentEngineFinished(sessionID: sessionID, result: .failure(AppState.DeepLinkAgentError.failed))
             }
         }
         // 软暂停在安全点落地后触发：把运行时标记为「已暂停」并保留（不移除），
         // 输入栏据此从「暂停」切到「继续」，用户点继续时调用 resumeGeneration() 重放检查点。
-        engine.onPaused = { [assistantMessage, weak runtime] in
+        engine.onPaused = { [session, assistantMessage, weak runtime] in
             MainActor.assumeIsolated {
                 runtime?.taskPause() // 暂停期间不计任务耗时，继续时 resume 恢复计时
                 runtime?.commitStreamBuffer()
@@ -444,11 +469,22 @@ final class AgentRunService {
                     assistantMessage.content = rt.streamingContent
                     assistantMessage.reasoningSegments = rt.streamingReasoningSegments
                     assistantMessage.reasoning = rt.streamingReasoningSegments.map { $0.text }.joined(separator: "\n\n")
+                    // 2026-08-12 治本:暂停必须与终态一样补全消息——工具调用一并落盘,
+                    // 否则重启后"暂停前的工具使用"全部丢失。
+                    assistantMessage.toolCalls = rt.streamingToolCalls
                 }
+                assistantMessage.isStreaming = false
+                // 2026-08-12 治本:消息级暂停标志落盘,重启后指示器据此恢复。
+                assistantMessage.isPaused = true
                 runtime?.isPaused = true
                 runtime?.isResponding = false
-                // 方案A：暂停即落盘已产出内容，配合检查点支撑被杀后从 message.content 恢复。
-                if let ctx = assistantMessage.modelContext { try? ctx.save() }
+                // 2026-08-12 治本:暂停如实写 status(.paused),首页行(@ObservedObject 订阅)
+                // 立即停止转圈,不再依赖 reload 时序;@Published statusRaw 自动驱动刷新。
+                session.status = .paused
+                session.updatedAt = Date()
+                // 暂停落盘必须同步完成——异步写会被"暂停后立刻退出 App"丢掉,
+                // 导致重启后只剩用户消息(2026-08-12 治本,同步变体与 AgentTaskStore 一致)。
+                SessionManager.shared.persistSynchronously(session)
             }
         }
         // 中断（无有效内容）：网络失败 / 工具熔断 / 无效工具连续失败等，明确标记为「已中断」，
@@ -485,7 +521,10 @@ final class AgentRunService {
         }
         engine.onInterrupted = { [session, assistantMessage, weak runtime] in
             MainActor.assumeIsolated {
-                guard let runtime, runtime.streamingMessageID == responseMessageID else { return }
+                guard let runtime, runtime.streamingMessageID == responseMessageID else {
+                    Self.terminalFallback(session: session, sessionID: sessionID, status: .error)
+                    return
+                }
                 runtime.commitStreamBuffer()
                 runtime.commitReasoningBuffer()
                 assistantMessage.content = runtime.streamingContent
@@ -493,7 +532,7 @@ final class AgentRunService {
                 if !runtime.taskTimingInvalid, assistantMessage.taskElapsedSeconds == nil {
                     assistantMessage.taskElapsedSeconds = runtime.taskSettle()
                 }
-                AppLogger.shared.info("[落盘] onInterrupted: content=\(assistantMessage.content.count)字 toolCalls=\(assistantMessage.toolCalls.count) reasoningSegments=\(assistantMessage.reasoningSegments.count)", category: "Agent", subsystem: "Persist")
+                AppLogger.shared.info(String(format: L10n.l("agent_persist_oninterrupted"), assistantMessage.content.count, assistantMessage.toolCalls.count, assistantMessage.reasoningSegments.count), category: "Agent", subsystem: "Persist")
                 assistantMessage.reasoningSegments = runtime.streamingReasoningSegments
                 assistantMessage.reasoning = runtime.streamingReasoningSegments.map { $0.text }.joined(separator: "\n\n")
                 assistantMessage.isStreaming = false
@@ -511,7 +550,7 @@ final class AgentRunService {
                 // 终态清检查点（与 onComplete 一致，见其注释）。
                 AgentTaskStore.shared.clear(sessionID: session.id)
                 // 方案A：中断终态落盘，保证半截回复（若有）也被持久化。
-                if let ctx = session.modelContext { try? ctx.save() }
+                SessionManager.shared.persist(session)
                 AppState.shared?.drainPendingQueueIfNeeded(sessionID: sessionID)
                 AppState.shared?.markIntentEngineFinished(sessionID: sessionID, result: .failure(AppState.DeepLinkAgentError.failed))
             }
@@ -588,16 +627,16 @@ final class AgentRunService {
                 of: fs.rulesDir.path + "/",
                 with: ""
             )
-            ruleSections.append("### 规则文件：\(relativePath)\n\(raw.trimmingCharacters(in: .whitespacesAndNewlines))")
+            ruleSections.append(String(format: L10n.l("agent_rules_file_inject"), relativePath, raw.trimmingCharacters(in: .whitespacesAndNewlines)))
         }
         if !ruleSections.isEmpty {
-            stableParts.append("## 项目规则\n" + ruleSections.joined(separator: "\n\n"))
+            stableParts.append(L10n.l("project_rules_header") + ruleSections.joined(separator: "\n\n"))
         }
 
         // 2.5 已启用技能（渐进式加载：仅常驻 name + description 元数据；正文由 skill_load 工具按需加载）
         let skillMeta = await SkillManager.shared.enabledSkillMetadata()
         if !skillMeta.isEmpty {
-            stableParts.append("## 已启用技能\n" + skillMeta + "\n\n（如需使用其中某个技能，请调用 `skill_load` 工具加载其完整正文。）")
+            stableParts.append(L10n.l("enabled_skills_header") + skillMeta + L10n.l("skills_hint_load"))
         }
 
         // 2.6 本次一次性强制使用的技能（/技能名 触发）：无论该技能是否启用，都临时注入其正文，
@@ -753,16 +792,16 @@ final class AgentRunService {
         // 3.5.1 环境变量(设置页可改,不进前缀)
         let privacyMode = SettingsStore.shared.settings.envvarsPrivacyMode
         let envVars = SettingsStore.shared.settings.envvars
-        var envSection = "## 环境变量\n"
+        var envSection = L10n.l("env_vars_header")
         if envVars.isEmpty {
-            envSection += "（未配置环境变量）\n"
+            envSection += L10n.l("no_env_vars_header")
         } else {
-            envSection += "可用变量（在 shell_execute 命令中用 $VAR 或 ${VAR} 引用，值由本地安全注入，机密无需明文）：\n"
+            envSection += L10n.l("env_vars_available")
             for v in envVars where !v.key.isEmpty {
                 envSection += "- `\(v.key)`\n"
             }
         }
-        envSection += "隐私模式: \(privacyMode ? "开启（变量值掩码）" : "关闭")"
+        envSection += "隐私模式: " + (privacyMode ? L10n.l("enable_mask_label") : L10n.l("close"))
         volatileParts.append(envSection)
 
         // 3.6 已挂载的外部文件夹（动态注入，让 智能体知道具体可访问的挂载名与路径）
@@ -802,7 +841,7 @@ final class AgentRunService {
             // 9. 近期记忆（今日 + 昨日）；getRecentMemory 内部同步读 2 个文件，卸载到后台执行避免主线程阻塞。
             let recentMemory = await Task.detached(priority: .userInitiated) { MemoryManager.shared.getRecentMemory(days: 2) }.value
             if !recentMemory.isEmpty {
-                volatileParts.append("## 近期记忆（仅供参考）\n\(recentMemory)")
+                volatileParts.append(String(format: L10n.l("agent_recent_memory_inject"), recentMemory))
             }
         }
 
@@ -829,9 +868,9 @@ final class AgentRunService {
             if !query.isEmpty {
                 let fragments = await MemoryIndexer.shared.search(keyword: query, scope: .longTerm, topK: 8)
                 if !fragments.isEmpty {
-                    return "## 长期记忆（相关片段）\n"
+                    return L10n.l("long_term_memory_fragments")
                         + fragments.joined(separator: "\n\n")
-                        + "\n\n> 完整长期记忆可用 memory_get 工具查询（scope: \"long_term\"）。"
+                        + L10n.l("agent_memory_get_hint")
                 }
             }
             // 检索无命中 → 回落全文兜底
@@ -840,7 +879,7 @@ final class AgentRunService {
         if let memory = await readText(fs.memoryDir.appendingPathComponent("MEMORY.md")),
            !memory.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
            memory.trimmingCharacters(in: .whitespacesAndNewlines) != FileSystemManager.defaultMemoryMarkdown.trimmingCharacters(in: .whitespacesAndNewlines) {
-            return "## 长期记忆\n\(memory.trimmingCharacters(in: .whitespacesAndNewlines))"
+            return String(format: L10n.l("agent_long_term_memory_inject"), memory.trimmingCharacters(in: .whitespacesAndNewlines))
         }
         return nil
     }
@@ -865,7 +904,7 @@ final class AgentRunService {
             .sorted { $0.1 > $1.1 }
             .prefix(5)
         guard !others.isEmpty else { return nil }
-        return "## 其它会话最近要点\n" + others.map { "- \($0.0)" }.joined(separator: "\n")
+        return L10n.l("other_sessions_recent_points") + others.map { "- \($0.0)" }.joined(separator: "\n")
     }
 
 // MARK: - 环境快照（Step C：自 ChatView 迁入）
@@ -903,8 +942,8 @@ final class AgentRunService {
         let offsetMinutes = (absoluteOffset % 3_600) / 60
         let utcOffset = String(format: "%@%02d:%02d", offsetSign, offsetHours, offsetMinutes)
 
-        let languageCode = locale.language.languageCode?.identifier ?? L10n.tr("未知")
-        let regionCode = locale.region?.identifier ?? L10n.tr("未知")
+        let languageCode = locale.language.languageCode?.identifier ?? L10n.l("unknown")
+        let regionCode = locale.region?.identifier ?? L10n.l("unknown")
         let calendarIdentifier = String(describing: calendar.identifier)
 
         return """
@@ -953,7 +992,12 @@ final class AgentRunService {
         deepLinkCallback: (xSuccess: URL?, xError: URL?)?,
         uiHooks: UIHooks?
     ) -> (engine: AgentLoopEngine, runtime: ChatSessionRuntime)? {
-        guard session.modelContext != nil else { return nil }
+        guard SessionManager.shared.session(id: session.id) != nil else {
+            // 会话未注册到 SessionManager（未走 createSession 创建）时 startRun 静默失败 →
+            // 表现为"发送消息无 AI 回复"。危机日志便于第一时间定位此类路径违规。
+            AppLogger.shared.crisisMark("startRun REJECTED: session \(session.id) not registered in SessionManager (createSession missing)")
+            return nil
+        }
 
         session.status = .running
         session.modelName = routingPlan.endpoints.first?.displayName ?? session.modelName
@@ -981,7 +1025,7 @@ final class AgentRunService {
             AppState.shared?.pendingDeepLinkTask = nil
         }
 
-        let history = buildHistory(session: session, userMessageID: userMessageID, responseMessageID: assistantMessage.id)
+        let builtHistory = buildHistory(session: session, userMessageID: userMessageID, responseMessageID: assistantMessage.id)
 
         let preparationTask = Task { @MainActor in
             await registerRemoteMCPTools(in: toolRouter, sessionID: session.id)
@@ -1003,8 +1047,10 @@ final class AgentRunService {
             // headless 派发信号：引擎即将开始 run（网络请求在途、agentDidStart 保活已续），
             // intent.perform 等待此信号后返回，避免「perform 已返回但引擎还没启动」的窗口。
             AppState.shared?.intentEngineStartedSessions.insert(session.id)
-            AppLogger.shared.info("[Intent] 引擎即将开始 run", category: "Intent")
-            await engine.run(userMessage: enrichedInput, history: history, attachments: resolvedAttachments, forceThinkingLevel: thinkingLevel)
+            AppLogger.shared.info(L10n.l("intent_engine_about_to_run"), category: "Intent")
+            await engine.run(userMessage: enrichedInput, history: builtHistory.messages,
+                             historySourceIDs: builtHistory.sourceIDs, attachments: resolvedAttachments,
+                             forceThinkingLevel: thinkingLevel)
         }
         runtime.mcpPreparationTask = preparationTask
         return (engine, runtime)
@@ -1020,9 +1066,51 @@ final class AgentRunService {
     /// 首条用户消息后触发 智能体标题生成（UI 与 headless 派发共用）。
     /// 占位标题判定收敛：新会话 / 空 / 「深链任务」都视为占位（深链快捷指令创建
     /// 的会话同样参与自动命名，不再永远叫「深链任务」）。
+    /// 「折叠上方」:生成锚点消息之前上下文的摘要(后台模型端点,失败返回 nil)。
+    /// 会话可见结构不变,仅 API 上下文用摘要替代(配合 buildHistory 的锚点应用)。
+    func generateCompactionSummary(session: ChatSession, anchorMessageID: UUID) async -> String? {
+        guard AppState.shared?.hasConfiguredModel == true,
+              let endpoint = AppState.shared?.resolveBackgroundModelEndpoint() else { return nil }
+        let sorted = session.messages.sorted {
+            if $0.createdAt == $1.createdAt { return $0.id.uuidString < $1.id.uuidString }
+            return $0.createdAt < $1.createdAt
+        }
+        guard let idx = sorted.firstIndex(where: { $0.id == anchorMessageID }), idx > 0 else { return nil }
+        var lines: [String] = []
+        for m in sorted[..<idx] {
+            if m.role == .user || (m.role == .assistant && !m.content.isEmpty) {
+                lines.append("[\(m.role == .user ? "user" : "assistant")] " + m.content)
+            }
+        }
+        guard !lines.isEmpty else { return nil }
+        let prompt = L10n.l("compress_prompt_zh") + lines.joined(separator: "\n")
+        let client = LLMClient(
+            endpointURL: endpoint.url, apiKey: endpoint.apiKey, format: endpoint.format,
+            usesAzureAPIKey: endpoint.usesAzureAPIKey, customHeaders: endpoint.customHeaders,
+            providerType: endpoint.providerType
+        )
+        var summary = ""
+        await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
+            _ = client.streamChat(
+                model: endpoint.modelId,
+                messages: [
+                    ChatCompletionMessage(role: "system", content: L10n.l("compress_prompt")),
+                    ChatCompletionMessage(role: "user", content: prompt)
+                ],
+                onToken: { summary += $0 },
+                onToolCall: { _ in },
+                onUsage: { _, _, _, _ in },
+                onFinishReason: { _ in },
+                onComplete: { _ in cont.resume() }
+            )
+        }
+        let trimmed = summary.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
+
     func generateAITitleIfNeeded(session: ChatSession, firstUserText: String) {
         let sessionSettings = SettingsStore.shared.settings.session
-        let isPlaceholder = session.title == "新会话" || session.title.isEmpty || session.title == "深链任务"
+        let isPlaceholder = session.title == L10n.l("new_chat_title") || session.title.isEmpty || session.title == L10n.l("deep_link_task")
         guard sessionSettings.autoGenerateTitle, isPlaceholder,
               session.messages.filter({ $0.role == .user }).count == 1 else { return }
         let derived = firstUserText.replacingOccurrences(of: "\n", with: " ")
@@ -1080,11 +1168,29 @@ final class AgentRunService {
                 if let icon, Self.isValidSFSymbol(icon) { session.icon = icon }
                 if let iconColor, let clean = sanitizeSessionIconColor(iconColor) { session.iconColor = clean }
                 session.updatedAt = Date()
-                try? session.modelContext?.save()
+                SessionManager.shared.persist(session)
+                // 标题/图标/配色变更通知首页重载(2026-08-12 修复):成员对象原地改值不触发
+                // 数组 willSet,必须手动发 objectWillChange,首页才会重读并重排(updatedAt 置顶)。
+                SessionManager.shared.objectWillChange.send()
                 // 标题/图标变更回传：运行中刷新 Live Activity 的会话标题与图标（否则锁屏/灵动岛一直显示旧值）。
                 BackgroundTaskController.shared.agentDidUpdateSession(sessionID: sessionID.uuidString)
             }
         }
+    }
+
+    /// 终态兜底(2026-08-12 修复):终态回调(onComplete/onError/onInterrupted)的 guard 失败
+    /// (runtime 已释放/被替换,如 /clear、Siri 取消等"丢弃运行时但不写终态"的路径)时,
+    /// 若该会话已无其他存活引擎拥有,仍写回终态——否则 session.status 永久卡 .running,
+    /// 首页图标(RotatingRing)转圈不停。有存活 runtime 时跳过(避免误杀新引擎的回调)。
+    private static func terminalFallback(session: ChatSession, sessionID: UUID, status: SessionStatus) {
+        guard AppState.shared?.chatRuntimes[sessionID] == nil,
+              session.status == .running || session.status == .retrying else { return }
+        session.status = status
+        session.updatedAt = Date()
+        AgentTaskStore.shared.clear(sessionID: sessionID)
+        SessionManager.shared.persist(session)
+        AppLogger.shared.info("终态兜底:会话 \(sessionID) 无存活 runtime,status→\(status.rawValue)",
+                              category: "Agent", subsystem: "Persist")
     }
 
     private static let titleGenerationSystemPrompt = """

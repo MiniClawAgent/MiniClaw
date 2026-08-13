@@ -143,6 +143,8 @@ struct MessageBubbleView: View {
 
     /// 估算行数：正文按「约 40 字符/行」折算 + 换行数，思考段/工具卡各按自身行数折算。
     /// 仅流式气泡参与（非流式时恒为 0，onChange 不触发）。
+    /// iOS16 兼容:onChange 单参版本需要缓存上一个值检测增长。
+    @State private var lastStreamRowEstimate: Int = 0
     private var streamRowEstimate: Int {
         guard isThisMessageStreaming else { return 0 }
         let text = effectiveContent
@@ -173,8 +175,10 @@ struct MessageBubbleView: View {
         }
         // 滚动跟随按行计算：本气泡「估算行数」增长时才上报（思考段展开/工具卡出现/正文增长都会
         // 增加行数）。行数估算便宜（字符数/宽度折算 + 换行数），不随内容做整页重算，也不逐词上报。
-        .onChange(of: streamRowEstimate) { old, new in
-            if new > old { onStreamContentGrown?() }
+        // iOS16 兼容:onChange 单参 + @State 缓存上一个估算值(语义等价)。
+        .onChange(of: streamRowEstimate) { new in
+            if new > lastStreamRowEstimate { onStreamContentGrown?() }
+            lastStreamRowEstimate = new
         }
     }
 
@@ -398,7 +402,7 @@ struct MessageBubbleView: View {
                 HStack(spacing: 6) {
                     Image(systemName: "wrench.adjustable")
                         .font(.caption)
-                    Text(message.toolCallName ?? L10n.tr("工具调用"))
+                    Text(message.toolCallName ?? L10n.l("tool_calls"))
                         .font(.caption)
                         .fontWeight(.medium)
                 }
@@ -484,7 +488,7 @@ struct ReasoningBlockView: View {
                         .resizable()
                         .frame(width: 14, height: 14)
                         .foregroundStyle(.blue)
-                    Text(L10n.tr("深度思考"))
+                    Text(L10n.l("deep_thinking_label"))
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(.blue)
                     if isStreaming {
@@ -514,7 +518,7 @@ struct ReasoningBlockView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 0) {
                         if window.isTruncated {
-                            Text(L10n.tr("仅显示后 \(window.shownK)K 字符(共 \(window.totalK)K 字符)"))
+                            Text(String(format: L10n.l("showing_last_k_chars"), window.shownK, window.totalK))
                                 .font(.system(size: 11))
                                 .foregroundStyle(.secondary)
                                 .padding(.horizontal, 12)
@@ -591,14 +595,14 @@ struct RetryCardView: View {
                 if state.phase == .retrying {
                     ProgressView()
                         .controlSize(.small)
-                    Text(String(format: L10n.tr("正在重试（%@/%@）"), "\(state.attempt)", "\(state.total)"))
+                    Text(String(format: L10n.l("retrying"), "\(state.attempt)", "\(state.total)"))
                         .font(.subheadline)
                         .foregroundStyle(.primary)
                 } else {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .font(.subheadline)
                         .foregroundStyle(.red)
-                    Text(L10n.tr("重试失败"))
+                    Text(L10n.l("retry_failed"))
                         .font(.subheadline)
                         .foregroundStyle(.primary)
                 }
@@ -717,17 +721,17 @@ struct ToolCallCardView: View {
             if args.contains("path") {
                 let path = extractJSONField(args, field: "path") ?? ""
                 let filename = URL(fileURLWithPath: path).lastPathComponent
-                return ("doc.text", filename.isEmpty ? L10n.tr("读取文件") : String(format: L10n.tr("读取 %@"), filename))
+                return ("doc.text", filename.isEmpty ? L10n.l("read_file") : String(format: L10n.l("read"), filename))
             }
-            return ("doc.text", L10n.tr("读取文件"))
+            return ("doc.text", L10n.l("read_file"))
         case "file_write":
             if args.contains("path") {
                 let path = extractJSONField(args, field: "path") ?? ""
                 let filename = URL(fileURLWithPath: path).lastPathComponent
-                return ("square.and.pencil", filename.isEmpty ? L10n.tr("写入文件") : String(format: L10n.tr("写入 %@"), filename))
+                return ("square.and.pencil", filename.isEmpty ? L10n.l("write_file") : String(format: L10n.l("write_to"), filename))
             }
-            return ("square.and.pencil", L10n.tr("写入文件"))
-        case "file_edit": return ("pencil.and.outline", L10n.tr("编辑文件"))
+            return ("square.and.pencil", L10n.l("write_file"))
+        case "file_edit": return ("pencil.and.outline", L10n.l("edit_file"))
         case "browser", "miniclaw-browser-use":
             if let activity, !activity.isEmpty {
                 return ("globe", activity)
@@ -737,43 +741,44 @@ struct ToolCallCardView: View {
             let selector = extractJSONField(args, field: "selector") ?? extractJSONField(args, field: "params.selector")
             switch action {
             case "navigate", "new_tab":
-                let host = url.flatMap { URL(string: $0)?.host } ?? url ?? L10n.tr("网页")
-                return ("globe", String(format: L10n.tr("打开 %@"), host))
-            case "screenshot": return ("camera.viewfinder", L10n.tr("截取当前网页"))
-            case "get_text": return ("doc.plaintext", selector.map { String(format: L10n.tr("读取 %@ 内容"), $0) } ?? L10n.tr("读取网页内容"))
-            case "get_readable": return ("text.book.closed", L10n.tr("读取网页正文"))
-            case "get_page_info": return ("info.circle", L10n.tr("查看页面信息"))
-            case "get_backbone": return ("point.3.connected.trianglepath.dotted", L10n.tr("分析网页结构"))
-            case "click": return ("hand.tap", selector.map { String(format: L10n.tr("点击 %@"), $0) } ?? L10n.tr("点击网页元素"))
-            case "type": return ("keyboard", L10n.tr("在网页中输入"))
-            case "scroll": return ("scroll", L10n.tr("浏览页面内容"))
-            case "scroll_and_collect": return ("arrow.down.doc", L10n.tr("收集页面列表"))
-            case "find_elements": return ("scope", L10n.tr("查找网页元素"))
-            case "fetch": return ("arrow.down.circle", L10n.tr("下载网页资源"))
-            case "list_tabs": return ("rectangle.on.rectangle", L10n.tr("查看浏览器标签"))
-            case "close_tab": return ("xmark.square", L10n.tr("关闭浏览器标签"))
-            case "wait_for_dom_stable": return ("hourglass", L10n.tr("等待网页加载"))
-            default: return ("globe", L10n.tr("处理网页内容"))
+                let host = url.flatMap { URL(string: $0)?.host } ?? url ?? L10n.l("web_page")
+                return ("globe", String(format: L10n.l("open_format"), host))
+            case "screenshot": return ("camera.viewfinder", L10n.l("capture_current_page"))
+            case "get_text": return ("doc.plaintext", selector.map { String(format: L10n.l("read_content"), $0) } ?? L10n.l("read_web_page_content"))
+            case "get_readable": return ("text.book.closed", L10n.l("read_page_body"))
+            case "get_page_info": return ("info.circle", L10n.l("view_page_info"))
+            case "get_backbone": return ("point.3.connected.trianglepath.dotted", L10n.l("analyze_page_structure"))
+            case "click": return ("hand.tap", selector.map { String(format: L10n.l("tap"), $0) } ?? L10n.l("tap_web_element"))
+            case "type": return ("keyboard", L10n.l("type_in_web_page"))
+            case "scroll": return ("scroll", L10n.l("browse_page_content"))
+            case "scroll_and_collect": return ("arrow.down.doc", L10n.l("collect_page_list"))
+            case "find_elements": return ("scope", L10n.l("find_web_elements"))
+            case "fetch": return ("arrow.down.circle", L10n.l("download_web_resources"))
+            case "list_tabs": return ("rectangle.on.rectangle", L10n.l("view_browser_tabs"))
+            case "close_tab": return ("xmark.square", L10n.l("close_browser_tab"))
+            case "wait_for_dom_stable": return ("hourglass", L10n.l("waiting_for_page_to_load"))
+            default: return ("globe", L10n.l("process_web_content"))
             }
-        case "shell_execute": return ("terminal", L10n.tr("执行命令"))
-        case "memory_write": return ("brain.head.profile", L10n.tr("写入记忆"))
-        case "memory_get": return ("magnifyingglass", L10n.tr("搜索记忆"))
-        case "read_image": return ("photo", L10n.tr("读取图片"))
-        case "apple-calendar": return ("calendar", L10n.tr("日历操作"))
-        case "apple-reminders": return ("checklist", L10n.tr("提醒事项"))
-        case "apple-weather": return ("cloud.sun", L10n.tr("查询天气"))
-        case "apple-speak": return ("speaker.wave.2", L10n.tr("朗读文本"))
-        case "apple-speech": return ("mic", L10n.tr("语音识别"))
-        case "apple-clipboard": return ("doc.on.clipboard", L10n.tr("剪贴板操作"))
-        case "apple-device": return ("iphone", L10n.tr("设备信息"))
-        case "apple-nlp": return ("text.alignleft", L10n.tr("文本分析"))
-        case "apple-open": return ("arrow.up.forward.app", L10n.tr("打开链接"))
-        case "apple-notification": return ("bell", L10n.tr("发送通知"))
-        case "apple-location": return ("location", L10n.tr("定位服务"))
-        case "apple-maps": return ("map", L10n.tr("地图搜索"))
-        case "miniclaw_config": return ("gearshape", L10n.tr("配置管理"))
-        case "sessions_cli": return ("bubble.left.and.bubble.right", L10n.tr("会话管理"))
-        case "miniclaw-debug": return ("ladybug", L10n.tr("调试信息"))
+        case "shell_execute": return ("terminal", L10n.l("run_command"))
+        case "memory_write": return ("brain.head.profile", L10n.l("write_to_memory"))
+        case "memory_get": return ("magnifyingglass", L10n.l("search_memory"))
+        case "read_image": return ("photo", L10n.l("read_image"))
+        case "apple-calendar": return ("calendar", L10n.l("calendar_actions"))
+        case "apple-reminders": return ("checklist", L10n.l("reminders"))
+        case "apple-weather": return ("cloud.sun", L10n.l("check_weather"))
+        case "apple-speak": return ("speaker.wave.2", L10n.l("read_aloud"))
+        case "apple-speech": return ("mic", L10n.l("speech_recognition"))
+        case "apple-clipboard": return ("doc.on.clipboard", L10n.l("clipboard_actions"))
+        case "apple-device": return ("iphone", L10n.l("device_info"))
+        case "apple-nlp": return ("text.alignleft", L10n.l("text_analysis"))
+        case "apple-open": return ("arrow.up.forward.app", L10n.l("open_link"))
+        case "open-in-safari": return ("safari", L10n.l("open_in_safari"))
+        case "apple-notification": return ("bell", L10n.l("send_notification"))
+        case "apple-location": return ("location", L10n.l("location_services"))
+        case "apple-maps": return ("map", L10n.l("map_search"))
+        case "miniclaw_config": return ("gearshape", L10n.l("configuration_management"))
+        case "sessions_cli": return ("bubble.left.and.bubble.right", L10n.l("session_management"))
+        case "miniclaw-debug": return ("ladybug", L10n.l("debug_info"))
         default: return ("wrench.and.screwdriver", name.replacingOccurrences(of: "_", with: " "))
         }
     }
@@ -797,6 +802,7 @@ struct ToolCallCardView: View {
         case "apple-device": return "iphone"
         case "apple-nlp": return "text.alignleft"
         case "apple-open": return "arrow.up.forward.app"
+        case "open-in-safari": return "safari"
         case "apple-notification": return "bell"
         case "apple-location": return "location"
         case "apple-maps": return "map"
@@ -830,7 +836,7 @@ struct ToolCallCardView: View {
                         .lineLimit(1)
 
                     if event.wasInterrupted {
-                        Text(L10n.tr("已停止"))
+                        Text(L10n.l("stopped"))
                             .font(.system(size: 11, weight: .medium, design: .monospaced))
                             .foregroundStyle(.orange)
                     } else if isPending {
@@ -848,7 +854,7 @@ struct ToolCallCardView: View {
                             Image(systemName: "checkmark.circle.fill")
                                 .font(.system(size: 11, weight: .medium))
                                 .foregroundStyle(.green)
-                            Text(L10n.tr("已下载"))
+                            Text(L10n.l("downloaded"))
                                 .font(.system(size: 11, weight: .medium, design: .monospaced))
                                 .foregroundStyle(.green)
                         }
@@ -1007,7 +1013,7 @@ struct AssistantStatusRow: View {
                 Image(systemName: "pause.circle.fill")
                     .font(.caption)
                     .foregroundStyle(Color(red: 0.098, green: 0.549, blue: 0.996))
-                Text(L10n.tr("已暂停"))
+                Text(L10n.l("paused"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -1015,7 +1021,7 @@ struct AssistantStatusRow: View {
         } else if isStreaming {
             // 开源参考实现对齐(2026-08-09)：TypingIndicator = "<名字> 正在思考" + 3 点弹跳
             HStack(spacing: 0) {
-                Text(agentName + L10n.tr(" 正在思考"))
+                Text(agentName + L10n.l("thinking_suffix"))
                 ForEach(0..<3, id: \.self) { i in
                     Text(".")
                         .offset(y: dotOffsets[i] ? -3 : 1)
@@ -1034,7 +1040,7 @@ struct AssistantStatusRow: View {
                 Image(systemName: "stop.circle.fill")
                     .font(.caption)
                     .foregroundStyle(.orange)
-                Text(L10n.tr("已停止"))
+                Text(L10n.l("stopped"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 elapsedSuffix
@@ -1045,7 +1051,7 @@ struct AssistantStatusRow: View {
                 Image(systemName: "exclamationmark.triangle.fill")
                     .font(.caption)
                     .foregroundStyle(.red)
-                Text(L10n.tr("已中断"))
+                Text(L10n.l("interrupted"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 elapsedSuffix
@@ -1056,7 +1062,7 @@ struct AssistantStatusRow: View {
                 Image(systemName: "checkmark.circle.fill")
                     .font(.caption)
                     .foregroundStyle(.green)
-                Text(L10n.tr("已完成"))
+                Text(L10n.l("completed"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 elapsedSuffix

@@ -73,6 +73,13 @@ actor StdioMCPClient: MCPClientProtocol {
             for (_, waiter) in waiters { waiter.resume(throwing: error) }
             waiters.removeAll()
         }
+        // 2026-08-12 修复:EOF(server 进程退出/崩溃)后必须唤醒全部挂起 waiter,
+        // 否则 rpc 的 continuation 永久悬挂(全维度审计高危项 4.2)。
+        let remaining = waiters
+        waiters.removeAll()
+        for (_, waiter) in remaining {
+            waiter.resume(throwing: MCPClientError.connectionLost("MCP stdio 通道已关闭(server 退出)"))
+        }
     }
 
     private func rpc(method: String, params: MCPJSONValue?) async throws -> MCPJSONValue {
@@ -86,8 +93,24 @@ actor StdioMCPClient: MCPClientProtocol {
         guard let stdin = stdinHandle else { throw MCPClientError.invalidEndpoint }
         try? stdin.write(contentsOf: data + Data("\n".utf8))
         pendingIDs.insert(id)
-        let responseData: Data = try await withCheckedThrowingContinuation { continuation in
-            waiters[id] = continuation
+        // 2026-08-12 修复:加 30s 超时,server 无响应不再永久挂起(全维度审计高危项 4.1)。
+        let responseData: Data = try await withThrowingTaskGroup(of: Data.self) { group in
+            group.addTask {
+                try await withCheckedThrowingContinuation { continuation in
+                    self.waiters[id] = continuation
+                }
+            }
+            group.addTask {
+                try await Task.sleep(nanoseconds: 30_000_000_000)
+                self.pendingIDs.remove(id)
+                self.waiters.removeValue(forKey: id)
+                throw MCPClientError.timeout("MCP stdio 请求超时(id=\(id))")
+            }
+            defer { group.cancelAll() }
+            guard let first = try await group.next() else {
+                throw MCPClientError.timeout("MCP stdio 请求超时(id=\(id))")
+            }
+            return first
         }
         guard let response = try? JSONDecoder().decode(MCPJSONRPCResponse.self, from: responseData) else {
             throw MCPClientError.invalidResponse("MCP stdio 响应无法解析")

@@ -41,9 +41,9 @@ enum SubAgentGuide {
         }
         let summaries = SubAgentProfileStore.shared.allSummaries()
         let list = summaries.isEmpty
-            ? "- 通用助手（general，默认）"
+            ? L10n.l("general_assistant_role")
             : summaries.map { "- \($0.displayName)（`\($0.name)`）：\($0.summary)" }.joined(separator: "\n")
-        return usageGuide + "\n\n### 可用子代理角色\n" + list
+        return usageGuide + L10n.l("available_subagent_roles") + list
     }
 
     /// 「当前会话的子代理」清单段（A 方案：注入易变段，缓存断点之后）。
@@ -54,17 +54,17 @@ enum SubAgentGuide {
         guard !records.isEmpty else { return nil }
         let lines = records.map { rec -> String in
             let idShort = String(rec.id.uuidString.prefix(8))
-            let role = rec.profile.map { "角色 `\($0)`" } ?? "角色 general"
-            let focus = (rec.focus?.isEmpty == false) ? "聚焦：\(rec.focus!)" : nil
-            let task = rec.info.task.isEmpty ? nil : "最近任务：\(rec.info.task.prefix(60))"
+            let role = rec.profile.map { String(format: L10n.l("subagent_role_label"), $0) } ?? L10n.l("role_general")
+            let focus = (rec.focus?.isEmpty == false) ? String(format: L10n.l("subagent_focus_label"), rec.focus!) : nil
+            let task = rec.info.task.isEmpty ? nil : String(format: L10n.l("subagent_recent_task"), String(rec.info.task.prefix(60)))
             let status: String
             switch rec.status {
-            case .running: status = "运行中"
-            case .error: status = "出错"
-            case .completed: status = "已完成"
-            case .cancelled: status = "已取消"
+            case .running: status = L10n.l("status_running")
+            case .error: status = L10n.l("error_title")
+            case .completed: status = L10n.l("completed")
+            case .cancelled: status = L10n.l("cancelled")
             }
-            let parts = ["- `\(idShort)`（\(rec.info.name)）", role, focus, "状态：\(status)", task]
+            let parts = ["- `\(idShort)`（\(rec.info.name)）", role, focus, String(format: L10n.l("subagent_status_label"), status), task]
                 .compactMap { $0 }.joined(separator: " · ")
             return parts
         }

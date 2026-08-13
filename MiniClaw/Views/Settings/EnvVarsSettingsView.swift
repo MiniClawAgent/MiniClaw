@@ -11,23 +11,23 @@ struct EnvVarsSettingsView: View {
     var body: some View {
         List {
             Section {
-                Toggle(L10n.tr("隐私模式"), isOn: $isPrivacyMode)
+                Toggle(L10n.l("privacy_mode"), isOn: $isPrivacyMode)
                     .onChange(of: isPrivacyMode) { newValue in
                         SettingsStore.shared.setEnvvarsPrivacyMode(newValue)
                     }
-                Text(L10n.tr("开启后，Shell 输出中的环境变量值将被掩码遮蔽。"))
+                Text(L10n.l("when_enabled_environment_variable_values_in_shell_output_will_be_masked"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
 
-            Section(L10n.tr("环境变量")) {
+            Section(L10n.l("environment_variables")) {
                 ForEach(envVars) { v in
                     HStack {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(v.key)
                                 .font(.system(.body, design: .monospaced))
                             if v.isSecret {
-                                Label(L10n.tr("加密存储，不可回读"), systemImage: "lock.fill")
+                                Label(L10n.l("encrypted_storage_cannot_be_read_back"), systemImage: "lock.fill")
                                     .font(.caption2)
                                     .foregroundStyle(.secondary)
                             }
@@ -46,28 +46,28 @@ struct EnvVarsSettingsView: View {
                 Button(action: { showAddVar = true }) {
                     HStack {
                         Image(systemName: "plus.circle.fill")
-                        Text(L10n.tr("添加环境变量"))
+                        Text(L10n.l("add_environment_variable"))
                     }
                 }
             }
         }
-        .navigationTitle(L10n.tr("环境变量"))
+        .navigationTitle(L10n.l("environment_variables"))
         .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $showAddVar) {
             NavigationStack {
                 Form {
-                    TextField(L10n.tr("变量名"), text: $newKey)
-                    TextField(L10n.tr("变量值"), text: $newValue)
-                    Toggle(L10n.tr("加密存储"), isOn: $newIsSecret)
+                    TextField(L10n.l("variable_name"), text: $newKey)
+                    TextField(L10n.l("variable_value"), text: $newValue)
+                    Toggle(L10n.l("encrypted_storage"), isOn: $newIsSecret)
                 }
-                .navigationTitle(L10n.tr("添加变量"))
+                .navigationTitle(L10n.l("add_variable"))
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) {
-                        Button(L10n.tr("取消")) { showAddVar = false }
+                        Button(L10n.l("cancel")) { showAddVar = false }
                     }
                     ToolbarItem(placement: .confirmationAction) {
-                        Button(L10n.tr("添加")) { addVar() }
+                        Button(L10n.l("add")) { addVar() }
                     }
                 }
             }
@@ -79,7 +79,7 @@ struct EnvVarsSettingsView: View {
     }
 
     private func persist() {
-        SettingsStore.shared.set(envVars, domain: .envvars, summary: L10n.tr("更新环境变量"))
+        SettingsStore.shared.set(envVars, domain: .envvars, summary: L10n.l("update_environment_variables"))
     }
 
     private func addVar() {

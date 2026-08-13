@@ -208,11 +208,21 @@ final class FileSystemManager: @unchecked Sendable {
     /// Bundle 内同名文件始终覆盖，以便 App 升级时发布规则更新；用户自行新增的其他文件会保留。
     /// 上一版本由 Bundle 托管、但新版本已经移除的规则会依据 manifest 清理。
     private func syncBundledRules() {
-        guard let bundledRulesDir = Bundle.main.resourceURL?
-            .appendingPathComponent("BundledRules", isDirectory: true),
-              fileManager.fileExists(atPath: bundledRulesDir.path) else {
-            return
+        // 2026-08-12 治本:优先同步当前语言子目录 BundledRules/<lang>/ 的规则文件
+        // (存在则用,否则回退根目录中文版)。en/ja/ko 版本可分别提供。
+        let resourceURL = Bundle.main.resourceURL
+        let langCode = L10n.shared.current.tableCode
+        let langDir = resourceURL?
+            .appendingPathComponent("BundledRules", isDirectory: true)
+            .appendingPathComponent(langCode, isDirectory: true)
+        var bundledRulesDir: URL?
+        if let langDir, fileManager.fileExists(atPath: langDir.path) {
+            bundledRulesDir = langDir
+        } else if let base = resourceURL?.appendingPathComponent("BundledRules", isDirectory: true),
+                  fileManager.fileExists(atPath: base.path) {
+            bundledRulesDir = base
         }
+        guard let bundledRulesDir else { return }
         let manifestURL = rulesDir.appendingPathComponent(".bundled-rules-manifest.json")
         let previousManagedFiles = loadBundledRulesManifest(at: manifestURL)
         let bundledFiles = recursiveFiles(in: bundledRulesDir)
@@ -458,7 +468,10 @@ final class FileSystemManager: @unchecked Sendable {
             try handle.seekToEnd()
             if let data = content.data(using: .utf8) { try handle.write(contentsOf: data) }
         } else {
-            try content.write(to: url, atomically: true, encoding: .utf8)
+            // 2026-08-13 崩溃修复:改用 Data 原子写,去掉 NSString 桥接
+            // (content.write(to:atomically:encoding:) 的 objc_msgSend 是
+            // offloadIfLarge 崩溃的落点)。
+            try Data(content.utf8).write(to: url, options: .atomic)
         }
     }
 
@@ -473,7 +486,8 @@ final class FileSystemManager: @unchecked Sendable {
             throw FileError.stringNotFound(oldString)
         }
         content.replaceSubrange(range, with: newString)
-        try content.write(to: url, atomically: true, encoding: .utf8)
+        // 2026-08-13 崩溃修复:同 writeFile,改用 Data 原子写。
+        try Data(content.utf8).write(to: url, options: .atomic)
     }
 
     func imageURL(at path: String, sessionID: UUID? = nil) throws -> URL {
@@ -592,7 +606,7 @@ final class FileSystemManager: @unchecked Sendable {
                 actor: .shellAutomatic,
                 sessionID: sessionID
             )
-            return "输出过长（\(output.utf8.count) 字节），已自动转存至 offloads/。\n可通过 Markdown 链接打开 miniclaw://offloads/\(filename)，或由 Agent 用 file_read 读取。"
+            return String(format: L10n.l("fs_offload_notice"), output.utf8.count, filename)
         } catch {
             return output
         }
@@ -880,17 +894,17 @@ enum FileError: Error, LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .notFound(let path): return "文件未找到: \(path)"
-        case .binaryFileNotSupported(let path): return "不支持读取二进制文件: \(path)"
-        case .stringNotFound(let str): return "未找到匹配文本: \(str)"
-        case .writeFailed(let path): return "写入失败: \(path)"
-        case .absolutePathRequired(let path): return "文件路径必须使用绝对路径 /var/MiniClaw/...：\(path)"
-        case .pathEscapesRoot(let path): return "文件路径超出 /var/MiniClaw/：\(path)"
-        case .writeNotAllowed(let path): return "当前工具不允许写入该目录：\(path)"
-        case .mountReadOnly(let name): return "挂载「\(name)」当前为只读，Agent 不能写入。如需写入请在「设置 → 挂载」中开启该文件夹的「允许写入」开关。"
+        case .notFound(let path): return String(format: L10n.l("fs_file_not_found"), path)
+        case .binaryFileNotSupported(let path): return String(format: L10n.l("fs_binary_not_supported"), path)
+        case .stringNotFound(let str): return String(format: L10n.l("fs_string_not_found"), str)
+        case .writeFailed(let path): return String(format: L10n.l("fs_write_failed"), path)
+        case .absolutePathRequired(let path): return String(format: L10n.l("fs_absolute_path_required"), path)
+        case .pathEscapesRoot(let path): return String(format: L10n.l("fs_path_escapes_root"), path)
+        case .writeNotAllowed(let path): return String(format: L10n.l("fs_write_not_allowed"), path)
+        case .mountReadOnly(let name): return String(format: L10n.l("fs_mount_read_only"), name)
         case .invalidRange(let message): return message
-        case .unsupportedImage(let path): return "read_image 仅支持 png/jpg/jpeg/gif/webp：\(path)"
-        case .sessionRequired(let path): return "路径 \(path) 属于会话独享目录（workspace/attachments/browser/offloads），必须在绑定了会话的上下文中访问。"
+        case .unsupportedImage(let path): return String(format: L10n.l("fs_unsupported_image"), path)
+        case .sessionRequired(let path): return String(format: L10n.l("fs_session_required"), path)
         }
     }
 }
@@ -917,12 +931,12 @@ final class MemoryManager: @unchecked Sendable {
         return f
     }()
 
-    func writeDailyMemory(_ content: String, date: Date = Date()) throws {
+    @discardableResult
+    func writeDailyMemory(_ content: String, settings: AppSettings, date: Date = Date()) throws -> String {
+        let filename = dateFormatter.string(from: date) + ".md"
+        let virtualPath = "/var/MiniClaw/memory/\(filename)"
         try syncWrite {
-            let filename = dateFormatter.string(from: date) + ".md"
-            let virtualPath = "/var/MiniClaw/memory/\(filename)"
-
-            let entry = "\n\n## \(Date().formatted(date: .omitted, time: .shortened))\n\n\(sanitizeMemory(content))"
+            let entry = "\n\n## \(Date().formatted(date: .omitted, time: .shortened))\n\n\(sanitizeMemory(content, settings: settings))"
 
             if fs.fileExists(at: virtualPath) {
                 try fs.writeFile(at: virtualPath, content: entry, append: true, actor: .memory)
@@ -931,11 +945,13 @@ final class MemoryManager: @unchecked Sendable {
                 try fs.writeFile(at: virtualPath, content: header + entry, actor: .memory)
             }
         }
+        return virtualPath
     }
 
-    func writeLongTermMemory(_ content: String, mode: LongTermMemoryWriteMode) throws {
+    @discardableResult
+    func writeLongTermMemory(_ content: String, mode: LongTermMemoryWriteMode, settings: AppSettings) throws -> String {
         try syncWrite {
-            let sanitized = sanitizeMemory(content).trimmingCharacters(in: .whitespacesAndNewlines)
+            let sanitized = sanitizeMemory(content, settings: settings).trimmingCharacters(in: .whitespacesAndNewlines)
             guard !sanitized.isEmpty else {
                 throw FileError.writeFailed("MEMORY.md 内容不能为空")
             }
@@ -949,11 +965,13 @@ final class MemoryManager: @unchecked Sendable {
                 try fs.writeFile(at: virtualPath, content: sanitized + "\n", actor: .memory)
             }
         }
+        return "/var/MiniClaw/memory/MEMORY.md"
     }
 
     /// 定点替换记忆文件中的文本（走 .memory actor，写前仍做敏感信息净化）。
     /// 用于修改已存在的一行记忆，例如追加一条并列事实。
-    func editMemory(target: MemoryEditTarget, oldString: String, newString: String) throws {
+    @discardableResult
+    func editMemory(target: MemoryEditTarget, oldString: String, newString: String, settings: AppSettings) throws -> String {
         try syncWrite {
             guard !oldString.isEmpty else {
                 throw FileError.writeFailed("old_string 不能为空")
@@ -979,20 +997,27 @@ final class MemoryManager: @unchecked Sendable {
             }
 
             content = content.replacingOccurrences(of: oldString, with: newString)
-            let sanitized = sanitizeMemory(content)
+            let sanitized = sanitizeMemory(content, settings: settings)
             try fs.writeFile(at: virtualPath, content: sanitized, actor: .memory)
         }
+        let targetPath: String
+        switch target {
+        case .longTerm: targetPath = "/var/MiniClaw/memory/MEMORY.md"
+        case .daily: targetPath = "/var/MiniClaw/memory/" + dateFormatter.string(from: Date()) + ".md"
+        }
+        return targetPath
     }
 
     /// 记忆写入前的敏感信息净化（spec 9.5）：
     /// 1. 敏感信息不记忆：过滤密码 / API Key / Token 等模式
     /// 2. 隐私模式：开启 envvars.privacyMode 时，shell 输出中的变量值被掩码
-    private func sanitizeMemory(_ content: String) -> String {
+    /// 2026-08-13 改传主线程快照：不再后台线程裸读 SettingsStore（竞争修复）。
+    private func sanitizeMemory(_ content: String, settings: AppSettings) -> String {
         var text = content
 
         // 隐私模式：屏蔽环境变量值
-        if SettingsStore.shared.settings.envvarsPrivacyMode {
-            for v in SettingsStore.shared.settings.envvars where !v.value.isEmpty {
+        if settings.envvarsPrivacyMode {
+            for v in settings.envvars where !v.value.isEmpty {
                 text = text.replacingOccurrences(of: v.value, with: "***")
             }
         }

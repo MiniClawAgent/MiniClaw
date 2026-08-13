@@ -1,11 +1,11 @@
 import Foundation
-import SwiftData
 
+/// 会话持久化管理器。iOS16 适配(2026-08-12):持久层经 SQLite 单库存储
+/// (`Documents/MiniClaw/sessions/miniclaw.db`,sessions/messages 两表,见 SQLiteStore)。
+/// 内存持有全量会话(@Published),所有读写经主线程;磁盘写由 SQLiteStore 串行队列落库。
 @MainActor
-@Observable
-final class SessionManager {
-    /// 主线程单例：由 HomeView 在入口处通过 configure(with:) 注入 SwiftData ModelContext，
-    /// 之后可在 Agent Loop / Tools 中安全访问（所有方法均 MainActor 隔离）。
+final class SessionManager: ObservableObject {
+    /// 主线程单例。
     private nonisolated(unsafe) static var _shared: SessionManager?
     static var shared: SessionManager {
         if let existing = _shared { return existing }
@@ -14,62 +14,84 @@ final class SessionManager {
         return instance
     }
 
-    private var modelContext: ModelContext?
+    /// 内存全量会话(启动 load() 后可用;变更点先改数组再手动 objectWillChange.send(),
+    /// 保证订阅者 reload 时读到的是已变更后的新数组——消灭 @Published willSet 旧快照竞态,
+    /// 2026-08-12 治本)。
+    private(set) var sessions: [ChatSession] = []
 
-    func configure(with context: ModelContext) {
-        self.modelContext = context
+    private let ioQueue = DispatchQueue(label: "MiniClaw.SessionManager.io")
+
+    // MARK: - 启动加载
+
+    /// 启动时全量加载(自 SQLite 单库,替代原 JSON 目录扫描)。
+    func load() {
+        let loaded = SQLiteStore.shared.loadSessions()
+        sessions = loaded
+        objectWillChange.send()
+        AppLogger.shared.info(String(format: L10n.l("sessionmanager_loaded"), loaded.count), category: "Session")
     }
 
-    func createSession(title: String = "新会话", model: String = "未配置", agentName: String = "MiniClaw", source: String = "app") -> ChatSession? {
-        guard let context = modelContext else { return nil }
+    /// 写盘(SQLite 串行落库)。failure 时由 SQLiteStore 记录日志(不静默)。
+    func persist(_ session: ChatSession) {
+        // 主线程提取值类型行快照(避免非 Sendable 对象进异步闭包),后台队列落库。
+        let rows = SQLiteStore.SessionPersistRows.extract(from: session)
+        ioQueue.async {
+            SQLiteStore.shared.saveSessionRows(rows)
+        }
+    }
 
+    /// 同步写盘(2026-08-12 治本):暂停/终态等"写完才安全"的时机使用。
+    /// 异步写会被"暂停后立刻退出 App"丢掉(ioQueue 未执行),导致重启后
+    /// 只剩用户消息——暂停/终态是数据完整性关键点,必须等落库完成再返回。
+    func persistSynchronously(_ session: ChatSession) {
+        let rows = SQLiteStore.SessionPersistRows.extract(from: session)
+        ioQueue.sync {
+            SQLiteStore.shared.saveSessionRows(rows)
+        }
+    }
+
+    // MARK: - CRUD(保持原方法签名)
+
+    func createSession(title: String = L10n.l("new_chat_title"), model: String = L10n.l("not_configured"), agentName: String = "MiniClaw", source: String = "app") -> ChatSession? {
         let session = ChatSession(
             title: title,
             modelName: model,
             agentName: agentName,
             source: source
         )
-        context.insert(session)
-        try? context.save()
+        sessions.insert(session, at: 0)
+        objectWillChange.send()
+        persist(session)
 
         // 建立会话专属隔离目录（事务的一部分）：
-        // Documents/MiniClaw/Sessions/<uuid>/{workspace,attachments,browser,offloads}
-        // 供 iSH 侧按 fs_context 路由 /var/MiniClaw/<subdir> 使用。
+        // Documents/MiniClaw-Sessions/<uuid>/{workspace,attachments,browser,offloads}
         SessionFileRouter.shared.ensureHostDirs(for: session.id)
 
         return session
     }
 
     /// 会话销毁统一入口：终止运行中引擎 + 移除运行时 + 清检查点 + 清排队/草稿。
-    /// 此前删除会话不触碰 `AppState.chatRuntimes`/检查点/排队文件，导致运行中引擎幽灵续跑
-    /// （回调写已删除对象、Live Activity 继续更新）、暂停态 runtime 永久泄漏、磁盘残留孤儿文件。
-    /// 所有删除路径必须经此收敛（生命周期唯一入口）。
     func teardownSession(id: UUID) {
-        // 1. 终止该会话仍在运行的引擎（含子代理）
         if let runtime = AppState.shared.chatRuntimes[id] {
             runtime.engine.cancel()
         }
-        // 2. 移除运行时（暂停态也不例外——会话已删，runtime 无意义）
         AppState.shared.chatRuntimes[id] = nil
-        // 3. 清检查点（防止残留 .running 被下次进入误恢复）
         AgentTaskStore.shared.clear(sessionID: id)
-        // 4. 清排队消息与输入草稿的磁盘残留
         PendingMessageStore.shared.save([], for: id)
         PendingMessageStore.shared.clearDraft(for: id)
     }
 
     // MARK: - 会话文件隔离目录
 
-    /// 确保该会话的宿主隔离目录树存在（若已存在则无操作）。
     func ensureSessionHostDirs(for id: UUID) {
         SessionFileRouter.shared.ensureHostDirs(for: id)
     }
 
-    /// 该会话的宿主根目录（Swift 侧工具直接读写附件 / 产物用）。
     func sessionHostDirectory(id: UUID) -> URL {
         SessionFileRouter.shared.sessionHostDirectory(for: id)
     }
 
+    @discardableResult
     func addMessage(to session: ChatSession, role: MessageRole, content: String,
                     attachments: [String] = [], toolCallName: String? = nil,
                     toolCallResult: String? = nil) -> ChatMessage {
@@ -83,33 +105,30 @@ final class SessionManager {
         message.session = session
         session.messages.append(message)
         session.updatedAt = Date()
-        try? modelContext?.save()
-
+        persist(session)
         return message
     }
 
     func deleteSession(_ session: ChatSession) {
         let sid = session.id
         teardownSession(id: sid)
-        modelContext?.delete(session)
-        try? modelContext?.save()
-        // 清理会话隔离资源：注销 fsContext 映射 + 删除 Sessions/<uuid>/ 宿主目录
+        sessions.removeAll { $0.id == sid }
+        objectWillChange.send()
+        // 与 deleteSession(id:) 一致:SQLite 删除走 ioQueue 与写入同队列 FIFO(2026-08-12 修复)。
+        ioQueue.async {
+            SQLiteStore.shared.deleteSessionRows(id: sid)
+        }
         SessionFileRouter.shared.unregister(sessionID: sid)
-        // 顺手清掉该会话的子代理运行期注册表（复用状态不再需要）。
         SubagentRuntimeRegistry.shared.clear(sessionID: sid)
-        // 销毁该会话与各子代理的浏览器上下文（独立标签组不残留）。
         Task { @MainActor in
             BrowserContextManager.shared.destroy(sessionID: sid)
             for sub in SubagentStore.shared.avatars(for: sid) {
                 BrowserContextManager.shared.destroy(sessionID: sub.id)
             }
         }
-        // 级联清理该会话的子代理头像卡片与对话（磁盘 + 内存，P1）。
         SubagentStore.shared.clearSession(sid)
         ContextUsageStore.shared.clear(sessionID: sid)
-        // 撤销该会话的「允许本次会话」授权，避免泄漏到后续新建的同 ID 会话。
         ToolConfirmationBridge.shared.revokeSession(sessionID: sid)
-        // 关闭该会话残留的 Live Activity（会话级生命周期随会话删除而终止）。
         BackgroundTaskController.shared.endSessionActivity(sessionID: sid.uuidString)
     }
 
@@ -117,7 +136,7 @@ final class SessionManager {
         session.title = title
         session.titleIsPlaceholder = false
         session.updatedAt = Date()
-        try? modelContext?.save()
+        persist(session)
     }
 
     func searchMessages(keyword: String, in sessions: [ChatSession]) -> [ChatMessage] {
@@ -127,57 +146,43 @@ final class SessionManager {
     }
 
     func getRecentSessions(limit: Int = 20) -> [ChatSession] {
-        guard let context = modelContext else { return [] }
-
-        var descriptor = FetchDescriptor<ChatSession>(
-            sortBy: [SortDescriptor(\.updatedAt, order: .reverse)]
-        )
-        descriptor.fetchLimit = limit
-
-        return (try? context.fetch(descriptor)) ?? []
+        Array(sessions.sorted { $0.updatedAt > $1.updatedAt }.prefix(limit))
     }
 
     // MARK: - 供 MiniClaw-sessions-cli 使用的 CRUD
 
     func allSessions() -> [ChatSession] {
-        guard let context = modelContext else { return [] }
-        let descriptor = FetchDescriptor<ChatSession>(
-            sortBy: [SortDescriptor(\.updatedAt, order: .reverse)]
-        )
-        return (try? context.fetch(descriptor)) ?? []
+        sessions.sorted { $0.updatedAt > $1.updatedAt }
     }
 
     func session(id: UUID) -> ChatSession? {
-        guard let context = modelContext else { return nil }
-        let descriptor = FetchDescriptor<ChatSession>(
-            predicate: #Predicate { $0.id == id }
-        )
-        return try? context.fetch(descriptor).first
+        sessions.first { $0.id == id }
     }
 
     @discardableResult
     func deleteSession(id: UUID) -> Bool {
-        guard let s = session(id: id) else { return false }
+        guard session(id: id) != nil else { return false }
         teardownSession(id: id)
-        modelContext?.delete(s)
-        try? modelContext?.save()
-        // 清理会话隔离资源：注销 fsContext 映射 + 删除 Sessions/<uuid>/ 宿主目录
+        sessions.removeAll { $0.id == id }
+        objectWillChange.send()
+        // SQLite 删除与 createSession/persist 的写入走同一串行队列(FIFO,2026-08-12 修复):
+        // 快速「新建→立即返回」时,删除必然排在异步 INSERT 之后执行,不会残留「幽灵空会话行」
+        // (此前同步删除可能先于异步 INSERT,空行被重新插回,下次启动 load() 时幽灵会话复现)。
+        let sid = id
+        ioQueue.async {
+            SQLiteStore.shared.deleteSessionRows(id: sid)
+        }
         SessionFileRouter.shared.unregister(sessionID: id)
-        // 顺手清掉该会话的子代理运行期注册表（复用状态不再需要）。
         SubagentRuntimeRegistry.shared.clear(sessionID: id)
-        // 销毁该会话与各子代理的浏览器上下文（独立标签组不残留；与 deleteSession(_:) 一致）。
         Task { @MainActor in
             BrowserContextManager.shared.destroy(sessionID: id)
             for sub in SubagentStore.shared.avatars(for: id) {
                 BrowserContextManager.shared.destroy(sessionID: sub.id)
             }
         }
-        // 级联清理该会话的子代理头像卡片与对话（磁盘 + 内存，P1）。
         SubagentStore.shared.clearSession(id)
         ContextUsageStore.shared.clear(sessionID: id)
-        // 撤销该会话的「允许本次会话」授权，避免泄漏到后续新建的同 ID 会话。
         ToolConfirmationBridge.shared.revokeSession(sessionID: id)
-        // 关闭该会话残留的 Live Activity（会话级生命周期随会话删除而终止）。
         BackgroundTaskController.shared.endSessionActivity(sessionID: id.uuidString)
         return true
     }
@@ -188,7 +193,8 @@ final class SessionManager {
                        agentName: String? = nil,
                        status: String? = nil,
                        icon: String? = nil,
-                       iconColor: String? = nil) -> Bool {
+                       iconColor: String? = nil,
+                       isPinned: Bool? = nil) -> Bool {
         guard let s = session(id: id) else { return false }
         if let title { s.title = title }
         if let model { s.modelName = model }
@@ -196,8 +202,19 @@ final class SessionManager {
         if let status, let st = SessionStatus(rawValue: status) { s.status = st }
         if let icon { s.icon = icon.isEmpty ? nil : icon }
         if let iconColor { s.iconColor = iconColor.isEmpty ? nil : iconColor }
-        s.updatedAt = Date()
-        try? modelContext?.save()
+        if let isPinned { s.isPinned = isPinned }
+        // 2026-08-13 修复:仅当本次不是「只改置顶」时才刷新 updatedAt——Pin 是置顶操作,
+        // 不应改变"最后回复完成时间"(首页时间显示)。此前无条件 updatedAt=Date() 导致
+        // 一置顶时间就重算成"现在"。
+        let isPinOnly = (isPinned != nil) && title == nil && model == nil
+            && agentName == nil && status == nil && icon == nil && iconColor == nil
+        if !isPinOnly {
+            s.updatedAt = Date()
+        }
+        persist(s)
+        // 通知首页列表重载(2026-08-12 修复):updateSession 是标题/图标等成员变更的统一出口,
+        // 成员对象改值不触发数组 willSet,需手动广播。
+        objectWillChange.send()
         // 标题/图标/配色任一变更即回传：刷新该会话 Live Activity（统一变更出口）。
         if title != nil || icon != nil || iconColor != nil {
             BackgroundTaskController.shared.agentDidUpdateSession(sessionID: id.uuidString)
@@ -213,7 +230,7 @@ final class SessionManager {
         msg.session = s
         s.messages.append(msg)
         s.updatedAt = Date()
-        try? modelContext?.save()
+        persist(s)
         return true
     }
 
@@ -223,5 +240,19 @@ final class SessionManager {
                 .filter { $0.content.localizedCaseInsensitiveContains(keyword) }
                 .map { (sessionTitle: s.title, message: $0) }
         }
+    }
+
+    /// 删除会话内的消息(替代原 ChatView 的 modelContext.delete)。
+    func removeMessage(_ msg: ChatMessage, from session: ChatSession) {
+        session.messages.removeAll { $0.id == msg.id }
+        session.updatedAt = Date()
+        persist(session)
+    }
+
+    /// 移除会话内全部消息(替代原 ChatView 的批量 delete)。
+    func removeAllMessages(from session: ChatSession) {
+        session.messages.removeAll()
+        session.updatedAt = Date()
+        persist(session)
     }
 }

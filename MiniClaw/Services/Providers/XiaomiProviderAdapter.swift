@@ -11,7 +11,7 @@ import Foundation
 //   因此覆写能力声明,由引擎侧退化为单工具循环。
 // 官方文档站未逐字段公开 SSE 细节,按 OpenAI 标准协议实现,联调时验证。
 
-final class XiaomiProviderAdapter: OpenAIProviderAdapter {
+final class XiaomiProviderAdapter: OpenAIProviderAdapter, @unchecked Sendable {
     init(config: OpenAICompatConfig) {
         super.init(name: "Xiaomi MiMo", config: config)
     }

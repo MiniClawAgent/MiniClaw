@@ -7,7 +7,6 @@ import WebKit
 final class BrowserContext {
     let id = UUID()
     let dataStore: WKWebsiteDataStore
-    let processPool = WKProcessPool()
 
     /// 该上下文内的标签页（最多 3 个）
     var tabs: [BrowserTab] = []
@@ -24,7 +23,6 @@ final class BrowserContext {
     func makeWebViewConfiguration() -> WKWebViewConfiguration {
         let config = WKWebViewConfiguration()
         config.websiteDataStore = dataStore
-        config.processPool = processPool
         config.allowsInlineMediaPlayback = true
         config.mediaTypesRequiringUserActionForPlayback = []
         // 官方文档：javaScriptCanOpenWindowsAutomatically iOS 默认 false——

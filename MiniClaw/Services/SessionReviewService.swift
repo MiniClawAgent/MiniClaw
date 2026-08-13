@@ -19,8 +19,10 @@ final class SessionReviewService: @unchecked Sendable {
     }
 
     private func runReview(sessionID: UUID) async {
+        // 设置快照：后台线程不裸读 SettingsStore（2026-08-13 竞争修复）。
+        let settings = await SettingsStore.shared.snapshot()
         // 「启用记忆」总开关关闭时跳过复盘：不写记忆、不消耗后台模型。
-        guard SettingsStore.shared.settings.memory.isEnabled else { return }
+        guard settings.memory.isEnabled else { return }
         // 主线程收集所需数据
         struct ReviewInput: @unchecked Sendable {
             let session: ChatSession
@@ -84,7 +86,7 @@ final class SessionReviewService: @unchecked Sendable {
             input.session.summary = summary
             // 复盘进度持久化到会话模型：重启后不再对旧内容重复复盘。
             input.session.reviewedMessageCount = input.messageCount
-            try? input.session.modelContext?.save()
+            SessionManager.shared.persist(input.session)
         }
         AppLogger.shared.info("会话复盘完成（\(sessionID.uuidString.prefix(8))），摘要：\(summary.prefix(40))", category: "Memory")
 

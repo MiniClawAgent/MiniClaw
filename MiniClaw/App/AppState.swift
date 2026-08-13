@@ -74,20 +74,19 @@ struct ModelRoutingPlan {
     let usesModelGroups: Bool
 }
 
-@Observable
-final class AppState {
+final class AppState: ObservableObject {
     @MainActor static var shared: AppState!
 
     // MARK: - Agent 显示信息
-    var agentName: String = "MiniClaw"
+    @Published var agentName: String = "MiniClaw"
 
     // MARK: - 智能体服务商（本地文件持久化，便于后续 iCloud 同步）
     /// 已添加的全部 智能体服务商（内存态，落盘见 ProviderStore）
-    var providers: [LLMProvider] = []
+    @Published var providers: [LLMProvider] = []
     /// 对话默认模型所在服务商
-    var selectedProviderId: UUID?
+    @Published var selectedProviderId: UUID?
     /// 对话默认模型 ID
-    var selectedModelId: UUID?
+    @Published var selectedModelId: UUID?
 
     // MARK: - 初始化（从本地文件载入服务商与默认模型）
 
@@ -207,7 +206,7 @@ final class AppState {
         case .none:
             break
         }
-        return resolveActiveEndpoint()?.model.resolvedName ?? "未配置模型"
+        return resolveActiveEndpoint()?.model.resolvedName ?? L10n.l("no_model_configured")
     }
 
     /// 是否存在当前聊天用途真正可执行的模型路由。
@@ -409,7 +408,7 @@ final class AppState {
         if let name = selectionDisplayName(settings.session.mainModel) {
             return name
         }
-        return resolveActiveEndpoint()?.model.resolvedName ?? L10n.tr("未配置模型")
+        return resolveActiveEndpoint()?.model.resolvedName ?? L10n.l("no_model_configured")
     }
 
     private func selectionDisplayName(_ selection: ModelSelection) -> String? {
@@ -420,7 +419,7 @@ final class AppState {
         case .group(let groupId):
             guard let group = settings.groups.first(where: { $0.id == groupId }) else { return nil }
             let name = group.name.trimmingCharacters(in: .whitespacesAndNewlines)
-            return name.isEmpty ? L10n.tr("(未命名组)") : name
+            return name.isEmpty ? L10n.l("unnamed_group") : name
         case .model(let compositeKey):
             guard let candidate = resolveModelCandidate(compositeKey: compositeKey) else { return nil }
             return candidate.model.resolvedName
@@ -587,30 +586,36 @@ final class AppState {
     }
 
     // MARK: - 会话
-    var sessions: [ChatSession] = []
-    var selectedSession: ChatSession?
+    @Published var sessions: [ChatSession] = []
+    @Published var selectedSession: ChatSession?
 
     /// 会话级进行中运行时（key = session.id）。仅在某会话有活跃 智能体回复时存在，
     /// 回复完成 / 出错 / 用户停止后移除。使 ChatView 被销毁重建（返回首页再回来）后，
     /// 能重新接管同一引擎——恢复「响应中」状态、继续实时刷新、并保留「停止生成」控制。
-    var chatRuntimes: [UUID: ChatSessionRuntime] = [:]
+    @Published var chatRuntimes: [UUID: ChatSessionRuntime] = [:]
+
+    /// 会话级上下文压缩冷却（key = session.id，跨引擎存活）：
+    /// 引擎实例每轮重建，冷却若放引擎内会随重建失效，长会话几乎每轮触发压缩（2026-08-13 修复）。
+    /// sessionCompressionTurn 每轮 run 递增；压缩成功后将当前轮次写入 sessionLastCompressionTurn。
+    var sessionCompressionTurn: [UUID: Int] = [:]
+    var sessionLastCompressionTurn: [UUID: Int] = [:]
 
     /// 排队中的用户消息（key = session.id）。智能体回复进行中用户继续发送的消息进入此队列，
     /// 在会话页以虚线气泡持续展示（带删除按钮）；当前回复完成后按 FIFO 逐条落盘并触发新回复。
-    var pendingUserMessages: [UUID: [PendingUserMessage]] = [:]
+    @Published var pendingUserMessages: [UUID: [PendingUserMessage]] = [:]
 
     /// 搜索结果点击后，要求 ChatView 打开时滚动到的消息 ID（一次性，消费后清空）。
     /// 仅由首页搜索结果点击设置；普通进入会话时为 nil。
-    var scrollToMessageID: UUID?
+    @Published var scrollToMessageID: UUID?
 
     // MARK: - UI 状态
-    var showSettings: Bool = false
-    var showSearch: Bool = false
-    var showNewSession: Bool = false
-    var isAgentRunning: Bool = false
+    @Published var showSettings: Bool = false
+    @Published var showSearch: Bool = false
+    @Published var showNewSession: Bool = false
+    @Published var isAgentRunning: Bool = false
 
     /// 设置页内部的深链目标，例如 "models" 表示跳转到「智能体服务商」
-    var settingsDeepLink: String? = nil
+    @Published var settingsDeepLink: String? = nil
 
     /// 设置页深链路由（单一事实来源；App 级 handleDeepLink 与会话内链接点击共用）：
     /// 命中 `miniclaw://settings/...`（或含 envvars/providers/models/permissions）→ 打开设置页并跳对应子页。
@@ -635,16 +640,16 @@ final class AppState {
     }
 
     /// 待在浏览器中打开的本地资源 URL（来自 miniclaw:// 资源深链）
-    var pendingBrowserResourceURL: URL? = nil
+    @Published var pendingBrowserResourceURL: URL? = nil
 
     /// 待在浏览器中打开的 web URL（来自 apple-open 等工具，替代 Safari 跳转）
-    var pendingBrowserURL: URL? = nil
+    @Published var pendingBrowserURL: URL? = nil
 
     /// 终端深链请求（miniclaw://open_terminal?init_command=...），终端功能后续版本接入
-    var pendingTerminalCommand: String? = nil
+    @Published var pendingTerminalCommand: String? = nil
 
     /// 闹钟页深链（miniclaw://views/alarm）
-    var showAlarmView: Bool = false
+    @Published var showAlarmView: Bool = false
 
     // MARK: - 深链派任务（P1-4）
     /// 一次已解析的深链派发任务，等待目标会话的 ChatView 消费。
@@ -665,12 +670,12 @@ final class AppState {
         var attachments: [DeepLinkAttachment] = []
     }
 
-    var pendingDeepLinkTask: PendingDeepLinkTask? = nil
+    @Published var pendingDeepLinkTask: PendingDeepLinkTask? = nil
     /// 已消费的任务 ID，防止 ChatView 重建 / 多次 onChange 导致重复派发。
-    var consumedDeepLinkIDs: Set<UUID> = []
+    @Published var consumedDeepLinkIDs: Set<UUID> = []
     /// 冷启动竞态兜底：若 onOpenURL 早于 SessionManager 配置（尚无法建会话），
     /// 先存原始 URL，待 HomeView 出现后由 `retryPendingDeepLink()` 重试。
-    var pendingRawDeepLinkURL: URL? = nil
+    @Published var pendingRawDeepLinkURL: URL? = nil
 
     /// 解析并登记一次「深链派任务 / x-callback-url」请求。
     /// - Returns: true 表示已处理（成功登记、或参数缺失已回跳 x-error）；false 表示因 SessionManager 未就绪而推迟。
@@ -706,7 +711,7 @@ final class AppState {
             target = SessionManager.shared.session(id: sid)
         }
         if target == nil {
-            let agent = queryValue("agent") ?? "深链任务"
+            let agent = queryValue("agent") ?? L10n.l("deep_link_task")
             target = SessionManager.shared.createSession(title: agent, source: "deeplink")
         }
         guard let session = target else {
@@ -747,6 +752,8 @@ final class AppState {
             pendingUserMessages[task.targetSessionID, default: []].append(
                 PendingUserMessage(text: prompt, dlXSuccess: task.xSuccess, dlXError: task.xError)
             )
+            // 2026-08-12 修复:深链入队也落盘,否则排队后被杀后台消息永久丢失。
+            persistPending(task.targetSessionID)
             pendingDeepLinkTask = nil
             return
         }
@@ -796,16 +803,21 @@ final class AppState {
     func drainPendingQueueIfNeeded(sessionID: UUID) {
         guard chatRuntimes[sessionID] == nil else { return }
         guard var queue = pendingUserMessages[sessionID], !queue.isEmpty else { return }
-        let item = queue.removeFirst()
-        pendingUserMessages[sessionID] = queue
-        guard let session = SessionManager.shared.session(id: sessionID) else { return }
-        // 无模型/无路由时放弃该条（确定性失败回跳）。
+        // 2026-08-12 修复:先校验(会话/模型/路由)再出队——失败时消息保留在队列,
+        // 只回跳 x-error,不再静默丢弃(此前先出队后校验失败即丢失)。
+        guard let session = SessionManager.shared.session(id: sessionID) else {
+            if let first = queue.first { fireDeepLinkError(first.dlXError) }
+            return
+        }
         guard hasConfiguredModel,
               let routingPlan = resolveModelRoutingPlan(for: .main),
               let firstEndpoint = routingPlan.endpoints.first else {
-            fireDeepLinkError(item.dlXError)
+            if let first = queue.first { fireDeepLinkError(first.dlXError) }
             return
         }
+        let item = queue.removeFirst()
+        pendingUserMessages[sessionID] = queue
+        persistPending(sessionID)
         _ = dispatchTaskToSession(
             session: session,
             prompt: item.text,
@@ -815,6 +827,12 @@ final class AppState {
             xSuccess: item.dlXSuccess,
             xError: item.dlXError
         )
+    }
+
+    /// 排队队列落盘(与 ChatView.persistQueue 同一存储)。
+    @MainActor
+    private func persistPending(_ sessionID: UUID) {
+        PendingMessageStore.shared.save(pendingUserMessages[sessionID] ?? [], for: sessionID)
     }
 
     /// 派发核心（consumeIntentTaskIfNeeded / drainPendingQueueIfNeeded 共用）：
@@ -880,6 +898,8 @@ final class AppState {
         userMessage.attachments = attachmentPaths // 与 UI 路径一致：消息气泡展示附件
         session.messages.append(userMessage)
         session.updatedAt = Date()
+        // 用户消息即落盘(2026-08-12 回归修复,与 UI 路径一致):防止 headless 下会话行缺失。
+        SessionManager.shared.persist(session)
 
         return AgentRunService.shared.startRun(
             session: session,
@@ -911,7 +931,7 @@ final class AppState {
 
     /// 引擎已启动信号（headless 派发用）：startRun 的 preparationTask 在 engine.run 前置位，
     /// intent.perform 等待该信号后返回——保证返回时引擎已在跑（请求在途、agentDidStart 保活已续）。
-    var intentEngineStartedSessions: Set<UUID> = []
+    @Published var intentEngineStartedSessions: Set<UUID> = []
 
     /// 引擎整轮完成信号（iOS 27+ LongRunningIntent 官方路径用）：sessionID → 结果。
     /// 由 AgentRunService 终态回调（onComplete/onError/onInterrupted）写入；
@@ -959,7 +979,7 @@ final class AppState {
         case failed
         var errorDescription: String? {
             switch self {
-            case .failed: return "智能体本次处理失败或已中断"
+            case .failed: return L10n.l("the_agent_failed_or_was_interrupted")
             }
         }
     }
@@ -975,14 +995,11 @@ final class AppState {
     }
 
     // Navigation
-    var navigationPath: [String] = []
+    @Published var navigationPath: [String] = []
 
     // MARK: - 外观（迁移自 UserDefaults，现统一由 SettingsStore 持久化）
-    /// 外观模式偏好。必须是**可观察的存储属性**——@Observable 宏只追踪存储属性的变更，
-    /// 此前它是计算属性、setter 只写 SettingsStore（非 AppState 存储），切换时不发出观察通知，
-    /// 导致 MiniClawApp 的 `.preferredColorScheme(...)` 不刷新、必须重启 App 才生效。
-    /// 现改为存储属性：修改即触发 SwiftUI 重新求值立即换肤，`didSet` 负责落盘持久化。
-    var colorSchemePreference: ColorSchemePreference = .system {
+    /// 外观模式偏好。必须是**可观察的存储属性**——修改即触发 SwiftUI 重新求值立即换肤，`didSet` 负责落盘持久化。
+    @Published var colorSchemePreference: ColorSchemePreference = .system {
         didSet {
             guard oldValue != colorSchemePreference else { return }
             SettingsStore.shared.settings.appearance.colorSchemeRaw = colorSchemePreference.rawValue
@@ -993,7 +1010,7 @@ final class AppState {
     // MARK: - 界面语言（持久化于 appearance.appLanguageRaw，切换即刷新 L10n）
     /// 界面显示语言。存储属性：修改即触发 SwiftUI 重新求值刷新全部 L10n.tr，
     /// `didSet` 负责落盘持久化并通知 L10n 单例切换当前语言。
-    var appLanguage: AppLanguage = .system {
+    @Published var appLanguage: AppLanguage = .system {
         didSet {
             guard oldValue != appLanguage else { return }
             SettingsStore.shared.settings.appearance.appLanguageRaw = appLanguage.rawValue
