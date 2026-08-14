@@ -3,6 +3,13 @@ import SwiftUI
 // MARK: - About View
 
 struct AboutView: View {
+    /// 真实版本号（从主 App bundle 读取，2026-08-14 起不再硬编码）。
+    private var versionString: String {
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
+        let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"
+        return "v\(version) (Build \(build))"
+    }
+
     var body: some View {
         List {
             Section {
@@ -17,7 +24,7 @@ struct AboutView: View {
                             .font(.title)
                             .fontWeight(.bold)
 
-                        Text("v1.0.0 (Build 1)")
+                        Text(versionString)
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
 
