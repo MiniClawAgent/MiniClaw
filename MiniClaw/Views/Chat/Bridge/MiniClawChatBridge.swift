@@ -35,6 +35,11 @@ final class MiniClawChatBridge: ObservableObject {
     /// 流式 Combine 订阅(iOS16 适配:替代 withObservationTracking)。
     private var streamingSub: AnyCancellable?
     private var streamingSubscriptions: [AnyPublisher<Void, Never>] = []
+    /// [2026-08-14 抖动修复·方案1补充] 拖动挂起期间是否跳过过流式更新。
+    /// 挂起窗口内不替换 vm.messages；恢复(true→false)时据此强制终态刷新——
+    /// 否则流式恰在挂起中结束会吞掉最后几个字(终态 endTransition 刷新也被挂起拦下)。
+    private var suspendedSkipHappened = false
+    private var suspendedSub: AnyCancellable?
 
     func attach(session: ChatSession, appState: AppState) {
         self.session = session
@@ -59,6 +64,19 @@ final class MiniClawChatBridge: ObservableObject {
         bridgeCache.removeAll(keepingCapacity: true)
         lastFingerprint = ""
         refresh(force: true)
+
+        // [2026-08-14 抖动修复·方案1补充] 拖动挂起恢复(true→false)边沿：
+        // 挂起窗口内被跳过的流式更新(尤其流式恰在拖动中结束的终态几个字)在此强制补齐。
+        // 不能依赖组件侧 suspend-resume flush——它 apply 的是组件缓存的旧 vm.messages。
+        suspendedSub?.cancel()
+        suspendedSub = vm.$streamingUIUpdatesSuspended
+            .dropFirst()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] suspended in
+                guard let self, !suspended, self.suspendedSkipHappened else { return }
+                self.suspendedSkipHappened = false
+                self.refresh(force: true)
+            }
     }
 
     /// 数据变化点调用(消息增删/流式增长/工具状态变化)
@@ -209,6 +227,19 @@ final class MiniClawChatBridge: ObservableObject {
         let now = Date()
         let throttled = now.timeIntervalSince(lastRefreshAt) < 0.25 && !force && !endTransition
         if fp == lastFingerprint || (throttled && !force) { return }
+
+        // [2026-08-14 流式滑动抖动修复·方案1] 用户拖动列表期间组件置
+        // `streamingUIUpdatesSuspended`（scrollViewWillBeginDragging → deferSelfSizing）。
+        // 此时若继续替换 `vm.messages`，diffable 应用 + 高度 re-measure 会在拖动中
+        // 重排内容 → 视口内容相对移动 → 抖动。这里在挂起窗口内**不替换 messages、
+        // 也不推进指纹/节流锚点**：settle 恢复后由 suspendedSub（true→false 边沿）
+        // 强制终态刷新补齐（含流式恰在挂起中结束的终态内容），拖动中零重绘。
+        // 其他状态（isProcessing 等）在方法开头已同步，不受影响。
+        if vm.streamingUIUpdatesSuspended {
+            suspendedSkipHappened = true
+            return
+        }
+
         lastFingerprint = fp
         lastRefreshAt = now
 
