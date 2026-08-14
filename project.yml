@@ -16,6 +16,8 @@ settings:
     OTHER_LDFLAGS:
       - "-Wl,-w"
     CODE_SIGN_STYLE: Automatic
+    # 2026-08-13:固化团队 ID(命令行 Archive/CI 签名必需;Xcode 界面 Archive 不依赖此项)。
+    DEVELOPMENT_TEAM: LZ84D5PQ38
     # --- iSH (AArch64 / asbestos) integration ---
     # C/ObjC preprocessor flags (must match how the static libs were built)
     GCC_PREPROCESSOR_DEFINITIONS:
@@ -92,6 +94,9 @@ targets:
         INFOPLIST_FILE: MiniClaw/Resources/Info.plist
         CODE_SIGN_ENTITLEMENTS: MiniClaw/MiniClaw.entitlements
         GENERATE_INFOPLIST_FILE: NO
+        # 2026-08-14:Debug 构建开启可测试性，供 MiniClawTests 的 @testable import 使用
+        # （此前缺失导致测试 target 报 "module built without -enable-testing"）。
+        ENABLE_TESTABILITY: YES
         # 明确指定 App 图标资源集，否则 actool 不会把 AppIcon 编进 Assets.car，
         # 也不会往 Info.plist 注入 CFBundleIconName，导致主屏图标不显示。
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
@@ -155,6 +160,11 @@ targets:
         SWIFT_VERSION: "5.0"
         PRODUCT_NAME: MiniClawKit
         PRODUCT_BUNDLE_IDENTIFIER: com.neartop.MiniClawKit
+        # 2026-08-14 修复:framework 不执行 install(仅内嵌进 App)。
+        # 缺此键时 archive 会把 Kit 放进 Products/Library/Frameworks,
+        # exportArchive 将其复制到 IPA 的 Payload 根(与 .app 平级),
+        # Transporter 校验失败 409(The IPA format requires a top-level directory named Payload)。
+        SKIP_INSTALL: YES
         # 必须显式 @rpath:Xcode 默认 INSTALL_PATH=/Library/Frameworks,
         # 未设 DYLIB_INSTALL_NAME_BASE 时 install name 退化为 /Library/Frameworks/...,
         # 真机 dyld 找不到 → 启动即 SIGABRT(abort_with_payload)
@@ -262,7 +272,11 @@ targets:
         TEST_HOST: "$(BUILT_PRODUCTS_DIR)/MiniClaw.app/MiniClaw"
         BUNDLE_LOADER: "$(TEST_HOST)"
         # 让测试目标能找到主 App 编译出的 MiniClaw.swiftmodule（沙盒无签名时尤其需要显式指明）
-        SWIFT_INCLUDE_PATHS: "$(BUILT_PRODUCTS_DIR)"
+        SWIFT_INCLUDE_PATHS:
+          - "$(BUILT_PRODUCTS_DIR)"
+          # cmark_gfm 模块（主 target/Kit 同源）：测试引用主 App 接口时会解析到该模块
+          - "$(SRCROOT)/../第三方源码/swift-cmark/src/include"
+          - "$(SRCROOT)/../第三方源码/swift-cmark/extensions"
         INFOPLIST_FILE: MiniClawTests/Info.plist
         GENERATE_INFOPLIST_FILE: NO
 

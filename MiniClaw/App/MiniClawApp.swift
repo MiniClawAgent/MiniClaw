@@ -198,7 +198,7 @@ struct MiniClawApp: App {
 
         // 资源类：统一解析 attachments/workspace/shared/offloads/browser/memory/rules/skills/mounts。
         // URLComponents 会负责百分号解码；FileSystemManager 会阻止目录穿越。
-        if let localPath = BrowserController.resolveMiniClawURL(absolute) {
+        if let localPath = BrowserActionHelpers.resolveMiniClawURL(absolute) {
             if FileManager.default.fileExists(atPath: localPath) {
                 appState.pendingBrowserResourceURL = URL(fileURLWithPath: localPath)
             }

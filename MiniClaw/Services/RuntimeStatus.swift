@@ -100,15 +100,15 @@ struct RuntimeStatusSnapshot {
         if !ishCompiledIn { return L10n.l("status_ish_not_integrated") }
         switch bootPhase {
         case .booted:
-            let version = alpineRelease ?? "（未识别版本）"
-            let arch = liveArch ?? alpineArch ?? "（未识别架构）"
+            let version = alpineRelease ?? L10n.l("unknown_version")
+            let arch = liveArch ?? alpineArch ?? L10n.l("unknown_arch")
             return String(format: L10n.l("status_ish_running"), version, arch)
         case .prewarming:
             return L10n.l("status_kernel_prewarming")
         case .failed:
             return L10n.l("status_kernel_failed")
         case .idle:
-            return rootfsDeployed ? "已就绪 · 等待内核启动" : "rootfs 未部署"
+            return rootfsDeployed ? L10n.l("status_idle_ready") : L10n.l("status_idle_not_deployed")
         }
     }
 }

@@ -117,7 +117,7 @@ struct BrowserTool: AgentTool {
         do {
             // 引擎作用域（子代理引擎经 TaskLocal 携带自身 subID → 独立 BrowserContext/标签组；
             // 主引擎为 nil → 回落 currentSessionID（父会话），行为与之前一致）。
-            let scopeSessionID = AgentLoopEngine.EngineBrowserScope.sessionID ?? currentSessionID
+            let scopeSessionID = EngineBrowserScope.sessionID ?? currentSessionID
             let result = try await BrowserController.shared.run(action: action, paramsData: paramsData, tabIndex: tabIndex, tabID: tabID, sessionID: scopeSessionID)
             return ToolResult(success: true, text: result)
         } catch {

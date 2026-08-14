@@ -119,44 +119,13 @@ final class BrowserController: NSObject, ObservableObject {
     private var effectiveSessionID: UUID? { scopedSessionID ?? currentSessionID }
 
     /// UA 预设（手动浏览默认 Mobile；智能体使用 Desktop）
-    enum UAProfile: String, CaseIterable {
-        case mobile
-        case desktop
-    }
-
-    /// 桌面 Safari UA（提供给 智能体使用）
-    static let desktopUA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15"
-    /// 移动端（iOS）UA
-    static let mobileUA = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
-
-    /// 当前 UA 预设（持久化到 UserDefaults，默认 Mobile Safari）
-    /// fileprivate：供同文件内的 BrowserTab.init 直接读取，避免触发 `BrowserController.shared` 递归初始化。
-    fileprivate static let uaProfileKey = "miniClaw.browserUAProfile"
     var uaProfile: UAProfile {
-        get { UAProfile(rawValue: UserDefaults.standard.string(forKey: Self.uaProfileKey) ?? "") ?? .mobile }
-        set { UserDefaults.standard.set(newValue.rawValue, forKey: Self.uaProfileKey) }
-    }
-    /// 当前 UA 字符串：**以浏览器 UA 预设（uaProfile）为单一事实来源**。
-    /// 之前误读 settings.browser.uaMode（通用设置另一套存储），导致在浏览器设置里
-    /// 切「Desktop Safari」后 applyUAProfileToAllTabs 仍应用移动 UA，页面不变。
-    /// desktop → 桌面 UA；mobile → 移动 UA（通用设置配了 custom 且非空时用 custom）。
-    static func defaultUAString() -> String {
-        let profile = UAProfile(rawValue: UserDefaults.standard.string(forKey: uaProfileKey) ?? "") ?? .mobile
-        switch profile {
-        case .desktop:
-            return BrowserController.desktopUA
-        case .mobile:
-            let b = SettingsStore.shared.settings.browser
-            if b.uaMode == "custom" {
-                let custom = b.userAgent.trimmingCharacters(in: .whitespacesAndNewlines)
-                if !custom.isEmpty { return custom }
-            }
-            return BrowserController.mobileUA
-        }
+        get { UAProfile(rawValue: UserDefaults.standard.string(forKey: BrowserActionHelpers.uaProfileKey) ?? "") ?? .mobile }
+        set { UserDefaults.standard.set(newValue.rawValue, forKey: BrowserActionHelpers.uaProfileKey) }
     }
 
     /// 当前预设对应的 UA 字符串
-    var currentUAString: String { Self.defaultUAString() }
+    var currentUAString: String { BrowserActionHelpers.defaultUAString() }
 
     /// 将当前 UA 预设应用到当前上下文的所有标签
     func applyUAProfileToAllTabs() {
@@ -242,61 +211,6 @@ final class BrowserController: NSObject, ObservableObject {
         rebuildTabInfos()
     }
 
-    /// 智能体工具入口：在指定会话上下文内执行，完全独立于全局 currentSessionID（首页/手动浏览）。
-    /// 通过 scopedSessionID 临时覆盖 activeContext 的解析目标，调用结束后恢复。
-    /// - Parameter tabID: 稳定标签 id（list_tabs 返回的 tab_id；标签增删后索引漂移但 id 稳定）。
-    ///   优先于 tabIndex 解析，换算成当前索引后走原链路；nil 则仅用 tabIndex。
-    /// preset(mobile|desktop) → MiniClawUAProfile;兼容 Kit rawValue 拼写(mobile_safari|desktop_safari)。
-    /// 2026-08-12 修复:此前只读 `user_agent` 键且值域不匹配,preset=desktop 静默回退 mobile_safari。
-    private static func resolveUAProfile(_ params: [String: Any]) -> MiniClawKit.MiniClawUAProfile? {
-        if let preset = params["preset"] as? String {
-            switch preset.lowercased() {
-            case "mobile", "mobile_safari": return .mobileSafari
-            case "desktop", "desktop_safari": return .desktopSafari
-            default: return nil
-            }
-        }
-        return (params["user_agent"] as? String).flatMap(MiniClawKit.MiniClawUAProfile.init)
-    }
-
-    /// tab_id 兼容解析:Int 或数字字符串(引擎池 id,如 0/1)。2026-08-12 修复寻址断裂——
-    /// 此前只读 Int,数字字符串或顶层丢失 → 引擎无显式目标静默回退激活标签。
-    private static func resolveTabId(_ params: [String: Any]) -> Int? {
-        guard let raw = params["tab_id"] else { return nil }
-        if let i = raw as? Int { return i }
-        if let s = raw as? String, let i = Int(s) { return i }
-        return nil
-    }
-
-    /// 2026-08-10:动作参数 → 引擎 MiniClawActionInput(引擎优先路径)
-    private static func engineInput(action: String, params: [String: Any]) -> MiniClawKit.MiniClawActionInput? {
-        guard let browserAction = MiniClawKit.MiniClawBrowserAction(rawValue: action) else { return nil }
-        return MiniClawKit.MiniClawActionInput(
-            action: browserAction,
-            url: params["url"] as? String,
-            selector: params["selector"] as? String,
-            text: params["text"] as? String,
-            coordinateX: params["x"] as? Int,
-            coordinateY: params["y"] as? Int,
-            direction: (params["direction"] as? String).flatMap(MiniClawKit.MiniClawActionInput.ScrollDirection.init),
-            amount: params["amount"] as? Int,
-            script: params["script"] as? String,
-            userAgent: Self.resolveUAProfile(params),
-            maxDepth: params["max_depth"] as? Int,
-            tabId: Self.resolveTabId(params),
-            scrollCount: params["scroll_count"] as? Int,
-            itemSelector: params["item_selector"] as? String,
-            keywords: params["keywords"] as? [String],
-            fuzzy: params["fuzzy"] as? Bool,
-            timeout: params["timeout"] as? Int,
-            viewportWidth: params["width"] as? Int,
-            viewportHeight: params["height"] as? Int,
-            viewportReset: params["reset"] as? Bool,
-            fullPage: params["full_page"] as? Bool,
-            cookies: params["cookies"] as? [[String: Any]]
-        )
-    }
-
     /// 2026-08-10:引擎执行(共用池:UI 与工具同一引擎,标签同步)
     private func engineExecute(input: MiniClawKit.MiniClawActionInput, sessionID: UUID?) async throws -> String {
         let pool = enginePool(for: sessionID)
@@ -367,7 +281,7 @@ final class BrowserController: NSObject, ObservableObject {
         var engineParams = params
         if engineParams["tab_id"] == nil, let tabID, let i = Int(tabID) { engineParams["tab_id"] = i }
         if engineParams["tab_index"] == nil, let tabIndex { engineParams["tab_index"] = tabIndex }
-        if let engineInput = Self.engineInput(action: action, params: engineParams),
+        if let engineInput = BrowserActionHelpers.engineInput(action: action, params: engineParams),
            let engineText = try? await engineExecute(input: engineInput, sessionID: sessionID) {
             return engineText
         }
@@ -545,7 +459,7 @@ final class BrowserController: NSObject, ObservableObject {
             configuration.preferences.javaScriptCanOpenWindowsAutomatically = true
         }
         let config = configuration ?? activeContext.makeWebViewConfiguration()
-        let tab = BrowserTab(config: config, uaString: Self.defaultUAString())
+        let tab = BrowserTab(config: config, uaString: BrowserActionHelpers.defaultUAString())
         tab.navDelegate.controller = self
         tabs.append(tab)
         observeProgress(for: tab)
@@ -642,13 +556,6 @@ final class BrowserController: NSObject, ObservableObject {
         }
     }
 
-    // MARK: - miniclaw:// 资源解析
-
-    /// 将 miniclaw:// 资源安全解析为本地文件绝对路径；导航型 deep link 返回 nil。
-    static func resolveMiniClawURL(_ raw: String) -> String? {
-        FileSystemManager.shared.resolveMiniClawResourceURL(raw)?.path
-    }
-
     // MARK: - 统一操作入口
 
     /// action: 操作名；paramsData: 参数字典的 JSON 序列化（Sendable，安全跨 actor）；tabIndex: 目标标签（nil=当前）
@@ -716,7 +623,7 @@ final class BrowserController: NSObject, ObservableObject {
         }
         activeIndex = tabs.firstIndex(where: { $0 === tab }) ?? activeIndex
         // 智能体通过 run 导航时强制使用桌面 UA（提供给 智能体抓取/阅读用）；手动浏览沿用当前 UA 预设
-        if applyDesktopUA { tab.webView.customUserAgent = BrowserController.desktopUA }
+        if applyDesktopUA { tab.webView.customUserAgent = BrowserActionHelpers.desktopUA }
         ensureHosted(tab)
 
         guard !raw.lowercased().hasPrefix("miniclaw://") else {
@@ -805,7 +712,7 @@ final class BrowserController: NSObject, ObservableObject {
             var downsampled: Data?
             var divisor: CGFloat = 2
             while divisor <= 8 {
-                let small = Self.downscaled(image, divisor: divisor)
+                let small = BrowserActionHelpers.downscaled(image, divisor: divisor)
                 downsampled = small.jpegData(compressionQuality: 0.85)
                 if downsampled != nil { break }
                 divisor *= 2
@@ -824,17 +731,6 @@ final class BrowserController: NSObject, ObservableObject {
         )
         rebuildTabInfos()
         return "miniclaw://browser/\(filename)"
-    }
-
-    /// 截图编码失败时的降采样辅助：按除数缩小图像（UIGraphicsImageRenderer 软缩放，
-    /// 内存占用按 1/divisor² 下降，编码必成功）。
-    /// nonisolated：后台线程调用（线程治理 2026-08-09）。
-    nonisolated private static func downscaled(_ image: UIImage, divisor: CGFloat) -> UIImage {
-        let size = CGSize(width: image.size.width / divisor, height: image.size.height / divisor)
-        let renderer = UIGraphicsImageRenderer(size: size)
-        return renderer.image { _ in
-            image.draw(in: CGRect(origin: .zero, size: size))
-        }
     }
 
     private func click(_ params: [String: Any], tabIndex: Int?) async throws -> String {
@@ -1124,11 +1020,11 @@ final class BrowserController: NSObject, ObservableObject {
         guard let tab = tab(at: tabIndex) else { throw ToolError.invalidParameters(L10n.l("err_tab_stale")) }
         let ua: String
         if let preset = params["preset"] as? String {
-            ua = preset == "mobile" ? BrowserController.mobileUA : BrowserController.desktopUA
+            ua = preset == "mobile" ? BrowserActionHelpers.mobileUA : BrowserActionHelpers.desktopUA
         } else if let custom = params["ua"] as? String {
             ua = custom
         } else {
-            ua = BrowserController.desktopUA
+            ua = BrowserActionHelpers.desktopUA
         }
         tab.webView.customUserAgent = ua
         rebuildTabInfos()
@@ -1469,356 +1365,6 @@ final class BrowserController: NSObject, ObservableObject {
     }
 }
 
-// MARK: - 标签模型
-
-@MainActor
-final class BrowserTab: NSObject {
-    let id = UUID()
-    let webView: WKWebView
-    let navDelegate: BrowserNavDelegate
-    let uiDelegate: BrowserUIDelegate
-
-    var title: String = ""
-    var navContinuation: CheckedContinuation<Void, Error>?
-    var navResolved = false
-    /// 最近一次主框架导航失败的错误描述（成功导航时清空；pageInfoJSON 带上供模型判断）。
-    var navFailedError: String? = nil
-    /// 导航 15s 超时兜底已触发（SPA/慢站无 didFinish）：pageInfoJSON 据此返回明确超时错误，
-    /// 避免模型把「加载中」中间态当成功结果继续空等。
-    var navTimedOut = false
-
-    /// 无参 init（保留给旧代码兼容；新代码应使用 BrowserContext.makeWebViewConfiguration）
-    override init() {
-        let config = WKWebViewConfiguration()
-        config.allowsInlineMediaPlayback = true
-        config.mediaTypesRequiringUserActionForPlayback = []
-        // 同 BrowserContext.makeWebViewConfiguration：让 window.open 类弹窗请求到达 delegate
-        // （iOS 默认 false 会静默拒绝，回调都不触发）。
-        config.preferences.javaScriptCanOpenWindowsAutomatically = true
-        let prefs = WKWebpagePreferences()
-        prefs.allowsContentJavaScript = true
-        config.defaultWebpagePreferences = prefs
-
-        // iOS 17+ 机制：webView 不在窗口时（离屏宿主 / 弹窗创建瞬间）导航任务默认可能被挂起，
-        // 表现为「回调被调了、tab 建了、页面永远不加载」。显式 .none = 正常调度。
-        // （官方文档：WKPreferences.inactiveSchedulingPolicy，iOS 17.0+）
-        if #available(iOS 17.0, *) {
-            config.preferences.inactiveSchedulingPolicy = .none
-        }
-
-        let wv = WKWebView(frame: .zero, configuration: config)
-        wv.allowsBackForwardNavigationGestures = true
-        wv.scrollView.minimumZoomScale = 1.0
-        wv.scrollView.maximumZoomScale = 5.0
-        Self.applyDarkModeBackground(to: wv)
-        let defaultUA = BrowserController.defaultUAString()
-        wv.customUserAgent = defaultUA
-        self.config = config
-        self.webView = wv
-        self.navDelegate = BrowserNavDelegate()
-        self.uiDelegate = BrowserUIDelegate()
-        super.init()
-        wv.navigationDelegate = navDelegate
-        navDelegate.tab = self
-        wv.uiDelegate = uiDelegate
-        uiDelegate.tab = self
-        installGestureTracking()
-    }
-
-    /// 深色模式适配（系统深浅色自动切换的根源修复）：
-    /// WKWebView 默认 `underPageBackgroundColor` 是**白色**——页面加载中 / 空白页 /
-    /// 下拉回弹（overscroll）都会露出白底，深色系统下整个浏览器看起来"没适配深色"。
-    /// 用动态系统色（.systemBackground）填充三层背景，随系统深浅色自动切换；
-    /// 网页内容自身的深色由页面 prefers-color-scheme 决定（WKWebView 默认跟随系统）。
-    /// static：两个 init 须在 super.init() 前调用（实例方法不被允许）。
-    private static func applyDarkModeBackground(to wv: WKWebView) {
-        wv.isOpaque = false
-        wv.backgroundColor = .systemBackground
-        wv.scrollView.backgroundColor = .systemBackground
-        if #available(iOS 15.0, *) {
-            wv.underPageBackgroundColor = .systemBackground
-        }
-    }
-
-    /// 新 init：接受外部 WKWebViewConfiguration（从 BrowserContext 传入，带隔离的 dataStore）
-    init(config: WKWebViewConfiguration, uaString: String) {
-        let wv = WKWebView(frame: .zero, configuration: config)
-        wv.allowsBackForwardNavigationGestures = true
-        wv.scrollView.minimumZoomScale = 1.0
-        wv.scrollView.maximumZoomScale = 5.0
-        Self.applyDarkModeBackground(to: wv)
-        wv.customUserAgent = uaString
-        self.config = config
-        self.webView = wv
-        self.navDelegate = BrowserNavDelegate()
-        self.uiDelegate = BrowserUIDelegate()
-        super.init()
-        wv.navigationDelegate = navDelegate
-        navDelegate.tab = self
-        wv.uiDelegate = uiDelegate
-        uiDelegate.tab = self
-        installGestureTracking()
-    }
-
-    /// 保存 config 引用，供后续读取 websiteDataStore（Cookie 操作等）
-    private let config: WKWebViewConfiguration
-    var dataStore: WKWebsiteDataStore { config.websiteDataStore }
-
-    /// 最近一次用户手势（touchstart/click）时间；弹窗拦截用（1s 内 = 用户触发）。
-    var lastUserGestureAt: Date?
-    /// 手势消息 handler（config.userContentController 强持有；tab 持有弱引用方）。
-    private var gestureHandler: BrowserGestureHandler?
-    /// 「新标签页」消息 handler：页面点击 target=_blank / window.open 时接管。
-    private var openTabHandler: BrowserOpenTabHandler?
-
-    /// 判断弹窗请求是否由用户手势触发（用于「拦截弹窗」只拦自动弹窗）。
-    func wasRecentUserGesture() -> Bool {
-        guard let t = lastUserGestureAt else { return false }
-        return Date().timeIntervalSince(t) < 1.0
-    }
-
-    /// 注入页面脚本：手势时间戳 + 「新标签页」接管。
-    /// 背景（2026-08-05，iOS 18 真机实测）：标准 target=_blank 链接 + 用户手势点击，
-    /// WKUIDelegate.createWebViewWithConfiguration **回调不触发**（data: 测试页与
-    /// fullScreenCover 双路径均零日志；官方配置 javaScriptCanOpenWindowsAutomatically/
-    /// inactiveSchedulingPolicy 已全部到位仍无效；同一链路 macOS 正常）。
-    /// 对策：不再依赖系统弹窗回调，改为页面事件层接管——
-    /// 捕获 target=_blank 链接点击与 window.open，经 message handler 走我们自己的
-    /// 标签创建逻辑（手势判定/拦截开关照常生效）。原生 WKUIDelegate 回调保留兜底
-    /// （页面 preventDefault 后原生回调不会来，二者互斥；iframe 内弹窗若脚本未覆盖，
-    /// 原生回调仍可接住）。
-    /// 每个 tab 独立 config；先 remove 再 add，避免同名 handler 叠堆路由错乱。
-    private func installGestureTracking() {
-        let handler = BrowserGestureHandler()
-        handler.tab = self
-        gestureHandler = handler
-        let openTab = BrowserOpenTabHandler()
-        openTab.tab = self
-        openTabHandler = openTab
-        let ucc = config.userContentController
-        ucc.removeScriptMessageHandler(forName: "miniclawUserGesture")
-        ucc.add(handler, name: "miniclawUserGesture")
-        ucc.removeScriptMessageHandler(forName: "miniclawOpenTab")
-        ucc.add(openTab, name: "miniclawOpenTab")
-        let js = """
-        (function(){
-          function ping(){ try { window.webkit.messageHandlers.miniclawUserGesture.postMessage(Date.now()); } catch(e){} }
-          document.addEventListener('touchstart', ping, true);
-          document.addEventListener('click', ping, true);
-          // ── 新标签页接管（iOS 18 系统弹窗回调不可靠的架构层对策）──
-          document.addEventListener('click', function(e){
-            try {
-              var a = e.target && e.target.closest ? e.target.closest('a[target="_blank"]') : null;
-              if (a && a.href && a.href.indexOf('javascript:') !== 0) {
-                e.preventDefault();
-                window.webkit.messageHandlers.miniclawOpenTab.postMessage(a.href);
-              }
-            } catch(err){}
-          }, true);
-          try {
-            var _open = window.open.bind(window);
-            window.open = function(url, name, features){
-              try { window.webkit.messageHandlers.miniclawOpenTab.postMessage(String(url)); } catch(e){}
-              return null;
-            };
-          } catch(e){}
-        })();
-        """
-        config.userContentController.addUserScript(
-            WKUserScript(source: js, injectionTime: .atDocumentStart, forMainFrameOnly: true))
-    }
-
-    deinit {
-        // WKUserContentController 是 MainActor 隔离;deinit 在 Swift 6 中非隔离,用 assumeIsolated
-        // (deinit 通常在拥有者释放线程执行,此处 removeScriptMessageHandler 是轻量清理)。
-        MainActor.assumeIsolated {
-            config.userContentController.removeScriptMessageHandler(forName: "miniclawUserGesture")
-        }
-    }
-
-    func resolveNav(throwing error: Error? = nil) {
-        guard !navResolved else { return }
-        navResolved = true
-        guard let cont = navContinuation else { return }
-        navContinuation = nil
-        if let error { cont.resume(throwing: error) }
-        else { cont.resume() }
-    }
-}
-
-@MainActor
-final class BrowserNavDelegate: NSObject, WKNavigationDelegate {
-    weak var tab: BrowserTab?
-    /// 所属控制器（加载完成回调用；弱引用防环）。
-    weak var controller: BrowserController?
-
-    func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
-        tab?.title = webView.title ?? tab?.title ?? ""
-    }
-
-    func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
-        // 新导航开始：重置进度（否则单调化会让新页面从旧进度继续）。
-        controller?.loadingProgress = 0
-        // 新导航开始即清空旧失败/超时记录（失败/成功都会重写；避免把上一页的错误带给新页）。
-        tab?.navFailedError = nil
-        tab?.navTimedOut = false
-    }
-
-
-    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-        tab?.title = webView.title ?? ""
-        tab?.resolveNav()
-        // 导航完成：通知 UI 该标签内容已更新（快照缓存失效，下次概览重截）。
-        if let tabID = tab?.id {
-            controller?.tabDidFinishPublisher.send(tabID)
-        }
-        // 加载完成：进度条填满 → 停 1s → 归零（UI 动画恢复灰色）
-        controller?.notifyLoadingFinished()
-        // 持久化浏览历史（跨启动）：主框架导航完成即记录。
-        // 原实现读 backForwardList（webView 会话内历史），重启/重进浏览器后为空。
-        if let url = webView.url?.absoluteString {
-            Task { @MainActor in
-                BrowserHistoryStore.shared.record(url: url, title: webView.title ?? "")
-            }
-        }
-        // 注入 viewport meta 启用双指缩放——**仅当站点未声明 viewport 时兜底**。
-        // 站点已声明(如 user-scalable=no)时绝不覆盖:强制改写成可缩放会破坏其
-        // 交互(表现为移动版页面单击无反应、滚动/长按正常,如 36kr/deepseek)。
-        webView.evaluateJavaScript("""
-            (function(){
-                var m=document.querySelector('meta[name=viewport]');
-                if(m){return;}
-                var n=document.createElement('meta');n.name='viewport';n.content='width=device-width,initial-scale=1.0,maximum-scale=5.0,user-scalable=yes';document.head.appendChild(n);
-            })();
-            """)
-    }
-
-    func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
-        tab?.title = webView.title ?? ""
-        // 记录失败原因（SSL/网络/超时等），供 pageInfoJSON 返回给模型判断，
-        // 避免把旧页面状态当成新导航结果（曾导致检索串页误判）。
-        tab?.navFailedError = (error as NSError).localizedDescription
-        // 加载失败同样结束进度：填满 → 停 1s → 归零（避免绿色卡在半截）。
-        controller?.notifyLoadingFinished()
-        // 主框架已渲染出内容（例如仅子资源失败、或中途重定向），仍视为可用，不硬抛。
-        if webView.url != nil {
-            tab?.resolveNav()
-        } else {
-            tab?.resolveNav(throwing: error)
-        }
-    }
-
-    func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
-        let nsError = error as NSError
-        // -999 取消：常因同帧内新导航 / 重定向触发，并非真实失败，直接视为成功。
-        if nsError.code == NSURLErrorCancelled {
-            tab?.resolveNav()
-            return
-        }
-        // DNS/连接/SSL 等失败几乎都走这里——记录失败原因供 pageInfoJSON 返回给模型，
-        // 否则模型看不到最常见的失败场景（曾导致检索串页误判）。
-        tab?.navFailedError = nsError.localizedDescription
-        controller?.notifyLoadingFinished()
-        // 主框架已加载出页面（即便 WebKit 报了兜底失败），仍视为可用。
-        if webView.url != nil {
-            tab?.resolveNav()
-        } else {
-            tab?.resolveNav(throwing: error)
-        }
-    }
-}
-
-/// 弹窗代理：处理 `window.open` / `target="_blank"` 等新建窗口请求。
-/// 手势时间戳回传 handler：注入页面的 touchstart/click 监听通过
-/// `window.webkit.messageHandlers.miniclawUserGesture` 回传时间，供弹窗拦截判定。
-/// tab 强持有本 handler（私有属性），handler 弱引用 tab 防环。
-final class BrowserGestureHandler: NSObject, WKScriptMessageHandler {
-    weak var tab: BrowserTab?
-
-    func userContentController(_ userContentController: WKUserContentController,
-                               didReceive message: WKScriptMessage) {
-        tab?.lastUserGestureAt = Date()
-    }
-}
-
-/// 「新标签页」接管 handler：注入页面拦截 target=_blank 链接点击与 window.open，
-/// 经 `miniclawOpenTab` 消息走我们自己的标签创建逻辑（iOS 18 系统弹窗回调
-/// 不触发的架构层对策，见 BrowserTab.installGestureTracking 注释）。
-final class BrowserOpenTabHandler: NSObject, WKScriptMessageHandler {
-    weak var tab: BrowserTab?
-
-    func userContentController(_ userContentController: WKUserContentController,
-                               didReceive message: WKScriptMessage) {
-        guard let tab, let url = message.body as? String, !url.isEmpty else { return }
-        // 拦截开关开启时：只放行用户手势（1s 内点击）触发的；自动弹窗丢弃。
-        if SettingsStore.shared.settings.browser.blockPopups, !tab.wasRecentUserGesture() {
-            AppLogger.shared.info(String(format: L10n.l("bc_popup_blocked"), url), category: "Browser", subsystem: "Browser")
-            return
-        }
-        AppLogger.shared.info(String(format: L10n.l("bc_popup_request"), url), category: "Browser", subsystem: "Browser")
-        Task { @MainActor in
-            _ = BrowserController.shared.openPopupTab(urlString: url)
-        }
-    }
-}
-
-/// 受「通用设置 → 浏览器 → 拦截弹窗」开关控制：开启时直接拦截（返回 nil），
-/// 关闭时新建一个标签承载弹窗，并复用其 webView 交由 WebKit 加载。
-final class BrowserUIDelegate: NSObject, WKUIDelegate {
-    weak var tab: BrowserTab?
-
-    // iOS26 SDK:协议方法改名 createWebViewWithConfiguration -> createWebViewWith(ObjC selector 不变)。
-    func webView(_ webView: WKWebView,
-                 createWebViewWith configuration: WKWebViewConfiguration,
-                 for navigationAction: WKNavigationAction,
-                 windowFeatures: WKWindowFeatures) -> WKWebView? {
-        // 仅拦截真正的新窗口请求（targetFrame == nil）；同框内导航不拦截。
-        guard navigationAction.targetFrame == nil else {
-            AppLogger.shared.info("弹窗回调:同框导航,忽略(\(navigationAction.request.url?.absoluteString ?? "nil"))", category: "Browser", subsystem: "Browser")
-            return nil
-        }
-        AppLogger.shared.info("弹窗回调:收到新窗口请求 url=\(navigationAction.request.url?.absoluteString ?? "nil")", category: "Browser", subsystem: "Browser")
-
-        let block = SettingsStore.shared.settings.browser.blockPopups
-        let urlString = navigationAction.request.url?.absoluteString ?? ""
-        if block {
-            // 手势放行：用户点击（1s 内 touchstart/click）触发的 window.open 放行，
-            // 与 iOS Safari「拦截弹窗」行为一致——只拦页面自动弹出的广告弹窗，
-            // 不拦用户主动点击的「登录窗口/分享窗口」等。
-            if let tab = tab, tab.wasRecentUserGesture() {
-                AppLogger.shared.info(String(format: L10n.l("bc_popup_allow"), urlString), category: "Browser", subsystem: "Browser")
-            } else {
-                AppLogger.shared.info(String(format: L10n.l("bc_popup_blocked_switch"), urlString), category: "Browser", subsystem: "Browser")
-                return nil
-            }
-        }
-
-        // 允许：在主线程开新标签并复用其 webView，WebKit 会自动把弹窗请求加载进该 webView。
-        // 必须把 WebKit 传入的 configuration 原样传给 openPopupTab（见该方法注释）。
-        // WKUIDelegate 回调可能在非主线程触发，先用主线程守卫再 assumeIsolated 调用 @MainActor 方法。
-        var result: WKWebView?
-        let runOnMain = {
-            result = MainActor.assumeIsolated {
-                BrowserController.shared.openPopupTab(urlString: urlString, configuration: configuration)
-            }
-        }
-        // 全工程唯一允许的 `DispatchQueue.main.sync`：WKUIDelegate 要求**同步**返回 WKWebView?，
-        // 无法 async 化。且 WebKit 的 UI delegate 实际总在主线程回调，下面的 sync 分支是纯防御、
-        // 正常路径不会走到。其余任何地方一律禁止 main.sync（见 AgentLoopEngine.deliverOnMain 说明）。
-        if Thread.isMainThread { runOnMain() }
-        else { DispatchQueue.main.sync(execute: runOnMain) }
-        return result
-    }
-}
-
-// MARK: - Array 安全下标
-
-extension Array {
-    subscript(safe index: Int) -> Element? {
-        indices.contains(index) ? self[index] : nil
-    }
-}
-
 // MARK: - 下载进度代理
 
 // MARK: - 串行门（浏览器操作串行化）
@@ -1860,35 +1406,3 @@ private final class BrowserSerialGate: @unchecked Sendable {
 }
 
 
-// MARK: - 搜索引擎
-
-/// 地址栏搜索词使用的搜索引擎（浏览器设置可切换；仅影响搜索跳转，不影响默认首页）。
-enum SearchEngine: String, CaseIterable, Identifiable {
-    case bing, sogou, so360, baidu, google, duckduckgo
-
-    var id: String { rawValue }
-
-    var displayName: String {
-        switch self {
-        case .bing: return "Bing"
-        case .sogou: return L10n.l("search_sogou")
-        case .so360: return L10n.l("search_360")
-        case .baidu: return L10n.l("search_baidu")
-        case .google: return "Google"
-        case .duckduckgo: return "DuckDuckGo"
-        }
-    }
-
-    /// 搜索 URL 模板（q= 已编码的搜索词）。
-    func searchURL(query: String) -> String {
-        let encoded = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? query
-        switch self {
-        case .bing: return "https://www.bing.com/search?q=" + encoded
-        case .sogou: return "https://www.sogou.com/web?query=" + encoded
-        case .so360: return "https://www.so.com/s?q=" + encoded
-        case .baidu: return "https://www.baidu.com/s?wd=" + encoded
-        case .google: return "https://www.google.com/search?q=" + encoded
-        case .duckduckgo: return "https://duckduckgo.com/?q=" + encoded
-        }
-    }
-}

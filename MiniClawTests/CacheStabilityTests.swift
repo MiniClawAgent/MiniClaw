@@ -6,14 +6,17 @@ import XCTest
 /// 1. 易变内容（时间戳 / 记忆 / 挂载）绝不进入缓存前缀（system 字段 + tools 字段），否则逐轮失效；
 /// 2. tools 列表必须按名字确定性排序，否则 tools 缓存断点前缀逐轮变化 → 命中率归零；
 /// 3. 相同输入必须产生字节一致的请求体（防止未来无意引入非确定性拼装）。
+///
+/// 2026-08-14 适配：请求体构建已从 LLMClient.buildAnthropicBody 迁移至
+/// AnthropicProviderAdapter.buildAnthropicBody(request: LLMStreamRequest)，测试改用新入口。
 final class CacheStabilityTests: XCTestCase {
 
-    private func makeClient() -> LLMClient {
-        LLMClient(
-            endpointURL: "https://api.anthropic.com/v1/messages",
-            apiKey: "test-key",
-            format: .chatCompletions,
-            providerType: .anthropic
+    private func makeAdapter() -> AnthropicProviderAdapter {
+        AnthropicProviderAdapter(
+            config: AnthropicCompatConfig(
+                endpointURL: "https://api.anthropic.com/v1/messages",
+                apiKey: "test-key"
+            )
         )
     }
 
@@ -40,14 +43,13 @@ final class CacheStabilityTests: XCTestCase {
 
     /// 构造一个带历史消息的请求体：system(稳定+易变) + 历史 assistant + 当前 user。
     private func build(
-        client: LLMClient,
         stable: String,
         volatile: String,
         tools: [ToolSchema],
         history: [ChatCompletionMessage] = [ChatCompletionMessage(role: "assistant", content: "好的，已记录。")]
     ) -> Data {
         let messages: [ChatCompletionMessage] = [systemMessage(stable: stable, volatile: volatile)] + history + [userMessage("请继续")]
-        return client.buildAnthropicBody(
+        let request = LLMStreamRequest(
             model: "claude-3-5-sonnet-20241022",
             messages: messages,
             tools: tools,
@@ -55,8 +57,14 @@ final class CacheStabilityTests: XCTestCase {
             topP: nil,
             maxTokens: 4096,
             reasoningEffort: nil,
-            thinkingLevel: nil
+            thinkingLevel: nil,
+            frequencyPenalty: nil,
+            presencePenalty: nil,
+            seed: nil,
+            responseFormat: nil,
+            parallelToolCalls: nil
         )
+        return makeAdapter().buildAnthropicBody(request: request)
     }
 
     func testVolatileExcludedFromCachePrefix() throws {
@@ -64,9 +72,9 @@ final class CacheStabilityTests: XCTestCase {
         let ts1 = "当前时间：2026-08-03T10:00:00 时间戳-A"
         let ts2 = "当前时间：2026-08-03T11:30:45 时间戳-B"
 
-        let body1 = build(client: makeClient(), stable: stable, volatile: ts1,
+        let body1 = build(stable: stable, volatile: ts1,
                           tools: [toolSchema(name: "zeta"), toolSchema(name: "alpha")])
-        let body2 = build(client: makeClient(), stable: stable, volatile: ts2,
+        let body2 = build(stable: stable, volatile: ts2,
                           tools: [toolSchema(name: "zeta"), toolSchema(name: "alpha")])
 
         let json1 = try XCTUnwrap(JSONSerialization.jsonObject(with: body1) as? [String: Any])
@@ -75,7 +83,10 @@ final class CacheStabilityTests: XCTestCase {
         // ① system 字段必须只含稳定内容，且两次完全一致（时间戳不得进入缓存前缀）
         let sys1 = try XCTUnwrap(json1["system"] as? [[String: Any]])
         let sys2 = try XCTUnwrap(json2["system"] as? [[String: Any]])
-        XCTAssertEqual(sys1, sys2, "两次请求的 system 字段必须字节一致")
+        // Any 不可 Equatable：用 JSON 字节比较验证字节一致
+        let sys1Data = try JSONSerialization.data(withJSONObject: sys1)
+        let sys2Data = try JSONSerialization.data(withJSONObject: sys2)
+        XCTAssertEqual(sys1Data, sys2Data, "两次请求的 system 字段必须字节一致")
         let sysText = (sys1.compactMap { $0["text"] as? String }.joined(separator: "\n"))
         XCTAssertFalse(sysText.contains("时间戳-A"), "易变时间戳不得出现在 system 缓存前缀")
         XCTAssertFalse(sysText.contains("时间戳-B"), "易变时间戳不得出现在 system 缓存前缀")
@@ -98,7 +109,7 @@ final class CacheStabilityTests: XCTestCase {
 
     func testToolsDeterministicallySorted() throws {
         let tools = [toolSchema(name: "zeta"), toolSchema(name: "alpha"), toolSchema(name: "mike")]
-        let body = build(client: makeClient(), stable: "STABLE", volatile: "V", tools: tools)
+        let body = build(stable: "STABLE", volatile: "V", tools: tools)
         let json = try XCTUnwrap(JSONSerialization.jsonObject(with: body) as? [String: Any])
         let toolList = try XCTUnwrap(json["tools"] as? [[String: Any]])
         let names = toolList.compactMap { $0["name"] as? String }
@@ -107,13 +118,13 @@ final class CacheStabilityTests: XCTestCase {
 
     func testIdenticalInputProducesIdenticalBody() throws {
         let tools = [toolSchema(name: "b"), toolSchema(name: "a")]
-        let b1 = build(client: makeClient(), stable: "STABLE", volatile: "V", tools: tools)
-        let b2 = build(client: makeClient(), stable: "STABLE", volatile: "V", tools: tools)
+        let b1 = build(stable: "STABLE", volatile: "V", tools: tools)
+        let b2 = build(stable: "STABLE", volatile: "V", tools: tools)
         XCTAssertEqual(b1, b2, "相同输入必须产生字节一致的请求体")
     }
 
     func testHistoryCarriesCacheBreakpoint() throws {
-        let body = build(client: makeClient(), stable: "STABLE", volatile: "V",
+        let body = build(stable: "STABLE", volatile: "V",
                          tools: [toolSchema(name: "a")])
         let json = try XCTUnwrap(JSONSerialization.jsonObject(with: body) as? [String: Any])
         let messages = try XCTUnwrap(json["messages"] as? [[String: Any]])

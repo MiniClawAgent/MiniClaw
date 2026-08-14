@@ -19,14 +19,16 @@ struct SessionRowView: View {
     var body: some View {
         // 引用草稿刷新令牌：参数变化强制本行重算 hasDraft（读时计算）。
         let _ = draftRefreshID
+        // 显示标题：默认占位标题（"新会话"）走 i18n（存量数据为中文默认值，显示层兜底本地化）。
+        let displayTitle = (session.title == "新会话") ? L10n.l("new_chat_title") : session.title
         HStack(spacing: 12) {
             leadingView
 
             VStack(alignment: .leading, spacing: 6) {
                 HStack {
                     (highlight.isEmpty
-                        ? Text(session.title)
-                        : highlightedText(session.title, keyword: highlight))
+                        ? Text(displayTitle)
+                        : highlightedText(displayTitle, keyword: highlight))
                         .font(.body)
                         .fontWeight(.medium)
                         .lineLimit(1)

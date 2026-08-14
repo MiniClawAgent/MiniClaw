@@ -1,21 +1,5 @@
 import Foundation
 
-// MARK: - Token Usage Report
-
-/// 一次 run 结束时上报的单次调用用量聚合（含缓存、耗时、循环次数），
-/// 供上层同时写入「全局统计」与「会话级统计」。
-struct TokenUsageReport {
-    let modelId: String
-    let input: Int
-    let output: Int
-    let cachedRead: Int
-    let cachedWrite: Int
-    /// 输出流式阶段耗时（毫秒），用于计算平均输出速度。
-    let outputDurationMs: Double
-    /// Agent 循环总次数（本轮 run 内的模型调用轮次）。
-    let agentLoops: Int
-}
-
 // MARK: - Agent Loop Engine
 
 final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
@@ -42,55 +26,6 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
     /// (照 SubagentEngineBag 范式),每个工具写自己的槽位,暂停/取消枚举全部取消——
     /// 与 iSH 执行协调器(actor 持有 in-flight 集合)同构。
     private let toolExecutionTasks = ToolTaskBag()
-    /// 取消 的全部可变状态统一由 actor 保护。
-    /// 因为 cancel() 从主线程调用，
-    /// 而 run() 的循环在独立的 Task 上执行，两者并发访问这些字段；
-    /// 用 actor 隔离既能满足 Swift 6 严格并发，又避开 NSLock 在异步上下文的禁用。
-    private actor EngineState {
-        var isRunning: Bool = false
-        var cancelRequested: Bool = false
-        /// 软暂停请求：用户在回复进行中点了「暂停」。
-        /// 与 `cancelRequested` 独立——暂停不中止循环，而是让循环在下一个安全点
-        /// （流式回合结束 / 某工具执行完）落地为 `.paused` 并退出，等待恢复重放。
-        var pauseRequested: Bool = false
-        var pendingUserInputs: [String] = []
-        /// 手动立即重试请求（UI 点击重试按钮置位；等待循环消费）。
-        /// 放 actor 内：等待循环在后台线程、requestImmediateRetry 在主线程，actor 消除竞争。
-        var retryNowRequested: Bool = false
-
-        func configureRunning() {
-            isRunning = true
-            cancelRequested = false
-            pauseRequested = false
-            pendingUserInputs.removeAll()
-            // 清上一次 run 残留的手动重试标志（跨 run 不串扰）。
-            retryNowRequested = false
-        }
-        func markStopped() { isRunning = false }
-        func cancel() {
-            cancelRequested = true
-            isRunning = false
-            pauseRequested = false
-        }
-        func requestPause() { pauseRequested = true }
-        func clearPause() { pauseRequested = false }
-        func enqueue(_ text: String) {
-            pendingUserInputs.append(text)
-        }
-        func takeNextInput() -> String? {
-            pendingUserInputs.isEmpty ? nil : pendingUserInputs.removeFirst()
-        }
-        func isCancelled() -> Bool { cancelRequested }
-        func isPausedRequested() -> Bool { pauseRequested }
-        func requestRetryNow() { retryNowRequested = true }
-        func consumeRetryNow() -> Bool {
-            let v = retryNowRequested
-            retryNowRequested = false
-            return v
-        }
-        func keepRunning() -> Bool { isRunning && !cancelRequested }
-        func pendingInputs() -> [String] { pendingUserInputs }
-    }
     private let state = EngineState()
 
     /// 循环权威上下文（system + 历史 + 已完成回合 + 本轮已收文本）。
@@ -191,24 +126,12 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
     private var subagentRoutingPlan: ModelRoutingPlan?
     /// 本引擎在子代理树中的深度：主引擎 = 0，其派出的子代理 = 1，依此类推（P2-4 多层编排）。
     private(set) var subagentDepth: Int = 0
-    /// 子代理树最大深度（P2-4）：深度达到该值的子代理不再获得 dispatch_subagent 工具，
-    /// 从而在允许"子代理再派子代理"的同时给出硬性递归上界。
-    static let maxSubagentDepth: Int = 2
-
-    /// 当前引擎能否派发子代理：总开关关闭时一律不可；主引擎总是可以；
-    /// 子代理引擎仅当已处于子代理层级且未触顶（0 < 深度 < 上限）时允许。
-    /// 复盘/整理等受限后台引擎（isSubagentEngine=true 且 depth=0）
-    /// 不在子代理层级内，不得派发（否则无人值守后台引擎会凭空派生子代理，浪费 token 且
-    /// 子代理继承含 bypassConfirmation 的写工具，后台无确认写入）。
-    static func canDispatchSubagents(subagentEngine: Bool, depth: Int) -> Bool {
-        guard SettingsStore.shared.settings.subagent.enabled else { return false }
-        guard subagentEngine else { return true }
-        return depth > 0 && depth < maxSubagentDepth
-    }
     /// 单次 dispatch_subagent 允许并行派发的子代理数量上限（默认 4，设置 → 智能体 → 子代理 可调 1-4）。
-    /// 运行时读取用户设置（不设静态常量，避免双份配置漂移）。
+    /// 引擎每轮回复重建（见 run() 注释），init 时在主线程快照设置值，避免后台线程裸读
+    /// SettingsStore 与设置页写竞争（2026-08-14 崩溃修复：后台读 + 主线程写 → COW 悬垂）。
+    private let subagentMaxConcurrentSnapshot: Int
     private var maxParallelSubagents: Int {
-        max(1, min(4, SettingsStore.shared.settings.subagent.maxConcurrent))
+        max(1, min(4, subagentMaxConcurrentSnapshot))
     }
     /// 全局并行子代理上限（跨多次 dispatch、跨层级累计，防模型失控堆积，P8）。
     /// 与单次上限同源（同一用户设置），并发数 = 用户设置的 maxConcurrent。
@@ -222,6 +145,7 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
 
     init(toolRouter: ToolRouter) {
         self.toolRouter = toolRouter
+        self.subagentMaxConcurrentSnapshot = SettingsStore.shared.settings.subagent.maxConcurrent
         // 后台宽限期耗尽：取消正在跑的工具，让主循环在下一安全点干净挂起（对齐 过期处理器）。
         bgExpiryObserver = NotificationCenter.default.addObserver(
             forName: BackgroundTaskCoordinator.didExpireNotification,
@@ -250,15 +174,6 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
     /// 子代理调度保留工具名：模型可主动调用以派发子代理；由引擎拦截处理，不进入 toolRouter。
     private static let subagentToolName = "dispatch_subagent"
     private static let closeSubagentToolName = "close_subagent"
-
-    /// 浏览器作用域（第 5 条要求：子代理浏览器与父代理隔离）。
-    /// 主引擎（isSubagentEngine=false）不设置 → BrowserTool 回落其 currentSessionID（父会话 context）；
-    /// 子代理引擎用自身 sessionID（= subID）→ BrowserContextManager 按 subID 建独立 BrowserContext，
-    /// 标签组独立、页面数上限各自独立生效，不再与父代理互相挤占。
-    /// 用 TaskLocal 而非共享可变状态：withTaskGroup 并行子代理各自持有自己的值，并发安全。
-    enum EngineBrowserScope {
-        @TaskLocal static var sessionID: UUID?
-    }
 
     /// 注入给模型的子代理调度工具 schema（让模型知道可以派发子代理）。
     /// profile 参数的角色列表由 SubAgentProfileStore 动态生成（用户可自建角色）。
@@ -315,22 +230,6 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
         )
     }
 
-    /// 引擎运行时约束段：拼在 profile 正文之后（profile 负责"人设"，本段负责"机制"）。
-    /// `canDispatchDeeper` 为 true 时（P2-4 多层编排，深度未触顶）允许继续往下派子代理。
-    private static func subagentEngineSuffix(focus: String?, depth: Int, canDispatchDeeper: Bool) -> String {
-        let recursionRule = canDispatchDeeper
-        ? String(format: L10n.l("loop_subagent_depth_hint"), depth, maxSubagentDepth)
-        : String(format: L10n.l("loop_subagent_max_depth"), depth, maxSubagentDepth)
-        return """
-        规则：
-        - 只使用你手上的工具完成任务。
-        \(focus.map { "- 本次聚焦领域：\($0)。" } ?? "")
-        \(recursionRule)
-        - 直接、简洁地完成任务，最后用一段中文总结你的关键发现或结果，不要多余寒暄与自我介绍。
-        - 你的最终回答会作为父代理的一个工具结果，请保证信息自包含、可被父代理直接引用。
-        """
-    }
-
     func configure(routingPlan: ModelRoutingPlan) {
         self.routingPlan = routingPlan
     }
@@ -342,16 +241,6 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
     func configure(sessionID: UUID, streamingMessageID: UUID?) {
         self.sessionID = sessionID
         self.streamingMessageID = streamingMessageID
-    }
-
-    /// 会话级采样参数（由 ChatView 从 SessionSettings 传入）
-    struct SamplingConfig {
-        var topP: Double? = nil
-        var frequencyPenalty: Double? = nil
-        var presencePenalty: Double? = nil
-        var seed: Int? = nil
-        var parallelToolCalls: Bool? = nil
-        var responseFormat: ResponseFormat? = nil
     }
     private var sampling: SamplingConfig?
 
@@ -589,7 +478,7 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
         var toolSchemas = toolRouter.allSchemas().filter { !toolNameExclusions.contains($0.function.name) }
         // 追加子代理调度工具：仅当本引擎有权派发时（主引擎恒有；子代理引擎未触顶时有），
         // 复盘/整理等受限后台引擎（isSubagentEngine=true）不注入，保持"仅 memory 工具"的受限设计。
-        if Self.canDispatchSubagents(subagentEngine: isSubagentEngine, depth: subagentDepth),
+        if AgentLoopHelpers.canDispatchSubagents(subagentEngine: isSubagentEngine, depth: subagentDepth),
            !toolNameExclusions.contains(Self.subagentToolName) {
             toolSchemas.append(makeSubagentToolSchema())
         }
@@ -687,7 +576,7 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
                             messages: requestMessages,
                             tools: tools,
                             maxTokens: endpoint.maxOutputTokens,
-                            reasoningEffort: AgentLoopEngine.effectiveReasoningEffort(endpoint: endpoint, forceThinkingLevel: forceThinkingOverride),
+                            reasoningEffort: AgentLoopHelpers.effectiveReasoningEffort(endpoint: endpoint, forceThinkingLevel: forceThinkingOverride),
                             thinkingLevel: forceThinkingOverride,
                             topP: sampling?.topP,
                             frequencyPenalty: sampling?.frequencyPenalty,
@@ -838,7 +727,7 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
                                 tokens: usage.input,
                                 endpoint: endpoint,
                                 measured: true,
-                                breakdown: AgentLoopEngine.scale(requestBreakdown, to: usage.input)
+                                breakdown: AgentLoopHelpers.scale(requestBreakdown, to: usage.input)
                             )
                         }
                     } else {
@@ -851,7 +740,7 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
                             tokens: inputTokens,
                             endpoint: endpoint,
                             measured: false,
-                            breakdown: AgentLoopEngine.scale(requestBreakdown, to: inputTokens)
+                            breakdown: AgentLoopHelpers.scale(requestBreakdown, to: inputTokens)
                         )
                     }
                     emitTokenUsage(
@@ -1326,68 +1215,7 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
         AgentTaskStore.shared.save(task)
     }
 
-    /// 归一化思考档位：官方允许 low / medium / high / xhigh / max（OpenAI 还支持 none / minimal）。
-    /// 这里不再把 xhigh / max 折叠成 high——OpenAI / Responses API 官方就支持完整档位，
-    /// 折叠会丢失高力度（catalog 的 thinkingLevels 已按各厂商实际支持范围约束 UI 可选项）。
-    private static func normalizedThinkingLevel(_ level: String) -> String? {
-        switch level {
-        case "off": return nil
-        case "low", "medium", "high", "xhigh", "max", "minimal", "none": return level
-        default: return nil
-        }
-    }
-
-    /// 计算本轮请求的 reasoning effort（深度思考等级）：
-    /// - `forceThinkingLevel == nil`：未显式设置 → 跟随模型默认。仅当模型支持思考时默认开启（用 medium 档），
-    ///   否则不发送推理参数。
-    /// - `forceThinkingLevel == "off"`：用户显式关闭。
-    ///     · OpenAI / OpenRouter（OpenAI 兼容基线）：发官方 `reasoning_effort: "none"` 真正关闭；
-    ///     · Anthropic / Gemini：返回 nil，由各自构建器处理（Anthropic 用 thinking:{type:"disabled"}，Gemini 不开启）。
-    /// - 具体档位：原样透传（不再折叠），由 catalog 保证该模型支持此档位。
-    private static func effectiveReasoningEffort(endpoint: ModelRouteEndpoint, forceThinkingLevel: String?) -> String? {
-        if let ft = forceThinkingLevel {
-            guard ft != "off" else {
-                // OpenAI 兼容基线：用官方 "none" 真正关闭；其余基线返回 nil 交由构建器处理
-                if endpoint.providerType == .openai || endpoint.providerType == .openRouter {
-                    return endpoint.supportsDeepThinking ? "none" : nil
-                }
-                return nil
-            }
-            return normalizedThinkingLevel(ft)
-        }
-        // 未显式设置：思考模型默认开启，非思考模型不开启
-        guard endpoint.supportsDeepThinking else { return nil }
-        return normalizedThinkingLevel("medium")
-    }
-
     // MARK: - 词元 估算（统一委托 ContextUsageEstimator，口径含工具 schema 与多模态）
-
-    /// 估算文本 词元 数（自然语言密度）。保留静态入口供既有调用方使用。
-    static func estimateTokens(text: String) -> Int {
-        ContextUsageEstimator.estimate(text: text, density: .prose)
-    }
-
-    /// 估算一组消息的输入 词元 数（含结构开销、多模态与易变段；不含工具 schema）。
-    /// 需要「完整请求口径」时请用 `ContextUsageEstimator.estimate(messages:tools:)`。
-    static func estimateTokens(messages: [ChatCompletionMessage]) -> Int {
-        ContextUsageEstimator.estimate(messages: messages, tools: nil)
-    }
-
-    /// 按比例缩放明细，使各项之和等于给定总量（把服务商真值分摊回 System/Tools/History/Current）。
-    static func scale(_ breakdown: ContextUsageBreakdown, to target: Int) -> ContextUsageBreakdown {
-        let total = breakdown.total
-        guard total > 0, target > 0, total != target else { return breakdown }
-        let factor = Double(target) / Double(total)
-        var scaled = ContextUsageBreakdown()
-        scaled.system = Int(Double(breakdown.system) * factor)
-        scaled.tools = Int(Double(breakdown.tools) * factor)
-        scaled.history = Int(Double(breakdown.history) * factor)
-        scaled.current = Int(Double(breakdown.current) * factor)
-        scaled.media = Int(Double(breakdown.media) * factor)
-        // 余数并入结构开销，保证总和精确等于 target。
-        scaled.overhead = max(0, target - (scaled.system + scaled.tools + scaled.history + scaled.current + scaled.media))
-        return scaled
-    }
 
     /// 硬裁剪：即便压缩失败/来不及压缩，也不能把超出窗口的上下文发出去。
     /// 预算取 `ContextPolicy.hardTrimBudget`（窗口扣掉输出预留与安全边际），
@@ -1516,7 +1344,7 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
             tokens: tokens,
             endpoint: endpoint,
             measured: false,
-            breakdown: AgentLoopEngine.scale(rawBreakdown, to: tokens)
+            breakdown: AgentLoopHelpers.scale(rawBreakdown, to: tokens)
         )
 
         // 窗口未配置（0）时无法判断占用，不自动压缩（仅 /compact 强制可用）。
@@ -1550,7 +1378,7 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
             tokens: afterTokens,
             endpoint: endpoint,
             measured: false,
-            breakdown: AgentLoopEngine.scale(afterBreakdown, to: afterTokens)
+            breakdown: AgentLoopHelpers.scale(afterBreakdown, to: afterTokens)
         )
         return compressed.messages
     }
@@ -1830,11 +1658,13 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
         if rawName == Self.subagentToolName {
             // 用户关闭子代理：返回明确提示（模型幻觉直调时兜底），
             // 引导段已告知「子代理已被用户关闭」，此处再次确认。
-            guard SettingsStore.shared.settings.subagent.enabled else {
+            // 主线程快照读取（后台线程裸读 SettingsStore 会与设置页写竞争，2026-08-14 崩溃修复）。
+            let subagentEnabled = await MainActor.run { SettingsStore.shared.settings.subagent.enabled }
+            guard subagentEnabled else {
                 return ToolResult(success: false, text: L10n.l("err_subagent_disabled"))
             }
-            guard Self.canDispatchSubagents(subagentEngine: isSubagentEngine, depth: subagentDepth) else {
-                return ToolResult(success: false, text: String(format: L10n.l("loop_subagent_depth_error"), Self.maxSubagentDepth))
+            guard AgentLoopHelpers.canDispatchSubagents(subagentEngine: isSubagentEngine, depth: subagentDepth) else {
+                return ToolResult(success: false, text: String(format: L10n.l("loop_subagent_depth_error"), AgentLoopHelpers.maxSubagentDepth))
             }
             return await spawnSubagent(toolCall: tc)
         }
@@ -2006,14 +1836,6 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
         deliverOnMain { onSubagentEvent(event) }
     }
 
-    /// 一次派发请求里的单个子任务描述（P2-4 并行编排的最小单元）。
-    private struct SubagentTaskSpec {
-        let task: String
-        let focus: String?
-        let profile: String?
-        let reuseID: UUID?
-    }
-
     /// 派生子代理：复用同一套循环与模型路由，
     /// 但使用独立的上下文与受约束的工具清单；结束后把子代理最终回答作为父循环的工具结果回传。
     ///
@@ -2038,7 +1860,7 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
             args = parsed
         } else { args = [:] }
 
-        let specs = Self.parseSubagentSpecs(from: args)
+        let specs = AgentSubagentParsing.parseSubagentSpecs(from: args)
         guard !specs.isEmpty else {
             return ToolResult(success: false, text: L10n.l("err_dispatch_need_task"))
         }
@@ -2078,56 +1900,6 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
         return ToolResult(success: true, text: text)
     }
 
-    /// 单个子代理的运行结果。
-    private struct SubagentRunResult {
-        let id: UUID
-        let name: String
-        let body: String
-        let ok: Bool
-        var rendered: String { String(format: L10n.l("loop_subagent_prefix"), name, id.uuidString, body) }
-    }
-
-    /// 解析 dispatch_subagent 参数为子任务列表：优先读 `tasks` 数组（对象或纯字符串元素），
-    /// 无 tasks 时回落到顶层 `task` / `query` 单任务。
-    private static func parseSubagentSpecs(from args: [String: Any]) -> [SubagentTaskSpec] {
-        func uuid(_ any: Any?) -> UUID? {
-            guard let s = any as? String else { return nil }
-            return UUID(uuidString: s)
-        }
-        func trimmed(_ any: Any?) -> String {
-            ((any as? String) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-        }
-
-        if let rawList = args["tasks"] as? [Any], !rawList.isEmpty {
-            // 顶层 profile 作为 tasks 元素的默认角色（元素级可覆盖）。
-            let topProfile = trimmed(args["profile"])
-            var specs: [SubagentTaskSpec] = []
-            for raw in rawList {
-                if let s = raw as? String {
-                    let t = s.trimmingCharacters(in: .whitespacesAndNewlines)
-                    if !t.isEmpty {
-                        specs.append(SubagentTaskSpec(task: t, focus: nil, profile: topProfile.isEmpty ? nil : topProfile, reuseID: nil))
-                    }
-                } else if let dict = raw as? [String: Any] {
-                    let t = trimmed(dict["task"] ?? dict["query"])
-                    if !t.isEmpty {
-                        let f = trimmed(dict["focus"])
-                        let p = trimmed(dict["profile"])
-                        let profile = p.isEmpty ? (topProfile.isEmpty ? nil : topProfile) : p
-                        specs.append(SubagentTaskSpec(task: t, focus: f.isEmpty ? nil : f, profile: profile, reuseID: uuid(dict["subagent_id"])))
-                    }
-                }
-            }
-            if !specs.isEmpty { return specs }
-        }
-
-        let t = trimmed(args["task"] ?? args["query"])
-        guard !t.isEmpty else { return [] }
-        let f = trimmed(args["focus"])
-        let p = trimmed(args["profile"])
-        return [SubagentTaskSpec(task: t, focus: f.isEmpty ? nil : f, profile: p.isEmpty ? nil : p, reuseID: uuid(args["subagent_id"]))]
-    }
-
     /// 执行单个子代理（新建或复用），并把生命周期事件抛给 UI。
     private func runSubagent(spec: SubagentTaskSpec, parentSessionID: UUID, plan: ModelRoutingPlan) async -> SubagentRunResult {
         // 全局并行上限（P8）：跨多次 dispatch / 跨层级累计，防模型失控堆积同时打满服务商。
@@ -2144,8 +1916,10 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
         // 子代理思考档位（参考 reasonix subagent_effort 思路，设置 → 智能体 → 子代理）：
         // follow=不强制（模型默认） / off=关闭思考 / low / high。
         // 派发时就确定：模型信息（含思考强度）在启动即展示，不等运行结束。
+        // 主线程快照读取（后台裸读 SettingsStore 竞争修复，2026-08-14）。
+        let subagentThinking = await MainActor.run { SettingsStore.shared.settings.subagent.thinking }
         let childThinking: String? = {
-            switch SettingsStore.shared.settings.subagent.thinking {
+            switch subagentThinking {
             case "off": return "off"
             case "low": return "low"
             case "high": return "high"
@@ -2293,12 +2067,12 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
         if let sampling { child.configure(sampling: sampling) }
         let childDepth = subagentDepth + 1
         child.subagentDepth = childDepth
-        let canDispatchDeeper = childDepth < Self.maxSubagentDepth
+        let canDispatchDeeper = childDepth < AgentLoopHelpers.maxSubagentDepth
         // P2-4：深度触顶由 buildToolSchemas 的 canDispatchSubagents 统一判定（硬上限），
         // 这里不再用 toolNameExclusions 控制派发权限（避免双份逻辑漂移）。
         let profile = SubAgentProfileStore.shared.profile(named: profileName)
         let systemPrompt = profile.systemPrompt + "\n\n"
-            + Self.subagentEngineSuffix(focus: focus, depth: childDepth, canDispatchDeeper: canDispatchDeeper)
+            + AgentLoopHelpers.subagentEngineSuffix(focus: focus, depth: childDepth, canDispatchDeeper: canDispatchDeeper)
         child.setSystemPrompt(stable: systemPrompt, volatile: "")
         child.configure(sessionID: subID, streamingMessageID: nil)
         // 子代理 usage 转发到父引擎统计（P6）：TokenUsageTracker 只绑主引擎，
@@ -2336,141 +2110,5 @@ private final class SubagentSlotCounter: @unchecked Sendable {
     func release() {
         lock.lock(); defer { lock.unlock() }
         count = max(0, count - 1)
-    }
-}
-
-/// 活跃子代理引擎容器（线程安全）。并行派发时同时存在多个子引擎，
-/// 父引擎 cancel() 需要一次性把它们全部取消。方法全部为同步函数——
-/// 在 async 上下文里直接调 `NSLock.lock()` 会被 Swift 6 判为不可用，
-/// 封装成同步方法后即可安全调用。
-final class SubagentEngineBag: @unchecked Sendable {
-    private let lock = NSLock()
-    private var engines: [AgentLoopEngine] = []
-
-    func add(_ engine: AgentLoopEngine) {
-        lock.lock(); engines.append(engine); lock.unlock()
-    }
-
-    func remove(_ engine: AgentLoopEngine) {
-        lock.lock(); engines.removeAll { $0 === engine }; lock.unlock()
-    }
-
-    /// 取出并清空全部引擎（用于父引擎取消时批量停子代理）。
-    func drain() -> [AgentLoopEngine] {
-        lock.lock(); defer { lock.unlock() }
-        let all = engines
-        engines.removeAll()
-        return all
-    }
-
-    /// 按子引擎会话 ID（= 子代理 id）取消并移除；命中返回 true。
-    func cancel(id: UUID) -> Bool {
-        lock.lock(); defer { lock.unlock() }
-        guard let idx = engines.firstIndex(where: { $0.runtimeSessionID == id }) else { return false }
-        let engine = engines.remove(at: idx)
-        engine.cancel()
-        return true
-    }
-}
-
-/// 活跃工具执行 Task 容器（线程安全）。[Fix 2026-08-11 并发工具崩溃·参考实现]
-///
-/// 原实现是 `AgentLoopEngine.toolExecutionTask: Any?` 单一共享可变属性：
-/// 并发工具(executeToolsConcurrently 的 withTaskGroup 同时跑多个 executeTool)
-/// 在同一属性上写入/清空,主线程 pause/cancel 也同时读写,ARC 引用计数竞争导致
-/// `swift_release_dealloc` 崩溃(用户实证:两个 shell 并发执行时偶发闪退)。
-///
-/// 本容器照 in-flight 集合模型(ISHExecutionCoordinator actor 持有
-/// perSessionInflight PID 队列)与项目内 SubagentEngineBag 范式实现:NSLock 保护的
-/// [callID: Task] 字典,每个并发工具写自己的槽位;pause/cancel 用 drain() 枚举
-/// 取消**全部** in-flight 工具(stopCurrentCommand 语义:一次停止=取消整批)。
-final class ToolTaskBag: @unchecked Sendable {
-    private let lock = NSLock()
-    private var tasks: [String: Task<ToolResult, Never>] = [:]
-
-    func insert(_ callID: String, task: Task<ToolResult, Never>) {
-        lock.lock(); tasks[callID] = task; lock.unlock()
-    }
-
-    func remove(_ callID: String) {
-        lock.lock(); tasks.removeValue(forKey: callID); lock.unlock()
-    }
-
-    /// 取出并清空全部工具 Task（用于暂停/取消时批量取消）。
-    func drain() -> [Task<ToolResult, Never>] {
-        lock.lock(); defer { lock.unlock() }
-        let all = Array(tasks.values)
-        tasks.removeAll()
-        return all
-    }
-}
-
-/// 子代理流式文本收集器：并行派发时多个子引擎在各自线程上回调 onToken，
-/// 用锁保护累积字符串，避免数据竞争（引擎整体是 @unchecked Sendable，需自管同步）。
-final class SubagentAnswerCollector: @unchecked Sendable {
-    private let lock = NSLock()
-    private var buffer = ""
-
-    func append(_ piece: String) {
-        lock.lock(); buffer += piece; lock.unlock()
-    }
-
-    var value: String {
-        lock.lock(); defer { lock.unlock() }
-        return buffer
-    }
-}
-
-/// 子代理时间线序号发号器（工具调用 / 思考段穿插渲染用），线程安全。
-final class SubagentTimelineCounter: @unchecked Sendable {
-    private let lock = NSLock()
-    private var current = 0
-
-    func next() -> Int {
-        lock.lock(); defer { lock.unlock() }
-        let v = current
-        current += 1
-        return v
-    }
-}
-
-/// 子代理展示信息（驱动会话页上方圆形图标），需 Sendable 以便跨并发域传递。
-struct SubagentInfo: Codable, Identifiable, Sendable {
-    let id: UUID
-    let name: String
-    /// 智能体分配给该子代理的任务描述（用户在详情页需要看到的内容）。
-    let task: String
-}
-
-/// 子代理生命周期事件，由父引擎在派发 / 运行中 / 结束时抛出，供 UI 展示。
-enum SubagentEvent: Sendable {
-    case started(SubagentInfo)
-    case taskAdded(SubagentInfo, String)
-    case token(SubagentInfo, String)
-    /// 子代理发出的工具调用（与主线一致的 ToolCallEvent，用于详情页展示工具指示器）。
-    case toolCall(SubagentInfo, ToolCallEvent)
-    /// 子代理工具执行结果（callID 用于并发同名工具的结果配对）。
-    case toolResult(SubagentInfo, String, String, String, Bool, TimeInterval)
-    /// 子代理分段思考（text / 迭代序号 / 时间线序号，用于穿插渲染）。
-    case reasoning(SubagentInfo, String, Int, Int)
-    case error(SubagentInfo, String)
-    /// 子代理被取消/中断（终态，与 finished 互斥）。
-    case cancelled(SubagentInfo)
-    case finished(SubagentInfo)
-}
-
-enum AgentError: LocalizedError {
-    case notConfigured
-    case requestFailed
-    case toolExecutionFailed(String)
-    case iterationLimitReached
-
-    var errorDescription: String? {
-        switch self {
-        case .notConfigured: return L10n.l("err_no_model_configured")
-        case .requestFailed: return L10n.l("err_model_request_failed")
-        case .toolExecutionFailed(let message): return message
-        case .iterationLimitReached: return L10n.l("err_tool_call_limit")
-        }
     }
 }

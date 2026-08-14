@@ -1,32 +1,7 @@
 import Foundation
 import zlib
 
-// MARK: - Skill Frontmatter (技能格式 格式)
 
-/// 解析 SKILL.md 得到的元数据 + 正文。
-/// 格式对齐 https://github.com//技能格式：
-/// 每个技能是一个目录（小写 kebab-case），内含 SKILL.md：
-///   ---
-///   name: skill-name
-///   description: >            # 折叠标量，可多行
-///     做什么、何时触发
-///   compatibility: 可选依赖    # 可选
-///   version: 1.0.0            # 可选（技能格式 无此字段，这里用于展示）
-///   ---
-///   <Markdown 指令正文，建议 < 500 行>
-/// 可选子目录：scripts/（可执行脚本）、references/（按需加载文档）、assets/（模板/资源）、evals/（测试用例）
-struct SkillFrontmatter {
-    var name: String = ""
-    var description: String = ""
-    var compatibility: String?
-    var version: String?
-    var body: String = ""
-}
-
-enum SkillError: Error {
-    case invalidName
-    case notFound
-}
 
 // MARK: - Zip Deflate 解压（zlib，Foundation 已链接，无需额外依赖）
 
@@ -84,7 +59,7 @@ private enum ZipInflate {
     }
 }
 
-// MARK: - Skill Manager
+
 
 /// 技能总管：扫描沙盒 skills/ 目录、解析 SKILL.md、管理启用状态、为 system prompt 提供注入文本。
 /// 兼容技能格式目录格式，可直接放入符合规范的技能目录。
@@ -740,3 +715,4 @@ final class SkillManager {
         }
     }
 }
+

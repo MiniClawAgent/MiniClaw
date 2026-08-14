@@ -60,7 +60,7 @@ struct RunAgentTaskIntent: LiveActivityIntent, ProgressReportingIntent {
         BackgroundTaskController.shared.armForIntent(sessionID: nil)
         // LiveActivityIntent 授权窗口内启动实时活动（官方唯一后台启动路径）；
         // 引擎 agentDidStart 会再次调用（幂等复用），双路径安全。
-        BackgroundTaskController.shared.startLiveActivity(sessionID: nil, title: String(localized: "new_task"), icon: ChatSession.defaultIcon)
+        BackgroundTaskController.shared.startLiveActivity(sessionID: nil, title: L10n.l("new_task"), icon: ChatSession.defaultIcon)
 
         let trimmed = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { throw IntentError.emptyPrompt }
@@ -73,7 +73,7 @@ struct RunAgentTaskIntent: LiveActivityIntent, ProgressReportingIntent {
         }
 
         // 新建会话（与深链语义一致：source=deeplink），标题占位「新会话」由 智能体标题生成接管。
-        guard let session = SessionManager.shared.createSession(title: "新会话", source: "deeplink") else {
+        guard let session = SessionManager.shared.createSession(title: L10n.l("new_chat_title"), source: "deeplink") else {
             throw IntentError.createSessionFailed
         }
         let task = AppState.PendingDeepLinkTask(
@@ -87,7 +87,7 @@ struct RunAgentTaskIntent: LiveActivityIntent, ProgressReportingIntent {
         AppState.shared?.consumeIntentTaskIfNeeded()
 
         // 开始通知标题固定「新建任务」（仅本意图；「继续会话」的开始通知仍用会话名，完成通知不变）。
-        IntentNotification.postStarted(title: String(localized: "new_task"), promptPreview: String(trimmed.prefix(50)), sessionID: session.id)
+        IntentNotification.postStarted(title: L10n.l("new_task"), promptPreview: String(trimmed.prefix(50)), sessionID: session.id)
 
 #if compiler(>=6.4)
         // ===== iOS 27+ 官方长任务路径（LongRunningIntent）=====
@@ -99,7 +99,7 @@ struct RunAgentTaskIntent: LiveActivityIntent, ProgressReportingIntent {
             // 定期上报进度（系统要求）：totalUnitCount=0 为不确定进度，
             // completedUnitCount 递增表示持续活跃（进度数据源：引擎 词元/阶段，后续可细化）。
             progress.totalUnitCount = 100
-            progress.localizedDescription = String(localized: "intent_processing")
+            progress.localizedDescription = L10n.l("intent_processing")
             let deadline = Date().addingTimeInterval(Self.finishTimeoutSeconds)
             while Date() < deadline {
                 try Task.checkCancellation()
@@ -134,7 +134,7 @@ struct RunAgentTaskIntent: LiveActivityIntent, ProgressReportingIntent {
         // progress 定期更新仅作 Siri 进度显示（无延长能力）。
         // 等引擎真正开始 run 后再返回（消除「返回了但引擎没启动」窗口）。
         await waitForEngineStart(sessionID: session.id, progress: progress)
-        return .result(value: String(localized: "started"), dialog: IntentDialog("task_started_notice"))
+        return .result(value: L10n.l("started"), dialog: IntentDialog("task_started_notice"))
 #endif
     }
 
@@ -148,10 +148,10 @@ struct RunAgentTaskIntent: LiveActivityIntent, ProgressReportingIntent {
         case timeout
         var errorDescription: String? {
             switch self {
-            case .emptyPrompt: return String(localized: "intent_empty_prompt")
+            case .emptyPrompt: return L10n.l("intent_empty_prompt")
             case .attachmentReadFailed(let name): return String(format: L10n.l("intent_attachment_read_failed"), name)
-            case .createSessionFailed: return String(localized: "intent_create_session_failed")
-            case .timeout: return String(localized: "intent_wait_timeout")
+            case .createSessionFailed: return L10n.l("intent_create_session_failed")
+            case .timeout: return L10n.l("intent_wait_timeout")
             }
         }
     }
@@ -185,7 +185,7 @@ private func waitForEngineStart(sessionID: UUID, progress: Progress? = nil) asyn
         }
         if let progress {
             progress.totalUnitCount = 100
-            progress.localizedDescription = String(localized: "intent_processing")
+            progress.localizedDescription = L10n.l("intent_processing")
             progress.completedUnitCount += 1
         }
         try? await Task.sleep(for: .milliseconds(100))
@@ -347,7 +347,7 @@ struct ContinueSessionIntent: LiveActivityIntent, ProgressReportingIntent {
         // waitForResult 仅影响 dialog 措辞，返回值恒为整轮回复文本（快捷指令总能拿到结果）。
         let reply = try await performBackgroundTask { () -> String? in
             progress.totalUnitCount = 100
-            progress.localizedDescription = String(localized: "intent_processing")
+            progress.localizedDescription = L10n.l("intent_processing")
             let deadline = Date().addingTimeInterval(Self.finishTimeoutSeconds)
             while Date() < deadline {
                 try Task.checkCancellation()
@@ -371,7 +371,7 @@ struct ContinueSessionIntent: LiveActivityIntent, ProgressReportingIntent {
         await waitForEngineStart(sessionID: session.id, progress: progress)
 
         guard waitForResult else {
-            return .result(value: String(localized: "started"), dialog: IntentDialog("task_started_processing"))
+            return .result(value: L10n.l("started"), dialog: IntentDialog("task_started_processing"))
         }
 
         // 等待模式：整轮 Agent 跑完由 ChatView.onComplete 经 fireDeepLinkSuccess 回传回复文本；
@@ -399,10 +399,10 @@ struct ContinueSessionIntent: LiveActivityIntent, ProgressReportingIntent {
         case timeout
         var errorDescription: String? {
             switch self {
-            case .sessionNotFound: return String(localized: "intent_session_not_found")
-            case .emptyMessage: return String(localized: "intent_empty_message")
+            case .sessionNotFound: return L10n.l("intent_session_not_found")
+            case .emptyMessage: return L10n.l("intent_empty_message")
             case .attachmentReadFailed(let name): return String(format: L10n.l("intent_attachment_read_failed"), name)
-            case .timeout: return String(localized: "intent_reply_timeout")
+            case .timeout: return L10n.l("intent_reply_timeout")
             }
         }
     }

@@ -5,7 +5,7 @@ import WebKit
 struct BrowserSheetSettingsView: View {
     @Environment(\.dismiss) private var dismiss
 
-    @State private var uaProfile: BrowserController.UAProfile = BrowserController.shared.uaProfile
+    @State private var uaProfile: UAProfile = BrowserController.shared.uaProfile
     @State private var cookieGroups: [CookieGroup] = []
     /// 搜索引擎本地状态（驱动 Picker 即时刷新；onChange 写回 SettingsStore 持久化）。
     @State private var searchEngine: SearchEngine =
@@ -25,12 +25,12 @@ struct BrowserSheetSettingsView: View {
             // MARK: UA 设置
             Section(L10n.l("user_agent")) {
                 Picker(L10n.l("ua_preset"), selection: $uaProfile) {
-                    Text("Mobile Safari").tag(BrowserController.UAProfile.mobile)
-                    Text("Desktop Safari").tag(BrowserController.UAProfile.desktop)
+                    Text("Mobile Safari").tag(UAProfile.mobile)
+                    Text("Desktop Safari").tag(UAProfile.desktop)
                 }
                 .pickerStyle(.segmented)
 
-                Text(uaProfile == .mobile ? BrowserController.mobileUA : BrowserController.desktopUA)
+                Text(uaProfile == .mobile ? BrowserActionHelpers.mobileUA : BrowserActionHelpers.desktopUA)
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .textSelection(.enabled)
