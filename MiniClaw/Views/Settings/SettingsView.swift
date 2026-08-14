@@ -2,6 +2,13 @@ import SwiftUI
 
 struct SettingsView: View {
     @EnvironmentObject private var appState: AppState
+    /// 打开外部链接（备案号跳工信部 ICP 备案查询网站）。
+    @Environment(\.openURL) private var openURL
+    /// 真实版本号（从主 App bundle 读取，2026-08-14 起不再硬编码）。
+    private var versionString: String {
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
+        return "MiniClaw v\(version)"
+    }
     /// 订阅界面语言单例：语言切换时 `current` 变化触发本视图重渲染，
     /// 让所有 `L10n.tr` 文案以新语言重新求值（替代旧的 .id() 整树重建方案）。
     @ObservedObject private var l10n = L10n.shared
@@ -157,19 +164,23 @@ struct SettingsView: View {
                 Text(L10n.l("others"))
             }
 
-            // App version footer
+            // App version footer（版本号读取 Bundle.main 真实值，2026-08-14 起不再硬编码）
             Section {
                 EmptyView()
             } footer: {
                 HStack {
                     Spacer()
                     VStack(spacing: 4) {
-                        Text("MiniClaw v1.0.0")
+                        Text(versionString)
                             .font(.caption)
                             .foregroundStyle(.secondary)
-                        Text("Build 1")
+                        // 备案号（工信部 ICP 备案，2026-08-14 上架合规要求；点击跳转工信部备案查询网站）
+                        Text("湘ICP备2023018958号-16A")
                             .font(.caption2)
                             .foregroundStyle(.tertiary)
+                            .onTapGesture {
+                                openURL(URL(string: "https://beian.miit.gov.cn/")!)
+                            }
                     }
                     Spacer()
                 }
