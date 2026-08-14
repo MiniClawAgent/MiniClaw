@@ -51,6 +51,7 @@ WHITELIST = [
     ("App/Localization.swift", "中文", "语言选择器的母语名（惯例不翻译）"),
     ("App/Localization.swift", "日本語", "语言选择器的母语名"),
     ("App/Localization.swift", "한국어", "语言选择器的母语名"),
+    ("Views/Settings/SettingsView.swift", "湘ICP备2023018958号-16A", "工信部 ICP 备案号（固定合规文案，全球统一不翻译）"),
 ]
 
 
