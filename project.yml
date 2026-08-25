@@ -80,7 +80,7 @@ targets:
       # SwiftMath 数学字体资源(2026-08-11 闪退修复):必须进 App 主包。
       # MiniClawKit 静态合并链接,其 resources 不进 App 包 → Bundle.main
       # 找不到 mathFonts.bundle → MTFont.fontBundle 强解包崩溃。
-      - path: ../第三方源码/SwiftMath/Sources/SwiftMath/mathFonts.bundle
+      - path: ../Kit/SwiftMath/Sources/SwiftMath/mathFonts.bundle
         type: folder
         buildPhase: resources
       # Privacy Manifest（iOS 17+ 上架强制要求：声明所需理由 API + 数据收集类型）
@@ -125,7 +125,7 @@ targets:
         # 所有 target 都会报 Driver threw unknown argument);显式模块下 cmark_gfm
         # 通过 src/include/module.modulemap 解析(modulemap 已在 include 路径内)。
         SWIFT_INCLUDE_PATHS:
-          - "$(SRCROOT)/../第三方源码/swift-cmark/src/include"
+          - "$(SRCROOT)/../Kit/swift-cmark/src/include"
     dependencies:
       - sdk: Security.framework
       - sdk: HealthKit.framework
@@ -169,24 +169,24 @@ targets:
         MARKETING_VERSION: 1.0
         SWIFT_OBJC_BRIDGING_HEADER: ""
         HEADER_SEARCH_PATHS:
-          - "$(SRCROOT)/../第三方源码/swift-cmark/src/include"
-          - "$(SRCROOT)/../第三方源码/swift-cmark/extensions"
+          - "$(SRCROOT)/../Kit/swift-cmark/src/include"
+          - "$(SRCROOT)/../Kit/swift-cmark/extensions"
         SWIFT_INCLUDE_PATHS:
-          - "$(SRCROOT)/../第三方源码/swift-cmark/src/include"
+          - "$(SRCROOT)/../Kit/swift-cmark/src/include"
         OTHER_LDFLAGS:
           - "-lsqlite3"
           - "-lresolv"
     sources:
-      - path: ../第三方源码/MiniClawKit
+      - path: MiniClawKit
         excludes:
           - KaTeX
           - .git
       # SwiftMath(原生公式渲染,vendored 1.7.3)
-      - path: ../第三方源码/SwiftMath/Sources/SwiftMath
+      - path: ../Kit/SwiftMath/Sources/SwiftMath
         excludes:
           - mathFonts.bundle
       # cmark-gfm C 源码(vendored,swift-cmark 0.8.0)
-      - path: ../第三方源码/swift-cmark/src
+      - path: ../Kit/swift-cmark/src
         buildPhase: sources
         excludes:
           - include
@@ -196,14 +196,14 @@ targets:
           - config.h.in
           - case_fold_switch.inc
           - libcmark-gfm.pc.in
-      - path: ../第三方源码/swift-cmark/extensions
+      - path: ../Kit/swift-cmark/extensions
         buildPhase: sources
         excludes:
           - include
           - ext_scanners.re
           - CMakeLists.txt
     resources:
-      - path: ../第三方源码/MiniClawKit/KaTeX
+      - path: MiniClawKit/KaTeX
         type: folder
 
   MiniClawWidget:
@@ -269,8 +269,8 @@ targets:
         SWIFT_INCLUDE_PATHS:
           - "$(BUILT_PRODUCTS_DIR)"
           # cmark_gfm 模块（主 target/Kit 同源）：测试引用主 App 接口时会解析到该模块
-          - "$(SRCROOT)/../第三方源码/swift-cmark/src/include"
-          - "$(SRCROOT)/../第三方源码/swift-cmark/extensions"
+          - "$(SRCROOT)/../Kit/swift-cmark/src/include"
+          - "$(SRCROOT)/../Kit/swift-cmark/extensions"
         INFOPLIST_FILE: MiniClawTests/Info.plist
         GENERATE_INFOPLIST_FILE: NO
 
