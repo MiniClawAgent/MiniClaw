@@ -112,12 +112,6 @@ targets:
           - "UIInterfaceOrientationLandscapeRight"
         INFOPLIST_KEY_UIRequiredDeviceCapabilities:
           - "arm64"
-        INFOPLIST_KEY_UIBackgroundModes:
-          - "audio"
-          - "fetch"
-          - "processing"
-          - "remote-notification"
-          - "location"
         INFOPLIST_KEY_NSSupportsLiveActivities: YES
         INFOPLIST_KEY_NSSupportsLiveActivitiesFrequentUpdates: YES
         INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO
