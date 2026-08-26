@@ -20171,6 +20171,35 @@
         }
       }
     },
+    "manage_extensible_plugin_packages" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Manage extensible plugin packages"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "拡張可能なプラグインパッケージを管理"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "확장 가능한 플러그인 패키지 관리"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "管理可扩展的插件包"
+          }
+        }
+      }
+    },
     "manage_external_folder_mount_points" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -33928,6 +33957,74 @@
         }
       }
     },
+    "skill_single_file_deprecated" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Single-file .%@ is deprecated. Please import a .mpk plugin package."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "单文件 .%@ 已弃用，请导入 .mpk 插件包。"
+          }
+        }
+      }
+    },
+    "skill_no_plugin_dir" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No plugin.json found in the package."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "插件包内未找到 plugin.json 清单。"
+          }
+        }
+      }
+    },
+    "skill_no_plugin_in_file" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No valid plugin (plugin.json) found in the file."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "文件中未找到有效插件（plugin.json）。"
+          }
+        }
+      }
+    },
+    "skill_update_id_mismatch" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Plugin id mismatch; cannot update a different plugin."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "插件 id 不匹配，无法更新其他插件。"
+          }
+        }
+      }
+    },
     "skill_update_failed" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -33987,6 +34084,35 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "技能"
+          }
+        }
+      }
+    },
+    "plugins" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Plugins"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "プラグイン"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "플러그인"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "插件"
           }
         }
       }

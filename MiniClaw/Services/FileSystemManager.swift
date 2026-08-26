@@ -37,7 +37,7 @@ final class FileSystemManager: @unchecked Sendable {
     func syncBundledResourcesInBackground() {
         bundleSyncQueue.async { [self] in
             syncBundledRules()
-            syncBundledSkills()
+            syncBundledPlugins()
             syncBundledSubAgentProfiles()
             bundleSyncLock.lock()
             _bundledSyncDone = true
@@ -139,10 +139,10 @@ final class FileSystemManager: @unchecked Sendable {
     /// 记忆向量索引缓存目录。
     var embeddingsCacheDir: URL { cacheDir.appendingPathComponent("embeddings") }
 
-    /// 读取 BundledSkills 同步 manifest（记录由 App 内置管理、每次启动会被覆盖的技能文件）。
-    /// 用于区分「内置技能」与「本地导入技能」。manifest 不存在时返回空集合。
-    func bundledSkillsManifest() -> Set<String> {
-        let manifestURL = skillsDir.appendingPathComponent(".bundled-skills-manifest.json")
+    /// 读取内置插件同步 manifest（记录由 App 内置管理、每次启动会被覆盖的插件 id 集合）。
+    /// 用于区分「内置插件」与「本地导入插件」。manifest 不存在时返回空集合。
+    func bundledPluginIds() -> Set<String> {
+        let manifestURL = skillsDir.appendingPathComponent(".bundled-plugins-manifest.json")
         guard let data = try? Data(contentsOf: manifestURL),
               let arr = try? JSONDecoder().decode([String].self, from: data) else { return [] }
         return Set(arr)
@@ -260,51 +260,122 @@ final class FileSystemManager: @unchecked Sendable {
         saveBundledRulesManifest(currentManagedFiles, to: manifestURL)
     }
 
-    // MARK: - Bundled Skills
+    // MARK: - Bundled Plugins（.mpk 压缩包）
 
-    /// 将 App Bundle 中的内置技能同步到 Documents/MiniClaw/skills。
-    /// 格式对齐技能格式：每个子目录是一个技能（含 SKILL.md）。
-    /// 与 rules 同理：Bundle 同名覆盖升级；用户自建技能目录保留；已移除的内置技能按 manifest 清理。
-    private func syncBundledSkills() {
-        guard let bundledSkillsDir = Bundle.main.resourceURL?
-            .appendingPathComponent("BundledSkills", isDirectory: true),
-              fileManager.fileExists(atPath: bundledSkillsDir.path) else {
+    /// 将 App Bundle 中的内置插件（`.mpk`）解包同步到 Documents/MiniClaw/skills/<plugin-id>/。
+    /// 每个 `.mpk` 是标准 zip，内部固定含 `<plugin-id>/plugin.json`（强制清单）+ 内容文件。
+    /// 与 rules 同理：Bundle 同名覆盖升级；用户自建插件目录保留；已移除的内置插件按 manifest 清理。
+    /// **强制 plugin.json**：内置 .mpk 缺失 plugin.json 或读不到 id 时整体拒绝解包（不兼容旧单文件 SKILL.md）。
+    private func syncBundledPlugins() {
+        guard let bundledPluginsDir = Bundle.main.resourceURL?
+            .appendingPathComponent("BundledPlugins", isDirectory: true),
+              fileManager.fileExists(atPath: bundledPluginsDir.path) else {
             return
         }
-        let manifestURL = skillsDir.appendingPathComponent(".bundled-skills-manifest.json")
-        let previousManagedFiles = loadBundledSkillsManifest(at: manifestURL)
-        let bundledFiles = recursiveFiles(in: bundledSkillsDir)
-        var currentManagedFiles = Set<String>()
+        let manifestURL = skillsDir.appendingPathComponent(".bundled-plugins-manifest.json")
+        let previousManagedIDs = loadBundledPluginIDs(at: manifestURL)
+        var currentManagedIDs = Set<String>()
 
-        for sourceURL in bundledFiles {
-            guard let relativePath = relativePath(of: sourceURL, under: bundledSkillsDir),
-                  !relativePath.isEmpty else { continue }
-
-            currentManagedFiles.insert(relativePath)
-            let destinationURL = skillsDir.appendingPathComponent(relativePath)
-
-            do {
-                try fileManager.createDirectory(
-                    at: destinationURL.deletingLastPathComponent(),
-                    withIntermediateDirectories: true
-                )
-                if fileManager.fileExists(atPath: destinationURL.path) {
-                    try fileManager.removeItem(at: destinationURL)
-                }
-                try fileManager.copyItem(at: sourceURL, to: destinationURL)
-            } catch {
-                continue
-            }
+        // 列举内置 .mpk 包
+        let mpkURLs: [URL]
+        do {
+            mpkURLs = try fileManager.contentsOfDirectory(at: bundledPluginsDir, includingPropertiesForKeys: nil)
+                .filter { $0.pathExtension.lowercased() == "mpk" }
+        } catch {
+            mpkURLs = []
         }
 
-        for removedPath in previousManagedFiles.subtracting(currentManagedFiles) {
-            let staleURL = skillsDir.appendingPathComponent(removedPath).standardizedFileURL
+        for mpkURL in mpkURLs {
+            let tmp = FileManager.default.temporaryDirectory
+                .appendingPathComponent("miniclaw_bundled_plugin_\(UUID().uuidString)")
+            do {
+                try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
+                try ZipArchive.extract(at: mpkURL, into: tmp)
+            } catch {
+                try? FileManager.default.removeItem(at: tmp)
+                continue
+            }
+            guard let pluginDir = findPluginDirectory(in: tmp) else {
+                try? FileManager.default.removeItem(at: tmp)
+                continue
+            }
+            let pluginURL = URL(fileURLWithPath: pluginDir.path).appendingPathComponent("plugin.json")
+            guard let id = Self.pluginID(from: pluginURL) else {
+                // 强制 plugin.json：缺失或读不到 id → 拒绝该内置包
+                try? FileManager.default.removeItem(at: tmp)
+                continue
+            }
+            currentManagedIDs.insert(id)
+            let dest = skillsDir.appendingPathComponent(id)
+            // 同名覆盖升级（先删后拷，避免半包残留）
+            try? FileManager.default.removeItem(at: dest)
+            do {
+                try FileManager.default.copyItem(at: URL(fileURLWithPath: pluginDir.path), to: dest)
+            } catch {
+                try? FileManager.default.removeItem(at: dest)
+                currentManagedIDs.remove(id)
+            }
+            try? FileManager.default.removeItem(at: tmp)
+        }
+
+        // 清理已移除的内置插件目录（manifest 中记录但当前不再内置的 id）
+        for oldID in previousManagedIDs.subtracting(currentManagedIDs) {
+            let staleURL = skillsDir.appendingPathComponent(oldID).standardizedFileURL
             guard contains(staleURL, in: skillsDir),
                   fileManager.fileExists(atPath: staleURL.path) else { continue }
             try? fileManager.removeItem(at: staleURL)
         }
 
-        saveBundledSkillsManifest(currentManagedFiles, to: manifestURL)
+        // 旧版（BundledSkills 单文件时代）遗留目录清理：读取旧 manifest，移除其记录的目录，并删除旧 manifest 文件。
+        let legacyManifestURL = skillsDir.appendingPathComponent(".bundled-skills-manifest.json")
+        let legacyPaths = loadBundledSkillsManifest(at: legacyManifestURL)
+        if !legacyPaths.isEmpty {
+            for rel in legacyPaths {
+                guard let first = rel.split(separator: "/").first, !first.isEmpty else { continue }
+                let staleURL = skillsDir.appendingPathComponent(String(first)).standardizedFileURL
+                guard contains(staleURL, in: skillsDir),
+                      fileManager.fileExists(atPath: staleURL.path) else { continue }
+                try? fileManager.removeItem(at: staleURL)
+            }
+            try? fileManager.removeItem(at: legacyManifestURL)
+        }
+
+        saveBundledPluginIDs(currentManagedIDs, to: manifestURL)
+    }
+
+    /// 递归查找含 `plugin.json` 的目录，返回路径最浅的一个（避免嵌套）。
+    private func findPluginDirectory(in root: URL) -> URL? {
+        guard let enumerator = fileManager.enumerator(
+            at: root,
+            includingPropertiesForKeys: [.isDirectoryKey],
+            options: [.skipsHiddenFiles]
+        ) else { return nil }
+        var candidates: [URL] = []
+        for case let fileURL as URL in enumerator {
+            if fileURL.lastPathComponent == "plugin.json" {
+                candidates.append(fileURL.deletingLastPathComponent())
+            }
+        }
+        return candidates.sorted { $0.path.count < $1.path.count }.first
+    }
+
+    /// 从 plugin.json 读取插件 id（声明式唯一标识，用作沙盒目录名）。
+    private static func pluginID(from url: URL) -> String? {
+        guard let data = try? Data(contentsOf: url),
+              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let id = obj["id"] as? String, !id.isEmpty else { return nil }
+        return id
+    }
+
+    private func loadBundledPluginIDs(at url: URL) -> Set<String> {
+        guard let data = try? Data(contentsOf: url),
+              let arr = try? JSONDecoder().decode([String].self, from: data) else { return [] }
+        return Set(arr)
+    }
+
+    private func saveBundledPluginIDs(_ ids: Set<String>, to url: URL) {
+        guard let data = try? JSONEncoder().encode(Array(ids)) else { return }
+        try? data.write(to: url, options: [.atomic])
     }
 
     /// 将 App Bundle 中的内置子代理角色同步到 Documents/MiniClaw/subagent-profiles。
@@ -659,8 +730,8 @@ final class FileSystemManager: @unchecked Sendable {
         if let expectedFirst, !expectedFirst.isEmpty {
             let rootPath = root.path
             let tail = url.path.hasPrefix(rootPath + "/") ? String(url.path.dropFirst(rootPath.count + 1)) : url.path
-            guard let first = tail.split(separator: "/").first.map(String.init) else { return false }
-            return first == expectedFirst
+            guard let first = tail.split(separator: "/").first else { return false }
+            return String(first) == expectedFirst
         }
         return true
     }

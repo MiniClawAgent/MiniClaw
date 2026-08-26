@@ -22,6 +22,23 @@ struct SkillFrontmatter {
     var body: String = ""
 }
 
+/// 插件清单（`plugin.json`）—— `.mpk` 唯一真相源，缺失则整个插件拒绝加载。
+/// 字段对齐《MiniClaw 插件化架构方案》§二；`id` 全局唯一，用作沙盒目录名。
+struct PluginManifest: Codable {
+    var id: String = ""
+    var name: String = ""
+    var version: String = "1.0.0"
+    var type: String = "skill"
+    var category: String = "skill"
+    var minCoreVersion: String = "1.0.0"
+    var enabledByDefault: Bool = true
+    var dependsOn: [String] = []
+    var conflictsWith: [String] = []
+    var author: String = ""
+    var license: String = ""
+    var icon: String = ""
+}
+
 enum SkillError: Error {
     case invalidName
     case notFound

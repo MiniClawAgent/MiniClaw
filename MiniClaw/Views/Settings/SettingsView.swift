@@ -51,9 +51,9 @@ struct SettingsView: View {
                 }
 
                 NavigationLink {
-                    SkillsSettingsView()
+                    PluginsSettingsView()
                 } label: {
-                    SettingsRow(icon: "puzzlepiece.extension.fill", color: .blue, title: L10n.l("skills"), subtitle: L10n.l("manage_extensible_skill_packages"))
+                    SettingsRow(icon: "puzzlepiece.extension.fill", color: .blue, title: L10n.l("plugins"), subtitle: L10n.l("manage_extensible_plugin_packages"))
                 }
 
                 NavigationLink {

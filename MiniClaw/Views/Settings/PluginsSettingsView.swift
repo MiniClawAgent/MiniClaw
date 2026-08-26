@@ -1,13 +1,18 @@
 import SwiftUI
 import UniformTypeIdentifiers
 
+extension UTType {
+    /// `.mpk` 插件压缩包（zip 兼容）。用于文件选择器筛选。
+    static let mpk = UTType(filenameExtension: "mpk") ?? .zip
+}
+
 /// 技能列表排序方式
 private enum SkillSortMode {
     case name        // 按名称（默认）
     case updated      // 按更新/安装时间
 }
 
-struct SkillsSettingsView: View {
+struct PluginsSettingsView: View {
     @State private var skills: [SkillPackage] = []
     @State private var sortMode: SkillSortMode = .name
 
@@ -42,7 +47,7 @@ struct SkillsSettingsView: View {
                 reload()
             }
         }
-        .navigationTitle(L10n.l("skills"))
+        .navigationTitle(L10n.l("plugins"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
@@ -69,7 +74,7 @@ struct SkillsSettingsView: View {
         }
         .fileImporter(
             isPresented: $showImport,
-            allowedContentTypes: [.zip, .plainText],
+            allowedContentTypes: [.zip, .mpk],
             allowsMultipleSelection: false
         ) { result in
             switch result {
@@ -121,6 +126,10 @@ private struct SkillRowView: View {
 
     var body: some View {
         HStack(alignment: .center, spacing: 10) {
+            Image(systemName: SkillManager.pluginIcon(category: skill.category, declared: skill.icon))
+                .font(.title2)
+                .foregroundStyle(.tint)
+                .frame(width: 28, alignment: .center)
             VStack(alignment: .leading, spacing: 5) {
                 HStack(spacing: 6) {
                     Text(skill.name)
@@ -266,7 +275,7 @@ private struct SkillDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .fileImporter(
             isPresented: $showUpdateImporter,
-            allowedContentTypes: [.zip, .plainText],
+            allowedContentTypes: [.zip, .mpk],
             allowsMultipleSelection: false
         ) { result in
             switch result {

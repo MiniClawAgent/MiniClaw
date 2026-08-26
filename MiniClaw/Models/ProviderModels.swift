@@ -312,12 +312,18 @@ struct SkillPackage: Identifiable, Codable, Hashable {
     var description: String
     var version: String
     var isEnabled: Bool = true
-    /// 技能在 skills/ 下的目录名（用于删除/查看正文，不在 UI 展示）
+    /// 技能在 skills/ 下的目录名（即插件 id，用于删除/查看正文，不在 UI 展示）
     var directoryName: String = ""
     /// 来源：`builtin`（App 内置）/ `imported`（本地导入）
     var source: String = "imported"
     /// 安装/首次记录时间
     var installDate: Date = Date()
+    /// 插件图标（SF Symbols 名）；空字符串时由 category 取默认图标
+    var icon: String = ""
+    /// 插件分类（用于默认图标与分组展示）
+    var category: String = "skill"
+    /// 插件类型（对应 plugin.json 的 type）
+    var type: String = "skill"
 }
 
 /// 远端 MCP 服务配置。Bearer 令牌 只存入 Keychain，永不编码进此模型。

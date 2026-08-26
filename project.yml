@@ -53,7 +53,7 @@ targets:
         type: group
         excludes:
           - Resources/BundledRules
-          - Resources/BundledSkills
+          - Resources/BundledPlugins
           - AppIntents
       # AppIntents 单独编译为 Swift 5 模式：规避 iOS 26 SDK 的 AppIntent Sendable / @MainActor 严格并发冲突
       # （详见 MiniClaw/AppIntents/MiniClawIntents.swift 顶部注释）。
@@ -62,7 +62,7 @@ targets:
       - path: MiniClaw/Resources/BundledRules
         type: folder
         buildPhase: resources
-      - path: MiniClaw/Resources/BundledSkills
+      - path: MiniClaw/Resources/BundledPlugins
         type: folder
         buildPhase: resources
       - path: MiniClaw/Resources/BundledSubAgentProfiles

@@ -1,63 +1,6 @@
 import Foundation
-import zlib
 
 
-
-// MARK: - Zip Deflate 解压（zlib，Foundation 已链接，无需额外依赖）
-
-/// 用 zlib 的 `inflate` 解压 DEFLATE 数据流（zip 的标准压缩方法）。
-private enum ZipInflate {
-    /// 用 zlib 的 inflate 解压 DEFLATE 数据流（zip 的标准压缩方法）。
-    static func inflateData(_ data: Data) throws -> Data {
-        var out = Data()
-        var strm = z_stream()
-        let initResult = inflateInit2_(&strm, -15, ZLIB_VERSION, Int32(MemoryLayout<z_stream>.size))
-        guard initResult == Z_OK else { throw SkillError.invalidName }
-
-        let chunk = 64 * 1024
-        var buffer = [UInt8](repeating: 0, count: chunk)
-        var result: Int32 = Z_OK
-
-        var input = [UInt8](data)
-        var inputLeft = input.count
-        while inputLeft > 0 {
-            let consumed = input.count - inputLeft
-            let total = input.count
-            let inputCopy = input
-            withExtendedLifetime(inputCopy) {
-                input.withUnsafeMutableBytes { (ptr: UnsafeMutableRawBufferPointer) in
-                    let base = ptr.baseAddress?.assumingMemoryBound(to: Bytef.self)
-                    strm.next_in = base?.advanced(by: consumed)
-                    strm.avail_in = UInt32(min(inputLeft, Int(Int32.max)))
-                    // 2026-08-12:输出缓冲指针与 inflate 调用必须在同一闭包内(避免悬垂指针)。
-                    while strm.avail_in > 0 {
-                        var produced = 0
-                        buffer.withUnsafeMutableBytes { (outPtr: UnsafeMutableRawBufferPointer) in
-                            strm.next_out = outPtr.bindMemory(to: Bytef.self).baseAddress
-                            strm.avail_out = UInt32(chunk)
-                            let r = inflate(&strm, Z_NO_FLUSH)
-                            if r != Z_OK && r != Z_STREAM_END && r != Z_BUF_ERROR {
-                                result = r
-                            }
-                            produced = chunk - Int(strm.avail_out)
-                        }
-                        // 闭包外 append:避免与 buffer 独占访问重叠。
-                        if produced > 0 {
-                            out.append(buffer, count: produced)
-                        }
-                        if result != Z_OK || strm.avail_in == 0 { break }
-                    }
-                }
-            }
-            inputLeft = total - Int(strm.avail_in)
-            if result != Z_OK && result != Z_STREAM_END { break }
-        }
-
-        inflateEnd(&strm)
-        guard result == Z_OK || result == Z_STREAM_END else { throw SkillError.invalidName }
-        return out
-    }
-}
 
 
 
@@ -98,34 +41,44 @@ final class SkillManager {
         let dirs = fs.skillDirectories()
         let settings = SettingsStore.shared.settings
         let enabled = settings.skillEnabledStates
-        let bundled = bundledSkillNames()
+        let bundled = bundledPluginIds()
         var installDates = settings.skillInstallDates
         var changed = false
 
         var result: [SkillPackage] = []
         for dir in dirs {
+            // 强制 plugin.json：无清单的目录（旧单文件 SKILL.md）一律跳过，不兼容。
+            let manifestURL = dir.appendingPathComponent("plugin.json")
+            guard let manifestData = try? Data(contentsOf: manifestURL),
+                  let manifest = try? JSONDecoder().decode(PluginManifest.self, from: manifestData) else {
+                continue
+            }
             let skillURL = dir.appendingPathComponent("SKILL.md")
             guard let raw = try? String(contentsOf: skillURL, encoding: .utf8) else { continue }
             let fm = Self.parseSkillMarkdown(raw)
-            guard !fm.name.isEmpty else { continue }
-            let isOn = enabled[fm.name] ?? true
+            let displayName = manifest.name.isEmpty ? fm.name : manifest.name
+            guard !displayName.isEmpty else { continue }
+            let isOn = enabled[displayName] ?? manifest.enabledByDefault
             let isBuiltin = bundled.contains(dir.lastPathComponent)
             let installDate: Date
-            if let d = installDates[fm.name] {
+            if let d = installDates[displayName] {
                 installDate = d
             } else {
                 installDate = Date()
-                installDates[fm.name] = installDate
+                installDates[displayName] = installDate
                 changed = true
             }
             result.append(SkillPackage(
-                name: fm.name,
+                name: displayName,
                 description: fm.description.isEmpty ? "(无描述)" : fm.description,
-                version: fm.version ?? "1.0.0",
+                version: manifest.version.isEmpty ? (fm.version ?? "1.0.0") : manifest.version,
                 isEnabled: isOn,
                 directoryName: dir.lastPathComponent,
                 source: isBuiltin ? "builtin" : "imported",
-                installDate: installDate
+                installDate: installDate,
+                icon: manifest.icon,
+                category: manifest.category.isEmpty ? manifest.type : manifest.category,
+                type: manifest.type
             ))
         }
         if changed {
@@ -137,10 +90,9 @@ final class SkillManager {
         return sorted
     }
 
-    /// 返回 Bundle manifest 中记录的内置技能目录名集合。
-    private func bundledSkillNames() -> Set<String> {
-        let paths = fs.bundledSkillsManifest()
-        return Set(paths.compactMap { $0.components(separatedBy: "/").first })
+    /// 返回 Bundle manifest 中记录的内置插件 id 集合。
+    private func bundledPluginIds() -> Set<String> {
+        fs.bundledPluginIds()
     }
 
     /// 设置技能启用状态并持久化。
@@ -305,6 +257,21 @@ final class SkillManager {
             """
             try template.write(to: skillURL, atomically: true, encoding: .utf8)
         }
+        // 新建技能一并写出 plugin.json（强制清单，type:skill），保证符合 .mpk 规范。
+        let manifestURL = dir.appendingPathComponent("plugin.json")
+        if !FileManager.default.fileExists(atPath: manifestURL.path) {
+            let manifest = PluginManifest(
+                id: clean,
+                name: clean,
+                version: "1.0.0",
+                type: "skill",
+                category: "skill",
+                enabledByDefault: true
+            )
+            if let data = try? JSONEncoder().encode(manifest) {
+                try? data.write(to: manifestURL, options: [.atomic])
+            }
+        }
         invalidateSkillsCache()
         return clean
     }
@@ -362,36 +329,30 @@ final class SkillManager {
         var result = ImportResult()
         let ext = url.pathExtension.lowercased()
         let staging: URL
-        if ext == "zip" {
+        if ext == "zip" || ext == "mpk" {
             let tmp = FileManager.default.temporaryDirectory
                 .appendingPathComponent("miniclaw_skill_upd_\(UUID().uuidString)")
             do {
                 try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
-                try extractZip(at: url, into: tmp)
+                try ZipArchive.extract(at: url, into: tmp)
                 staging = tmp
             } catch {
                 result.message = String(format: L10n.l("skill_unzip_failed"), error.localizedDescription)
                 return result
             }
-        } else if ext == "md" {
-            let tmp = FileManager.default.temporaryDirectory
-                .appendingPathComponent("miniclaw_skill_upd_\(UUID().uuidString)")
-                .appendingPathComponent(directoryName)
-            do {
-                try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
-                try FileManager.default.copyItem(at: url, to: tmp.appendingPathComponent("SKILL.md"))
-                staging = tmp
-            } catch {
-                result.message = String(format: L10n.l("skill_read_failed"), error.localizedDescription)
-                return result
-            }
         } else {
-            result.message = String(format: L10n.l("skill_unsupported_type"), ext)
+            // 单文件 SKILL.md 已弃用，更新也只接受 .mpk/.zip 压缩包。
+            result.message = String(format: L10n.l("skill_single_file_deprecated"), ext)
             return result
         }
 
-        guard let src = findSkillDirectories(in: staging).first else {
-            result.message = L10n.l("skill_no_skillmd_dir")
+        guard let src = findPluginDirectories(in: staging).first else {
+            result.message = L10n.l("skill_no_plugin_dir")
+            return result
+        }
+        // 强制 plugin.json 且 id 必须匹配目标，避免覆盖错插件。
+        guard Self.pluginID(from: src.appendingPathComponent("plugin.json")) == directoryName else {
+            result.message = L10n.l("skill_update_id_mismatch")
             return result
         }
         let dest = fs.skillsDir.appendingPathComponent(directoryName)
@@ -431,83 +392,50 @@ final class SkillManager {
         var message: String = ""
     }
 
-    /// 将任意技能名清洗为合法的目录名（小写 kebab-case，去除路径分隔符）。
-    private static func sanitizeDirName(_ name: String) -> String {
-        let clean = name.trimmingCharacters(in: .whitespaces)
-            .lowercased()
-            .replacingOccurrences(of: " ", with: "-")
-            .replacingOccurrences(of: "_", with: "-")
-        // 去掉可能混入的路径分隔符与非法字符
-        let legal = clean.components(separatedBy: CharacterSet(charactersIn: "/\\"))
-            .joined(separator: "-")
-        return legal.isEmpty ? "imported-skill" : legal
-    }
-
-    /// 从用户选择的文件导入技能。
-    /// - 若是 `.zip`：解压后扫描所有含 SKILL.md 的子目录，逐个拷入沙盒 skills/。
-    /// - 若是 `.md`（单个 SKILL.md）：以其文件名（去扩展名）作为技能目录名导入。
-    /// 导入失败不会中断其他技能；同名已存在的技能会被跳过（不覆盖，避免误删内置/已编辑技能）。
+    /// 从用户选择的 `.mpk`/`.zip` 压缩包导入插件。
+    /// - 解压后扫描所有含 `plugin.json` 的子目录（强制清单），逐个以 `id` 为目录名拷入沙盒 skills/。
+    /// - **单文件 `.md` 已弃用**：不再提供兼容导入，提示改用 `.mpk`。
+    /// 导入失败不会中断其他插件；同名 id 已存在的插件会被跳过（不覆盖，避免误删内置/已编辑插件）。
     func importSkillFile(from url: URL) -> ImportResult {
         let fm = FileManager.default
         var result = ImportResult()
         let ext = url.pathExtension.lowercased()
 
         let staging: URL
-        if ext == "zip" {
+        if ext == "zip" || ext == "mpk" {
             let tmp = FileManager.default.temporaryDirectory
                 .appendingPathComponent("miniclaw_skill_import_\(UUID().uuidString)")
             do {
                 try fm.createDirectory(at: tmp, withIntermediateDirectories: true)
-                try extractZip(at: url, into: tmp)
+                try ZipArchive.extract(at: url, into: tmp)
                 staging = tmp
             } catch {
                 result.message = String(format: L10n.l("skill_unzip_failed"), error.localizedDescription)
                 return result
             }
-        } else if ext == "md" {
-            // 单文件 SKILL.md：暂存为 <name>/SKILL.md
-            let name = url.deletingPathExtension().lastPathComponent
-                .trimmingCharacters(in: .whitespaces)
-                .lowercased()
-                .replacingOccurrences(of: " ", with: "-")
-                .replacingOccurrences(of: "_", with: "-")
-            let tmp = FileManager.default.temporaryDirectory
-                .appendingPathComponent("miniclaw_skill_import_\(UUID().uuidString)")
-                .appendingPathComponent(name.isEmpty ? "imported-skill" : name)
-            do {
-                try fm.createDirectory(at: tmp, withIntermediateDirectories: true)
-                try fm.copyItem(at: url, to: tmp.appendingPathComponent("SKILL.md"))
-                staging = tmp
-            } catch {
-                result.message = String(format: L10n.l("skill_import_failed"), error.localizedDescription)
-                return result
-            }
         } else {
-            result.message = String(format: L10n.l("skill_unsupported_type_hint"), ext)
+            // 单文件 SKILL.md 已弃用：不再提供兼容导入，提示改用 .mpk。
+            result.message = String(format: L10n.l("skill_single_file_deprecated"), ext)
             return result
         }
 
-        let skillDirs = findSkillDirectories(in: staging)
-        if skillDirs.isEmpty {
-            result.message = L10n.l("skill_no_skillmd_in_file")
+        let pluginDirs = findPluginDirectories(in: staging)
+        if pluginDirs.isEmpty {
+            result.message = L10n.l("skill_no_plugin_in_file")
             return result
         }
 
         // 确保沙盒 skills/ 存在
         try? fm.createDirectory(at: fs.skillsDir, withIntermediateDirectories: true)
 
-        for src in skillDirs {
-            // 目录名优先取 SKILL.md frontmatter 的 name（清洗成 kebab-case），
-            // 回退到压缩包内的文件夹名，避免出现 uuid 临时名。
-            let skillURL = src.appendingPathComponent("SKILL.md")
-            let baseName: String
-            if let raw = try? String(contentsOf: skillURL, encoding: .utf8) {
-                let fm2 = Self.parseSkillMarkdown(raw)
-                baseName = fm2.name.isEmpty ? src.lastPathComponent : fm2.name
-            } else {
-                baseName = src.lastPathComponent
+        for src in pluginDirs {
+            // 目录名取 plugin.json 的 id（清洗路径分隔符，作为沙盒目录名）
+            guard let id = Self.pluginID(from: src.appendingPathComponent("plugin.json")),
+                  !id.isEmpty else {
+                result.skipped.append(src.lastPathComponent)
+                continue
             }
-            let dirName = Self.sanitizeDirName(baseName)
+            let dirName = Self.sanitizePluginID(id)
             let dest = fs.skillsDir.appendingPathComponent(dirName)
             if fm.fileExists(atPath: dest.path) {
                 result.skipped.append(dirName)
@@ -525,7 +453,7 @@ final class SkillManager {
             invalidateSkillsCache()
         }
         if result.imported.isEmpty && result.skipped.isEmpty {
-            result.message = result.message.isEmpty ? "未导入任何技能。" : result.message
+            result.message = result.message.isEmpty ? "未导入任何插件。" : result.message
         } else {
             var parts: [String] = []
             if !result.imported.isEmpty { parts.append("已导入：\(result.imported.joined(separator: "、"))") }
@@ -535,8 +463,8 @@ final class SkillManager {
         return result
     }
 
-    /// 递归查找所有含 SKILL.md 的子目录，并扁平化为顶层技能目录（跳过被嵌套在其他技能内的目录）。
-    private func findSkillDirectories(in root: URL) -> [URL] {
+    /// 递归查找所有含 `plugin.json` 的子目录（强制清单），扁平化为顶层插件目录（跳过被嵌套在其他插件内的目录）。
+    private func findPluginDirectories(in root: URL) -> [URL] {
         let fm = FileManager.default
         guard let enumerator = fm.enumerator(
             at: root,
@@ -546,7 +474,7 @@ final class SkillManager {
 
         var candidates: [URL] = []
         for case let fileURL as URL in enumerator {
-            if fileURL.lastPathComponent == "SKILL.md" {
+            if fileURL.lastPathComponent == "plugin.json" {
                 candidates.append(fileURL.deletingLastPathComponent())
             }
         }
@@ -558,81 +486,18 @@ final class SkillManager {
         }
     }
 
-    /// 纯 Swift 解压 zip（iOS 无 Archive/Process，用 zlib 的 inflate 自行解压）。
-    /// 仅支持 Store(0) 与 Deflate(8) 两种常见压缩方法，覆盖绝大多数 .zip 技能包。
-    private func extractZip(at zipURL: URL, into destination: URL) throws {
-        let data = try Data(contentsOf: zipURL)
-        try FileManager.default.createDirectory(at: destination, withIntermediateDirectories: true)
-        let entries = try parseZipEntries(data)
-        for entry in entries {
-            // 防路径穿越：仅取相对成分
-            let comps = entry.name.split(separator: "/").map(String.init)
-                .filter { !$0.isEmpty && $0 != ".." }
-            guard !comps.isEmpty else { continue }
-            let outURL = destination.appendingPathComponent(comps.joined(separator: "/"))
-            try FileManager.default.createDirectory(
-                at: outURL.deletingLastPathComponent(),
-                withIntermediateDirectories: true
-            )
-            switch entry.method {
-            case 0: // store
-                try entry.data.write(to: outURL)
-            case 8: // deflate
-                let inflated = try ZipInflate.inflateData(entry.data)
-                try inflated.write(to: outURL)
-            default:
-                throw SkillError.invalidName
-            }
-        }
+    /// 从 plugin.json 读取插件 id（用作沙盒目录名）。
+    private static func pluginID(from url: URL) -> String? {
+        guard let data = try? Data(contentsOf: url),
+              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let id = obj["id"] as? String, !id.isEmpty else { return nil }
+        return id
     }
 
-    /// 解析 zip 中央目录，返回各条目（名称、压缩方法、解压后数据）。
-    /// 注意：压缩大小必须读自**中央目录记录**（offset+20），而非本地文件头——本地头的
-    /// 压缩大小在流式打包（data descriptor）时为 0，从那里读会解压出 0 字节的空文件。
-    private func parseZipEntries(_ data: Data) throws -> [(name: String, method: Int, data: Data)] {
-        let cdSig = UInt32(littleEndian: 0x02014b50)
-        guard data.count >= 4 else { throw SkillError.invalidName }
-        var offset = 0
-        // 定位 End Of Central Directory（从尾部回溯）
-        var eocd = -1
-        let minEOCD = 22
-        for i in stride(from: data.count - minEOCD, through: 0, by: -1) {
-            let sig = data.withUnsafeBytes { $0.load(fromByteOffset: i, as: UInt32.self) }.littleEndian
-            if sig == 0x06054b50 {
-                eocd = i
-                break
-            }
-        }
-        guard eocd >= 0 else { throw SkillError.invalidName }
-        // 读中央目录偏移
-        let cdOffset = data.withUnsafeBytes { $0.load(fromByteOffset: eocd + 16, as: UInt32.self) }.littleEndian
-        offset = Int(cdOffset)
-
-        var result: [(name: String, method: Int, data: Data)] = []
-        while offset + 4 <= data.count {
-            let sig = data.withUnsafeBytes { $0.load(fromByteOffset: offset, as: UInt32.self) }.littleEndian
-            guard sig == cdSig else { break }
-            let method = data.withUnsafeBytes { $0.load(fromByteOffset: offset + 10, as: UInt16.self) }.littleEndian
-            let nameLen = data.withUnsafeBytes { $0.load(fromByteOffset: offset + 28, as: UInt16.self) }.littleEndian
-            let extraLen = data.withUnsafeBytes { $0.load(fromByteOffset: offset + 30, as: UInt16.self) }.littleEndian
-            let commentLen = data.withUnsafeBytes { $0.load(fromByteOffset: offset + 32, as: UInt16.self) }.littleEndian
-            // 中央目录记录的压缩大小（offset+20）与本地头偏移（offset+42）才是可靠值
-            let compSize = data.withUnsafeBytes { $0.load(fromByteOffset: offset + 20, as: UInt32.self) }.littleEndian
-            let localHeaderOffset = data.withUnsafeBytes { $0.load(fromByteOffset: offset + 42, as: UInt32.self) }.littleEndian
-            let nameStart = offset + 46
-            guard nameStart + Int(nameLen) <= data.count else { break }
-            let nameData = data.subdata(in: nameStart..<nameStart + Int(nameLen))
-            let name = String(data: nameData, encoding: .utf8) ?? ""
-            // 定位本地头部以确定压缩数据的起始位置（仍来自本地头）
-            let lhNameLen = data.withUnsafeBytes { $0.load(fromByteOffset: Int(localHeaderOffset) + 26, as: UInt16.self) }.littleEndian
-            let lhExtraLen = data.withUnsafeBytes { $0.load(fromByteOffset: Int(localHeaderOffset) + 28, as: UInt16.self) }.littleEndian
-            let dataStart = Int(localHeaderOffset) + 30 + Int(lhNameLen) + Int(lhExtraLen)
-            guard dataStart + Int(compSize) <= data.count else { break }
-            let compData = data.subdata(in: dataStart..<dataStart + Int(compSize))
-            result.append((name: name, method: Int(method), data: compData))
-            offset = nameStart + Int(nameLen) + Int(extraLen) + Int(commentLen)
-        }
-        return result
+    /// 将插件 id 清洗为安全目录名（去除路径分隔符，保留点号）。
+    private static func sanitizePluginID(_ id: String) -> String {
+        id.components(separatedBy: CharacterSet(charactersIn: "/\\"))
+            .joined(separator: "-")
     }
 
     // MARK: - Frontmatter 解析（最小实现，无第三方依赖）
@@ -712,6 +577,28 @@ final class SkillManager {
         case "compatibility": fm.compatibility = (fm.compatibility ?? "").isEmpty ? value : (fm.compatibility! + " " + value)
         case "version": fm.version = (fm.version ?? "").isEmpty ? value : (fm.version! + " " + value)
         default: break
+        }
+    }
+
+    /// 解析插件图标（统一 SF Symbols）：
+    /// 用户 `plugin.json` 声明 `icon` 优先；否则按 `category` 取该分类默认图标；再失败回退 `puzzlepiece`。
+    /// 对齐《MiniClaw 插件化架构方案》§二·2.4。
+    nonisolated static func pluginIcon(category: String, declared: String) -> String {
+        if !declared.isEmpty { return declared }
+        switch category {
+        case "model": return "cpu"
+        case "skill": return "wrench.and.screwdriver"
+        case "rule": return "checklist"
+        case "subagent": return "person.2"
+        case "soul": return "brain.head.profile"
+        case "theme": return "paintpalette"
+        case "agent-mode": return "speedometer"
+        case "shell-tool": return "terminal"
+        case "mcp": return "link"
+        case "fragment": return "doc.plaintext"
+        case "tool.whitelist": return "wrench"
+        case "tool": return "hammer"
+        default: return "puzzlepiece"
         }
     }
 }
