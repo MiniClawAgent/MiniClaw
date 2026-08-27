@@ -1,9 +1,10 @@
 import Foundation
 
-/// 子代理角色注册表：扫描 `MiniClawRoot/subagent-profiles/*.md` 加载全部 profile。
-/// 内置样例在启动同步（BundledSubAgentProfiles → 数据目录）之后调用 `reload()`。
+/// 子代理角色注册表：扫描 `plugins/subagent/<id>/` 加载全部 profile。
+/// 每个角色 = 一个插件目录（强制 `plugin.json[type=subagent]` 清单 + SKILL.md），
+/// 随 BundledPlugins 内置 .mpk 同步或用户从插件页导入；旧散 .md 布局已由启动迁移器转换。
 /// `general` 恒存在（内置回退常量，防数据目录被清空导致派发失败）。
-/// 线程安全：NSLock 保护字典（reload 在启动主线程；引擎在任意线程读取）。
+/// 线程安全：NSLock 保护字典（reload 在启动后台任务；引擎在任意线程读取）。
 final class SubAgentProfileStore: @unchecked Sendable {
     static let shared = SubAgentProfileStore()
 
@@ -12,16 +13,23 @@ final class SubAgentProfileStore: @unchecked Sendable {
 
     private init() {}
 
-    /// 全量重载（启动时调用；用户新增/修改文件后也可再调）。
+    /// 全量重载（启动时调用；用户新增/导入插件后也可再调）。
     func reload() {
         var loaded: [String: SubAgentProfile] = [:]
         let dir = FileSystemManager.shared.subagentProfilesDir
-        let files = (try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil)) ?? []
-        for url in files where url.pathExtension == "md" {
-            let base = url.deletingPathExtension().lastPathComponent
-            guard let data = try? String(contentsOf: url, encoding: .utf8),
-                  let p = SubAgentProfile.parse(fileName: base, content: data) else { continue }
-            loaded[base] = p
+        let fm = FileManager.default
+        let subs = (try? fm.contentsOfDirectory(at: dir, includingPropertiesForKeys: [.isDirectoryKey])) ?? []
+        for sub in subs where sub.hasDirectoryPath {
+            // 强制 plugin.json 且 type=subagent：无清单/类型不符的目录一律跳过。
+            guard let manifestData = try? Data(contentsOf: sub.appendingPathComponent("plugin.json")),
+                  let manifest = try? JSONDecoder().decode(PluginManifest.self, from: manifestData),
+                  manifest.type == "subagent",
+                  !manifest.name.isEmpty,
+                  let raw = try? String(contentsOf: sub.appendingPathComponent("SKILL.md"), encoding: .utf8) else { continue }
+            // dispatch 主键 = manifest.name（内置 general/planner/research/writer 短名，迁移包=原文件名）；
+            // displayName/summary 仍由 SKILL.md frontmatter 承载，与旧格式无缝。
+            guard let p = SubAgentProfile.parse(fileName: manifest.name, content: raw) else { continue }
+            loaded[p.name] = p
         }
         // 保证 general 恒存在（内置回退）。
         if loaded["general"] == nil {

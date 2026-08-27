@@ -369,8 +369,9 @@ final class SkillManager {
             result.message = L10n.l("skill_no_plugin_dir")
             return result
         }
-        // 强制 plugin.json 且 id 必须匹配目标，避免覆盖错插件。
-        guard Self.pluginID(from: src.appendingPathComponent("plugin.json")) == directoryName else {
+        // 强制 plugin.json：id 必须匹配目标避免覆盖错插件；type 必须 = skill（更新流只服务技能详情页）。
+        guard let parsed = Self.pluginIDAndType(from: src.appendingPathComponent("plugin.json")),
+              parsed.id == directoryName, parsed.type == "skill" else {
             result.message = L10n.l("skill_update_id_mismatch")
             return result
         }
@@ -411,8 +412,9 @@ final class SkillManager {
         var message: String = ""
     }
 
-    /// 从用户选择的 `.mpk`/`.zip` 压缩包导入插件。
-    /// - 解压后扫描所有含 `plugin.json` 的子目录（强制清单），逐个以 `id` 为目录名拷入沙盒 skills/。
+    /// 从用户选择的 `.mpk`/`.zip` 压缩包导入插件（全类型入口）。
+    /// - 解压后扫描所有含 `plugin.json` 的子目录（强制清单），逐个以 `id` 为目录名、
+    ///   按 `type` 分发拷入沙盒统一插件布局 `plugins/<type>/`（type 缺省按 skill）。
     /// - **单文件 `.md` 已弃用**：不再提供兼容导入，提示改用 `.mpk`。
     /// 导入失败不会中断其他插件；同名 id 已存在的插件会被跳过（不覆盖，避免误删内置/已编辑插件）。
     func importSkillFile(from url: URL) -> ImportResult {
@@ -444,18 +446,16 @@ final class SkillManager {
             return result
         }
 
-        // 确保沙盒 skills/ 存在
-        try? fm.createDirectory(at: fs.skillsDir, withIntermediateDirectories: true)
-
         for src in pluginDirs {
-            // 目录名取 plugin.json 的 id（清洗路径分隔符，作为沙盒目录名）
-            guard let id = Self.pluginID(from: src.appendingPathComponent("plugin.json")),
-                  !id.isEmpty else {
+            // 目录名取 plugin.json 的 id（清洗路径分隔符）；type 决定分发目的地（缺省 skill）
+            guard let parsed = Self.pluginIDAndType(from: src.appendingPathComponent("plugin.json")) else {
                 result.skipped.append(src.lastPathComponent)
                 continue
             }
-            let dirName = Self.sanitizePluginID(id)
-            let dest = fs.skillsDir.appendingPathComponent(dirName)
+            let dirName = Self.sanitizePluginID(parsed.id)
+            let typeDir = fs.pluginTypeDir(parsed.type)
+            try? fm.createDirectory(at: typeDir, withIntermediateDirectories: true)
+            let dest = typeDir.appendingPathComponent(dirName)
             // 迁移兼容：旧版解压 bug 可能在此留下同名 0 字节「文件」（非目录）。
             // 真导入过的插件是目录，目录按设计跳过（避免覆盖用户已编辑内容）；
             // 残留文件则先删后导入，否则会被误判为"已存在"而永远跳不过去。
@@ -512,18 +512,19 @@ final class SkillManager {
         }
     }
 
-    /// 从 plugin.json 读取插件 id（用作沙盒目录名）。
-    private static func pluginID(from url: URL) -> String? {
+    /// 从 plugin.json 宽松读取插件 id 与 type（JSONSerialization，与内置同步同口径）。
+    /// id 强制非空；type 缺省 "skill"（宽容第三方清单漏写，与 loadSkills 解码默认一致）。
+    private static func pluginIDAndType(from url: URL) -> (id: String, type: String)? {
         guard let data = try? Data(contentsOf: url),
               let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let id = obj["id"] as? String, !id.isEmpty else { return nil }
-        return id
+        let type = (obj["type"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? "skill"
+        return (id, type)
     }
 
-    /// 将插件 id 清洗为安全目录名（去除路径分隔符，保留点号）。
+    /// 将插件 id 清洗为安全目录名——统一转调 PluginManifest.sanitizeID（唯一真相源）。
     private static func sanitizePluginID(_ id: String) -> String {
-        id.components(separatedBy: CharacterSet(charactersIn: "/\\"))
-            .joined(separator: "-")
+        PluginManifest.sanitizeID(id)
     }
 
     // MARK: - Frontmatter 解析（最小实现，无第三方依赖）

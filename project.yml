@@ -65,9 +65,8 @@ targets:
       - path: MiniClaw/Resources/BundledPlugins
         type: folder
         buildPhase: resources
-      - path: MiniClaw/Resources/BundledSubAgentProfiles
-        type: folder
-        buildPhase: resources
+      # BundledSubAgentProfiles 已弃用（2026-08-27 Stage-2）：内置子代理角色并入
+      # BundledPlugins 的 subagent 类型 .mpk 包，由 syncBundledPlugins 统一分发。
       # iSH shell-executor source (kept in 第三方源码, not copied into MiniClaw)
       # 必须用 ARC，否则 autorelease 的 NSMutableSet 等会在运行时被释放，
       # 导致 context/active-set 指针变成野指针而崩溃。

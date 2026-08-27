@@ -96,6 +96,13 @@ struct PluginManifest: Codable {
         license = try c.decodeIfPresent(String.self, forKey: .license) ?? d.license
         icon = try c.decodeIfPresent(String.self, forKey: .icon) ?? d.icon
     }
+
+    /// 将插件 id 清洗为安全目录名（去除路径分隔符，保留点号）。
+    /// 清洗逻辑的唯一真相源：技能/子代理等所有类型的沙盒目录命名共用。
+    static func sanitizeID(_ id: String) -> String {
+        id.components(separatedBy: CharacterSet(charactersIn: "/\\"))
+            .joined(separator: "-")
+    }
 }
 
 enum SkillError: Error {
