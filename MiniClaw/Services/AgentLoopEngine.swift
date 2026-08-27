@@ -1656,13 +1656,8 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
         // 硬深度守卫：不依赖 schema 剔除（模型可能幻觉输出旧工具名），执行前校验深度上限，
         // 触顶直接返回错误结果（模型收到明确提示），杜绝无限递归派发。
         if rawName == Self.subagentToolName {
-            // 用户关闭子代理：返回明确提示（模型幻觉直调时兜底），
-            // 引导段已告知「子代理已被用户关闭」，此处再次确认。
-            // 主线程快照读取（后台线程裸读 SettingsStore 会与设置页写竞争，2026-08-14 崩溃修复）。
-            let subagentEnabled = await MainActor.run { SettingsStore.shared.settings.subagent.enabled }
-            guard subagentEnabled else {
-                return ToolResult(success: false, text: L10n.l("err_subagent_disabled"))
-            }
+            // 子代理恒可用（无用户总开关）；此处仅做深度递归守卫
+            //（模型幻觉直调时兜底，schema 剔除 + 引导段已控制常规路径）。
             guard AgentLoopHelpers.canDispatchSubagents(subagentEngine: isSubagentEngine, depth: subagentDepth) else {
                 return ToolResult(success: false, text: String(format: L10n.l("loop_subagent_depth_error"), AgentLoopHelpers.maxSubagentDepth))
             }

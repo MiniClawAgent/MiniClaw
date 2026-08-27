@@ -101,10 +101,9 @@ struct AppSettings: Codable {
 }
 
 /// 子代理（subagent）用户控制配置。
+/// 子代理恒可用（未设总开关）：是否派发由智能体依据 SubAgentGuide 引导自行判断；
+/// 用户只控制运行限制与思考档位。
 struct SubAgentSettings: Codable {
-    /// 总开关：false=禁用（引擎不注入 dispatch_subagent 工具，
-    /// 引导段明确告知模型「子代理已被用户关闭」）。
-    var enabled: Bool = true
     /// 最大并发子代理（1-4，默认 4；与引擎全局上限一致）。
     var maxConcurrent: Int = 4
     /// 子代理思考档位（参考 reasonix subagent_effort 思路）：

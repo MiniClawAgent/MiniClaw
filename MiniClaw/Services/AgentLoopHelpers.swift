@@ -8,13 +8,12 @@ enum AgentLoopHelpers {
     static let maxSubagentDepth: Int = 2
 
 
-    /// 当前引擎能否派发子代理：总开关关闭时一律不可；主引擎总是可以；
+    /// 当前引擎能否派发子代理：主引擎总是可以；
     /// 子代理引擎仅当已处于子代理层级且未触顶（0 < 深度 < 上限）时允许。
     /// 复盘/整理等受限后台引擎（isSubagentEngine=true 且 depth=0）
     /// 不在子代理层级内，不得派发（否则无人值守后台引擎会凭空派生子代理，浪费 token 且
     /// 子代理继承含 bypassConfirmation 的写工具，后台无确认写入）。
     static func canDispatchSubagents(subagentEngine: Bool, depth: Int) -> Bool {
-        guard SettingsStore.shared.settings.subagent.enabled else { return false }
         guard subagentEngine else { return true }
         return depth > 0 && depth < maxSubagentDepth
     }

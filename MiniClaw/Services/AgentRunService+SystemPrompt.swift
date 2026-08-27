@@ -171,20 +171,15 @@ extension AgentRunService {
         // 3.5 可用工具列表(会话中 MCP 工具可增减,每轮更新;schema 权威在 tools: 参数)
         // 追加引擎保留工具 dispatch_subagent：它由引擎拦截执行（不在 toolRouter 注册表），
         // 但必须出现在白名单里，否则「列表外禁止调用」铁律会让模型判定该工具不可用（子代理从不触发的根因）。
-        // 用户关闭子代理时不追加（引擎侧同步不注入 schema，保持一致）。
         var toolNames = toolRouter.allToolNames()
-        if SettingsStore.shared.settings.subagent.enabled {
-            toolNames.append("dispatch_subagent")
-            toolNames.append("close_subagent")
-        }
+        toolNames.append("dispatch_subagent")
+        toolNames.append("close_subagent")
         toolNames.sort()
         // 3.4.5 当前会话的子代理清单（A 方案：让 智能体每轮「看见」可复用/可关闭的子代理）。
         // 数据来自 SubagentRuntimeRegistry（跨轮次/跨重启存活）；无子代理时不注入。
         // 属易变内容（随子代理增删变化），放缓存断点之后，不进前缀。
-        // 与白名单一致：用户关闭子代理功能时不注入（否则模型看到清单却无工具，诱发幻觉调用）。
         let liveSubagentRecords = SubagentRuntimeRegistry.shared.allRecords(for: sessionID)
-        if SettingsStore.shared.settings.subagent.enabled,
-           let liveSection = SubAgentGuide.liveSubagentsSection(records: liveSubagentRecords) {
+        if let liveSection = SubAgentGuide.liveSubagentsSection(records: liveSubagentRecords) {
             volatileParts.append(liveSection)
         }
         volatileParts.append("""

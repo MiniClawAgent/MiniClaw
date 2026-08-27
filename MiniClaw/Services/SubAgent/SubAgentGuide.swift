@@ -27,18 +27,8 @@ enum SubAgentGuide {
     """
 
     /// 动态拼接角色列表后的完整引导段（stable 段注入用）。
-    /// 用户关闭子代理（设置 → 智能体 → 子代理）时，返回禁用说明——模型必须知道
-    /// 子代理不可用，避免继续尝试派发（配合引擎侧 schema 剔除与执行守卫）。
+    /// 子代理恒可用：角色列表来自 SubAgentProfileStore（含内置 subagents 插件与用户导入包）。
     static func guideWithProfiles() -> String {
-        guard SettingsStore.shared.settings.subagent.enabled else {
-            return """
-            ## 子代理使用指南
-
-            ⚠️ **子代理已被用户关闭**（设置 → 智能体 → 子代理）。
-
-            你**不能**调用 `dispatch_subagent`，也不要想办法绕过。请直接使用你手上的工具完成任务；任务量大时拆成多轮逐步完成即可。
-            """
-        }
         let summaries = SubAgentProfileStore.shared.allSummaries()
         let list = summaries.isEmpty
             ? L10n.l("general_assistant_role")
