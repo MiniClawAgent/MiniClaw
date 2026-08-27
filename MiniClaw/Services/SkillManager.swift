@@ -58,8 +58,11 @@ final class SkillManager {
             let fm = Self.parseSkillMarkdown(raw)
             let displayName = manifest.name.isEmpty ? fm.name : manifest.name
             guard !displayName.isEmpty else { continue }
-            let isOn = enabled[displayName] ?? manifest.enabledByDefault
             let isBuiltin = bundled.contains(dir.lastPathComponent)
+            // 产品规则（2026-08-27 唐唐）：**用户导入的插件默认关闭**，内置插件沿用清单声明；
+            // 用户手动开/关过的持久化状态始终优先于缺省值。
+            let fallbackEnabled = isBuiltin ? manifest.enabledByDefault : false
+            let isOn = enabled[displayName] ?? fallbackEnabled
             let installDate: Date
             if let d = installDates[displayName] {
                 installDate = d
