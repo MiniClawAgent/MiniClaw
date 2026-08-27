@@ -2,7 +2,8 @@ import Foundation
 
 /// 子代理角色注册表：扫描 `plugins/subagent/<id>/` 加载全部 profile。
 /// 每个角色 = 一个插件目录（强制 `plugin.json[type=subagent]` 清单 + SKILL.md），
-/// 随 BundledPlugins 内置 .mpk 同步或用户从插件页导入；旧散 .md 布局已由启动迁移器转换。
+/// 随 BundledPlugins 内置 .mpk 同步或用户从插件页导入。
+/// （未上架不做旧兼容：历史散 .md 布局由启动清退直接删除。）
 /// `general` 恒存在（内置回退常量，防数据目录被清空导致派发失败）。
 /// 线程安全：NSLock 保护字典（reload 在启动后台任务；引擎在任意线程读取）。
 final class SubAgentProfileStore: @unchecked Sendable {
