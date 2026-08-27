@@ -53,12 +53,18 @@ targets:
         type: group
         excludes:
           - Resources/BundledPlugins
+          - Resources/AboutDocs
           - AppIntents
       # AppIntents 单独编译为 Swift 5 模式：规避 iOS 26 SDK 的 AppIntent Sendable / @MainActor 严格并发冲突
       # （详见 MiniClaw/AppIntents/MiniClawIntents.swift 顶部注释）。
       - path: MiniClaw/AppIntents/MiniClawIntents.swift
         compilerFlags: "-swift-version 5"
       - path: MiniClaw/Resources/BundledPlugins
+        type: folder
+        buildPhase: resources
+      # AboutDocs：开发者与用户的协议/产品说明文档（用户使用协议/隐私政策/关于MiniClaw）。
+      # 不走插件体系——协议内容不开放给用户通过插件更改，仅由「设置-关于」页展示。
+      - path: MiniClaw/Resources/AboutDocs
         type: folder
         buildPhase: resources
       # BundledRules 已弃用（2026-08-27 Stage-3）：内置规则并入 BundledPlugins 的

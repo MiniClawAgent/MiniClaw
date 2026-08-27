@@ -233,6 +233,7 @@
 		AE08DEFBFD01AB264C2DEB65837565CF /* MiniClawBrowserJS.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4CCDB0B04645B6AA1BA3E7AB70CDB29 /* MiniClawBrowserJS.swift */; };
 		AE8656EF7BD6A81A55D14840A4A4C4C2 /* RemoteMCPTool.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF6386A10D97A37AC9188929D75F0C72 /* RemoteMCPTool.swift */; };
 		AF188C290B9FDE71D10D0F3DAA86DD9E /* houdini_html_e.c in Sources */ = {isa = PBXBuildFile; fileRef = 57BE14224A1B75516FEE69BA1CFABA84 /* houdini_html_e.c */; };
+		AF6DC3B50090717D7D730B0ED510064C /* AboutDocs in Resources */ = {isa = PBXBuildFile; fileRef = 8992E15BBD9A96CED644AD1D2368EE9A /* AboutDocs */; };
 		B220A3BBBFBADFAA7672B17C64C52BC5 /* ModelGroupModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34BE1750DE346FB60B2F417C68D25F91 /* ModelGroupModels.swift */; };
 		B2621E01F0E3C8E1087963D0D07AE882 /* MarkdownBlockModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3DA1B79F5871107500A86AEEC8C2C0F /* MarkdownBlockModels.swift */; };
 		B2DCF2DA39853914104794D677C577F0 /* SubagentRuntimeTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B09B2F7D5C22A3BD5A1459A4D1E6ED2 /* SubagentRuntimeTypes.swift */; };
@@ -593,6 +594,7 @@
 		881DFE4C50E81C96DC16C2FF463C9047 /* AppIntents.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppIntents.framework; path = System/Library/Frameworks/AppIntents.framework; sourceTree = SDKROOT; };
 		883A4C36DF98EDC4FC09898689020FAD /* RetryCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RetryCardView.swift; sourceTree = "<group>"; };
 		8863D254DAD28F3942E59C5BE358D25E /* MTColor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MTColor.swift; sourceTree = "<group>"; };
+		8992E15BBD9A96CED644AD1D2368EE9A /* AboutDocs */ = {isa = PBXFileReference; lastKnownFileType = folder; name = AboutDocs; path = MiniClaw/Resources/AboutDocs; sourceTree = SOURCE_ROOT; };
 		89D4609AF7CCA90FFCD56DAF0BFAADF2 /* PluginsSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PluginsSettingsView.swift; sourceTree = "<group>"; };
 		8A33723C8512D649DADF721E0D6D2D4B /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
 		8BEB7F3E06B35D1BB5EE111397F04ED1 /* OpenAIStreamDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIStreamDelegate.swift; sourceTree = "<group>"; };
@@ -1206,6 +1208,7 @@
 		ABADFF71CC02B317014202A81847EFDF = {
 			isa = PBXGroup;
 			children = (
+				8992E15BBD9A96CED644AD1D2368EE9A /* AboutDocs */,
 				35C425F71A55C1E33CEE7EB0A3F0C418 /* BundledPlugins */,
 				09991F2E805D9EECC44DFEDD2BEF6A66 /* mathFonts.bundle */,
 				742BB05DFB02C908AE70505EB43D97C5 /* PrivacyInfo.xcprivacy */,
@@ -1627,6 +1630,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AF6DC3B50090717D7D730B0ED510064C /* AboutDocs in Resources */,
 				E530BAB7902A88EB49CEEB4BDA9B25C7 /* Assets.xcassets in Resources */,
 				EF10D960F1615162D3A070CDD8F2BDCC /* BundledPlugins in Resources */,
 				2C80918DC671B1E321CF06255043A961 /* InfoPlist.strings in Resources */,

@@ -1,7 +1,8 @@
 import SwiftUI
 
-/// 通用文档展示页：从 App Bundle 的 `BundledRules/` 目录读取指定 .md 文件，
+/// 通用文档展示页：从 App Bundle 的 `AboutDocs/` 目录读取指定 .md 文件，
 /// 用自研 `MarkdownContentView` 渲染为可读文档。用于「关于 MiniClaw / 用户使用协议 / 用户隐私政策」等。
+/// 注意：这些文档是开发者与用户的协议内容，不开放插件更改（不走 rule 插件体系）。
 struct DocumentView: View {
     let filename: String
     let title: String
@@ -34,7 +35,7 @@ struct DocumentView: View {
 
     private func loadContent() {
         guard let url = Bundle.main.resourceURL?
-            .appendingPathComponent("BundledRules", isDirectory: true)
+            .appendingPathComponent("AboutDocs", isDirectory: true)
             .appendingPathComponent(filename),
               FileManager.default.fileExists(atPath: url.path) else {
             loadError = String(format: L10n.l("document_not_found"), filename)
