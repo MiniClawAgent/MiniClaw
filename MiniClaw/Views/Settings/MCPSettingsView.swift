@@ -124,7 +124,9 @@ struct MCPSettingsView: View {
                     store.upsert(config, bearerToken: bearerToken)
                     editorItem = nil
                 } onDelete: { id in
-                    store.remove(id: id)
+                    if let server = store.server(id: id) {
+                        removeServerWithPlugin(server)
+                    }
                     editorItem = nil
                 }
             }
@@ -138,7 +140,7 @@ struct MCPSettingsView: View {
             presenting: serverPendingDeletion
         ) { server in
             Button(L10n.l("delete_action") + server.name, role: .destructive) {
-                store.remove(id: server.id)
+                removeServerWithPlugin(server)
                 serverPendingDeletion = nil
             }
             Button(L10n.l("cancel"), role: .cancel) {
@@ -224,6 +226,16 @@ struct MCPSettingsView: View {
                     Text(L10n.l("mcp_session_exception"))
                 }
             }
+        }
+    }
+
+    /// 删除 MCP server；若该 server 由 mcp 插件导入（sourcePlugin 非空），
+    /// 连带删除对应插件——插件删除会连带其导入的全部 server（对称语义，唐唐 2026-08-28）。
+    private func removeServerWithPlugin(_ server: MCPServerConfig) {
+        let source = server.sourcePlugin
+        store.remove(id: server.id)
+        if let source {
+            try? SkillManager.shared.deleteSkill(directoryName: source)
         }
     }
 
