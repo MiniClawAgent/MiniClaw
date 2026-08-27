@@ -142,7 +142,6 @@
 		626AD2F8EF2EF649B88233CD48FE6C17 /* LogsSettingsViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C00ED0B6FCF46A0C87B4B51068F0A5F /* LogsSettingsViews.swift */; };
 		62A92FEE18F4DD3D578311CB1BC0F8FE /* SyncHydrators.swift in Sources */ = {isa = PBXBuildFile; fileRef = E291B2CB611B2AAE084713291E8985E8 /* SyncHydrators.swift */; };
 		64A39F341F730BCF00B6C08417EC6B5D /* MiniClawWidget.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = 4E3E4C2C68BC3D71708693CD872C4D03 /* MiniClawWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
-		6580B54417B615B497E4F69CA79E3F87 /* BundledRules in Resources */ = {isa = PBXBuildFile; fileRef = 7007250863E9D6B99116FC572A275686 /* BundledRules */; };
 		667DC0F2D119465BDF2B5A3BA736D64A /* iterator.c in Sources */ = {isa = PBXBuildFile; fileRef = 5593D7C834124C86B5BBCF2ED6DF5CD4 /* iterator.c */; };
 		6780DC202D2EEC7DC8326C16C1871A3E /* ToolLiveSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2AD6A61BF3C5B3B8138B399C1DB359E2 /* ToolLiveSheet.swift */; };
 		6A04F3548240A1AD01E53925778FFCBC /* MTBezierPath.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91C4CE1AE62C20067A2E020C0DB561F2 /* MTBezierPath.swift */; };
@@ -558,7 +557,6 @@
 		6C57B1B1D13EE54E496F7F5C546B69F0 /* MTConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MTConfig.swift; sourceTree = "<group>"; };
 		6C59FAE68187B233524F120CD8D240F4 /* ContextUsageEstimator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContextUsageEstimator.swift; sourceTree = "<group>"; };
 		6CFBBCC8DCFAC67D0178B08ADDB0BAC1 /* CollectionViewMessageListV3.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CollectionViewMessageListV3.swift; sourceTree = "<group>"; };
-		7007250863E9D6B99116FC572A275686 /* BundledRules */ = {isa = PBXFileReference; lastKnownFileType = folder; name = BundledRules; path = MiniClaw/Resources/BundledRules; sourceTree = SOURCE_ROOT; };
 		71ED55A2D5385FABE3D7B0FCE7169F44 /* MiniClawBrowserActions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MiniClawBrowserActions.swift; sourceTree = "<group>"; };
 		7267DF00DA20D9811FEBE0903CBC54A7 /* references.c */ = {isa = PBXFileReference; path = references.c; sourceTree = "<group>"; };
 		72D62B0EFBBC5D29C5A487452CAC56E3 /* ShellRuntimeSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShellRuntimeSupport.swift; sourceTree = "<group>"; };
@@ -1209,7 +1207,6 @@
 			isa = PBXGroup;
 			children = (
 				35C425F71A55C1E33CEE7EB0A3F0C418 /* BundledPlugins */,
-				7007250863E9D6B99116FC572A275686 /* BundledRules */,
 				09991F2E805D9EECC44DFEDD2BEF6A66 /* mathFonts.bundle */,
 				742BB05DFB02C908AE70505EB43D97C5 /* PrivacyInfo.xcprivacy */,
 				41869D0129D11922611582AA2D3901BE /* rootfs */,
@@ -1632,7 +1629,6 @@
 			files = (
 				E530BAB7902A88EB49CEEB4BDA9B25C7 /* Assets.xcassets in Resources */,
 				EF10D960F1615162D3A070CDD8F2BDCC /* BundledPlugins in Resources */,
-				6580B54417B615B497E4F69CA79E3F87 /* BundledRules in Resources */,
 				2C80918DC671B1E321CF06255043A961 /* InfoPlist.strings in Resources */,
 				6F4C9D465C308E429DEE0EC17D901A89 /* Localizable.xcstrings in Resources */,
 				C1E27EF99F9BD0D50B295AB98E9F8C98 /* PrivacyInfo.xcprivacy in Resources */,

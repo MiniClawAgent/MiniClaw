@@ -32,12 +32,11 @@ final class FileSystemManager: @unchecked Sendable {
         return _bundledSyncDone
     }
 
-    /// 启动时调用:后台串行执行同步(rules 散文件 + BundledPlugins 各类型 mpk),完成后置标记并唤醒等待者。
+    /// 启动时调用:后台串行执行内置插件同步(BundledPlugins 各类型 .mpk 统一分发),完成后置标记并唤醒等待者。
     /// 不阻塞主线程;同步期间读取方短暂读到旧版/空目录,由 waitForBundledSync 兜底。
-    /// 注:subagent 内置角色已并入 BundledPlugins 的 .mpk 体系(syncBundledPlugins 统一分发)。
+    /// 注:rule(Stage-3)/subagent(Stage-2) 内置资源均已并入 BundledPlugins 的 .mpk 体系。
     func syncBundledResourcesInBackground() {
         bundleSyncQueue.async { [self] in
-            syncBundledRules()
             syncBundledPlugins()
             bundleSyncLock.lock()
             _bundledSyncDone = true
@@ -227,69 +226,12 @@ final class FileSystemManager: @unchecked Sendable {
         // 依赖方经 waitForBundledSync() 等待完成(2026-08-09 线程治理)。
     }
 
-    // MARK: - Bundled Rules
-
-    /// 将 App Bundle 中的项目托管规则同步到 Documents/MiniClaw/rules。
-    /// Bundle 内同名文件始终覆盖，以便 App 升级时发布规则更新；用户自行新增的其他文件会保留。
-    /// 上一版本由 Bundle 托管、但新版本已经移除的规则会依据 manifest 清理。
-    private func syncBundledRules() {
-        // 2026-08-12 治本:优先同步当前语言子目录 BundledRules/<lang>/ 的规则文件
-        // (存在则用,否则回退根目录中文版)。en/ja/ko 版本可分别提供。
-        let resourceURL = Bundle.main.resourceURL
-        let langCode = L10n.shared.current.tableCode
-        let langDir = resourceURL?
-            .appendingPathComponent("BundledRules", isDirectory: true)
-            .appendingPathComponent(langCode, isDirectory: true)
-        var bundledRulesDir: URL?
-        if let langDir, fileManager.fileExists(atPath: langDir.path) {
-            bundledRulesDir = langDir
-        } else if let base = resourceURL?.appendingPathComponent("BundledRules", isDirectory: true),
-                  fileManager.fileExists(atPath: base.path) {
-            bundledRulesDir = base
-        }
-        guard let bundledRulesDir else { return }
-        let manifestURL = rulesDir.appendingPathComponent(".bundled-rules-manifest.json")
-        let previousManagedFiles = loadBundledRulesManifest(at: manifestURL)
-        let bundledFiles = recursiveFiles(in: bundledRulesDir)
-        var currentManagedFiles = Set<String>()
-
-        for sourceURL in bundledFiles {
-            guard let relativePath = relativePath(of: sourceURL, under: bundledRulesDir),
-                  !relativePath.isEmpty else { continue }
-
-            currentManagedFiles.insert(relativePath)
-            let destinationURL = rulesDir.appendingPathComponent(relativePath)
-
-            do {
-                try fileManager.createDirectory(
-                    at: destinationURL.deletingLastPathComponent(),
-                    withIntermediateDirectories: true
-                )
-                if fileManager.fileExists(atPath: destinationURL.path) {
-                    try fileManager.removeItem(at: destinationURL)
-                }
-                try fileManager.copyItem(at: sourceURL, to: destinationURL)
-            } catch {
-                continue
-            }
-        }
-
-        for removedPath in previousManagedFiles.subtracting(currentManagedFiles) {
-            let staleURL = rulesDir.appendingPathComponent(removedPath).standardizedFileURL
-            guard contains(staleURL, in: rulesDir),
-                  fileManager.fileExists(atPath: staleURL.path) else { continue }
-            try? fileManager.removeItem(at: staleURL)
-        }
-
-        saveBundledRulesManifest(currentManagedFiles, to: manifestURL)
-    }
-
     // MARK: - Bundled Plugins（.mpk 压缩包）
 
     /// 将 App Bundle 中的内置插件（`.mpk`）解包同步到 `plugins/<type>/<plugin-id>/`。
     /// 每个 `.mpk` 是标准 zip，内部固定含 `<plugin-id>/plugin.json`（强制清单）+ 内容文件；
-    /// `type` 决定分发目的地（skill→plugins/skill、subagent→plugins/subagent…）。
-    /// 与 rules 同理：Bundle 同名覆盖升级；用户自建插件目录保留；已移除的内置插件按 manifest 清理。
+    /// `type` 决定分发目的地（skill→plugins/skill、rule→plugins/rule、subagent→plugins/subagent…）。
+    /// Bundle 同名覆盖升级；用户导入插件目录保留；已移除的内置插件按 manifest 清理。
     /// **强制 plugin.json**：缺失 plugin.json 或读不到 id/type 时整体拒绝解包（不兼容旧单文件 SKILL.md）。
     private func syncBundledPlugins() {
         guard let bundledPluginsDir = Bundle.main.resourceURL?
@@ -420,52 +362,52 @@ final class FileSystemManager: @unchecked Sendable {
             .sorted { $0.path < $1.path }
     }
 
-    /// 返回 rules/ 下所有可注入 Markdown，递归扫描并按相对路径稳定排序。
-    func ruleMarkdownFiles() -> [URL] {
-        recursiveFiles(in: rulesDir)
-            .filter { $0.pathExtension.lowercased() == "md" }
-            .sorted {
-                let lhs = relativePath(of: $0, under: rulesDir) ?? $0.lastPathComponent
-                let rhs = relativePath(of: $1, under: rulesDir) ?? $1.lastPathComponent
-                let comparison = lhs.localizedCaseInsensitiveCompare(rhs)
-                return comparison == .orderedSame ? lhs < rhs : comparison == .orderedAscending
+    // MARK: - Rule 插件（Stage-3：规则 = plugins/rule/<id>/ 的 .mpk 插件）
+
+    /// rule 插件的语言子目录名集合（与内置包约定一致；用户导入包可选用其中之一组织多语言）。
+    private static let ruleLanguageDirs: Set<String> = ["zh-Hans", "en", "ja", "ko"]
+    /// 默认语言目录：当前语言无覆盖文件时回退（对齐旧 syncBundledRules 的"非 en 用中文默认"语义）。
+    private static let ruleDefaultLanguageDir = "zh-Hans"
+
+    /// 返回所有**已启用 rule 插件**中、当前语言下应注入的 Markdown，按路径稳定排序。
+    /// - 插件形态：plugins/rule/<id>/{plugin.json[type=rule], ...}；
+    ///   插件内**无语言子目录** → 全部 .md 直接生效；
+    ///   **有语言子目录** → 优先当前语言目录，缺失时回退默认语言目录（zh-Hans），不混用其他语言。
+    /// - 启用过滤：skillEnabledStates[manifest.name] ?? (内置=清单声明 / 导入=关)。
+    ///   enabledStates/builtinIds 由调用方在**主线程**快照传入（SettingsStore 后台裸读竞态防护）。
+    func ruleMarkdownFiles(enabledStates: [String: Bool], builtinIds: Set<String>) -> [URL] {
+        let typeDir = pluginTypeDir("rule")
+        let pluginDirs = ((try? fileManager.contentsOfDirectory(
+            at: typeDir, includingPropertiesForKeys: [.isDirectoryKey])) ?? [])
+            .filter { $0.hasDirectoryPath }
+        let currentLang = L10n.shared.current.tableCode
+        var result: [URL] = []
+        for pluginDir in pluginDirs {
+            guard let manifestData = try? Data(contentsOf: pluginDir.appendingPathComponent("plugin.json")),
+                  let manifest = try? JSONDecoder().decode(PluginManifest.self, from: manifestData),
+                  manifest.type == "rule" else { continue }
+            let stateKey = manifest.name.isEmpty ? pluginDir.lastPathComponent : manifest.name
+            let fallbackEnabled = builtinIds.contains(pluginDir.lastPathComponent) ? manifest.enabledByDefault : false
+            guard enabledStates[stateKey] ?? fallbackEnabled else { continue }
+
+            guard let en = fileManager.enumerator(at: pluginDir, includingPropertiesForKeys: nil,
+                                                  options: [.skipsHiddenFiles]) else { continue }
+            var langFiles: [String: [URL]] = [:]   // 语言目录名 → 该语言下的 md
+            var plainFiles: [URL] = []             // 无语言目录组织的 md（整插件直接生效）
+            for case let url as URL in en {
+                guard url.pathExtension.lowercased() == "md" else { continue }
+                let rel = url.path.replacingOccurrences(of: pluginDir.path + "/", with: "")
+                let first = rel.split(separator: "/").first.map(String.init) ?? ""
+                if Self.ruleLanguageDirs.contains(first) {
+                    langFiles[first, default: []].append(url)
+                } else {
+                    plainFiles.append(url)
+                }
             }
-    }
-
-    private func recursiveFiles(in directory: URL) -> [URL] {
-        guard let enumerator = fileManager.enumerator(
-            at: directory,
-            includingPropertiesForKeys: [.isRegularFileKey],
-            options: [.skipsHiddenFiles]
-        ) else { return [] }
-
-        var files: [URL] = []
-        for case let url as URL in enumerator {
-            if (try? url.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile) == true {
-                files.append(url)
-            }
+            // 语言取用：当前语言优先 → 默认语言回退 → 无语言目录则全收
+            result.append(contentsOf: langFiles[currentLang] ?? langFiles[Self.ruleDefaultLanguageDir] ?? plainFiles)
         }
-        return files
-    }
-
-    private func relativePath(of fileURL: URL, under directoryURL: URL) -> String? {
-        let rootPath = directoryURL.standardizedFileURL.path
-        let filePath = fileURL.standardizedFileURL.path
-        guard filePath.hasPrefix(rootPath + "/") else { return nil }
-        return String(filePath.dropFirst(rootPath.count + 1))
-    }
-
-    private func loadBundledRulesManifest(at url: URL) -> Set<String> {
-        guard let data = try? Data(contentsOf: url),
-              let paths = try? JSONDecoder().decode([String].self, from: data) else {
-            return []
-        }
-        return Set(paths)
-    }
-
-    private func saveBundledRulesManifest(_ paths: Set<String>, to url: URL) {
-        guard let data = try? JSONEncoder().encode(paths.sorted()) else { return }
-        try? data.write(to: url, options: .atomic)
+        return result.sorted { $0.path < $1.path }
     }
 
     // MARK: - File Operations

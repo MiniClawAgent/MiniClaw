@@ -52,19 +52,17 @@ targets:
       - path: MiniClaw
         type: group
         excludes:
-          - Resources/BundledRules
           - Resources/BundledPlugins
           - AppIntents
       # AppIntents 单独编译为 Swift 5 模式：规避 iOS 26 SDK 的 AppIntent Sendable / @MainActor 严格并发冲突
       # （详见 MiniClaw/AppIntents/MiniClawIntents.swift 顶部注释）。
       - path: MiniClaw/AppIntents/MiniClawIntents.swift
         compilerFlags: "-swift-version 5"
-      - path: MiniClaw/Resources/BundledRules
-        type: folder
-        buildPhase: resources
       - path: MiniClaw/Resources/BundledPlugins
         type: folder
         buildPhase: resources
+      # BundledRules 已弃用（2026-08-27 Stage-3）：内置规则并入 BundledPlugins 的
+      # rule 类型 .mpk 包（语言子目录随包分发，运行时按当前语言取用）。
       # BundledSubAgentProfiles 已弃用（2026-08-27 Stage-2）：内置子代理角色并入
       # BundledPlugins 的 subagent 类型 .mpk 包，由 syncBundledPlugins 统一分发。
       # iSH shell-executor source (kept in 第三方源码, not copied into MiniClaw)

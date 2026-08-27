@@ -215,13 +215,11 @@ private struct SkillDetailView: View {
                     Spacer()
                     sourceBadge
                 }
-                // 启用开关：skill=注入会话/指令入口；subagent=控制其角色是否参与派发。
-                if skill.type == "skill" || skill.type == "subagent" {
-                    Toggle(skill.type == "skill"
-                           ? L10n.l("enable_inject_into_conversation")
-                           : L10n.l("enable_plugin"),
-                           isOn: enabledBinding)
-                }
+                // 启用开关（全类型）：skill=注入会话/指令入口；subagent=角色参与派发；rule=规则注入。
+                Toggle(skill.type == "skill"
+                       ? L10n.l("enable_inject_into_conversation")
+                       : L10n.l("enable_plugin"),
+                       isOn: enabledBinding)
             }
 
             if skill.type == "skill" {

@@ -22,8 +22,11 @@ extension AgentRunService {
             stableParts.append(raw.trimmingCharacters(in: .whitespacesAndNewlines))
         }
 
-        // 2. 项目规则（递归扫描 rules/*.md）；逐文件异步读取，避免主线程同步 IO。
-        let ruleURLs = fs.ruleMarkdownFiles()
+        // 2. 项目规则（rule 插件：启用过滤 + 按当前语言取用）；逐文件异步读取，避免主线程同步 IO。
+        // 启用状态主线程快照（SettingsStore 后台裸读竞态防护，2026-08-14 崩溃修复同款约束）。
+        let ruleEnabledStates = await MainActor.run { SettingsStore.shared.settings.skillEnabledStates }
+        let ruleBuiltinIds = FileSystemManager.shared.bundledPluginIds()
+        let ruleURLs = fs.ruleMarkdownFiles(enabledStates: ruleEnabledStates, builtinIds: ruleBuiltinIds)
         var ruleSections: [String] = []
         for fileURL in ruleURLs {
             guard let raw = await readText(fileURL),
