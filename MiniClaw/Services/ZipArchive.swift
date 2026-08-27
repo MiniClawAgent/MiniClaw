@@ -15,6 +15,20 @@ enum ZipArchive {
         try FileManager.default.createDirectory(at: destination, withIntermediateDirectories: true)
         let entries = try parseZipEntries(data)
         for entry in entries {
+            // 目录条目：zip 中央目录中会以 name 以 "/" 结尾、长度为 0 的条目表示。
+            // 这类条目必须直接创建目录，不能当作空文件写入，否则后续同名文件写入会报"已存在"。
+            if entry.name.hasSuffix("/") {
+                let dirComps = entry.name.split(separator: "/").map(String.init)
+                    .filter { !$0.isEmpty && $0 != ".." }
+                guard !dirComps.isEmpty else { continue }
+                let outURL = destination.appendingPathComponent(dirComps.joined(separator: "/"))
+                try FileManager.default.createDirectory(
+                    at: outURL,
+                    withIntermediateDirectories: true
+                )
+                continue
+            }
+
             // 防路径穿越：仅取相对成分
             let comps = entry.name.split(separator: "/").map(String.init)
                 .filter { !$0.isEmpty && $0 != ".." }
@@ -45,7 +59,7 @@ enum ZipArchive {
         var eocd = -1
         let minEOCD = 22
         for i in stride(from: data.count - minEOCD, through: 0, by: -1) {
-            let sig = data.withUnsafeBytes { $0.load(fromByteOffset: i, as: UInt32.self) }.littleEndian
+            let sig = data.littleEndianUInt32(at: i)
             if sig == 0x06054b50 {
                 eocd = i
                 break
@@ -53,27 +67,27 @@ enum ZipArchive {
         }
         guard eocd >= 0 else { throw ZipArchiveError.invalidArchive }
         // 读中央目录偏移
-        let cdOffset = data.withUnsafeBytes { $0.load(fromByteOffset: eocd + 16, as: UInt32.self) }.littleEndian
+        let cdOffset = data.littleEndianUInt32(at: eocd + 16)
         offset = Int(cdOffset)
 
         var result: [(name: String, method: Int, data: Data)] = []
         while offset + 4 <= data.count {
-            let sig = data.withUnsafeBytes { $0.load(fromByteOffset: offset, as: UInt32.self) }.littleEndian
+            let sig = data.littleEndianUInt32(at: offset)
             guard sig == cdSig else { break }
-            let method = data.withUnsafeBytes { $0.load(fromByteOffset: offset + 10, as: UInt16.self) }.littleEndian
-            let nameLen = data.withUnsafeBytes { $0.load(fromByteOffset: offset + 28, as: UInt16.self) }.littleEndian
-            let extraLen = data.withUnsafeBytes { $0.load(fromByteOffset: offset + 30, as: UInt16.self) }.littleEndian
-            let commentLen = data.withUnsafeBytes { $0.load(fromByteOffset: offset + 32, as: UInt16.self) }.littleEndian
+            let method = data.littleEndianUInt16(at: offset + 10)
+            let nameLen = data.littleEndianUInt16(at: offset + 28)
+            let extraLen = data.littleEndianUInt16(at: offset + 30)
+            let commentLen = data.littleEndianUInt16(at: offset + 32)
             // 中央目录记录的压缩大小（offset+20）与本地头偏移（offset+42）才是可靠值
-            let compSize = data.withUnsafeBytes { $0.load(fromByteOffset: offset + 20, as: UInt32.self) }.littleEndian
-            let localHeaderOffset = data.withUnsafeBytes { $0.load(fromByteOffset: offset + 42, as: UInt32.self) }.littleEndian
+            let compSize = data.littleEndianUInt32(at: offset + 20)
+            let localHeaderOffset = data.littleEndianUInt32(at: offset + 42)
             let nameStart = offset + 46
             guard nameStart + Int(nameLen) <= data.count else { break }
             let nameData = data.subdata(in: nameStart..<nameStart + Int(nameLen))
             let name = String(data: nameData, encoding: .utf8) ?? ""
             // 定位本地头部以确定压缩数据的起始位置（仍来自本地头）
-            let lhNameLen = data.withUnsafeBytes { $0.load(fromByteOffset: Int(localHeaderOffset) + 26, as: UInt16.self) }.littleEndian
-            let lhExtraLen = data.withUnsafeBytes { $0.load(fromByteOffset: Int(localHeaderOffset) + 28, as: UInt16.self) }.littleEndian
+            let lhNameLen = data.littleEndianUInt16(at: Int(localHeaderOffset) + 26)
+            let lhExtraLen = data.littleEndianUInt16(at: Int(localHeaderOffset) + 28)
             let dataStart = Int(localHeaderOffset) + 30 + Int(lhNameLen) + Int(lhExtraLen)
             guard dataStart + Int(compSize) <= data.count else { break }
             let compData = data.subdata(in: dataStart..<dataStart + Int(compSize))
@@ -81,6 +95,30 @@ enum ZipArchive {
             offset = nameStart + Int(nameLen) + Int(extraLen) + Int(commentLen)
         }
         return result
+    }
+}
+
+extension Data {
+    /// 安全读取小端 UInt16：用 copyBytes 到栈上对齐变量，避免未对齐 raw pointer load。
+    fileprivate func littleEndianUInt16(at offset: Int) -> UInt16 {
+        var value: UInt16 = 0
+        let range = offset..<(offset + 2)
+        guard range.upperBound <= self.count else { return 0 }
+        withUnsafeMutablePointer(to: &value) { ptr in
+            self.copyBytes(to: UnsafeMutableBufferPointer(start: ptr, count: 2), from: range)
+        }
+        return value.littleEndian
+    }
+
+    /// 安全读取小端 UInt32：用 copyBytes 到栈上对齐变量，避免未对齐 raw pointer load。
+    fileprivate func littleEndianUInt32(at offset: Int) -> UInt32 {
+        var value: UInt32 = 0
+        let range = offset..<(offset + 4)
+        guard range.upperBound <= self.count else { return 0 }
+        withUnsafeMutablePointer(to: &value) { ptr in
+            self.copyBytes(to: UnsafeMutableBufferPointer(start: ptr, count: 4), from: range)
+        }
+        return value.littleEndian
     }
 }
 
