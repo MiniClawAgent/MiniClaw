@@ -128,54 +128,71 @@ enum ZipArchiveError: Error {
 }
 
 /// 用 zlib 的 `inflate` 解压 DEFLATE 数据流（zip 的标准压缩方法）。
+///
+/// **防死循环保证（治本修复 2026-08-27）**：旧实现内层循环仅以
+/// `result != Z_OK || avail_in == 0` 为退出条件，而 `result` 被刻意排除 Z_BUF_ERROR——
+/// 当 deflate 流已结束但输入未耗尽、或流损坏使 zlib 停止消耗时，`avail_in` 永不归零、
+/// `result` 保持 Z_OK → 循环无限自旋（100% CPU）。真机上该自旋落在主线程导入/
+/// 启动同步路径，Watchdog 报 MAIN THREAD BLOCKED 直至杀进程。
+/// 新实现以下列两条保证终止：
+/// 1. `next_in` 仅设置一次，此后交由 zlib 自行推进（杜绝指针重复指向导致的错位）；
+/// 2. 每轮调用必须有进展（消耗输入 **或** 产出输出），否则判定流损坏直接抛错——
+///    因此每轮迭代至多消耗全部剩余输入或填满输出块，循环步数有上界，不可能空转。
 private enum ZipInflate {
     static func inflateData(_ data: Data) throws -> Data {
-        var out = Data()
+        guard !data.isEmpty else { return Data() }
+
         var strm = z_stream()
         let initResult = inflateInit2_(&strm, -15, ZLIB_VERSION, Int32(MemoryLayout<z_stream>.size))
         guard initResult == Z_OK else { throw ZipArchiveError.invalidArchive }
+        defer { inflateEnd(&strm) }
 
         let chunk = 64 * 1024
-        var buffer = [UInt8](repeating: 0, count: chunk)
-        var result: Int32 = Z_OK
+        let outBuf = UnsafeMutableRawBufferPointer.allocate(
+            byteCount: chunk,
+            alignment: MemoryLayout<UInt8>.alignment
+        )
+        defer { outBuf.deallocate() }
+        let outBase = outBuf.bindMemory(to: Bytef.self).baseAddress!
 
+        var out = Data()
         var input = [UInt8](data)
-        var inputLeft = input.count
-        while inputLeft > 0 {
-            let consumed = input.count - inputLeft
-            let total = input.count
-            let inputCopy = input
-            withExtendedLifetime(inputCopy) {
-                input.withUnsafeMutableBytes { (ptr: UnsafeMutableRawBufferPointer) in
-                    let base = ptr.baseAddress?.assumingMemoryBound(to: Bytef.self)
-                    strm.next_in = base?.advanced(by: consumed)
-                    strm.avail_in = UInt32(min(inputLeft, Int(Int32.max)))
-                    // 输出缓冲指针与 inflate 调用必须在同一闭包内(避免悬垂指针)。
-                    while strm.avail_in > 0 {
-                        var produced = 0
-                        buffer.withUnsafeMutableBytes { (outPtr: UnsafeMutableRawBufferPointer) in
-                            strm.next_out = outPtr.bindMemory(to: Bytef.self).baseAddress
-                            strm.avail_out = UInt32(chunk)
-                            let r = inflate(&strm, Z_NO_FLUSH)
-                            if r != Z_OK && r != Z_STREAM_END && r != Z_BUF_ERROR {
-                                result = r
-                            }
-                            produced = chunk - Int(strm.avail_out)
-                        }
-                        // 闭包外 append:避免与 buffer 独占访问重叠。
-                        if produced > 0 {
-                            out.append(buffer, count: produced)
-                        }
-                        if result != Z_OK || strm.avail_in == 0 { break }
+        // 独占访问要求：input 的可变字节访问期间不得再读它本身，count 先行取出。
+        let totalIn = input.count
+
+        try input.withUnsafeMutableBytes { (inRaw: UnsafeMutableRawBufferPointer) throws in
+            // next_in 只设一次，之后由 zlib 自行推进 next_in/avail_in；
+            // 中途手动重指会与 zlib 内部推进叠加错位（旧实现的外层循环即在犯此错）。
+            strm.next_in = inRaw.bindMemory(to: Bytef.self).baseAddress
+            strm.avail_in = uInt(totalIn)
+
+            var finished = false
+            while !finished {
+                strm.next_out = outBase
+                strm.avail_out = uInt(chunk)
+                let preAvailIn = strm.avail_in
+                let r = inflate(&strm, Z_NO_FLUSH)
+                let produced = chunk - Int(strm.avail_out)
+                let consumed = Int(preAvailIn) - Int(strm.avail_in)
+
+                if produced > 0 {
+                    out.append(outBase, count: produced)
+                }
+
+                switch r {
+                case Z_STREAM_END:
+                    finished = true
+                case Z_OK, Z_BUF_ERROR:
+                    // 防死循环铁律：本轮既无输入消耗也无输出产出 → 流损坏，
+                    // 宁愿报错也绝不空转。
+                    guard consumed > 0 || produced > 0 else {
+                        throw ZipArchiveError.invalidArchive
                     }
+                default:
+                    throw ZipArchiveError.invalidArchive
                 }
             }
-            inputLeft = total - Int(strm.avail_in)
-            if result != Z_OK && result != Z_STREAM_END { break }
         }
-
-        inflateEnd(&strm)
-        guard result == Z_OK || result == Z_STREAM_END else { throw ZipArchiveError.invalidArchive }
         return out
     }
 }
