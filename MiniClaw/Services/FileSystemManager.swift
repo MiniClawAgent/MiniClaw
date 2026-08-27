@@ -436,6 +436,37 @@ final class FileSystemManager: @unchecked Sendable {
         try? fileManager.copyItem(at: source, to: dest)
     }
 
+    /// 重置人格：恢复出厂模板并清除内置草稿（设置页"重置"入口，不经由草稿）。
+    func resetSoulToFactory() {
+        applySoulPackage(at: pluginTypeDir("soul").appendingPathComponent(defaultSoulPluginID))
+        try? fileManager.removeItem(at: builtinSoulDraftURL)
+    }
+
+    /// 内置灵魂草稿：第三方 soul 插件生效期间，用户对内置灵魂的修改暂存于此，
+    /// 停用第三方（或重新启用内置）时恢复为 memory/SOUL.md。
+    var builtinSoulDraftURL: URL {
+        memoryDir.appendingPathComponent("SOUL.builtin.md")
+    }
+
+    /// 备份当前 SOUL.md 为内置草稿（启用第三方 soul 插件前调用；仅当当前来源为内置时）。
+    func backupBuiltinSoul() {
+        let soulURL = memoryDir.appendingPathComponent("SOUL.md")
+        guard fileManager.fileExists(atPath: soulURL.path) else { return }
+        try? fileManager.removeItem(at: builtinSoulDraftURL)
+        try? fileManager.copyItem(at: soulURL, to: builtinSoulDraftURL)
+    }
+
+    /// 恢复内置灵魂：草稿存在则用草稿覆盖 SOUL.md，否则从出厂模板初始化。
+    func restoreBuiltinSoul() {
+        let soulURL = memoryDir.appendingPathComponent("SOUL.md")
+        if fileManager.fileExists(atPath: builtinSoulDraftURL.path) {
+            try? fileManager.removeItem(at: soulURL)
+            try? fileManager.copyItem(at: builtinSoulDraftURL, to: soulURL)
+        } else {
+            applySoulPackage(at: pluginTypeDir("soul").appendingPathComponent(defaultSoulPluginID))
+        }
+    }
+
     // MARK: - File Operations
 
     func readFile(at path: String, offset: Int? = nil, limit: Int? = nil, tail: Int? = nil, sessionID: UUID? = nil) throws -> String {

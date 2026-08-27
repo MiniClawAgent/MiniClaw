@@ -114,6 +114,8 @@ final class SkillManager {
     /// 设置插件启用状态并持久化。
     /// **soul 互斥语义（唐唐 2026-08-28 确认）**：soul 插件是排他单选——启用某个 soul
     /// 插件时，同类型其他 soul 插件立即停用，并应用该插件的人格（覆盖 memory/SOUL.md）。
+    /// **来源切换与内置草稿**：内置生效时启用第三方 → 当前 SOUL.md 备份为内置草稿
+    /// （SOUL.builtin.md）再应用第三方；启用内置 → 恢复草稿（无草稿用出厂模板）。
     /// subagent 开关切换后即时刷新角色注册表（停用插件的角色立即退出派发可用集）。
     func setEnabled(_ name: String, _ enabled: Bool) {
         var states = SettingsStore.shared.settings.skillEnabledStates
@@ -137,13 +139,30 @@ final class SkillManager {
             }
         }
         SettingsStore.shared.settings.skillEnabledStates = states
-        SettingsStore.shared.save()
         invalidateSkillsCache()
         refreshSubagentProfiles()
-        // 启用 soul 插件 → 应用其人格（UI 主线程调用，安全）。
-        if let dir = soulDir {
-            fs.applySoulPackage(at: dir)
+
+        // soul 来源切换（主线程调用，UI 场景安全；activePlugin 持久化在 soul 域）。
+        if enabled, let dir = soulDir {
+            let current = SettingsStore.shared.settings.soul.activePlugin
+            if name == "default-soul" {
+                // 启用内置：恢复内置草稿（用户改过的内容优先），无草稿用出厂模板。
+                fs.restoreBuiltinSoul()
+                SettingsStore.shared.settings.soul.activePlugin = nil
+            } else {
+                // 启用第三方：内置生效中则先备份当前 SOUL.md 为内置草稿（B→C 切换不覆盖草稿）。
+                if current == nil { fs.backupBuiltinSoul() }
+                fs.applySoulPackage(at: dir)
+                SettingsStore.shared.settings.soul.activePlugin = name
+            }
+        } else if !enabled {
+            // 停用当前生效的第三方 soul → 恢复内置灵魂。
+            if SettingsStore.shared.settings.soul.activePlugin == name {
+                fs.restoreBuiltinSoul()
+                SettingsStore.shared.settings.soul.activePlugin = nil
+            }
         }
+        SettingsStore.shared.save()
     }
 
     /// 主线程快照启用状态与内置集合后，刷新子代理角色注册表

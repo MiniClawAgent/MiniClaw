@@ -7,6 +7,9 @@ struct SoulConfig: Codable {
     /// 响应语言：auto / zh / en — 对齐 spec 9.2.3
     var lang: String = "auto"
     var body: String = ""
+    /// 当前生效的 soul 插件（manifest.name）：nil = 内置灵魂生效；
+    /// 非 nil = 该第三方 soul 插件生效（memory/SOUL.md 由其提供，内置草稿 SOUL.builtin.md 暂存用户修改）。
+    var activePlugin: String? = nil
 }
 
 /// LLM 服务商配置

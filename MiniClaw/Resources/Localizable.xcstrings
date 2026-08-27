@@ -37758,6 +37758,35 @@
         }
       }
     },
+    "soul_banner_plugin_active" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Current persona is provided by soul plugin \"%@\". The editor below edits your built-in soul; it takes effect after this plugin is disabled."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "現在のペルソナは soul プラグイン「%@」が提供中です。以下の編集は内蔵ソウルへの変更で、このプラグインを無効化すると反映されます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "현재 페르소나는 soul 플러그인 \"%@\"이(가) 제공합니다. 아래 편집은 내장 소울에 대한 변경이며, 이 플러그인을 비활성화하면 적용됩니다."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "当前人格由 soul 插件「%@」注入；下方编辑的是内置灵魂，停用该插件后生效。"
+          }
+        }
+      }
+    },
     "soul_default_style" : {
       "extractionState" : "manual",
       "localizations" : {

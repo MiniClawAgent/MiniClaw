@@ -12,9 +12,26 @@ struct SoulSettingsView: View {
     @State private var showSoulFile = false
     @State private var fullSoulText: String = ""
     @State private var showResetConfirm = false
+    /// 当前生效的 soul 插件（manifest.name）：nil = 内置灵魂生效；
+    /// 非 nil = 第三方 soul 插件生效，编辑器此时读写内置草稿 SOUL.builtin.md。
+    @State private var activePlugin: String? = nil
 
     var body: some View {
         Form {
+            // 插件注入横幅：第三方 soul 生效时告知用户当前人格来源，
+            // 并说明下方编辑的是内置灵魂（停用该插件后生效）。
+            if let plugin = activePlugin {
+                Section {
+                    Label {
+                        Text(String(format: L10n.l("soul_banner_plugin_active"), plugin))
+                            .font(.callout)
+                    } icon: {
+                        Image(systemName: "sparkles")
+                            .foregroundStyle(.orange)
+                    }
+                }
+            }
+
             Section(L10n.l("basic_info")) {
                 HStack {
                     Text(L10n.l("name"))
@@ -104,15 +121,24 @@ struct SoulSettingsView: View {
         }
     }
 
-    // MARK: - 读取：SOUL.md 的 frontmatter（灵魂本身）
+    // MARK: - 读取/编辑目标：内置生效 → SOUL.md；第三方生效 → 内置草稿 SOUL.builtin.md
 
     private func soulURL() -> URL {
-        FileSystemManager.shared.memoryDir.appendingPathComponent("SOUL.md")
+        if activePlugin != nil {
+            return FileSystemManager.shared.builtinSoulDraftURL
+        }
+        return FileSystemManager.shared.memoryDir.appendingPathComponent("SOUL.md")
     }
 
     private func loadFromSoulFile() {
+        activePlugin = SettingsStore.shared.settings.soul.activePlugin
+        // 第三方生效但内置草稿缺失（异常兜底）：以出厂模板初始化草稿。
+        if activePlugin != nil,
+           !FileManager.default.fileExists(atPath: FileSystemManager.shared.builtinSoulDraftURL.path) {
+            FileSystemManager.shared.backupBuiltinSoul()
+        }
         // SOUL.md 可能随使用增长，读取放到后台，主线程只做轻量赋值（对齐原则：重 IO 一律 async）。
-        let url = FileSystemManager.shared.memoryDir.appendingPathComponent("SOUL.md")
+        let url = soulURL()
         Task {
             let raw = await Task.detached(priority: .userInitiated) {
                 try? String(contentsOf: url, encoding: .utf8)
@@ -146,6 +172,10 @@ struct SoulSettingsView: View {
         \(bodyText)
         """
         try? content.write(to: soulURL(), atomically: true, encoding: .utf8)
+
+        // 第三方 soul 生效期间：修改保存到内置草稿（停用第三方后生效），
+        // 不同步 SoulConfig / 显示名（它们属于当前生效人格）。
+        guard activePlugin == nil else { dismissAction?(); return }
 
         // 同步 SoulConfig（供 ConfigTool / 其它读取保持一致）
         SettingsStore.shared.update(domain: .soul, summary: L10n.l("edit_personality_config")) { (s: inout SoulConfig) in
