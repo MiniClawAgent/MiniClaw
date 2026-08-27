@@ -359,12 +359,20 @@ final class SkillManager {
     }
 
     /// 删除指定目录名的插件（跨类型定位；连同其内容文件）。
+    /// mcp 插件：连带删除其导入的全部 server（来源追踪 sourcePlugin）。
     func deleteSkill(directoryName: String) throws {
         guard let dir = pluginDir(named: directoryName) else { throw SkillError.notFound }
+        // 先读清单取类型（目录删除后无法再读）。
+        let manifestType = (try? Data(contentsOf: dir.appendingPathComponent("plugin.json")))
+            .flatMap { try? JSONDecoder().decode(PluginManifest.self, from: $0) }?.type
         try FileManager.default.removeItem(at: dir)
         invalidateSkillsCache()
         // 删除 subagent 插件后即时刷新角色注册表，其角色立即退出派发可用集。
         refreshSubagentProfiles()
+        // mcp 插件：连带删除其导入的 server（含 Keychain 令牌）。
+        if manifestType == "mcp" {
+            MCPConfigStore.shared.removeServers(sourcePlugin: directoryName)
+        }
     }
 
     /// 按 directoryName（=插件目录名/插件 id）在统一插件布局下跨类型定位插件目录。
@@ -511,7 +519,7 @@ final class SkillManager {
                     let serversURL = dest.appendingPathComponent("servers.json")
                     if let json = try? String(contentsOf: serversURL, encoding: .utf8) {
                         do {
-                            let (added, updated) = try MCPConfigStore.shared.mergePluginServers(json)
+                            let (added, updated) = try MCPConfigStore.shared.mergePluginServers(json, sourcePlugin: dirName)
                             result.message = String(format: L10n.l("mcp_plugin_merge_result"), added, updated)
                         } catch {
                             result.message = error.localizedDescription

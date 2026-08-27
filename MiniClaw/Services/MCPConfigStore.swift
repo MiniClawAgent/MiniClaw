@@ -207,7 +207,7 @@ final class MCPConfigStore: ObservableObject {
     ///   保留 id、Bearer 令牌与用户启用状态；
     /// - 新 server：新增且**默认停用**（用户在 MCP 设置页开启）。
     /// - 返回（新增数, 更新数）。
-    func mergePluginServers(_ json: String) throws -> (added: Int, updated: Int) {
+    func mergePluginServers(_ json: String, sourcePlugin: String) throws -> (added: Int, updated: Int) {
         let imported = try importClaudeDesktopConfig(json)
         var added = 0
         var updated = 0
@@ -223,6 +223,7 @@ final class MCPConfigStore: ObservableObject {
                 updated += 1
             } else {
                 cfg.isEnabled = false                             // 新增默认停用
+                cfg.sourcePlugin = sourcePlugin                   // 记录来源插件（删插件连带删 server）
                 servers.append(cfg)
                 added += 1
             }
@@ -242,6 +243,23 @@ final class MCPConfigStore: ObservableObject {
             }
         }
         return (added, updated)
+    }
+
+    /// 删除指定来源插件导入的全部 server（连带 Keychain 令牌）——删除 mcp 插件时调用。
+    func removeServers(sourcePlugin: String) {
+        let removed = servers.filter { $0.sourcePlugin == sourcePlugin }
+        guard !removed.isEmpty else { return }
+        servers.removeAll { $0.sourcePlugin == sourcePlugin }
+        for server in removed {
+            MCPBearerTokenStore.deleteToken(for: server.id)
+        }
+        persist()
+        for server in removed {
+            Task {
+                await MCPClientManager.shared.invalidate(serverId: server.id)
+                await MCPToolDiscoveryCache.shared.invalidate(serverId: server.id)
+            }
+        }
     }
 
     private func reconcileBearerTokenFlags() {

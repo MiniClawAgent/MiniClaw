@@ -21,6 +21,9 @@ struct MCPServerConfig: Identifiable, Codable, Hashable, Sendable {
     var lastError: String?
     var lastToolCount: Int
     var lastCheckedAt: Date?
+    /// 来源插件（manifest.id）：由 mcp 配置包导入的 server 记录来源，
+    /// 删除该插件时连带删除其导入的 server；手动添加的为 nil。
+    var sourcePlugin: String? = nil
 
     init(
         id: UUID = UUID(),
@@ -57,7 +60,7 @@ struct MCPServerConfig: Identifiable, Codable, Hashable, Sendable {
     private enum CodingKeys: String, CodingKey {
         case id, name, endpointURL, transport, isEnabled, hasBearerToken, customHeaders
         case envVars, command, args
-        case lastStatus, lastError, lastToolCount, lastCheckedAt
+        case lastStatus, lastError, lastToolCount, lastCheckedAt, sourcePlugin
     }
 
     init(from decoder: Decoder) throws {
@@ -76,6 +79,7 @@ struct MCPServerConfig: Identifiable, Codable, Hashable, Sendable {
         lastError = try values.decodeIfPresent(String.self, forKey: .lastError)
         lastToolCount = try values.decodeIfPresent(Int.self, forKey: .lastToolCount) ?? 0
         lastCheckedAt = try values.decodeIfPresent(Date.self, forKey: .lastCheckedAt)
+        sourcePlugin = try values.decodeIfPresent(String.self, forKey: .sourcePlugin)
     }
 }
 
