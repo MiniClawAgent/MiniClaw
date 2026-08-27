@@ -437,9 +437,16 @@ final class SkillManager {
             }
             let dirName = Self.sanitizePluginID(id)
             let dest = fs.skillsDir.appendingPathComponent(dirName)
-            if fm.fileExists(atPath: dest.path) {
-                result.skipped.append(dirName)
-                continue
+            // 迁移兼容：旧版解压 bug 可能在此留下同名 0 字节「文件」（非目录）。
+            // 真导入过的插件是目录，目录按设计跳过（避免覆盖用户已编辑内容）；
+            // 残留文件则先删后导入，否则会被误判为"已存在"而永远跳不过去。
+            var isDir: ObjCBool = false
+            if fm.fileExists(atPath: dest.path, isDirectory: &isDir) {
+                if isDir.boolValue {
+                    result.skipped.append(dirName)
+                    continue
+                }
+                try? fm.removeItem(at: dest)
             }
             do {
                 try fm.copyItem(at: src, to: dest)
