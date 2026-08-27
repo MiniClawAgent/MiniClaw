@@ -187,6 +187,11 @@ private struct SkillDetailView: View {
         return f
     }()
 
+    /// SKILL.md 的介绍段（# 标题到第一个 ## 之间）；subagent 等无 SKILL.md 的插件为空。
+    private var introText: String {
+        SkillManager.shared.introSection(named: skill.name)
+    }
+
     /// 拉取式绑定（与列表行同口径）：get 每帧读持久化真相，set 写回并通知父级刷新。
     /// 详情页开关状态因此与列表行即时一致，退出重进也不会再出现旧值。
     private var enabledBinding: Binding<Bool> {
@@ -210,36 +215,43 @@ private struct SkillDetailView: View {
                     Spacer()
                     sourceBadge
                 }
-                Toggle(L10n.l("enable_inject_into_conversation"), isOn: enabledBinding)
+                // 启用注入开关与更新仅对 skill 类型有意义（subagent 等类型无指令/更新语义）。
+                if skill.type == "skill" {
+                    Toggle(L10n.l("enable_inject_into_conversation"), isOn: enabledBinding)
+                }
             }
 
-            Section(L10n.l("update")) {
-                Button {
-                    // 非网页链接下载来源，禁用
-                } label: {
-                    Label(L10n.l("update_from_url"), systemImage: "link")
-                }
-                .disabled(true)
-                .foregroundStyle(.secondary)
+            if skill.type == "skill" {
+                Section(L10n.l("update")) {
+                    Button {
+                        // 非网页链接下载来源，禁用
+                    } label: {
+                        Label(L10n.l("update_from_url"), systemImage: "link")
+                    }
+                    .disabled(true)
+                    .foregroundStyle(.secondary)
 
-                Button {
-                    showUpdateImporter = true
-                } label: {
-                    Label(L10n.l("update_from_file"), systemImage: "doc")
-                }
+                    Button {
+                        showUpdateImporter = true
+                    } label: {
+                        Label(L10n.l("update_from_file"), systemImage: "doc")
+                    }
 
-                Button {
-                    alertMsg = L10n.l("icloud_sync_is_not_enabled_yet_you_need_to_enable_icloud_in_the_signing_capabilities")
-                    showAlert = true
-                } label: {
-                    Label(L10n.l("sync_icloud"), systemImage: "icloud")
+                    Button {
+                        alertMsg = L10n.l("icloud_sync_is_not_enabled_yet_you_need_to_enable_icloud_in_the_signing_capabilities")
+                        showAlert = true
+                    } label: {
+                        Label(L10n.l("sync_icloud"), systemImage: "icloud")
+                    }
+                    .foregroundStyle(.secondary)
                 }
-                .foregroundStyle(.secondary)
             }
 
-            Section(L10n.l("description")) {
-                Text(SkillManager.shared.introSection(named: skill.name))
-                    .font(.callout)
+            if !introText.isEmpty {
+                Section(L10n.l("description")) {
+                    Text(introText)
+                        .font(.callout)
+                }
             }
 
             Section(L10n.l("files")) {

@@ -406,6 +406,20 @@ final class FileSystemManager: @unchecked Sendable {
             .sorted { $0.lastPathComponent.localizedCaseInsensitiveCompare($1.lastPathComponent) == .orderedAscending }
     }
 
+    /// 统一插件布局下**所有类型**的已安装插件目录（plugins/<type>/<dirName>/）。
+    /// 供插件列表等跨类型消费方扫描；目录名（=插件 id）在同一类型内唯一。
+    func allPluginDirectories() -> [URL] {
+        let typeDirs = (try? fileManager.contentsOfDirectory(
+            at: pluginsRoot, includingPropertiesForKeys: [.isDirectoryKey])) ?? []
+        return typeDirs
+            .filter { $0.hasDirectoryPath }
+            .flatMap { typeDir in
+                ((try? fileManager.contentsOfDirectory(at: typeDir, includingPropertiesForKeys: nil)) ?? [])
+                    .filter { $0.hasDirectoryPath }
+            }
+            .sorted { $0.path < $1.path }
+    }
+
     /// 返回 rules/ 下所有可注入 Markdown，递归扫描并按相对路径稳定排序。
     func ruleMarkdownFiles() -> [URL] {
         recursiveFiles(in: rulesDir)

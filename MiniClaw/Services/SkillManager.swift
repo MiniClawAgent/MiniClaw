@@ -33,12 +33,15 @@ final class SkillManager {
         skillsCache = nil
     }
 
-    /// 扫描 skills/ 下所有子目录，解析每个 SKILL.md，返回技能列表（按 name 排序）。
-    /// 启用状态由持久化的 `skillEnabledStates` 决定，缺省为启用；
+    /// 扫描统一插件布局下**所有类型**插件（plugins/<type>/<id>/），解析每个 plugin.json，
+    /// 返回插件列表（按 name 排序）。列表页展示全类型；指令入口等 skill 专属消费方
+    /// 经 enabledSkills() 的 type==skill 过滤兜住。
+    /// SKILL.md 为 skill 类惯例（subagent 等类型可无），缺失时元数据全部取自清单。
+    /// 启用状态由持久化的 `skillEnabledStates` 决定，缺省按来源分流（内置开/导入关）；
     /// 来源（内置/导入）依据 Bundle manifest 判断；安装时间首次记录后持久化。
     func loadSkills() -> [SkillPackage] {
         if let cache = skillsCache { return cache }
-        let dirs = fs.skillDirectories()
+        let dirs = fs.allPluginDirectories()
         let settings = SettingsStore.shared.settings
         let enabled = settings.skillEnabledStates
         let bundled = bundledPluginIds()
@@ -47,15 +50,15 @@ final class SkillManager {
 
         var result: [SkillPackage] = []
         for dir in dirs {
-            // 强制 plugin.json：无清单的目录（旧单文件 SKILL.md）一律跳过，不兼容。
+            // 强制 plugin.json：无清单的目录一律跳过，不兼容。
             let manifestURL = dir.appendingPathComponent("plugin.json")
             guard let manifestData = try? Data(contentsOf: manifestURL),
                   let manifest = try? JSONDecoder().decode(PluginManifest.self, from: manifestData) else {
                 continue
             }
-            let skillURL = dir.appendingPathComponent("SKILL.md")
-            guard let raw = try? String(contentsOf: skillURL, encoding: .utf8) else { continue }
-            let fm = Self.parseSkillMarkdown(raw)
+            // SKILL.md 可选：有则解析 frontmatter 供 displayName/描述回退，无则全取清单。
+            let skillRaw = try? String(contentsOf: dir.appendingPathComponent("SKILL.md"), encoding: .utf8)
+            let fm = skillRaw.map { Self.parseSkillMarkdown($0) } ?? SkillFrontmatter()
             let displayName = manifest.name.isEmpty ? fm.name : manifest.name
             guard !displayName.isEmpty else { continue }
             let isBuiltin = bundled.contains(dir.lastPathComponent)
@@ -93,9 +96,10 @@ final class SkillManager {
         return sorted
     }
 
-    /// 返回**仅当前已启用**的技能列表（指令入口/UI 注入等一律以此为准）。
+    /// 返回**仅当前已启用的 skill 类型**插件列表（指令入口/UI 注入等以此为准）。
+    /// type 过滤兜底：subagent/rule 等其他类型不参与 /指令 命名空间。
     func enabledSkills() -> [SkillPackage] {
-        loadSkills().filter { $0.isEnabled }
+        loadSkills().filter { $0.isEnabled && $0.type == "skill" }
     }
 
     /// 读取某技能当前生效启用态（轻量版，供视图绑定逐帧拉取）：
@@ -295,10 +299,9 @@ final class SkillManager {
         return clean
     }
 
-    /// 删除指定目录名的技能（连同其 scripts/references/assets 等）。
+    /// 删除指定目录名的插件（跨类型定位；连同其内容文件）。
     func deleteSkill(directoryName: String) throws {
-        let dir = fs.skillsDir.appendingPathComponent(directoryName)
-        guard FileManager.default.fileExists(atPath: dir.path) else { throw SkillError.notFound }
+        guard let dir = pluginDir(named: directoryName) else { throw SkillError.notFound }
         try FileManager.default.removeItem(at: dir)
         invalidateSkillsCache()
     }
@@ -317,9 +320,14 @@ final class SkillManager {
         return ""
     }
 
-    /// 列出技能目录下的所有文件（相对路径），SKILL.md 始终排第一。
+    /// 按 directoryName（=插件目录名/插件 id）在统一插件布局下跨类型定位插件目录。
+    private func pluginDir(named directoryName: String) -> URL? {
+        fs.allPluginDirectories().first { $0.lastPathComponent == directoryName }
+    }
+
+    /// 列出插件目录下的所有文件（相对路径），SKILL.md 始终排第一。
     func skillFiles(directoryName: String) -> [String] {
-        let dir = fs.skillsDir.appendingPathComponent(directoryName)
+        guard let dir = pluginDir(named: directoryName) else { return [] }
         guard let enumerator = FileManager.default.enumerator(
             at: dir, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles]
         ) else { return [] }
@@ -336,10 +344,10 @@ final class SkillManager {
         }
     }
 
-    /// 读取技能内某个文件的正文（相对路径）。
+    /// 读取插件内某个文件的正文（相对路径）。
     func fileContent(directoryName: String, relativePath: String) -> String? {
-        let url = fs.skillsDir.appendingPathComponent(directoryName)
-            .appendingPathComponent(relativePath)
+        guard let dir = pluginDir(named: directoryName) else { return nil }
+        let url = dir.appendingPathComponent(relativePath)
         return try? String(contentsOf: url, encoding: .utf8)
     }
 
