@@ -112,10 +112,21 @@ final class SkillManager {
     }
 
     /// 设置技能启用状态并持久化。
+    /// subagent 插件的开关同样走这里（键 = manifest.name）——切换后即时刷新角色注册表，
+    /// 使停用插件的角色立即退出派发可用集、启用的立即进入。
     func setEnabled(_ name: String, _ enabled: Bool) {
         SettingsStore.shared.settings.skillEnabledStates[name] = enabled
         SettingsStore.shared.save()
         invalidateSkillsCache()
+        refreshSubagentProfiles()
+    }
+
+    /// 主线程快照启用状态与内置集合后，刷新子代理角色注册表
+    /// （SettingsStore 后台裸读竞态防护，与启动路径同一约束）。
+    private func refreshSubagentProfiles() {
+        let states = SettingsStore.shared.settings.skillEnabledStates
+        let builtinIds = fs.bundledPluginIds()
+        SubAgentProfileStore.shared.reload(enabledStates: states, builtinIds: builtinIds)
     }
 
     /// 返回当前所有已启用技能的 name 集合（用于判断输入是否为「/技能名」指令）。
@@ -304,6 +315,8 @@ final class SkillManager {
         guard let dir = pluginDir(named: directoryName) else { throw SkillError.notFound }
         try FileManager.default.removeItem(at: dir)
         invalidateSkillsCache()
+        // 删除 subagent 插件后即时刷新角色注册表，其角色立即退出派发可用集。
+        refreshSubagentProfiles()
     }
 
     // MARK: - 详情视图辅助
@@ -479,6 +492,8 @@ final class SkillManager {
 
         if !result.imported.isEmpty {
             invalidateSkillsCache()
+            // 导入后即时刷新子代理角色注册表（subagent 类型插件无需重启即可派发）。
+            refreshSubagentProfiles()
         }
         if result.imported.isEmpty && result.skipped.isEmpty {
             result.message = result.message.isEmpty ? "未导入任何插件。" : result.message

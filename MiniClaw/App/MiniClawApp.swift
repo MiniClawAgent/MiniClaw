@@ -43,12 +43,18 @@ struct MiniClawApp: App {
         // 恢复子代理运行期记录（身份+角色+聚焦+上下文历史，B 方案）：
         // 复用分支据此跨 App 重启继续命中，子代理的「会话感」不因重启丢失。
         SubagentRuntimeRegistry.shared.rebuild()
-        // 加载子代理角色（profile）：bundle 样例同步已移后台（线程治理 P0），
+        // 加载子代理角色（profile）：bundle 同步已移后台（线程治理 P0），
         // 先等同步完成再后台读盘加载，避免首启读到空目录。
+        // 启用状态在主线程先快照（SettingsStore 后台裸读竞态防护，2026-08-14 崩溃修复同款约束）。
+        let subagentEnabledStates = SettingsStore.shared.settings.skillEnabledStates
+        let subagentBuiltinIds = FileSystemManager.shared.bundledPluginIds()
         FileSystemManager.shared.syncBundledResourcesInBackground()
         Task {
             await FileSystemManager.shared.waitForBundledSync()
-            await Task.detached(priority: .userInitiated) { SubAgentProfileStore.shared.reload() }.value
+            await Task.detached(priority: .userInitiated) {
+                SubAgentProfileStore.shared.reload(enabledStates: subagentEnabledStates,
+                                                   builtinIds: subagentBuiltinIds)
+            }.value
         }
         // 数据预热：启动时同步加载会话持久层（SessionManager.load 已预热内存缓存），
         // 首页首帧即可显示数据，消除空列表闪烁。

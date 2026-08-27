@@ -11694,6 +11694,35 @@
         }
       }
     },
+    "enable_plugin" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enable plugin"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "プラグインを有効にする"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "\ud50c\ub7ec\uadf8\uc778 \ud65c\uc131\ud654"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "\u542f\u7528\u63d2\u4ef6"
+          }
+        }
+      }
+    },
     "enable_inject_into_conversation" : {
       "extractionState" : "manual",
       "localizations" : {
