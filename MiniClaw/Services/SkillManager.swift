@@ -505,6 +505,21 @@ final class SkillManager {
                 result.imported.append(dirName)
                 // soul 类型导入后默认停用（与导入规则一致），用户在列表/详情页启用开关时
                 // 才应用人格并自动停用其他 soul 插件（排他单选，见 setEnabled）。
+                // mcp 类型：拷入存档后，解析包内 servers.json（业界通用 mcpServers 格式）
+                // 并幂等合并进 MCP 配置（新增默认停用）。
+                if parsed.type == "mcp" {
+                    let serversURL = dest.appendingPathComponent("servers.json")
+                    if let json = try? String(contentsOf: serversURL, encoding: .utf8) {
+                        do {
+                            let (added, updated) = try MCPConfigStore.shared.mergePluginServers(json)
+                            result.message = String(format: L10n.l("mcp_plugin_merge_result"), added, updated)
+                        } catch {
+                            result.message = error.localizedDescription
+                        }
+                    } else {
+                        result.message = L10n.l("mcp_plugin_no_servers")
+                    }
+                }
             } catch {
                 result.skipped.append(dirName)
             }

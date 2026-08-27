@@ -23533,6 +23533,64 @@
         }
       }
     },
+    "mcp_plugin_merge_result" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MCP servers merged: %d added, %d updated (disabled by default - enable them in MCP settings)"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MCP サーバーをマージしました：追加 %d 件、更新 %d 件（既定で無効。MCP 設定で有効化してください）"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MCP 서버 병합: %d개 추가, %d개 업데이트(기본 비활성화 - MCP 설정에서 활성화하세요)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已合并 MCP 服务器：新增 %d 个、更新 %d 个（默认停用，请到 MCP 设置开启）"
+          }
+        }
+      }
+    },
+    "mcp_plugin_no_servers" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "servers.json not found in package (expected industry-standard mcpServers format)"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "パッケージ内に servers.json が見つかりません（業界標準 mcpServers 形式）"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "패키지에서 servers.json을 찾을 수 없습니다(업계 표준 mcpServers 형식)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "包内未找到 servers.json（业界通用 mcpServers 格式）"
+          }
+        }
+      }
+    },
     "mcp_remote_http_only" : {
       "extractionState" : "manual",
       "localizations" : {

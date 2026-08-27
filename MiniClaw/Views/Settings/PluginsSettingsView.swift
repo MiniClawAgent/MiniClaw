@@ -210,12 +210,15 @@ private struct SkillDetailView: View {
                     Spacer()
                     sourceBadge
                 }
-                // 启用开关（全类型）：skill=注入会话/指令入口；subagent=角色参与派发；
+                // 启用开关（按类型）：skill=注入会话/指令入口；subagent=角色参与派发；
                 // rule=规则注入；soul=应用此人格（排他单选，启用即自动停用其他 soul 插件）。
-                Toggle(skill.type == "skill"
-                       ? L10n.l("enable_inject_into_conversation")
-                       : L10n.l("enable_plugin"),
-                       isOn: enabledBinding)
+                // mcp/model=配置分发包（导入即合并），无运行时启停语义，不显示开关。
+                if skill.type != "mcp" && skill.type != "model" {
+                    Toggle(skill.type == "skill"
+                           ? L10n.l("enable_inject_into_conversation")
+                           : L10n.l("enable_plugin"),
+                           isOn: enabledBinding)
+                }
             }
 
             if skill.type == "skill" {

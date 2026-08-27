@@ -199,6 +199,51 @@ final class MCPConfigStore: ObservableObject {
         importedBearerTokens.removeValue(forKey: id)
     }
 
+    // MARK: - mcp 插件包导入（Stage-5：包内 servers.json = 业界通用 mcpServers 格式）
+
+    /// 从 mcp 插件包的 servers.json（业界通用 `mcpServers` JSON，与 Claude Desktop /
+    /// Cursor 配置片段同格式）合并 server 定义——**幂等**：
+    /// - 同名 server：覆盖非敏感字段（endpoint/transport/headers/env/command/args），
+    ///   保留 id、Bearer 令牌与用户启用状态；
+    /// - 新 server：新增且**默认停用**（用户在 MCP 设置页开启）。
+    /// - 返回（新增数, 更新数）。
+    func mergePluginServers(_ json: String) throws -> (added: Int, updated: Int) {
+        let imported = try importClaudeDesktopConfig(json)
+        var added = 0
+        var updated = 0
+        var touched: [UUID] = []
+        for var cfg in imported {
+            let parsedToken = takeImportedBearerToken(for: cfg.id)
+            if let idx = servers.firstIndex(where: { $0.name == cfg.name }) {
+                let existing = servers[idx]
+                cfg.id = existing.id                              // 保留 id（令牌随 id 走）
+                cfg.isEnabled = existing.isEnabled                // 保留用户启用状态
+                cfg.hasBearerToken = existing.hasBearerToken
+                servers[idx] = cfg
+                updated += 1
+            } else {
+                cfg.isEnabled = false                             // 新增默认停用
+                servers.append(cfg)
+                added += 1
+            }
+            touched.append(cfg.id)
+            if let token = parsedToken {
+                MCPBearerTokenStore.saveToken(token, for: cfg.id)
+                if let idx = servers.firstIndex(where: { $0.id == cfg.id }) {
+                    servers[idx].hasBearerToken = true
+                }
+            }
+        }
+        persist()
+        for id in touched {
+            Task {
+                await MCPClientManager.shared.invalidate(serverId: id)
+                await MCPToolDiscoveryCache.shared.invalidate(serverId: id)
+            }
+        }
+        return (added, updated)
+    }
+
     private func reconcileBearerTokenFlags() {
         var changed = false
         for index in servers.indices {
