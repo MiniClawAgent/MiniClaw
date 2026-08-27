@@ -485,6 +485,10 @@ final class SkillManager {
             do {
                 try fm.copyItem(at: src, to: dest)
                 result.imported.append(dirName)
+                // soul 类型特殊语义：导入即应用人格（覆盖 memory/SOUL.md，用户主动导入视为确认）。
+                if parsed.type == "soul" {
+                    fs.applySoulPackage(at: dest)
+                }
             } catch {
                 result.skipped.append(dirName)
             }

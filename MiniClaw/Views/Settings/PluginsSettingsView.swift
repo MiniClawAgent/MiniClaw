@@ -215,11 +215,14 @@ private struct SkillDetailView: View {
                     Spacer()
                     sourceBadge
                 }
-                // 启用开关（全类型）：skill=注入会话/指令入口；subagent=角色参与派发；rule=规则注入。
-                Toggle(skill.type == "skill"
-                       ? L10n.l("enable_inject_into_conversation")
-                       : L10n.l("enable_plugin"),
-                       isOn: enabledBinding)
+                // 启用开关（按类型）：skill=注入会话/指令入口；subagent=角色参与派发；rule=规则注入。
+                // soul 无启用语义（它就是"当前人格"，导入即应用），不显示开关。
+                if skill.type != "soul" {
+                    Toggle(skill.type == "skill"
+                           ? L10n.l("enable_inject_into_conversation")
+                           : L10n.l("enable_plugin"),
+                           isOn: enabledBinding)
+                }
             }
 
             if skill.type == "skill" {

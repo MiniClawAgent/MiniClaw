@@ -38,6 +38,7 @@ final class FileSystemManager: @unchecked Sendable {
     func syncBundledResourcesInBackground() {
         bundleSyncQueue.async { [self] in
             syncBundledPlugins()
+            initializeSoulIfNeeded()
             bundleSyncLock.lock()
             _bundledSyncDone = true
             let waiters = bundledSyncWaiters
@@ -95,17 +96,9 @@ final class FileSystemManager: @unchecked Sendable {
         return !t.isEmpty && t.allSatisfy { $0 == "-" } && t.count >= 3
     }
 
-    /// 默认 SOUL.md 内容（首次安装 / 重置时写入）。单一真源，FileSystemManager 与设置重置共用。
-    static let defaultSoulMarkdown = """
-    ---
-    name: "MiniClaw"
-    style: \(L10n.l("soul_default_style"))
-    lang: "auto"
-    ---
-
-    """
-
     /// 长期记忆文件的默认内容。GLOBAL.md 已改为规则文件，不再存放记忆。
+    /// SOUL.md 的出厂模板已插件化（BundledPlugins 的 soul 类型 .mpk，语言子目录随包分发），
+    /// 初始化/重置/导入共用 initializeSoulIfNeeded / applySoulPackage，见 Stage-4。
     static let defaultMemoryMarkdown = """
     # 长期记忆
 
@@ -209,12 +202,6 @@ final class FileSystemManager: @unchecked Sendable {
 
         // 旧沙盒布局清退（未上架不做兼容：检测到旧根目录即整树删除；先于一切同步/加载执行）。
         purgeLegacyLayoutDirectories()
-
-        // Create initial SOUL.md if not exists（frontmatter 对齐 SoulConfig）
-        let soulPath = memoryDir.appendingPathComponent("SOUL.md")
-        if !fileManager.fileExists(atPath: soulPath.path) {
-            try? FileSystemManager.defaultSoulMarkdown.write(to: soulPath, atomically: true, encoding: .utf8)
-        }
 
         // Create MEMORY.md as the sole long-term memory file.
         let memoryPath = memoryDir.appendingPathComponent("MEMORY.md")
@@ -408,6 +395,50 @@ final class FileSystemManager: @unchecked Sendable {
             result.append(contentsOf: langFiles[currentLang] ?? langFiles[Self.ruleDefaultLanguageDir] ?? plainFiles)
         }
         return result.sorted { $0.path < $1.path }
+    }
+
+    // MARK: - Soul 插件（Stage-4：出厂人格模板 + 导入人格包）
+
+    /// 内置默认 soul 插件 id（出厂人格模板来源）。
+    private let defaultSoulPluginID = "com.miniclaw.builtin.soul"
+
+    /// 首启初始化：SOUL.md 不存在时从内置 soul 插件按当前语言取模板写入。
+    /// 在 sync 队列内 syncBundledPlugins 之后调用（保证包已解压）。
+    /// 用户编辑过的 SOUL.md 永不被覆盖——soul 插件只负责"出厂模板"，不做同名覆盖升级。
+    func initializeSoulIfNeeded() {
+        let soulURL = memoryDir.appendingPathComponent("SOUL.md")
+        guard !fileManager.fileExists(atPath: soulURL.path) else { return }
+        let builtinDir = pluginTypeDir("soul").appendingPathComponent(defaultSoulPluginID)
+        guard fileManager.fileExists(atPath: builtinDir.path) else { return }
+        applySoulPackage(at: builtinDir)
+    }
+
+    /// 从 soul 插件目录应用人格：按当前语言取 SOUL.md（语言目录 → 回退 zh-Hans → 回退根目录）
+    /// 并覆盖写入 memory/SOUL.md。供首启初始化、设置页重置、导入 soul 包三处共用。
+    func applySoulPackage(at pluginDir: URL) {
+        guard let en = fileManager.enumerator(at: pluginDir, includingPropertiesForKeys: nil,
+                                              options: [.skipsHiddenFiles]) else { return }
+        var byLang: [String: URL] = [:]
+        var rootFile: URL?
+        for case let url as URL in en where url.lastPathComponent == "SOUL.md" {
+            let rel = url.path.replacingOccurrences(of: pluginDir.path + "/", with: "")
+            let first = rel.split(separator: "/").first.map(String.init) ?? ""
+            if Self.ruleLanguageDirs.contains(first) {
+                if byLang[first] == nil { byLang[first] = url }
+            } else if rootFile == nil {
+                rootFile = url
+            }
+        }
+        let currentLang = L10n.shared.current.tableCode
+        guard let source = byLang[currentLang] ?? byLang[Self.ruleDefaultLanguageDir] ?? rootFile else { return }
+        let dest = memoryDir.appendingPathComponent("SOUL.md")
+        try? fileManager.removeItem(at: dest)
+        try? fileManager.copyItem(at: source, to: dest)
+    }
+
+    /// 重置人格：从内置 soul 插件恢复出厂模板（设置页"重置"入口）。
+    func resetSoulToFactory() {
+        applySoulPackage(at: pluginTypeDir("soul").appendingPathComponent(defaultSoulPluginID))
     }
 
     // MARK: - File Operations

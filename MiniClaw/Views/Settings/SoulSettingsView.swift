@@ -160,10 +160,10 @@ struct SoulSettingsView: View {
         dismissAction?()
     }
 
-    // MARK: - 重置：恢复为默认 SOUL.md
+    // MARK: - 重置：恢复为默认 SOUL.md（出厂人格模板来自内置 soul 插件，按当前语言取用）
 
     private func resetSoulToDefault() {
-        try? FileSystemManager.defaultSoulMarkdown.write(to: soulURL(), atomically: true, encoding: .utf8)
+        FileSystemManager.shared.resetSoulToFactory()
         loadFromSoulFile() // 重新同步基本信息与正文
     }
 }
