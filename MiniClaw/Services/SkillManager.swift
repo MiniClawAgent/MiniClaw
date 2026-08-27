@@ -93,9 +93,18 @@ final class SkillManager {
         return sorted
     }
 
-    /// 返回 Bundle manifest 中记录的内置插件 id 集合。
-    private func bundledPluginIds() -> Set<String> {
-        fs.bundledPluginIds()
+    /// 返回**仅当前已启用**的技能列表（指令入口/UI 注入等一律以此为准）。
+    func enabledSkills() -> [SkillPackage] {
+        loadSkills().filter { $0.isEnabled }
+    }
+
+    /// 读取某技能当前生效启用态（轻量版，供视图绑定逐帧拉取）：
+    /// 用户手动开/关过的持久化状态优先；否则按来源缺省——内置开、导入关。
+    /// 口径约束：内置包清单恒声明 enabledByDefault=true，与 loadSkills 的来源分流规则一致；
+    /// 若未来出现声明为 false 的内置包，须把此方法改为回读该清单。
+    func effectiveEnabled(name: String, source: String) -> Bool {
+        if let v = SettingsStore.shared.settings.skillEnabledStates[name] { return v }
+        return source == "builtin"
     }
 
     /// 设置技能启用状态并持久化。
@@ -105,9 +114,15 @@ final class SkillManager {
         invalidateSkillsCache()
     }
 
-    /// 返回当前所有已加载技能的 name 集合（用于判断输入是否为「/技能名」指令）。
+    /// 返回当前所有已启用技能的 name 集合（用于判断输入是否为「/技能名」指令）。
+    /// 停用的技能不参与指令判定：输入框入口不会提供，命中也不解析。
     func skillNames() -> Set<String> {
-        Set(loadSkills().map { $0.name })
+        Set(enabledSkills().map { $0.name })
+    }
+
+    /// 返回 Bundle manifest 中记录的内置插件 id 集合。
+    private func bundledPluginIds() -> Set<String> {
+        fs.bundledPluginIds()
     }
 
     /// 累加某技能的调用次数并持久化（斜杠命令触发时调用）。
@@ -121,7 +136,8 @@ final class SkillManager {
     /// 为斜杠命令菜单生成「技能命令」列表：每个技能一条 `/技能名`，按调用次数降序。
     /// 调用次数相同则按 name 升序，保证顺序稳定。
     func skillSlashCommands() -> [SlashCommandItem] {
-        let skills = loadSkills()
+        // 输入框指令入口只提供**已启用**的技能；停用的不出现在菜单。
+        let skills = enabledSkills()
         let counts = SettingsStore.shared.settings.skillUseCounts
         return skills
             .sorted {

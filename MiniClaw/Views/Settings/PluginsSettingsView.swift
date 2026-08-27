@@ -117,12 +117,6 @@ struct PluginsSettingsView: View {
 /// NavigationLink 自动在开关右侧渲染箭头；HStack(center) 让开关与箭头垂直居中对齐。
 private struct SkillRowView: View {
     let skill: SkillPackage
-    @State private var isEnabled: Bool
-
-    init(skill: SkillPackage) {
-        self.skill = skill
-        _isEnabled = State(initialValue: skill.isEnabled)
-    }
 
     var body: some View {
         HStack(alignment: .center, spacing: 10) {
@@ -146,13 +140,19 @@ private struct SkillRowView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             Spacer()
-            Toggle("", isOn: $isEnabled)
+            Toggle("", isOn: enabledBinding)
                 .labelsHidden()
-                .onChange(of: isEnabled) { newValue in
-                    SkillManager.shared.setEnabled(skill.name, newValue)
-                }
         }
         .padding(.vertical, 4)
+    }
+
+    /// 拉取式绑定：开关状态以持久化设置 + 来源缺省为唯一真相（每次渲染重读），
+    /// 列表行与详情页两处切换即时同步，杜绝 @State 快照漂移。
+    private var enabledBinding: Binding<Bool> {
+        Binding(
+            get: { SkillManager.shared.effectiveEnabled(name: skill.name, source: skill.source) },
+            set: { SkillManager.shared.setEnabled(skill.name, $0) }
+        )
     }
 
     private var sourceBadge: some View {
@@ -172,7 +172,6 @@ private struct SkillDetailView: View {
     var onChanged: () -> Void
 
     @Environment(\.dismiss) private var dismiss
-    @State private var isEnabled: Bool
     @State private var showUpdateImporter = false
     @State private var showFile = false
     @State private var fileView: (name: String, content: String)?
@@ -182,7 +181,6 @@ private struct SkillDetailView: View {
     init(skill: SkillPackage, onChanged: @escaping () -> Void) {
         self.skill = skill
         self.onChanged = onChanged
-        _isEnabled = State(initialValue: skill.isEnabled)
     }
 
     private static let dateFmt: DateFormatter = {
@@ -192,6 +190,18 @@ private struct SkillDetailView: View {
         f.locale = Locale(identifier: "zh_CN")
         return f
     }()
+
+    /// 拉取式绑定（与列表行同口径）：get 每帧读持久化真相，set 写回并通知父级刷新。
+    /// 详情页开关状态因此与列表行即时一致，退出重进也不会再出现旧值。
+    private var enabledBinding: Binding<Bool> {
+        Binding(
+            get: { SkillManager.shared.effectiveEnabled(name: skill.name, source: skill.source) },
+            set: { newValue in
+                SkillManager.shared.setEnabled(skill.name, newValue)
+                onChanged()
+            }
+        )
+    }
 
     var body: some View {
         List {
@@ -204,10 +214,7 @@ private struct SkillDetailView: View {
                     Spacer()
                     sourceBadge
                 }
-                Toggle(L10n.l("enable_inject_into_conversation"), isOn: $isEnabled)
-                    .onChange(of: isEnabled) { newValue in
-                        SkillManager.shared.setEnabled(skill.name, newValue)
-                    }
+                Toggle(L10n.l("enable_inject_into_conversation"), isOn: enabledBinding)
             }
 
             Section(L10n.l("update")) {
