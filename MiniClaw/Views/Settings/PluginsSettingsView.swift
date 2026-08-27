@@ -128,9 +128,8 @@ private struct SkillRowView: View {
                 HStack(spacing: 6) {
                     Text(skill.name)
                         .font(.headline)
-                    Text("v\(skill.version)")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
                     sourceBadge
                 }
                 Text(skill.description)
@@ -155,14 +154,11 @@ private struct SkillRowView: View {
         )
     }
 
+    /// 来源标识（列表行）：仅图标——内置为服务器图标，导入为下载托盘图标；文字说明放详情页。
     private var sourceBadge: some View {
-        HStack(spacing: 3) {
-            Image(systemName: skill.source == "builtin" ? "internaldrive.fill" : "tray.and.arrow.down.fill")
-                .imageScale(.small)
-            Text(skill.source == "builtin" ? L10n.l("built_in_skills") : L10n.l("local_import"))
-                .font(.caption2)
-        }
-        .foregroundStyle(.tertiary)
+        Image(systemName: skill.source == "builtin" ? "internaldrive.fill" : "tray.and.arrow.down.fill")
+            .imageScale(.small)
+            .foregroundStyle(.tertiary)
     }
 }
 
