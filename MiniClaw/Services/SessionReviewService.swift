@@ -138,7 +138,7 @@ final class SessionReviewService: @unchecked Sendable {
             if !after.isEmpty { return String(after.prefix(300)) }
         }
         // 容错：某些模型可能输出「摘要：xxx」形式。
-        if let range = trimmed.range(of: "摘要：") ?? trimmed.range(of: "摘要:") {
+        if let range = trimmed.range(of: "Summary:") ?? trimmed.range(of: "Summary:") {
             let after = String(trimmed[range.upperBound...]).trimmingCharacters(in: .whitespacesAndNewlines)
             if !after.isEmpty { return String(after.prefix(300)) }
         }

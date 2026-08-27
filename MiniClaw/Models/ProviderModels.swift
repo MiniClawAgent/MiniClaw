@@ -159,12 +159,12 @@ enum ProviderType: String, Codable, CaseIterable {
         case .anthropic: return "Anthropic"
         case .google: return "Google Gemini"
         case .openRouter: return "OpenRouter"
-        case .custom: return "OpenAI 兼容"
+        case .custom: return L10n.l("provider_kind_custom")
         case .grok: return "xAI Grok"
         case .deepSeek: return "DeepSeek"
-        case .qwen: return "Qwen 千问"
+        case .qwen: return L10n.l("provider_qwen")
         case .xiaomi: return "Xiaomi MiMo"
-        case .zhipu: return "Zhipu 智谱"
+        case .zhipu: return L10n.l("provider_zhipu")
         }
     }
 
@@ -215,23 +215,23 @@ enum ProviderType: String, Codable, CaseIterable {
         case .openRouter:
             return EmbeddingSupport(openAICompatPath: "v1/embeddings",
                                     models: [],
-                                    note: "代理任意 OpenAI 兼容 embedding 模型（默认端点 openrouter.ai/api/v1/embeddings）")
+                                    note: L10n.l("embed_note_openrouter"))
         case .qwen:
             return EmbeddingSupport(openAICompatPath: "embeddings",
                                     models: ["text-embedding-v4", "text-embedding-v3"],
-                                    note: "百炼 compatible-mode 下默认端点 dashscope.aliyuncs.com/compatible-mode/embeddings")
+                                    note: L10n.l("embed_note_bailian"))
         case .zhipu:
             return EmbeddingSupport(openAICompatPath: "embeddings",
                                     models: ["embedding-3"],
-                                    note: "默认端点 open.bigmodel.cn/api/paas/v4/embeddings")
+                                    note: L10n.l("embed_note_zhipu"))
         case .google:
             return EmbeddingSupport(openAICompatPath: nil,
                                     models: ["embedding-001"],
-                                    note: "原生 embedContent 格式，非 OpenAI 兼容，未接入 EmbeddingClient")
+                                    note: L10n.l("embed_note_gemini"))
         case .grok:
             return EmbeddingSupport(openAICompatPath: nil,
                                     models: [],
-                                    note: "官方未公布 embedding 模型（2026-08 未验证）")
+                                    note: L10n.l("embed_note_unknown"))
         case .anthropic, .deepSeek, .xiaomi, .custom:
             // 官方无 embedding（Anthropic 明示不提供；DeepSeek API 参考无；小米模型矩阵无）；
             // custom 端点由用户自填，不预登记。

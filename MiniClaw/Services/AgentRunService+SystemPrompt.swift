@@ -148,21 +148,8 @@ extension AgentRunService {
 
         // 6. 环境变量 —— 已移至下方 volatile 段:设置页修改 envVars/隐私模式不破坏前缀。
 
-        // 7. 内存系统
-        stableParts.append("""
-        ## 记忆系统
-        - 长期记忆唯一文件：`memory/MEMORY.md`（App 沙盒内，由 memory_write 读写）
-        - 保存长期记忆时调用 `memory_write`，必须指定 `target: "long_term"`
-          - 追加一条：默认 `mode: "append"`（或显式），传 `content`
-          - 整体重写：`mode: "replace"`，传 `content`
-          - **定点修改某一行**（例如在已有事实后追加并列项）：`mode: "edit"`，传 `old_string`（要被替换的原文）和 `new_string`（替换后的文本）
-        - 保存今日过程性记忆时调用 `memory_write`，指定 `target: "daily"`；`mode: "append"`（默认，传 content）或 `mode: "edit"`（传 old_string/new_string）
-        - 用 `memory_get` 搜索记忆；`scope: "long_term"` 只搜索 MEMORY.md，`daily` 只搜索今日，`all` 搜索全部记忆
-        - `GLOBAL.md` 位于 rules/，是全局规则文件，禁止用作记忆或写入目标
-        - ⚠️ 修改记忆**只能**用 `memory_write`；禁止对 `memory/` 目录使用 `file_edit` / `file_write`（会被写入门禁拒绝）
-        - 查看和编辑长期记忆：设置 → 记忆 → 长期记忆
-        - 查看每日记忆：设置 → 记忆 → 每日记忆
-        """)
+        // 7. 内存系统（i18n：整段走 L10n）
+        stableParts.append(L10n.l("memory_system_section"))
 
         // 8. 子代理使用指南（stable：角色列表与角色文件同频，属稳定内容，进缓存前缀）
         stableParts.append(SubAgentGuide.guideWithProfiles())
@@ -204,13 +191,13 @@ extension AgentRunService {
                 envSection += "- `\(v.key)`\n"
             }
         }
-        envSection += "隐私模式: " + (privacyMode ? L10n.l("enable_mask_label") : L10n.l("close"))
+        envSection += String(format: L10n.l("prompt_privacy_mode_label"), privacyMode ? L10n.l("enable_mask_label") : L10n.l("close"))
         volatileParts.append(envSection)
 
         // 3.6 已挂载的外部文件夹（动态注入，让 智能体知道具体可访问的挂载名与路径）
         let mounted = MountStore.shared.list().filter { $0.isMounted }
         if !mounted.isEmpty {
-            let mountLines = mounted.map { "  - `\($0.path)/`（\($0.isWritable ? "可写" : "只读")）" }.joined(separator: "\n")
+            let mountLines = mounted.map { "  - `\($0.path)/`（\($0.isWritable ? L10n.l("prompt_mount_writable") : L10n.l("prompt_mount_readonly"))）" }.joined(separator: "\n")
             let firstPath = mounted.first!.path
             volatileParts.append("""
             ## 已挂载的外部文件夹

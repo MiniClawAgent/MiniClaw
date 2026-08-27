@@ -12,7 +12,7 @@ import Foundation
 
 final class QwenProviderAdapter: OpenAIProviderAdapter, @unchecked Sendable {
     init(config: OpenAICompatConfig) {
-        super.init(name: "Qwen 千问", config: config)
+        super.init(name: L10n.l("provider_qwen"), config: config)
     }
 
     override var capabilities: ProviderCapabilities {

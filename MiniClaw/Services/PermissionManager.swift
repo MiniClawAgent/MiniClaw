@@ -87,7 +87,7 @@ final class PermissionManager: @unchecked Sendable {
                SettingsStore.shared.settings.permissions.cellularData != .notDetermined {
                 return
             }
-            SettingsStore.shared.update(domain: .permissions, summary: "蜂窝数据: \(mapped.rawValue)") { (s: inout PermissionConfig) in
+            SettingsStore.shared.update(domain: .permissions, summary: String(format: L10n.l("audit_cellular"), mapped.rawValue)) { (s: inout PermissionConfig) in
                 s.cellularData = mapped
             }
         }
@@ -167,7 +167,7 @@ final class PermissionManager: @unchecked Sendable {
     /// 将本地网络权限状态持久化到设置（主线程写入）。
     private func persistLocalNetwork(_ state: PermissionState) {
         DispatchQueue.main.async {
-            SettingsStore.shared.update(domain: .permissions, summary: "本地网络权限: \(state.rawValue)") { (s: inout PermissionConfig) in
+            SettingsStore.shared.update(domain: .permissions, summary: String(format: L10n.l("audit_local_network"), state.rawValue)) { (s: inout PermissionConfig) in
                 s.localNetwork = state
             }
         }
@@ -421,7 +421,7 @@ final class PermissionManager: @unchecked Sendable {
 
     /// 把权限状态写回配置域（主线程写入）。
     private func writePermission(_ mutate: (inout PermissionConfig) -> Void) {
-        SettingsStore.shared.update(domain: .permissions, summary: "刷新/申请权限状态") { (s: inout PermissionConfig) in
+        SettingsStore.shared.update(domain: .permissions, summary: L10n.l("audit_refresh_permissions")) { (s: inout PermissionConfig) in
             mutate(&s)
         }
     }

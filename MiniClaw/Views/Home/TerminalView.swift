@@ -186,12 +186,12 @@ struct TerminalView: View {
         if let id = boundSessionID {
             let ctx = SessionFileRouter.shared.fsContext(for: id) // 查询即注册（含建目录）
             let hostDir = SessionFileRouter.shared.sessionHostDirectory(for: id).path
-            lines.append(TerminalLine(text: "[绑定会话：\(boundSessionTitle)]"))
+            lines.append(TerminalLine(text: String(format: L10n.l("terminal_banner_bound"), boundSessionTitle)))
             lines.append(TerminalLine(text: "[session.id = \(id.uuidString)]"))
-            lines.append(TerminalLine(text: "[fs_context = \(ctx)]  (非 0 才隔离)"))
-            lines.append(TerminalLine(text: "[宿主落点 = \(hostDir)]"))
+            lines.append(TerminalLine(text: String(format: L10n.l("terminal_banner_fs_context"), ctx)))
+            lines.append(TerminalLine(text: String(format: L10n.l("terminal_banner_host"), hostDir)))
         } else {
-            lines.append(TerminalLine(text: "[已绑定到 共享区（fs_context=0，无隔离）]"))
+            lines.append(TerminalLine(text: L10n.l("terminal_banner_shared")))
         }
     }
 
@@ -238,7 +238,7 @@ struct TerminalView: View {
                 }
                 if result.exitCode != 0 {
                     await MainActor.run {
-                        lines.append(TerminalLine(text: "[进程退出码 \(result.exitCode)]", isError: true))
+                        lines.append(TerminalLine(text: String(format: L10n.l("terminal_exit_code"), result.exitCode), isError: true))
                     }
                 }
             } catch {

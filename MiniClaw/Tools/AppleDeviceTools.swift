@@ -162,7 +162,7 @@ struct AppleDeviceTool: AgentTool {
             }
             if info == "all" || info == "os" {
                 p.append(String(format: L10n.l("apple_system"), device.systemName, device.systemVersion))
-                p.append("标识: " + (device.identifierForVendor.map { String($0.uuidString.prefix(12)) } ?? L10n.l("unknown")))
+                p.append(String(format: L10n.l("device_identifier_label"), device.identifierForVendor.map { String($0.uuidString.prefix(12)) } ?? L10n.l("unknown")))
             }
             if info == "all" || info == "battery" {
                 device.isBatteryMonitoringEnabled = true

@@ -384,7 +384,7 @@ private struct ModelLatencyTestView: View {
         request.timeoutInterval = 60
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        let prompt = "请只回复一个字：好"
+        let prompt = L10n.l("connectivity_probe_prompt")
         let body: [String: Any]
         switch provider.providerType {
         case .google:

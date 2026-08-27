@@ -70,14 +70,14 @@ enum LegacySwiftDataMigrator {
                 id[0], id[1], id[2], id[3], id[4], id[5], id[6], id[7],
                 id[8], id[9], id[10], id[11], id[12], id[13], id[14], id[15]
             ))
-            let title = sqlite3_column_text(stmt, 1).map { String(cString: $0) } ?? "新会话"
+            let title = sqlite3_column_text(stmt, 1).map { String(cString: $0) } ?? "NewChat"
             sessions.append((
                 id: uuid,
                 title: title,
                 titleIsPlaceholder: sqlite3_column_int(stmt, 2) != 0,
                 createdAt: Date(timeIntervalSinceReferenceDate: sqlite3_column_double(stmt, 3)),
                 updatedAt: Date(timeIntervalSinceReferenceDate: sqlite3_column_double(stmt, 4)),
-                modelName: sqlite3_column_text(stmt, 5).map { String(cString: $0) } ?? "未配置",
+                modelName: sqlite3_column_text(stmt, 5).map { String(cString: $0) } ?? "NotConfigured",
                 agentName: sqlite3_column_text(stmt, 6).map { String(cString: $0) } ?? "MiniClaw",
                 source: sqlite3_column_text(stmt, 7).map { String(cString: $0) } ?? "app",
                 statusRaw: sqlite3_column_text(stmt, 8).map { String(cString: $0) } ?? "idle",

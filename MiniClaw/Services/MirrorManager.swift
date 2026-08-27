@@ -9,9 +9,12 @@ import Foundation
 /// 单个候选镜像源。
 struct MirrorEntry: Identifiable, Equatable {
     let id: String
-    let name: String
+    /// 显示名 L10n 键（i18n：经 L10n.l 查表取当前语言显示名）。
+    let nameKey: String
     /// 基础 URL：apk 为镜像根（拼 /alpine/{v}/main）；pip/npm 为完整可用 URL。
     let url: String
+    /// 当前语言显示名。
+    var name: String { L10n.l(nameKey) }
 }
 
 /// 探测结果（含延迟毫秒，供 UI 展示）。
@@ -57,32 +60,32 @@ enum MirrorKind: String, CaseIterable, Identifiable {
         switch self {
         case .apk:
             return [
-                MirrorEntry(id: "aliyun", name: "阿里云（中国）", url: "https://mirrors.aliyun.com"),
-                MirrorEntry(id: "tuna", name: "清华 TUNA（中国）", url: "https://mirrors.tuna.tsinghua.edu.cn"),
-                MirrorEntry(id: "ustc", name: "中科大（中国）", url: "https://mirrors.ustc.edu.cn"),
-                MirrorEntry(id: "tencent", name: "腾讯云（中国）", url: "https://mirrors.cloud.tencent.com"),
-                MirrorEntry(id: "huawei", name: "华为云（中国）", url: "https://repo.huaweicloud.com"),
-                MirrorEntry(id: "official", name: "官方 CDN（全球）", url: "https://dl-cdn.alpinelinux.org"),
-                MirrorEntry(id: "rwth", name: "RWTH（德国·欧洲）", url: "https://ftp.halifax.rwth-aachen.de"),
-                MirrorEntry(id: "leaseweb", name: "LEASEWEB（英国·欧洲）", url: "https://mirror.leaseweb.com"),
-                MirrorEntry(id: "jaist", name: "JAIST（日本·亚洲）", url: "https://ftp.jaist.ac.jp/pub/Linux"),
-                MirrorEntry(id: "kakao", name: "Kakao（韩国·亚洲）", url: "https://mirror.kakao.com"),
+                MirrorEntry(id: "aliyun", nameKey: "mirror_apk_aliyun", url: "https://mirrors.aliyun.com"),
+                MirrorEntry(id: "tuna", nameKey: "mirror_apk_tuna", url: "https://mirrors.tuna.tsinghua.edu.cn"),
+                MirrorEntry(id: "ustc", nameKey: "mirror_apk_ustc", url: "https://mirrors.ustc.edu.cn"),
+                MirrorEntry(id: "tencent", nameKey: "mirror_apk_tencent", url: "https://mirrors.cloud.tencent.com"),
+                MirrorEntry(id: "huawei", nameKey: "mirror_apk_huawei", url: "https://repo.huaweicloud.com"),
+                MirrorEntry(id: "official", nameKey: "mirror_apk_official", url: "https://dl-cdn.alpinelinux.org"),
+                MirrorEntry(id: "rwth", nameKey: "mirror_apk_rwth", url: "https://ftp.halifax.rwth-aachen.de"),
+                MirrorEntry(id: "leaseweb", nameKey: "mirror_apk_leaseweb", url: "https://mirror.leaseweb.com"),
+                MirrorEntry(id: "jaist", nameKey: "mirror_apk_jaist", url: "https://ftp.jaist.ac.jp/pub/Linux"),
+                MirrorEntry(id: "kakao", nameKey: "mirror_apk_kakao", url: "https://mirror.kakao.com"),
             ]
         case .pip:
             return [
-                MirrorEntry(id: "aliyun", name: "阿里云（中国）", url: "https://mirrors.aliyun.com/pypi/simple/"),
-                MirrorEntry(id: "tuna", name: "清华 TUNA（中国）", url: "https://pypi.tuna.tsinghua.edu.cn/simple/"),
-                MirrorEntry(id: "ustc", name: "中科大（中国）", url: "https://mirrors.ustc.edu.cn/pypi/web/simple"),
-                MirrorEntry(id: "tencent", name: "腾讯云（中国）", url: "https://mirrors.cloud.tencent.com/pypi/simple/"),
-                MirrorEntry(id: "huawei", name: "华为云（中国）", url: "https://repo.huaweicloud.com/repository/pypi/simple/"),
-                MirrorEntry(id: "official", name: "官方 PyPI（全球）", url: "https://pypi.org/simple/"),
+                MirrorEntry(id: "aliyun", nameKey: "mirror_pip_aliyun", url: "https://mirrors.aliyun.com/pypi/simple/"),
+                MirrorEntry(id: "tuna", nameKey: "mirror_pip_tuna", url: "https://pypi.tuna.tsinghua.edu.cn/simple/"),
+                MirrorEntry(id: "ustc", nameKey: "mirror_pip_ustc", url: "https://mirrors.ustc.edu.cn/pypi/web/simple"),
+                MirrorEntry(id: "tencent", nameKey: "mirror_pip_tencent", url: "https://mirrors.cloud.tencent.com/pypi/simple/"),
+                MirrorEntry(id: "huawei", nameKey: "mirror_pip_huawei", url: "https://repo.huaweicloud.com/repository/pypi/simple/"),
+                MirrorEntry(id: "official", nameKey: "mirror_pip_official", url: "https://pypi.org/simple/"),
             ]
         case .npm:
             return [
-                MirrorEntry(id: "npmmirror", name: "npmmirror（中国）", url: "https://registry.npmmirror.com/"),
-                MirrorEntry(id: "huawei", name: "华为云（中国）", url: "https://repo.huaweicloud.com/repository/npm/"),
-                MirrorEntry(id: "tencent", name: "腾讯云（中国）", url: "https://mirrors.cloud.tencent.com/npm/"),
-                MirrorEntry(id: "official", name: "官方 npm（全球）", url: "https://registry.npmjs.org/"),
+                MirrorEntry(id: "npmmirror", nameKey: "mirror_npm_npmmirror", url: "https://registry.npmmirror.com/"),
+                MirrorEntry(id: "huawei", nameKey: "mirror_npm_huawei", url: "https://repo.huaweicloud.com/repository/npm/"),
+                MirrorEntry(id: "tencent", nameKey: "mirror_npm_tencent", url: "https://mirrors.cloud.tencent.com/npm/"),
+                MirrorEntry(id: "official", nameKey: "mirror_npm_official", url: "https://registry.npmjs.org/"),
             ]
         }
     }

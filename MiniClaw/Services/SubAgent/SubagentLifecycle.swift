@@ -28,9 +28,9 @@ enum SubagentLifecycle {
         BrowserContextManager.shared.destroy(sessionID: subagentID)
 
         if existed {
-            return (true, "子代理（id: \(subagentID.uuidString)）已关闭：其会话与头像已移除，上下文已释放。")
+            return (true, String(format: L10n.l("subagent_closed_msg"), subagentID.uuidString))
         } else {
-            return (false, "该子代理（id: \(subagentID.uuidString)）不存在或已关闭，无需重复关闭。")
+            return (false, String(format: L10n.l("subagent_already_closed"), subagentID.uuidString))
         }
     }
 }

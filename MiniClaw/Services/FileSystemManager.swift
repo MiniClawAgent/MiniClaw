@@ -99,7 +99,7 @@ final class FileSystemManager: @unchecked Sendable {
     static let defaultSoulMarkdown = """
     ---
     name: "MiniClaw"
-    style: "可爱、务实"
+    style: \(L10n.l("soul_default_style"))
     lang: "auto"
     ---
 
@@ -425,13 +425,13 @@ final class FileSystemManager: @unchecked Sendable {
         let content = try String(contentsOf: url, encoding: .utf8)
         let lines = content.components(separatedBy: "\n")
         if let tail {
-            guard tail >= 0 else { throw FileError.invalidRange("tail 必须大于等于 0") }
+            guard tail >= 0 else { throw FileError.invalidRange(L10n.l("err_tail_negative")) }
             return lines.suffix(tail).joined(separator: "\n")
         }
 
         let start = offset ?? 0
-        guard start >= 0 else { throw FileError.invalidRange("offset 必须大于等于 0") }
-        if let limit, limit < 0 { throw FileError.invalidRange("limit 必须大于等于 0") }
+        guard start >= 0 else { throw FileError.invalidRange(L10n.l("err_offset_negative")) }
+        if let limit, limit < 0 { throw FileError.invalidRange(L10n.l("err_limit_negative")) }
         guard start < lines.count else { return "" }
         let end = limit.map { min(start + $0, lines.count) } ?? lines.count
         return lines[start..<end].joined(separator: "\n")

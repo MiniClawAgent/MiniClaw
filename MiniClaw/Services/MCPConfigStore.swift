@@ -148,7 +148,7 @@ final class MCPConfigStore: ObservableObject {
         guard let data = json.data(using: .utf8),
               let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let serversDict = root["mcpServers"] as? [String: Any] else {
-            throw MCPClientError.invalidJSON("不是有效的 Claude Desktop 配置：缺少 mcpServers 字典")
+            throw MCPClientError.invalidJSON(L10n.l("err_claude_desktop_config"))
         }
         var result: [MCPServerConfig] = []
         for (name, value) in serversDict {

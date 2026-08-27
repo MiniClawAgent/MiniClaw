@@ -57,8 +57,8 @@ final class ChatSession: ObservableObject, Identifiable, Codable {
 
     init(
         id: UUID = UUID(),
-        title: String = "新会话",
-        modelName: String = "未配置",
+        title: String = "NewChat",
+        modelName: String = "NotConfigured",
         agentName: String = "MiniClaw",
         source: String = "app",
         status: SessionStatus = .idle,
@@ -206,19 +206,19 @@ extension ChatSession {
         var lines: [String] = []
         lines.append("# \(title)")
         lines.append("")
-        lines.append("模型：\(modelName)")
-        lines.append("智能体：\(agentName)")
-        lines.append("创建时间：\(sessionExportDateFormatter.string(from: createdAt))")
-        lines.append("更新时间：\(sessionExportDateFormatter.string(from: updatedAt))")
+        lines.append(String(format: L10n.l("export_model_label"), modelName))
+        lines.append(String(format: L10n.l("export_agent_label"), agentName))
+        lines.append(String(format: L10n.l("export_created_label"), sessionExportDateFormatter.string(from: createdAt)))
+        lines.append(String(format: L10n.l("export_updated_label"), sessionExportDateFormatter.string(from: updatedAt)))
         lines.append("")
 
         for msg in messages.sorted(by: { $0.createdAt < $1.createdAt }) {
             let roleLabel: String = {
                 switch msg.role {
-                case .user: return "用户"
-                case .assistant: return "助手"
-                case .tool: return "工具"
-                case .system: return "系统"
+                case .user: return L10n.l("export_role_user")
+                case .assistant: return L10n.l("export_role_assistant")
+                case .tool: return L10n.l("export_role_tool")
+                case .system: return L10n.l("export_role_system")
                 }
             }()
             lines.append("--- \(roleLabel) · \(sessionExportDateFormatter.string(from: msg.createdAt)) ---")
@@ -227,12 +227,12 @@ extension ChatSession {
             }
             if !msg.toolCalls.isEmpty {
                 for tc in msg.toolCalls {
-                    lines.append("  [工具: \(tc.name)]")
+                    lines.append(String(format: L10n.l("export_tool_call"), tc.name))
                     if !tc.arguments.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                        lines.append("  参数: \(tc.arguments)")
+                        lines.append(String(format: L10n.l("export_tool_args"), tc.arguments))
                     }
                     if !tc.resultText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                        lines.append("  结果: \(tc.resultText)")
+                        lines.append(String(format: L10n.l("export_tool_result"), tc.resultText))
                     }
                 }
             }

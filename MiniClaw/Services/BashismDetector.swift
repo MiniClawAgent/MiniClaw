@@ -24,34 +24,34 @@ enum BashismDetector {
     /// 预编译为 static let（逐行重新编译会超 50ms 熔断，大命令上静默失效）。
     private static let rules: [(regex: NSRegularExpression, name: String)] = [
         // 双中括号条件（ash 不支持）
-        (Self.compile(#"\[\[[^]]*\]\]"#), "双中括号条件 [[ ]]"),
+        (Self.compile(#"\[\[[^]]*\]\]"#), L10n.l("bashism_double_bracket")),
         // 数组赋值 arr=(a b c)（排除命令替换 $(...) 与子 shell 的误匹配：要求标识符后紧跟 =(）
-        (Self.compile(#"\b[A-Za-z_][A-Za-z0-9_]*=\(\s*[^)]"#), "bash 数组赋值 arr=(...)"),
+        (Self.compile(#"\b[A-Za-z_][A-Za-z0-9_]*=\(\s*[^)]"#), L10n.l("bashism_array_assign")),
         // 数组下标 ${arr[0]}
-        (Self.compile(#"\$\{[A-Za-z_][A-Za-z0-9_]*\[[0-9]+\]"#), "数组下标 ${arr[i]}"),
+        (Self.compile(#"\$\{[A-Za-z_][A-Za-z0-9_]*\[[0-9]+\]"#), L10n.l("bashism_array_index")),
         // source 命令（POSIX 应写 . file）
-        (Self.compile(#"^\s*source\s+\S"#), "source 命令（POSIX 用 . file）"),
+        (Self.compile(#"^\s*source\s+\S"#), L10n.l("bashism_source")),
         // function 关键字定义
-        (Self.compile(#"^\s*function\s+[A-Za-z_][A-Za-z0-9_]*\s*\("#), "function 关键字函数定义"),
+        (Self.compile(#"^\s*function\s+[A-Za-z_][A-Za-z0-9_]*\s*\("#), L10n.l("bashism_function")),
         // here-string <<<
         (Self.compile(#"<<<"#), "here-string <<<"),
         // 进程替换 <( ... )
-        (Self.compile(#"<\([^)]*\)"#), "进程替换 <(...)"),
+        (Self.compile(#"<\([^)]*\)"#), L10n.l("bashism_proc_sub")),
         // &> 与 &>> 重定向
-        (Self.compile(#"&\s*>|&>>"#), "&> 重定向"),
+        (Self.compile(#"&\s*>|&>>"#), L10n.l("bashism_redirect")),
         // 子串/大小写展开 ${var:offset} ${var^^} ${var,,} ${var~}
-        (Self.compile(#"\$\{[A-Za-z_][A-Za-z0-9_]*:[0-9]+|\$\{[A-Za-z_][A-Za-z0-9_]*(\^\^|,,|~~)"#), "${var:offset} / ${var^^} 展开"),
+        (Self.compile(#"\$\{[A-Za-z_][A-Za-z0-9_]*:[0-9]+|\$\{[A-Za-z_][A-Za-z0-9_]*(\^\^|,,|~~)"#), L10n.l("bashism_var_expand")),
         // 间接展开 ${!var}
-        (Self.compile(#"\$\{![A-Za-z_]"#), "间接展开 ${!var}"),
+        (Self.compile(#"\$\{![A-Za-z_]"#), L10n.l("bashism_indirect")),
         // declare/typeset -a（显式数组声明）
-        (Self.compile(#"^\s*(declare|typeset)\s+-a\b"#), "declare -a 数组声明"),
+        (Self.compile(#"^\s*(declare|typeset)\s+-a\b"#), L10n.l("bashism_declare")),
         // printf -v / mapfile / readarray / coproc / select
         (Self.compile(#"^\s*printf\s+-v\b"#), "printf -v"),
         (Self.compile(#"^\s*(mapfile|readarray)\b"#), "mapfile/readarray"),
         (Self.compile(#"^\s*coproc\b"#), "coproc"),
-        (Self.compile(#"^\s*select\s+\S+\s+in\b"#), "select 循环"),
+        (Self.compile(#"^\s*select\s+\S+\s+in\b"#), L10n.l("bashism_select")),
         // let 算术
-        (Self.compile(#"^\s*let\s+\S"#), "let 算术命令"),
+        (Self.compile(#"^\s*let\s+\S"#), L10n.l("bashism_let")),
     ]
 
     private static func compile(_ pattern: String) -> NSRegularExpression {

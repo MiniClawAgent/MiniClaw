@@ -14,7 +14,7 @@ import Foundation
 
 final class ZhipuProviderAdapter: OpenAIProviderAdapter, @unchecked Sendable {
     init(config: OpenAICompatConfig) {
-        super.init(name: "Zhipu 智谱", config: config)
+        super.init(name: L10n.l("provider_zhipu"), config: config)
     }
 
     /// 官方采样范围钳制:temperature ∈ [0,1]。

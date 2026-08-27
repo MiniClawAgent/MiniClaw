@@ -30,7 +30,7 @@ final class MemoryManager: @unchecked Sendable {
             if fs.fileExists(at: virtualPath) {
                 try fs.writeFile(at: virtualPath, content: entry, append: true, actor: .memory)
             } else {
-                let header = "# 每日记忆 - \(dateFormatter.string(from: date))\n"
+                let header = String(format: L10n.l("memory_daily_header"), dateFormatter.string(from: date))
                 try fs.writeFile(at: virtualPath, content: header + entry, actor: .memory)
             }
         }
@@ -42,7 +42,7 @@ final class MemoryManager: @unchecked Sendable {
         try syncWrite {
             let sanitized = sanitizeMemory(content, settings: settings).trimmingCharacters(in: .whitespacesAndNewlines)
             guard !sanitized.isEmpty else {
-                throw FileError.writeFailed("MEMORY.md 内容不能为空")
+                throw FileError.writeFailed(L10n.l("err_memory_empty"))
             }
 
             let virtualPath = "/var/MiniClaw/memory/MEMORY.md"
@@ -63,7 +63,7 @@ final class MemoryManager: @unchecked Sendable {
     func editMemory(target: MemoryEditTarget, oldString: String, newString: String, settings: AppSettings) throws -> String {
         try syncWrite {
             guard !oldString.isEmpty else {
-                throw FileError.writeFailed("old_string 不能为空")
+                throw FileError.writeFailed(L10n.l("err_old_string_empty"))
             }
 
             let virtualPath: String

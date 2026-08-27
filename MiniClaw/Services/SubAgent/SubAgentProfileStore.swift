@@ -58,8 +58,8 @@ final class SubAgentProfileStore: @unchecked Sendable {
         if loaded["general"] == nil && subs.isEmpty {
             loaded["general"] = SubAgentProfile(
                 name: "general",
-                displayName: "通用助手",
-                summary: "默认角色：适合可独立完成、需要聚焦上下文的通用子任务",
+                displayName: L10n.l("subagent_general_display"),
+                summary: L10n.l("subagent_general_summary"),
                 systemPrompt: Self.fallbackGeneralPrompt
             )
         }
@@ -74,7 +74,7 @@ final class SubAgentProfileStore: @unchecked Sendable {
         defer { lock.unlock() }
         guard let name, !name.isEmpty, let p = profiles[name] else {
             return profiles["general"]
-                ?? SubAgentProfile(name: "general", displayName: "通用助手", summary: "",
+                ?? SubAgentProfile(name: "general", displayName: L10n.l("subagent_general_display"), summary: "",
                                    systemPrompt: Self.fallbackGeneralPrompt)
         }
         return p

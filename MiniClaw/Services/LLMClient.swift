@@ -139,7 +139,7 @@ final class LLMClient: @unchecked Sendable {
             )
         }
         // 工厂当前覆盖全部供应商;防御:未来新增未注册 case 时兜底报错而非静默。
-        onComplete(.failure(LLMError.providerRejected("未找到供应商适配器: \(providerType.rawValue)")))
+        onComplete(.failure(LLMError.providerRejected(String(format: L10n.l("err_provider_adapter_missing"), providerType.rawValue))))
         return nil
     }
 

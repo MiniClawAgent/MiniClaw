@@ -224,7 +224,7 @@ struct AppleNLPTool: AgentTool {
                 }
                 return t
             }
-            return ToolResult(success: true, text: "分词结果 (" + String(tokens.count) + " 个): " + tokens.joined(separator: " | "))
+            return ToolResult(success: true, text: String(format: L10n.l("tokenizer_result"), tokens.count, tokens.joined(separator: " | ")))
 
         case "detect_entities":
             let result: String = await MainActor.run {

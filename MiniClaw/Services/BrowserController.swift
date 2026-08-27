@@ -233,7 +233,7 @@ final class BrowserController: NSObject, ObservableObject {
         let fm = FileSystemManager.shared
         let name = URL(fileURLWithPath: filePath).lastPathComponent
         guard let data = try? Data(contentsOf: URL(fileURLWithPath: filePath)) else {
-            return fallbackText + "\n(产物已生成但读取失败,临时路径: \(filePath))"
+            return fallbackText + String(format: L10n.l("browser_artifact_read_failed"), filePath)
         }
         return try await persistEngineArtifact(data: data, preferredName: name, sessionID: sessionID, fallbackText: fallbackText)
     }
@@ -244,9 +244,9 @@ final class BrowserController: NSObject, ObservableObject {
         do {
             try fm.writeAutomaticData(at: "/var/MiniClaw/browser/\(safeName)", data: data,
                                       actor: .browserAutomatic, sessionID: sessionID)
-            return fallbackText + "\n\n文件已保存: /var/MiniClaw/browser/\(safeName)\n可在聊天中内联展示: ![](miniclaw://browser/\(safeName))"
+            return fallbackText + String(format: L10n.l("browser_artifact_saved"), safeName, safeName)
         } catch {
-            return fallbackText + "\n(产物落盘失败: \(error.localizedDescription))"
+            return fallbackText + String(format: L10n.l("browser_artifact_save_failed"), error.localizedDescription)
         }
     }
 

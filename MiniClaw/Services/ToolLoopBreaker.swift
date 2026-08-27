@@ -74,13 +74,13 @@ final class ToolLoopBreaker {
         buckets[fp] = bucket
 
         if bucket.pollCount >= config.pollRepeatCritical {
-            return .break(reason: "轮询工具「\(toolName)」连续 \(bucket.pollCount) 次返回「未完成」，疑似空转")
+            return .break(reason: String(format: L10n.l("loopbreak_poll"), toolName, bucket.pollCount))
         }
         if bucket.genericCount >= config.genericRepeatCritical {
-            return .break(reason: "工具「\(toolName)」连续 \(bucket.genericCount) 次以相同参数调用，疑似空转循环")
+            return .break(reason: String(format: L10n.l("loopbreak_generic_break"), toolName, bucket.genericCount))
         }
         if bucket.genericCount == config.genericRepeatWarn {
-            return .warn(reason: "工具「\(toolName)」已连续 \(bucket.genericCount) 次以相同参数调用")
+            return .warn(reason: String(format: L10n.l("loopbreak_warn"), toolName, bucket.genericCount))
         }
         return .none
     }

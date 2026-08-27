@@ -115,7 +115,7 @@ struct SyncSettingsView: View {
     private func checkAccountStatus() {
         // CloudKit transport 当前不可用（entitlements 已移除，2026-08-03）。
         // 后续重做 iCloud 同步时恢复此检查。
-        accountStatus = "iCloud 同步已禁用"
+        accountStatus = L10n.l("icloud_sync_disabled")
     }
 
     private func performSync() async {

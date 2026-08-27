@@ -76,7 +76,7 @@ final class SkillManager {
             }
             result.append(SkillPackage(
                 name: displayName,
-                description: fm.description.isEmpty ? "(无描述)" : fm.description,
+                description: fm.description.isEmpty ? L10n.l("skill_no_description") : fm.description,
                 version: manifest.version.isEmpty ? (fm.version ?? "1.0.0") : manifest.version,
                 isEnabled: isOn,
                 directoryName: dir.lastPathComponent,
@@ -166,7 +166,7 @@ final class SkillManager {
                     id: "skill:\(skill.name)",
                     icon: "sparkles",
                     title: "/\(skill.name)",
-                    subtitle: skill.description.isEmpty ? "(无描述)" : skill.description,
+                    subtitle: skill.description.isEmpty ? L10n.l("skill_no_description") : skill.description,
                     kind: .skill(skill.name)
                 )
             }
@@ -190,7 +190,7 @@ final class SkillManager {
                 guard !fm.name.isEmpty else { continue }
                 let isOn = enabled[fm.name] ?? true
                 guard isOn, !fm.description.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { continue }
-                result.append("### 技能：\(fm.name)\n\(fm.description)")
+                result.append(String(format: L10n.l("skill_meta_section"), fm.name, fm.description))
             }
             return result
         }.value
@@ -238,7 +238,7 @@ final class SkillManager {
         for name in names {
             guard let body = await loadSkillBody(named: name),
                   !body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { continue }
-            sections.append("### 已加载技能正文：\(name)\n\(body)")
+            sections.append(String(format: L10n.l("skill_loaded_body_section"), name, body))
         }
         guard !sections.isEmpty else { return "" }
         return L10n.l("skill_loaded_prompt") + sections.joined(separator: "\n\n")
@@ -496,11 +496,11 @@ final class SkillManager {
             refreshSubagentProfiles()
         }
         if result.imported.isEmpty && result.skipped.isEmpty {
-            result.message = result.message.isEmpty ? "未导入任何插件。" : result.message
+            result.message = result.message.isEmpty ? L10n.l("import_none") : result.message
         } else {
             var parts: [String] = []
-            if !result.imported.isEmpty { parts.append("已导入：\(result.imported.joined(separator: "、"))") }
-            if !result.skipped.isEmpty { parts.append("已跳过（同名已存在）：\(result.skipped.joined(separator: "、"))") }
+            if !result.imported.isEmpty { parts.append(String(format: L10n.l("import_done_list"), result.imported.joined(separator: "、"))) }
+            if !result.skipped.isEmpty { parts.append(String(format: L10n.l("import_skipped_list"), result.skipped.joined(separator: "、"))) }
             result.message = parts.joined(separator: "；")
         }
         return result

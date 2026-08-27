@@ -266,7 +266,7 @@ final class OpenAIStreamDelegate: NSObject, URLSessionDataDelegate, @unchecked S
             // 后面通常还有 data: [DONE],此处置位即可。
             receivedDoneEvent = true
         case "response.failed":
-            let msg = (obj["error"] as? [String: Any])?["message"] as? String ?? "响应生成失败"
+            let msg = (obj["error"] as? [String: Any])?["message"] as? String ?? L10n.l("err_generation_failed")
             finish(failure: LLMError.providerRejected(msg))
         default:
             break

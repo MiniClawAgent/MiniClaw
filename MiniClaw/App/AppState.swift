@@ -808,15 +808,15 @@ final class AppState: ObservableObject {
             if !imagePaths.isEmpty {
                 let fileList = imagePaths.map { ($0 as NSString).lastPathComponent }.joined(separator: ", ")
                 let pathList = imagePaths.joined(separator: "\", \"")
-                hints.append("[图片] 用户附件了 \(imagePaths.count) 张图片 (\(fileList))，但当前模型不支持原生视觉输入。请使用 vision_analyze 工具分析这些图片来理解用户意图。图片路径：\"\(pathList)\"")
+                hints.append(String(format: L10n.l("vision_unsupported_hint"), imagePaths.count, fileList, pathList))
             }
             if !filePaths.isEmpty {
                 let fileList = filePaths.map { ($0 as NSString).lastPathComponent }.joined(separator: ", ")
                 let pathList = filePaths.joined(separator: "\", \"")
-                hints.append("[文件] 用户附件了 \(filePaths.count) 个文件 (\(fileList))，但当前模型不支持直接读取。请使用 read_document 工具读取这些文件的内容来理解用户意图。文件路径：\"\(pathList)\"")
+                hints.append(String(format: L10n.l("files_unsupported_hint"), filePaths.count, fileList, pathList))
             }
             if !hints.isEmpty {
-                enrichedInput.append("\n\n[系统提示] " + hints.joined(separator: "\n"))
+                enrichedInput.append("\n\n" + L10n.l("sys_note_prefix") + hints.joined(separator: "\n"))
             }
         }
 

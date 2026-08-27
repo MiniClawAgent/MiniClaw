@@ -362,7 +362,7 @@ final class MemoryConsolidator: @unchecked Sendable {
         engine.configure(sessionID: UUID(), streamingMessageID: nil)
         engine.isSubagentEngine = true
         engine.setSystemPrompt(
-            stable: "你是记忆整理器。严格按用户给出的规则处理文本，只输出结果本身，不输出任何解释。",
+            stable: L10n.l("memory_consolidator_prompt"),
             volatile: ""
         )
 

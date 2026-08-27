@@ -78,7 +78,7 @@ actor StdioMCPClient: MCPClientProtocol {
         let remaining = waiters
         waiters.removeAll()
         for (_, waiter) in remaining {
-            waiter.resume(throwing: MCPClientError.connectionLost("MCP stdio 通道已关闭(server 退出)"))
+            waiter.resume(throwing: MCPClientError.connectionLost(L10n.l("mcp_stdio_channel_closed")))
         }
     }
 
@@ -88,7 +88,7 @@ actor StdioMCPClient: MCPClientProtocol {
         nextRequestID += 1
         let request = MCPJSONRPCRequest(id: id, method: method, params: params)
         guard let data = try? JSONEncoder().encode(request) else {
-            throw MCPClientError.invalidJSON("无法编码 MCP 请求")
+            throw MCPClientError.invalidJSON(L10n.l("mcp_stdio_encode_failed"))
         }
         guard let stdin = stdinHandle else { throw MCPClientError.invalidEndpoint }
         try? stdin.write(contentsOf: data + Data("\n".utf8))
@@ -104,19 +104,19 @@ actor StdioMCPClient: MCPClientProtocol {
                 try await Task.sleep(nanoseconds: 30_000_000_000)
                 self.pendingIDs.remove(id)
                 self.waiters.removeValue(forKey: id)
-                throw MCPClientError.timeout("MCP stdio 请求超时(id=\(id))")
+                throw MCPClientError.timeout(String(format: L10n.l("mcp_stdio_timeout"), id))
             }
             defer { group.cancelAll() }
             guard let first = try await group.next() else {
-                throw MCPClientError.timeout("MCP stdio 请求超时(id=\(id))")
+                throw MCPClientError.timeout(String(format: L10n.l("mcp_stdio_timeout"), id))
             }
             return first
         }
         guard let response = try? JSONDecoder().decode(MCPJSONRPCResponse.self, from: responseData) else {
-            throw MCPClientError.invalidResponse("MCP stdio 响应无法解析")
+            throw MCPClientError.invalidResponse(L10n.l("mcp_stdio_invalid_response"))
         }
         if let error = response.error { throw MCPClientError.rpc(code: error.code, message: error.message) }
-        guard let result = response.result else { throw MCPClientError.invalidResponse("MCP stdio 响应缺少 result") }
+        guard let result = response.result else { throw MCPClientError.invalidResponse(L10n.l("mcp_stdio_missing_result")) }
         return result
     }
 
@@ -141,7 +141,7 @@ actor StdioMCPClient: MCPClientProtocol {
         try await ensureInitialized()
         let result = try await rpc(method: "tools/list", params: .object([:]))
         guard let object = result.objectValue, case .array(let rawTools)? = object["tools"] else {
-            throw MCPClientError.invalidResponse("MCP tools/list 缺少 tools 数组")
+            throw MCPClientError.invalidResponse(L10n.l("mcp_tools_list_missing"))
         }
         return try rawTools.map { value in
             let data = try JSONEncoder().encode(value)
@@ -155,7 +155,7 @@ actor StdioMCPClient: MCPClientProtocol {
             method: "tools/call",
             params: .object(["name": .string(name), "arguments": .object(arguments)])
         )
-        guard let object = result.objectValue else { throw MCPClientError.invalidResponse("MCP tools/call result 不是对象") }
+        guard let result = result.objectValue else { throw MCPClientError.invalidResponse(L10n.l("mcp_tools_call_not_object")) }
         let isError: Bool
         if case .bool(let value)? = object["isError"] { isError = value } else { isError = false }
         let content: [MCPJSONValue]
@@ -163,7 +163,7 @@ actor StdioMCPClient: MCPClientProtocol {
         let text = content.compactMap { $0.objectValue?["text"]?.stringValue }.joined(separator: "\n")
         return MCPToolCallResult(
             isError: isError,
-            text: text.isEmpty ? "MCP 工具调用完成（无文本内容）" : text,
+            text: text.isEmpty ? L10n.l("mcp_no_text_content") : text,
             content: content,
             structuredContent: object["structuredContent"]
         )
@@ -187,7 +187,7 @@ actor StdioMCPClient: MCPClientProtocol {
     }
 
     func callTool(name: String, arguments: [String: MCPJSONValue]) async throws -> MCPToolCallResult {
-        throw MCPClientError.unsupported("STDIO 传输的 MCP 在 iOS 上不可用。")
+        throw MCPClientError.unsupported(L10n.l("mcp_stdio_unsupported"))
     }
 
     func shutdown() async {}

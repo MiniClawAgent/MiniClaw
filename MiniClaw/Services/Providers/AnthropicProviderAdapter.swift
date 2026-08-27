@@ -295,15 +295,15 @@ final class AnthropicProviderAdapter: LLMProviderAdapter, @unchecked Sendable {
     func classifyHTTPError(statusCode: Int, body: String) -> LLMError? {
         switch statusCode {
         case 401, 403:
-            return .providerRejected(body.isEmpty ? "认证失败(401/403):请检查 API Key" : body)
+            return .providerRejected(body.isEmpty ? L10n.l("err_auth_failed") : body)
         case 429, 529:
             // 429 = 限流;529 = overloaded_error(官方错误码,服务过载,可重试)。
             return .rateLimited
         case 400:
-            return .providerRejected(body.isEmpty ? "请求被拒绝(400)" : body)
+            return .providerRejected(body.isEmpty ? L10n.l("err_request_rejected") : body)
         default:
             if statusCode >= 500 {
-                return .providerRejected("服务端错误(\(statusCode)): \(body.prefix(300))")
+                return .providerRejected(String(format: L10n.l("err_server_error"), statusCode, String(body.prefix(300))))
             }
             return nil
         }

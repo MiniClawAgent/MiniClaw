@@ -118,7 +118,7 @@ public struct HostExecutor {
         do {
             try process.run()
         } catch {
-            return ExecutionResult(exitCode: -1, stdout: "", stderr: "无法启动进程: \(error.localizedDescription)", timedOut: false)
+            return ExecutionResult(exitCode: -1, stdout: "", stderr: String(format: L10n.l("err_proc_start_failed"), error.localizedDescription), timedOut: false)
         }
 
         // 超时控制：到点终止任务。
@@ -162,7 +162,7 @@ public struct HostExecutor {
         return ExecutionResult(
             exitCode: -1,
             stdout: "",
-            stderr: "HostExecutor 在 iOS 真机需经 iSH (Alpine Linux) 接入；当前不可用。",
+            stderr: L10n.l("err_host_executor_ios"),
             timedOut: false
         )
     }

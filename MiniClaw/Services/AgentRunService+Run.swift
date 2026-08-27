@@ -237,7 +237,7 @@ extension AgentRunService {
 
     图标背景将自动取 iconColor 的 0.12 透明度，前景符号使用 iconColor 本身。
     只输出一个 JSON 对象，严格使用如下格式，不要输出任何其他文字、也不要使用代码围栏：
-    {"title":"会话标题","icon":"sf_symbol_name","iconColor":"#FF6B6B"}
+                    {"title":"\(L10n.l("title_gen_placeholder"))","icon":"sf_symbol_name","iconColor":"#FF6B6B"}
     """
 
     nonisolated private static func sanitizeTitle(_ raw: String) -> String {

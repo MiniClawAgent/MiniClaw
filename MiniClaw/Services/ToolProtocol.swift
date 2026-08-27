@@ -66,7 +66,7 @@ indirect enum JSONSchemaValue: Codable, Sendable, Equatable {
         else if let value = try? container.decode([JSONSchemaValue].self) { self = .array(value) }
         else if let value = try? container.decode([String: JSONSchemaValue].self) { self = .object(value) }
         else {
-            throw DecodingError.dataCorruptedError(in: container, debugDescription: "不支持的 JSON 值")
+            throw DecodingError.dataCorruptedError(in: container, debugDescription: L10n.l("err_unsupported_json_value"))
         }
     }
 
@@ -152,7 +152,7 @@ final class ToolRouter {
             var properties = parameters.properties ?? [:]
             properties[activityParameterName] = JSONSchema.JSONProperty(
                 type: "string",
-                description: "必填。用6-16字中文描述本次调用的具体行为，供工具指示器展示。例如：读取配置文件、搜索昨日记忆、创建日历事件、查询当前天气。不要填写工具名或原始 action。"
+                description: L10n.l("tool_indicator_desc")
             )
 
             var required = parameters.required ?? []
