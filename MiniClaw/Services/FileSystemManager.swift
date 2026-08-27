@@ -436,11 +436,6 @@ final class FileSystemManager: @unchecked Sendable {
         try? fileManager.copyItem(at: source, to: dest)
     }
 
-    /// 重置人格：从内置 soul 插件恢复出厂模板（设置页"重置"入口）。
-    func resetSoulToFactory() {
-        applySoulPackage(at: pluginTypeDir("soul").appendingPathComponent(defaultSoulPluginID))
-    }
-
     // MARK: - File Operations
 
     func readFile(at path: String, offset: Int? = nil, limit: Int? = nil, tail: Int? = nil, sessionID: UUID? = nil) throws -> String {

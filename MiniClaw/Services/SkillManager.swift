@@ -111,14 +111,39 @@ final class SkillManager {
         return source == "builtin"
     }
 
-    /// 设置技能启用状态并持久化。
-    /// subagent 插件的开关同样走这里（键 = manifest.name）——切换后即时刷新角色注册表，
-    /// 使停用插件的角色立即退出派发可用集、启用的立即进入。
+    /// 设置插件启用状态并持久化。
+    /// **soul 互斥语义（唐唐 2026-08-28 确认）**：soul 插件是排他单选——启用某个 soul
+    /// 插件时，同类型其他 soul 插件立即停用，并应用该插件的人格（覆盖 memory/SOUL.md）。
+    /// subagent 开关切换后即时刷新角色注册表（停用插件的角色立即退出派发可用集）。
     func setEnabled(_ name: String, _ enabled: Bool) {
-        SettingsStore.shared.settings.skillEnabledStates[name] = enabled
+        var states = SettingsStore.shared.settings.skillEnabledStates
+        states[name] = enabled
+        var soulDir: URL?
+        if enabled {
+            let builtinIds = fs.bundledPluginIds()
+            // 扫描 soul 类型插件：目标插件记录目录；其余 soul 一律停用（显式写 false，
+            // 防止未手动设置过的内置包靠缺省值继续生效）。
+            for dir in fs.allPluginDirectories() {
+                guard let data = try? Data(contentsOf: dir.appendingPathComponent("plugin.json")),
+                      let m = try? JSONDecoder().decode(PluginManifest.self, from: data),
+                      m.type == "soul" else { continue }
+                let key = m.name.isEmpty ? dir.lastPathComponent : m.name
+                if key == name {
+                    soulDir = dir
+                } else {
+                    let fallback = builtinIds.contains(dir.lastPathComponent) ? m.enabledByDefault : false
+                    if states[key] ?? fallback { states[key] = false }
+                }
+            }
+        }
+        SettingsStore.shared.settings.skillEnabledStates = states
         SettingsStore.shared.save()
         invalidateSkillsCache()
         refreshSubagentProfiles()
+        // 启用 soul 插件 → 应用其人格（UI 主线程调用，安全）。
+        if let dir = soulDir {
+            fs.applySoulPackage(at: dir)
+        }
     }
 
     /// 主线程快照启用状态与内置集合后，刷新子代理角色注册表
@@ -485,10 +510,8 @@ final class SkillManager {
             do {
                 try fm.copyItem(at: src, to: dest)
                 result.imported.append(dirName)
-                // soul 类型特殊语义：导入即应用人格（覆盖 memory/SOUL.md，用户主动导入视为确认）。
-                if parsed.type == "soul" {
-                    fs.applySoulPackage(at: dest)
-                }
+                // soul 类型导入后默认停用（与导入规则一致），用户在列表/详情页启用开关时
+                // 才应用人格并自动停用其他 soul 插件（排他单选，见 setEnabled）。
             } catch {
                 result.skipped.append(dirName)
             }
