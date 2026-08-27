@@ -42,12 +42,15 @@ struct PluginManifest: Codable {
     var conflictsWith: [String] = []
     var author: String = ""
     var license: String = ""
+    /// 一句话描述（≤30 字）：插件列表与详情页展示，让用户一眼明白插件用途。
+    /// 内置插件必填；第三方选填，缺省时显示"无描述"。
+    var description: String = ""
     var icon: String = ""
 
     private enum CodingKeys: String, CodingKey {
         case id, name, version, type, category, minCoreVersion
         case enabledByDefault, dependsOn, conflictsWith
-        case author, license, icon
+        case author, license, icon, description
     }
 
     /// 声明默认值：所有键均可缺席。
@@ -63,7 +66,8 @@ struct PluginManifest: Codable {
         conflictsWith: [String] = [],
         author: String = "",
         license: String = "",
-        icon: String = ""
+        icon: String = "",
+        description: String = ""
     ) {
         self.id = id
         self.name = name
@@ -77,6 +81,7 @@ struct PluginManifest: Codable {
         self.author = author
         self.license = license
         self.icon = icon
+        self.description = description
     }
 
     init(from decoder: Decoder) throws {
@@ -95,6 +100,7 @@ struct PluginManifest: Codable {
         author = try c.decodeIfPresent(String.self, forKey: .author) ?? d.author
         license = try c.decodeIfPresent(String.self, forKey: .license) ?? d.license
         icon = try c.decodeIfPresent(String.self, forKey: .icon) ?? d.icon
+        description = try c.decodeIfPresent(String.self, forKey: .description) ?? d.description
     }
 
     /// 将插件 id 清洗为安全目录名（去除路径分隔符，保留点号）。

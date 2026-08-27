@@ -187,11 +187,6 @@ private struct SkillDetailView: View {
         return f
     }()
 
-    /// SKILL.md 的介绍段（# 标题到第一个 ## 之间）；subagent 等无 SKILL.md 的插件为空。
-    private var introText: String {
-        SkillManager.shared.introSection(named: skill.name)
-    }
-
     /// 拉取式绑定（与列表行同口径）：get 每帧读持久化真相，set 写回并通知父级刷新。
     /// 详情页开关状态因此与列表行即时一致，退出重进也不会再出现旧值。
     private var enabledBinding: Binding<Bool> {
@@ -249,11 +244,11 @@ private struct SkillDetailView: View {
                 }
             }
 
-            if !introText.isEmpty {
-                Section(L10n.l("description")) {
-                    Text(introText)
-                        .font(.callout)
-                }
+            // 描述：读 plugin.json 的 description 字段（内置必填/第三方选填，
+            // loadSkills 已按清单→frontmatter→"无描述"兜底）。
+            Section(L10n.l("description")) {
+                Text(skill.description)
+                    .font(.callout)
             }
 
             Section(L10n.l("files")) {

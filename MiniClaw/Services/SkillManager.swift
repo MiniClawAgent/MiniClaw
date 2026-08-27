@@ -74,9 +74,13 @@ final class SkillManager {
                 installDates[displayName] = installDate
                 changed = true
             }
+            // 描述取值优先级：清单 description（规范来源）→ SKILL.md frontmatter（兼容第三方旧包）→ 无描述。
+            let resolvedDesc = manifest.description.isEmpty
+                ? (fm.description.isEmpty ? L10n.l("skill_no_description") : fm.description)
+                : manifest.description
             result.append(SkillPackage(
                 name: displayName,
-                description: fm.description.isEmpty ? L10n.l("skill_no_description") : fm.description,
+                description: resolvedDesc,
                 version: manifest.version.isEmpty ? (fm.version ?? "1.0.0") : manifest.version,
                 isEnabled: isOn,
                 directoryName: dir.lastPathComponent,
@@ -210,7 +214,7 @@ final class SkillManager {
                     id: "skill:\(skill.name)",
                     icon: "sparkles",
                     title: "/\(skill.name)",
-                    subtitle: skill.description.isEmpty ? L10n.l("skill_no_description") : skill.description,
+                    subtitle: skill.description,
                     kind: .skill(skill.name)
                 )
             }
@@ -363,20 +367,6 @@ final class SkillManager {
         refreshSubagentProfiles()
     }
 
-    // MARK: - 详情视图辅助
-
-    /// 返回技能正文（第一个 `#` 标题到第一个 `##` 标题之间的介绍内容）。
-    /// 详情页低频 UI 操作，保持同步（读盘量极小）；skillBody 已 async 化故内联读盘。
-    func introSection(named name: String) -> String {
-        for dir in fs.skillDirectories() {
-            let skillURL = dir.appendingPathComponent("SKILL.md")
-            guard let raw = Self.readSkillRaw(from: skillURL) else { continue }
-            let fm = Self.parseSkillMarkdown(raw)
-            if fm.name == name { return Self.extractIntro(raw) }
-        }
-        return ""
-    }
-
     /// 按 directoryName（=插件目录名/插件 id）在统一插件布局下跨类型定位插件目录。
     private func pluginDir(named directoryName: String) -> URL? {
         fs.allPluginDirectories().first { $0.lastPathComponent == directoryName }
@@ -450,22 +440,6 @@ final class SkillManager {
             result.message = String(format: L10n.l("skill_update_failed"), error.localizedDescription)
         }
         return result
-    }
-
-    /// 提取 SKILL.md 中第一个 `#` 标题到第一个 `##` 标题之间的介绍正文。
-    nonisolated static func extractIntro(_ raw: String) -> String {
-        let lines = raw.components(separatedBy: "\n")
-        guard let firstHash = lines.firstIndex(where: { $0.hasPrefix("# ") || $0 == "#" }) else {
-            return raw.trimmingCharacters(in: .whitespacesAndNewlines)
-        }
-        if let end = lines[firstHash...].firstIndex(where: { $0.hasPrefix("## ") }) {
-            return lines[(firstHash + 1)..<end]
-                .joined(separator: "\n")
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-        }
-        return lines[(firstHash + 1)...]
-            .joined(separator: "\n")
-            .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     // MARK: - 导入（支持 .zip 技能包 或 单个 SKILL.md）
