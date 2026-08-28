@@ -1,9 +1,6 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
-    " · %@" : {},
-    "$" : {},
-    "%@" : {},
     "%@ tokens" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -43,8 +40,6 @@
         }
       }
     },
-    "%@%%" : {},
-    "%@." : {},
     "%@/%@" : {
       "localizations" : {
         "en" : {
@@ -55,7 +50,6 @@
         }
       }
     },
-    "." : {},
     "Add to Chat Input" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -462,7 +456,6 @@
         }
       }
     },
-    "Desktop Safari" : {},
     "Edit" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -521,8 +514,6 @@
         }
       }
     },
-    "MiniClaw" : {},
-    "Mobile Safari" : {},
     "NFC" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -5873,6 +5864,35 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "浏览器设置"
+          }
+        }
+      }
+    },
+    "browser_tab_id_desc" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tab id (Int, from navigate/new_tab/list_tabs). Same as the tab_id returned by list_tabs."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tab id（Int、navigate/new_tab/list_tabs から取得）。list_tabs が返す tab_id と一致します。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tab id(Int, navigate/new_tab/list_tabs에서 가져옴). list_tabs가 반환하는 tab_id와 동일합니다."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tab id (Int, from navigate/new_tab/list_tabs). 与 list_tabs 返回的 tab_id 一致。"
           }
         }
       }
@@ -24280,6 +24300,35 @@
         }
       }
     },
+    "memory_system_section" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "## Memory System\n- The only long-term memory file: `memory/MEMORY.md` (inside the app sandbox, read/written via memory_write)\n- To save long-term memory, call `memory_write` with `target: \"long_term\"`\n  - Append one entry: default `mode: \"append\"` (or explicit), pass `content`\n  - Full rewrite: `mode: \"replace\"`, pass `content`\n  - **Edit a specific line** (e.g. append a sibling item after an existing fact): `mode: \"edit\"`, pass `old_string` (text to replace) and `new_string` (replacement)\n- To save today's procedural memory, call `memory_write` with `target: \"daily\"`; `mode: \"append\"` (default, pass content) or `mode: \"edit\"` (pass old_string/new_string)\n- Search memory with `memory_get`; `scope: \"long_term\"` searches MEMORY.md only, `daily` only today, `all` searches all memory\n- `GLOBAL.md` lives under rules/ — it is the global rules file and must not be used as memory or a write target\n- ⚠️ Memory **must only** be modified via `memory_write`; using `file_edit` / `file_write` on `memory/` is forbidden (rejected by the write gate)\n- View/edit long-term memory: Settings → Memory → Long-term Memory\n- View daily memory: Settings → Memory → Daily Memory"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "## メモリシステム\n- 長期メモリの唯一のファイル：`memory/MEMORY.md`（App サンドボックス内、memory_write で読み書き）\n- 長期メモリを保存するには `memory_write` を呼び出し、必ず `target: \"long_term\"` を指定\n  - 1 件追記：デフォルトの `mode: \"append\"`（または明示）、`content` を渡す\n  - 全体書き換え：`mode: \"replace\"`、`content` を渡す\n  - **特定行の定点修正**（既存の事実に並列項目を追記するなど）：`mode: \"edit\"`、`old_string`（置換対象の原文）と `new_string`（置換後のテキスト）を渡す\n- 今日の経過メモリを保存するには `memory_write` を `target: \"daily\"` で呼び出す；`mode: \"append\"`（デフォルト、content を渡す）または `mode: \"edit\"`（old_string/new_string を渡す）\n- `memory_get` でメモリを検索；`scope: \"long_term\"` は MEMORY.md のみ、`daily` は今日のみ、`all` は全メモリを検索\n- `GLOBAL.md` は rules/ 配下のグローバルルールファイルであり、メモリや書き込み先として使用禁止\n- ⚠️ メモリの変更は**`memory_write` のみ**；`memory/` ディレクトリへの `file_edit` / `file_write` は禁止（書き込みゲートで拒否されます）\n- 長期メモリの閲覧/編集：設定 → メモリ → 長期メモリ\n- デイリーメモリの閲覧：設定 → メモリ → デイリーメモリ"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "## 메모리 시스템\n- 장기 메모리의 유일한 파일: `memory/MEMORY.md`(App 샌드박스 내, memory_write로 읽기/쓰기)\n- 장기 메모리를 저장하려면 `memory_write`를 호출하고 반드시 `target: \"long_term\"`을 지정\n  - 한 건 추가: 기본 `mode: \"append\"`(또는 명시), `content` 전달\n  - 전체 재작성: `mode: \"replace\"`, `content` 전달\n  - **특정 줄 수정**(기존 사실 뒤에 병렬 항목 추가 등): `mode: \"edit\"`, `old_string`(대체될 원문)과 `new_string`(대체 텍스트) 전달\n- 오늘의 경과 메모리를 저장하려면 `memory_write`를 `target: \"daily\"`로 호출; `mode: \"append\"`(기본, content 전달) 또는 `mode: \"edit\"`(old_string/new_string 전달)\n- `memory_get`으로 메모리 검색; `scope: \"long_term\"`은 MEMORY.md만, `daily`는 오늘만, `all`은 전체 메모리 검색\n- `GLOBAL.md`는 rules/ 아래의 전역 규칙 파일이며 메모리나 쓰기 대상으로 사용 금지\n- ⚠️ 메모리 수정은 **`memory_write`로만** 가능; `memory/` 디렉터리에 `file_edit` / `file_write` 사용 금지(쓰기 게이트에서 거부됨)\n- 장기 메모리 보기/편집: 설정 → 메모리 → 장기 메모리\n- 데일리 메모리 보기: 설정 → 메모리 → 데일리 메모리"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "## 记忆系统\n- 长期记忆唯一文件：`memory/MEMORY.md`（App 沙盒内，由 memory_write 读写）\n- 保存长期记忆时调用 `memory_write`，必须指定 `target: \"long_term\"`\n  - 追加一条：默认 `mode: \"append\"`（或显式），传 `content`\n  - 整体重写：`mode: \"replace\"`，传 `content`\n  - **定点修改某一行**（例如在已有事实后追加并列项）：`mode: \"edit\"`，传 `old_string`（要被替换的原文）和 `new_string`（替换后的文本）\n- 保存今日过程性记忆时调用 `memory_write`，指定 `target: \"daily\"`；`mode: \"append\"`（默认，传 content）或 `mode: \"edit\"`（传 old_string/new_string）\n- 用 `memory_get` 搜索记忆；`scope: \"long_term\"` 只搜索 MEMORY.md，`daily` 只搜索今日，`all` 搜索全部记忆\n- `GLOBAL.md` 位于 rules/，是全局规则文件，禁止用作记忆或写入目标\n- ⚠️ 修改记忆**只能**用 `memory_write`；禁止对 `memory/` 目录使用 `file_edit` / `file_write`（会被写入门禁拒绝）\n- 查看和编辑长期记忆：设置 → 记忆 → 长期记忆\n- 查看每日记忆：设置 → 记忆 → 每日记忆"
+          }
+        }
+      }
+    },
     "memory_toggle" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -39212,6 +39261,35 @@
         }
       }
     },
+    "subagent_usage_guide" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "## Subagent Usage Guide\n\nWhen a task meets any of the following conditions, **prefer** calling `dispatch_subagent` to dispatch subagents for parallel/independent handling instead of doing it all yourself:\n\n- The task requires **multi-round verification or multi-source comparison** (e.g. \"compare X and Y / which is better\");\n- The task **splits into independent chunks** (e.g. \"research A, B and C separately\") — dispatch them in one call via the `tasks` array;\n- The task would **occupy a lot of context** (long-form writing, bulk material organization) — isolating it in a subagent keeps the main context focused;\n- The user explicitly asks for \"thorough research / careful comparison / detailed planning / a full report\".\n\nRules:\n- Pick the best role via the `profile` parameter (see the role list below); omit it for the default \"General Assistant\".\n- Each subagent works independently with tools and returns a self-contained summary; call `read_subagent_result` to page through full content.\n- Subagents nest at most 2 levels; no more than 4 run globally at once — when the cap is hit, wait per the returned hint or finish it yourself.\n- **Reuse**: every subagent has a stable `subagent_id` (see the \"session subagents\" list below). For follow-up work related to one, re-dispatch **the same** subagent via `dispatch_subagent`'s `subagent_id` (it keeps its role and context) — don't create a new one each time; subagents are durable working partners, not one-shot tools.\n- **Close**: when a subagent's task is fully done and no longer needed, call `close_subagent` — its session and avatar are removed and context released; a closed subagent can't be reused (dispatch a new one if needed).\n- Don't dispatch subagents for **simple tasks** — they carry overhead and are only worth it for the complex cases above."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "## サブエージェント使用ガイド\n\nタスクが以下のいずれかに当てはまる場合は、自分で順に処理するのではなく、**優先的に** `dispatch_subagent` でサブエージェントを並列/独立dispatchしてください：\n\n- **多回合の検証や複数ソースの比較**が必要（例：「X と Y の違い/どちらが良いか調べて」）；\n- タスクが**互いに独立した塊に分割できる**（例：「A・B・C をそれぞれ調査」）—— `tasks` 配列で一括並列 dispatch；\n- タスクが**大量のコンテキストを占有する**（長文執筆・大量資料の整理など）——サブエージェントに隔離するとメインコンテキストに集中できます；\n- ユーザーが「しっかり調べて / 詳しく比較して / 詳細に計画して / 完全なレポートを書いて」と明示的に要求している。\n\nルール：\n- `profile` パラメータで最適なロールを選択（下記ロール一覧参照）；省略時はデフォルト「汎用アシスタント」。\n- 各サブエージェントは独立してツールを使いタスクを完了し、自己完結した要約を返します。全文が必要な場合は `read_subagent_result` でページ送りしてください。\n- サブエージェントは最大 2 階層までネスト可能、グローバルで同時実行は 4 個まで。上限に達したら戻り値のヒントに従って待つか自分で完了してください。\n- **再利用**：各サブエージェントには安定した `subagent_id` があります（下記「現在のセッションのサブエージェント」一覧参照）。続くタスクが既存のサブエージェントに関連する場合は、`dispatch_subagent` の `subagent_id` で**同じ**サブエージェントに継続dispatchしてください（ロールとコンテキストが保持されます）。毎回新規作成しないでください——サブエージェントは持続的に対話できる独立したパートナーであり、使い捨てツールではありません。\n- **クローズ**：サブエージェントのタスクが完全に完了し今後不要な場合は `close_subagent` で閉じてください——セッションとアバターが削除され、コンテキストが解放されます。閉じた後は再利用できません（必要なら再dispatchで新規作成）。\n- 簡単なタスクにはサブエージェントを**dispatchしないでください**——オーバーヘッドがあり、上記の複雑なケースでのみ価値があります。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "## サブエージェント使用ガイド\n\nタスクが以下のいずれかに該当する場合、自分で順次処理するより **`dispatch_subagent`로 서브에이전트를 병렬/독립 dispatch하는 것을 우선**하세요：\n\n- **여러 차례 검증, 다중 소스 비교**가 필요한 작업(예: \"X와 Y의 차이/어느 쪽이 나은지 조사해 줘\")；\n- 작업이 **서로 독립적인 단위로 나뉘는** 경우(예: \"A, B, C를 각각 조사해 줘\")—— `tasks` 배열로 한 번에 병렬 dispatch；\n- 작업이 **많은 컨텍스트를 차지하는** 경우(장문 작성, 대량 자료 정리 등)——서브에이전트로 격리하면 메인 컨텍스트에 집중할 수 있습니다；\n- 사용자가 \"철저히 조사 / 꼼꼼히 비교 / 상세히 계획 / 완전한 보고서 작성\"을 명시적으로 요청한 경우。\n\n규칙：\n- `profile` 매개변수로 가장 적합한 역할을 선택하세요(아래 역할 목록 참조)；생략하면 기본「범용 어시스턴트」를 사용합니다.\n- 각 서브에이전트는 독립적으로 도구를 사용해 작업을 완료하고 자기완결형 요약을 반환합니다. 전체 내용이 필요하면 `read_subagent_result`로 페이지 단위로 읽으세요.\n- 서브에이전트는 최대 2계층까지 중첩 가능, 전역 동시 실행은 4개 이하입니다. 한도에 도달하면 반환 안내에 따라 기다리거나 직접 완료하세요.\n- **재사용**：각 서브에이전트에는 안정적인 `subagent_id`가 있습니다(아래 \"현재 세션의 서브에이전트\" 목록 참조). 후속 작업이 기존 서브에이전트와 관련되면 `dispatch_subagent`의 `subagent_id` 매개변수로 **같은** 서브에이전트에 이어서 dispatch하세요(역할과 컨텍스트가 유지됩니다). 매번 새로 만들지 마세요——서브에이전트는 지속적으로 대화할 수 있는 독립적 작업 파트너이지 일회용 도구가 아닙니다.\n- **종료**：서브에이전트의 작업이 완전히 끝나고 더 이상 필요 없으면 `close_subagent`로 닫으세요——세션과 아바타가 함께 제거되고 컨텍스트가 해제됩니다. 닫힌 후에는 재사용할 수 없습니다(필요하면 새로 dispatch하세요).\n- 간단한 작업에는 서브에이전트를 **dispatch하지 마세요**——오버헤드가 있으며 위의 복잡한 시나리오에서만 가치가 있습니다."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "## 子代理使用指南\n\n当任务满足以下任一条件时，**优先**调用 `dispatch_subagent` 派发子代理并行/独立处理，而不是自己一步步做完：\n\n- 任务需要**多轮查证、多来源对比**（如\"帮我查一下 X 和 Y 的区别/哪个好\"）；\n- 任务可以**拆成互不依赖的几块**（如\"分别调研 A、B、C 三件事\"）——用 `tasks` 数组一次并行派发；\n- 任务会**占据大量上下文**（如长文写作、长篇资料整理），隔离到子代理可保持主上下文聚焦；\n- 用户明确要求\"认真研究 / 仔细对比 / 详细规划 / 写一份完整报告\"。\n\n规则：\n- 通过 `profile` 参数选择最合适的角色（见下方角色列表）；不传则用默认「通用助手」。\n- 每个子代理会独立使用工具完成任务并返回自包含总结；需要完整内容时调用 `read_subagent_result` 分页读取。\n- 子代理最多嵌套 2 层、全局同时运行不超过 4 个；达到上限时按返回提示等待或自行完成。\n- **复用**：每个子代理都有稳定的 `subagent_id`（见下方「当前会话的子代理」清单）。后续任务若与某子代理相关，用 `dispatch_subagent` 的 `subagent_id` 参数续派**同一个**子代理（它保留之前的角色与上下文），不要每次都新建——子代理是可持续对话的独立工作伙伴，不是一次性工具。\n- **关闭**：某子代理的任务已彻底完成、后续不再需要时，调用 `close_subagent` 关闭它——其会话与头像将一并移除，释放上下文；关闭后不可再复用（如再需要，重新派发新建即可）。\n- 简单任务**不要**派发子代理——它有额外开销，只有上述复杂场景才值得。"
+          }
+        }
+      }
+    },
     "subagents" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -45452,8 +45530,6 @@
         }
       }
     },
-    "·" : {},
-    "•" : {},
     "⚠️ %@" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -45483,9 +45559,6 @@
         }
       }
     },
-    "✨" : {},
-    "「%@」" : {},
-    "湘ICP备2023018958号-16A" : {},
     "）" : {
       "extractionState" : "manual",
       "localizations" : {
