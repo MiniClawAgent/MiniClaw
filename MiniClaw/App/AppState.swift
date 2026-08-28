@@ -209,10 +209,24 @@ final class AppState: ObservableObject {
     @MainActor
     func mergeBuiltinModelPluginsIfNeeded() {
         let dir = FileSystemManager.shared.pluginTypeDir("model")
+        let dirExists = FileManager.default.fileExists(atPath: dir.path)
+        AppLogger.shared.info("[ModelPlugin] 内置合并开始（plugins/model 目录存在=\(dirExists)）",
+                              category: "Plugins", subsystem: "Plugins")
         for pkg in Self.builtinModelPluginIds {
             let url = dir.appendingPathComponent(pkg).appendingPathComponent("providers.json")
-            guard let json = try? String(contentsOf: url, encoding: .utf8) else { continue }
-            try? mergePluginProviders(json, sourcePlugin: pkg)
+            guard let json = try? String(contentsOf: url, encoding: .utf8) else {
+                AppLogger.shared.error("[ModelPlugin] 未读到 providers.json: \(url.path)",
+                                       category: "Plugins", subsystem: "Plugins")
+                continue
+            }
+            do {
+                let (added, updated) = try mergePluginProviders(json, sourcePlugin: pkg)
+                AppLogger.shared.info("[ModelPlugin] \(pkg) 合并完成: 新增 \(added) 更新 \(updated)",
+                                      category: "Plugins", subsystem: "Plugins")
+            } catch {
+                AppLogger.shared.error("[ModelPlugin] \(pkg) 合并失败: \(error.localizedDescription)",
+                                       category: "Plugins", subsystem: "Plugins")
+            }
         }
     }
 

@@ -97,6 +97,9 @@ final class SkillManager {
         }
         let sorted = result.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
         skillsCache = sorted
+        let byType = Dictionary(grouping: sorted, by: { $0.type }).mapValues(\.count)
+        AppLogger.shared.info("[PluginList] 插件列表扫描完成，共 \(sorted.count) 个，按类型: \(byType)",
+                              category: "Plugins", subsystem: "Plugins")
         return sorted
     }
 

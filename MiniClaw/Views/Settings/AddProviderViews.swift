@@ -130,6 +130,11 @@ struct AddProviderView: View {
                     }
                 }
             }
+            .onAppear {
+                let tpls = pluginTemplates
+                AppLogger.shared.info("[AddProvider] 供应商模板扫描: \(tpls.count) 个 ← \(tpls.map(\.id))",
+                                      category: "Plugins", subsystem: "Plugins")
+            }
             .navigationTitle(L10n.l("add_provider_action"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
