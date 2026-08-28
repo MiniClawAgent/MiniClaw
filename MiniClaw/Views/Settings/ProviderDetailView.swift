@@ -410,6 +410,13 @@ struct ProviderDetailView: View {
     }
 
     private func deleteProvider() {
+        // 双向删除：供应商由 model 插件导入（sourcePlugin 非空且非内置包）→ 连带删除该插件。
+        // 内置包是常驻模板，不随供应商删除。
+        if let p = appState.providers.first(where: { $0.id == providerId }),
+           let sp = p.sourcePlugin,
+           !SkillManager.shared.bundledPluginIds().contains(sp) {
+            try? SkillManager.shared.deleteSkill(directoryName: sp)
+        }
         appState.removeProvider(id: providerId)
         dismiss()
     }

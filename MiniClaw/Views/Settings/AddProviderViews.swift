@@ -10,6 +10,8 @@ struct AddProviderDestination: Hashable {
     let label: String
     /// 认证方式：nil=需先选择（支持 OAuth 的服务商）；"apiKey"/"oauth"=直接进入对应配置页。
     var authMethod: String? = nil
+    /// 来源 model 插件 id（provider 创建时写入 sourcePlugin，双向删除闭环用）。
+    var templateSourcePlugin: String? = nil
     /// model 插件模板声明的连接字段（创建 draft 时应用）。
     var templateBaseURL: String? = nil
     var templateAPIFormat: String? = nil
@@ -28,6 +30,7 @@ struct AddProviderView: View {
     /// model 插件模板（单条声明 → 添加流程所需字段）。
     struct ProviderTemplate: Identifiable, Hashable {
         let id: String
+        let sourcePlugin: String
         let label: String
         let providerType: ProviderType
         let baseURL: String
@@ -54,6 +57,7 @@ struct AddProviderView: View {
                 guard !label.isEmpty, let pt = ProviderType(flexibleID: d.providerType) else { continue }
                 result.append(ProviderTemplate(
                     id: dir.lastPathComponent + "/" + label,
+                    sourcePlugin: dir.lastPathComponent,
                     label: label,
                     providerType: pt,
                     baseURL: d.customBaseURL ?? "",
@@ -71,6 +75,7 @@ struct AddProviderView: View {
     /// 由模板声明构造初始 draft（baseURL/格式/追加后缀/自定义头等来自 model 插件声明）。
     private func draftFromTemplate(_ dest: AddProviderDestination) -> LLMProvider {
         var draft = LLMProvider(id: dest.id, label: dest.label, providerType: dest.providerType)
+        draft.sourcePlugin = dest.templateSourcePlugin
         draft.customBaseURL = dest.templateBaseURL ?? ""
         if let f = APIFormat(flexibleID: dest.templateAPIFormat) { draft.apiFormat = f }
         draft.appendV1Suffix = dest.templateAppendV1Suffix ?? false
@@ -95,6 +100,7 @@ struct AddProviderView: View {
                             path.append(AddProviderDestination(
                                 id: UUID(), providerType: tpl.providerType, label: tpl.label,
                                 authMethod: "apiKey",
+                                templateSourcePlugin: tpl.sourcePlugin,
                                 templateBaseURL: tpl.baseURL,
                                 templateAPIFormat: tpl.apiFormat,
                                 templateAppendV1Suffix: tpl.appendV1Suffix,

@@ -56,12 +56,6 @@ struct MiniClawApp: App {
                                                    builtinIds: subagentBuiltinIds)
             }.value
         }
-        // 内置 model 插件（apigateway / deepseek）启动幂等合并：
-        // 等待 bundle 同步完成后在主线程执行（用户删除过的 label 自动跳过）。
-        Task { @MainActor in
-            await FileSystemManager.shared.waitForBundledSync()
-            AppState.shared.mergeBuiltinModelPluginsIfNeeded()
-        }
         // 数据预热：启动时同步加载会话持久层（SessionManager.load 已预热内存缓存），
         // 首页首帧即可显示数据，消除空列表闪烁。
         AppLogger.shared.info("启动预热：已加载 \(SessionManager.shared.sessions.count) 个会话", category: "Lifecycle", subsystem: "Startup")
