@@ -40294,25 +40294,25 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "[fs_context = %@]  (isolated only when non-0)"
+            "value" : "[fs_context = %llu]  (isolated only when non-0)"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "[fs_context = %@]  （0 以外で分離）"
+            "value" : "[fs_context = %llu]  （0 以外で分離）"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "[fs_context = %@]  (0이 아니면 격리)"
+            "value" : "[fs_context = %llu]  (0이 아니면 격리)"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "[fs_context = %@]  (非 0 才隔离)"
+            "value" : "[fs_context = %llu]  (非 0 才隔离)"
           }
         }
       }
