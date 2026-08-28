@@ -193,6 +193,9 @@ final class FileSystemManager: @unchecked Sendable {
             rulesDir,
             skillsDir,
             subagentProfilesDir,
+            pluginTypeDir("mcp"),
+            pluginTypeDir("model"),
+            pluginTypeDir("soul"),
             mountsDir
         ]
 
@@ -261,7 +264,9 @@ final class FileSystemManager: @unchecked Sendable {
                 continue
             }
             currentEntries[id] = type
-            let dest = pluginTypeDir(type).appendingPathComponent(id)
+            let typeDir = pluginTypeDir(type)
+            try? fileManager.createDirectory(at: typeDir, withIntermediateDirectories: true)
+            let dest = typeDir.appendingPathComponent(id)
             // 同名覆盖升级（先删后拷，避免半包残留）
             try? FileManager.default.removeItem(at: dest)
             do {
