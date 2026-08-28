@@ -235,8 +235,6 @@ final class FileSystemManager: @unchecked Sendable {
                 .filter { $0.pathExtension.lowercased() == "mpk" } ?? []
             mpkURLs.append(contentsOf: sub)
         }
-        AppLogger.shared.info("[BundledSync] 发现内置包 \(mpkURLs.count) 个: \(mpkURLs.map { $0.lastPathComponent }.sorted())",
-                              category: "FS", subsystem: "BundledSync")
         guard !mpkURLs.isEmpty else { return }
         let previousEntries = bundledPluginEntries()
         var currentEntries: [String: String] = [:]
@@ -271,8 +269,6 @@ final class FileSystemManager: @unchecked Sendable {
             try? FileManager.default.removeItem(at: dest)
             do {
                 try FileManager.default.copyItem(at: URL(fileURLWithPath: pluginDir.path), to: dest)
-                AppLogger.shared.info("[BundledSync] 已分发: \(id) → plugins/\(type)/",
-                                      category: "FS", subsystem: "BundledSync")
             } catch {
                 AppLogger.shared.error("[BundledSync] 分发失败: \(id) → \(error.localizedDescription)",
                                        category: "FS", subsystem: "BundledSync")

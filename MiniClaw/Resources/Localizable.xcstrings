@@ -13253,35 +13253,6 @@
         }
       }
     },
-    "enable_subagents" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Enable subagents"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "サブエージェントを有効化"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "서브에이전트 활성화"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "启用子代理"
-          }
-        }
-      }
-    },
     "enable_this_provider" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -15379,23 +15350,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "skill_load 需要 name 参数（要加载的技能名）。"
-          }
-        }
-      }
-    },
-    "err_subagent_disabled" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Error: subagents are disabled by the user (Settings → Agent → Subagents); cannot dispatch. Complete the task at this level; do not call dispatch_subagent."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Error: 子代理已被用户关闭（设置 → 智能体 → 子代理），无法派发。请直接在本层完成任务，不要调用 dispatch_subagent。"
           }
         }
       }
@@ -25797,93 +25751,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "模型选项"
-          }
-        }
-      }
-    },
-    "model_plugin_invalid_providers" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Invalid providers.json in model plugin package"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "model プラグインパッケージの providers.json が不正です"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "model 플러그인 패키지의 providers.json이 잘못되었습니다"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "model 插件包内的 providers.json 格式无效"
-          }
-        }
-      }
-    },
-    "model_plugin_merge_result" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Model providers merged: %d added, %d updated (disabled by default - add your API key, then enable)"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "モデルプロバイダをマージしました：追加 %d 件、更新 %d 件（既定で無効。API キーを追加して有効化してください）"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "모델 공급자 병합: %d개 추가, %d개 업데이트(기본 비활성화 - API 키를 추가한 후 활성화하세요)"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已合并模型供应商：新增 %d 个、更新 %d 个（默认停用，请填写 API 密钥后启用）"
-          }
-        }
-      }
-    },
-    "model_plugin_no_providers" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "providers.json not found in package (expected the model provider template format)"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "パッケージ内に providers.json が見つかりません（モデルプロバイダテンプレート形式）"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "패키지에서 providers.json을 찾을 수 없습니다(모델 공급자 템플릿 형식)"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "包内未找到 providers.json（应为模型供应商模板格式）"
           }
         }
       }
@@ -39507,35 +39374,6 @@
         }
       }
     },
-    "supported_providers" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Supported Providers"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "対応済みプロバイダー"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "지원되는 공급자"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已适配的服务商"
-          }
-        }
-      }
-    },
     "swiftsoup_html_parsing_highlightr_code_highlighting_markdownui_markdown_rendering" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -42244,35 +42082,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "今日输出"
-          }
-        }
-      }
-    },
-    "toggle_subagents" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Toggle subagents"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "サブエージェントのオン/オフを変更"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "서브에이전트 켜기/끄기"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "修改子代理开关"
           }
         }
       }
@@ -45153,35 +44962,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "开启后，Agent 每次调用工具（文件/浏览器/Shell 等）前会先征求你的确认。"
-          }
-        }
-      }
-    },
-    "when_off_the_agent_no_longer_dispatches_subagents_and_is_told_this_capability_has_been_turned_off_by_the_user" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "When off, the agent no longer dispatches subagents and is told this capability has been turned off by the user."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "オフにするとエージェントはサブエージェントを派生成せず、その能力がユーザーによって無効化されたと伝えられます。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "끄면 에이전트가 서브에이전트를 파견하지 않으며 해당 기능이 사용자에 의해 꺼졌다는 사실을 알게 됩니다."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "关闭后智能体不再派发子代理，并被告知该能力已被用户关闭"
           }
         }
       }

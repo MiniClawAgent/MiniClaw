@@ -20,3 +20,9 @@ Thumbs.db
 
 # Xcode user state (xcuserdatad 目录)
 xcuserdata/
+
+# 个人本地脚本（dsh web 守护 / ipa 导出），与项目无关不纳管
+scripts/com.neartop.dsh-web.plist
+scripts/dsh-daemon.sh
+scripts/dsh-start.sh
+scripts/export-ipa.sh
