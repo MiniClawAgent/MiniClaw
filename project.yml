@@ -76,8 +76,12 @@ targets:
         buildPhase: resources
       # AboutDocs：开发者与用户的协议/产品说明文档（用户使用协议/隐私政策/关于MiniClaw）。
       # 不走插件体系——协议内容不开放给用户通过插件更改，仅由「设置-关于」页展示。
-      - path: MiniClaw/Resources/AboutDocs
-        type: folder
+      # 逐文件列出（folder reference 增量构建不保证拷贝目录内新增/变更文件，2026-08-29 体检 P1）。
+      - path: MiniClaw/Resources/AboutDocs/关于MiniClaw.md
+        buildPhase: resources
+      - path: MiniClaw/Resources/AboutDocs/用户使用协议.md
+        buildPhase: resources
+      - path: MiniClaw/Resources/AboutDocs/用户隐私政策.md
         buildPhase: resources
       # BundledRules 已弃用（2026-08-27 Stage-3）：内置规则并入 BundledPlugins 的
       # rule 类型 .mpk 包（语言子目录随包分发，运行时按当前语言取用）。

@@ -88,12 +88,7 @@ final class SubAgentProfileStore: @unchecked Sendable {
             .map { ($0.name, $0.displayName, $0.summary) }
     }
 
-    /// general 兜底提示词（内置常量；数据目录无任何文件时保证子代理仍可用）。
-    static let fallbackGeneralPrompt = """
-    你是一个专注的子代理（subagent），由父代理把一个明确的子任务交给你独立完成。
-    规则：
-    - 只使用你手上的工具完成任务。
-    - 直接、简洁地完成任务，最后用一段中文总结你的关键发现或结果，不要多余寒暄与自我介绍。
-    - 你的最终回答会作为父代理的一个工具结果，请保证信息自包含、可被父代理直接引用。
-    """
+    /// general 兜底提示词（跟随界面语言；数据目录无任何文件时保证子代理仍可用）。
+    /// 2026-08-29 修正：原先硬编码中文违反"提示词跟界面语言"决策，改走 L10n。
+    static var fallbackGeneralPrompt: String { L10n.l("subagent_fallback_prompt") }
 }

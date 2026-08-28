@@ -125,6 +125,7 @@ final class SkillManager {
         var states = SettingsStore.shared.settings.skillEnabledStates
         states[name] = enabled
         var soulDir: URL?
+        var soulIsBuiltin = false
         if enabled {
             let builtinIds = fs.bundledPluginIds()
             // 扫描 soul 类型插件：目标插件记录目录；其余 soul 一律停用（显式写 false，
@@ -136,6 +137,8 @@ final class SkillManager {
                 let key = m.name.isEmpty ? dir.lastPathComponent : m.name
                 if key == name {
                     soulDir = dir
+                    // 内置判定走 Bundle manifest（目录名=插件 id），不做 name 字符串耦合。
+                    soulIsBuiltin = builtinIds.contains(dir.lastPathComponent)
                 } else {
                     let fallback = builtinIds.contains(dir.lastPathComponent) ? m.enabledByDefault : false
                     if states[key] ?? fallback { states[key] = false }
@@ -149,7 +152,7 @@ final class SkillManager {
         // soul 来源切换（主线程调用，UI 场景安全；activePlugin 持久化在 soul 域）。
         if enabled, let dir = soulDir {
             let current = SettingsStore.shared.settings.soul.activePlugin
-            if name == "default-soul" {
+            if soulIsBuiltin {
                 // 启用内置：恢复内置草稿（用户改过的内容优先），无草稿用出厂模板。
                 fs.restoreBuiltinSoul()
                 SettingsStore.shared.settings.soul.activePlugin = nil
@@ -362,9 +365,10 @@ final class SkillManager {
     /// mcp 插件：连带删除其导入的全部 server（来源追踪 sourcePlugin）。
     func deleteSkill(directoryName: String) throws {
         guard let dir = pluginDir(named: directoryName) else { throw SkillError.notFound }
-        // 先读清单取类型（目录删除后无法再读）。
-        let manifestType = (try? Data(contentsOf: dir.appendingPathComponent("plugin.json")))
-            .flatMap { try? JSONDecoder().decode(PluginManifest.self, from: $0) }?.type
+        // 先读清单（目录删除后无法再读）：类型 + 完整清单（soul 善后需要 name）。
+        let manifest = (try? Data(contentsOf: dir.appendingPathComponent("plugin.json")))
+            .flatMap { try? JSONDecoder().decode(PluginManifest.self, from: $0) }
+        let manifestType = manifest?.type
         try FileManager.default.removeItem(at: dir)
         invalidateSkillsCache()
         // 删除 subagent 插件后即时刷新角色注册表，其角色立即退出派发可用集。
@@ -379,6 +383,16 @@ final class SkillManager {
                 .filter { $0.sourcePlugin == directoryName }.map(\.id)
             for id in ids {
                 AppState.shared.removeProvider(id: id)
+            }
+        }
+        // soul 插件：若删除的是当前生效的第三方 soul（activePlugin 悬挂）→
+        // 恢复内置灵魂（草稿优先）并清空生效来源标记（2026-08-29 体检 P0-2）。
+        if manifestType == "soul" {
+            let soulKey = (manifest?.name.isEmpty == false) ? manifest!.name : directoryName
+            if SettingsStore.shared.settings.soul.activePlugin == soulKey {
+                fs.restoreBuiltinSoul()
+                SettingsStore.shared.settings.soul.activePlugin = nil
+                SettingsStore.shared.save()
             }
         }
     }

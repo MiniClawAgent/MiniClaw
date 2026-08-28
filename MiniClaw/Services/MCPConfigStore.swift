@@ -219,6 +219,7 @@ final class MCPConfigStore: ObservableObject {
                 cfg.id = existing.id                              // 保留 id（令牌随 id 走）
                 cfg.isEnabled = existing.isEnabled                // 保留用户启用状态
                 cfg.hasBearerToken = existing.hasBearerToken
+                cfg.sourcePlugin = existing.sourcePlugin          // 保留来源插件（幂等更新不得洗掉删除闭环的锚点，体检 P0-1）
                 servers[idx] = cfg
                 updated += 1
             } else {
