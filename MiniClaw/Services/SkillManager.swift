@@ -373,6 +373,12 @@ final class SkillManager {
         if manifestType == "mcp" {
             MCPConfigStore.shared.removeServers(sourcePlugin: directoryName)
         }
+        // model 插件：连带删除其导入的供应商（含密钥/OAuth 清理）。
+        if manifestType == "model" {
+            MainActor.assumeIsolated {
+                AppState.shared.removeProviders(sourcePlugin: directoryName)
+            }
+        }
     }
 
     /// 按 directoryName（=插件目录名/插件 id）在统一插件布局下跨类型定位插件目录。
@@ -513,6 +519,25 @@ final class SkillManager {
                 result.imported.append(dirName)
                 // soul 类型导入后默认停用（与导入规则一致），用户在列表/详情页启用开关时
                 // 才应用人格并自动停用其他 soul 插件（排他单选，见 setEnabled）。
+                // model 类型：拷入存档后，解析包内 providers.json（服务商连接模板）
+                // 并幂等合并进供应商列表（新增默认停用，密钥用户自填）。
+                if parsed.type == "model" {
+                    let providersURL = dest.appendingPathComponent("providers.json")
+                    if let json = try? String(contentsOf: providersURL, encoding: .utf8) {
+                        do {
+                            let message = try MainActor.assumeIsolated {
+                                let (added, updated) = try AppState.shared.mergePluginProviders(
+                                    json, sourcePlugin: dirName)
+                                return String(format: L10n.l("model_plugin_merge_result"), added, updated)
+                            }
+                            result.message = message
+                        } catch {
+                            result.message = error.localizedDescription
+                        }
+                    } else {
+                        result.message = L10n.l("model_plugin_no_providers")
+                    }
+                }
                 // mcp 类型：拷入存档后，解析包内 servers.json（业界通用 mcpServers 格式）
                 // 并幂等合并进 MCP 配置（新增默认停用）。
                 if parsed.type == "mcp" {

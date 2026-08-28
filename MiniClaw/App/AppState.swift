@@ -82,6 +82,15 @@ final class AppState: ObservableObject {
     /// 删除服务商：同时清理该实例的 OAuth 令牌（OAuthKeychainStorage）与 API key（APIKeyStore）。
     @MainActor
     func removeProvider(id: UUID) {
+        // 内置 model 插件的供应商被用户删除 → 记录 label，
+        // 防止启动时的内置包幂等合并把删除复活。
+        if let p = providers.first(where: { $0.id == id }),
+           let sp = p.sourcePlugin, Self.builtinModelPluginIds.contains(sp) {
+            if !SettingsStore.shared.settings.modelPluginRemovedLabels.contains(p.label) {
+                SettingsStore.shared.settings.modelPluginRemovedLabels.append(p.label)
+                SettingsStore.shared.save()
+            }
+        }
         APIKeyStore.deleteKey(for: id)
         if let p = providers.first(where: { $0.id == id }), p.credentialType == "oauth" {
             if let manager = Self.oauthManager(for: p.providerType) {
@@ -89,6 +98,177 @@ final class AppState: ObservableObject {
             }
         }
         updateProviders { $0.removeAll { $0.id == id } }
+    }
+
+    // MARK: - model 配置包（Stage-5b：providers.json = 服务商连接模板，幂等合并）
+
+    /// 内置 model 插件 id（启动时幂等合并的来源）。
+    static let builtinModelPluginIds: Set<String> = [
+        "com.miniclaw.builtin.apigateway",
+        "com.miniclaw.builtin.deepseek",
+    ]
+
+    /// 包内 providerType 字段 → ProviderType（宽容匹配：小写 id 优先，兼容清单 rawValue）。
+    private static func mapProviderType(_ raw: String?) -> ProviderType? {
+        guard let raw, !raw.isEmpty else { return nil }
+        switch raw.lowercased() {
+        case "openai": return .openai
+        case "anthropic": return .anthropic
+        case "google", "gemini": return .google
+        case "openrouter": return .openRouter
+        case "custom", "openai-compatible", "openai兼容": return .custom
+        case "grok": return .grok
+        case "deepseek": return .deepSeek
+        case "qwen": return .qwen
+        case "xiaomi": return .xiaomi
+        case "zhipu": return .zhipu
+        default: return ProviderType(rawValue: raw)
+        }
+    }
+
+    /// 包内 apiFormat 字段 → APIFormat（宽容匹配）。
+    private static func mapAPIFormat(_ raw: String?) -> APIFormat? {
+        guard let raw, !raw.isEmpty else { return nil }
+        switch raw.lowercased().replacingOccurrences(of: " ", with: "") {
+        case "chatcompletions", "chat/completions": return .chatCompletions
+        case "responsesapi", "responses": return .responsesAPI
+        default: return APIFormat(rawValue: raw)
+        }
+    }
+
+    /// 从 model 插件包的 providers.json（服务商连接模板）**幂等合并**：
+    /// - 同 `label`：覆盖非敏感字段（providerType/baseURL/apiFormat 等），
+    ///   保留 id、Keychain 密钥与用户启用状态；包内 models 按 modelId 合并
+    ///   （userRenamed 保护显示名），已删除过的内置 label 跳过；
+    /// - 新 label：新增 provider（isEnabled=false、hasApiKey=false，密钥用户自填）；
+    /// - 全部条目打 sourcePlugin 来源标记（删插件连带删供应商）。
+    @MainActor
+    func mergePluginProviders(_ json: String, sourcePlugin: String, skipLabels: Set<String> = []) throws -> (added: Int, updated: Int) {
+        // 宽松中间结构（外部 JSON 铁律：全字段 decodeIfPresent）。
+        struct PluginModelDecl: Codable {
+            var modelId: String = ""
+            var displayName: String? = nil
+            var contextLimit: Int? = nil
+            var deepThinking: Bool? = nil
+            var maxOutputTokens: Int? = nil
+            var inputText: Bool? = nil
+            var inputImage: Bool? = nil
+            var inputAudio: Bool? = nil
+            var inputVideo: Bool? = nil
+            var outputText: Bool? = nil
+            var outputImage: Bool? = nil
+            var outputAudio: Bool? = nil
+        }
+        struct PluginProviderDecl: Codable {
+            var label: String = ""
+            var providerType: String? = nil
+            var customBaseURL: String? = nil
+            var apiFormat: String? = nil
+            var appendV1Suffix: Bool? = nil
+            var organizationId: String? = nil
+            var projectId: String? = nil
+            var customUserAgent: String? = nil
+            var customHeaders: [String: String]? = nil
+            var models: [PluginModelDecl]? = nil
+        }
+        guard let data = json.data(using: .utf8),
+              let decls = try? JSONDecoder().decode([PluginProviderDecl].self, from: data) else {
+            throw LLMError.providerRejected(L10n.l("model_plugin_invalid_providers"))
+        }
+        let removedLabels = Set(SettingsStore.shared.settings.modelPluginRemovedLabels)
+
+        func modelConfig(from d: PluginModelDecl) -> ModelConfig {
+            var c = ModelConfig(modelId: d.modelId)
+            c.displayName = d.displayName ?? ""
+            if let v = d.contextLimit { c.contextLimit = v }
+            if let v = d.deepThinking { c.deepThinking = v }
+            c.maxOutputTokens = d.maxOutputTokens
+            if let v = d.inputText { c.inputText = v }
+            if let v = d.inputImage { c.inputImage = v }
+            if let v = d.inputAudio { c.inputAudio = v }
+            if let v = d.inputVideo { c.inputVideo = v }
+            if let v = d.outputText { c.outputText = v }
+            if let v = d.outputImage { c.outputImage = v }
+            if let v = d.outputAudio { c.outputAudio = v }
+            return c
+        }
+
+        var added = 0
+        var updated = 0
+        for d in decls {
+            let label = d.label.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !label.isEmpty, !removedLabels.contains(label) else { continue }
+
+            if let idx = providers.firstIndex(where: { $0.label == label }) {
+                // 已存在：覆盖非敏感字段，保留 id/密钥/启用状态。
+                if let pt = Self.mapProviderType(d.providerType) { providers[idx].providerType = pt }
+                if let v = d.customBaseURL { providers[idx].customBaseURL = v }
+                if let f = Self.mapAPIFormat(d.apiFormat) { providers[idx].apiFormat = f }
+                if let v = d.appendV1Suffix { providers[idx].appendV1Suffix = v }
+                if let v = d.organizationId { providers[idx].organizationId = v }
+                if let v = d.projectId { providers[idx].projectId = v }
+                if let v = d.customUserAgent { providers[idx].customUserAgent = v }
+                if let v = d.customHeaders { providers[idx].customHeaders = v }
+                providers[idx].sourcePlugin = sourcePlugin
+                // 包内 models 按 modelId 合并（userRenamed 保护显示名）。
+                for md in d.models ?? [] where !md.modelId.isEmpty {
+                    if let mi = providers[idx].models.firstIndex(where: { $0.modelId == md.modelId }) {
+                        var c = providers[idx].models[mi]
+                        let fresh = modelConfig(from: md)
+                        if c.userRenamed != true { c.displayName = fresh.displayName }
+                        c.contextLimit = fresh.contextLimit
+                        c.deepThinking = fresh.deepThinking
+                        c.maxOutputTokens = fresh.maxOutputTokens ?? c.maxOutputTokens
+                        c.inputText = fresh.inputText; c.inputImage = fresh.inputImage
+                        c.inputAudio = fresh.inputAudio; c.inputVideo = fresh.inputVideo
+                        c.outputText = fresh.outputText; c.outputImage = fresh.outputImage
+                        c.outputAudio = fresh.outputAudio
+                        providers[idx].models[mi] = c
+                    } else {
+                        providers[idx].models.append(modelConfig(from: md))
+                    }
+                }
+                updated += 1
+            } else {
+                var p = LLMProvider(label: label)
+                if let pt = Self.mapProviderType(d.providerType) { p.providerType = pt }
+                p.customBaseURL = d.customBaseURL ?? ""
+                if let f = Self.mapAPIFormat(d.apiFormat) { p.apiFormat = f }
+                p.appendV1Suffix = d.appendV1Suffix ?? false
+                p.organizationId = d.organizationId ?? ""
+                p.projectId = d.projectId ?? ""
+                p.customUserAgent = d.customUserAgent ?? ""
+                p.customHeaders = d.customHeaders ?? [:]
+                p.isEnabled = false      // 导入默认停用：用户填密钥后在模型页开启
+                p.hasApiKey = false
+                p.sourcePlugin = sourcePlugin
+                p.models = (d.models ?? []).filter { !$0.modelId.isEmpty }.map { modelConfig(from: $0) }
+                providers.append(p)
+                added += 1
+            }
+        }
+        persistProviders()
+        return (added, updated)
+    }
+
+    /// 删除指定来源插件导入的全部供应商（连带密钥/OAuth 清理）——删除 model 插件时调用。
+    @MainActor
+    func removeProviders(sourcePlugin: String) {
+        for id in providers.filter({ $0.sourcePlugin == sourcePlugin }).map(\.id) {
+            removeProvider(id: id)
+        }
+    }
+
+    /// 启动幂等合并：把内置 model 插件（apigateway / deepseek）的声明合并进供应商列表。
+    /// 用户删除过的 label（modelPluginRemovedLabels）跳过，避免删除被复活。
+    @MainActor
+    func mergeBuiltinModelPluginsIfNeeded() {
+        let dir = FileSystemManager.shared.pluginTypeDir("model")
+        for pkg in Self.builtinModelPluginIds {
+            let url = dir.appendingPathComponent(pkg).appendingPathComponent("providers.json")
+            guard let json = try? String(contentsOf: url, encoding: .utf8) else { continue }
+            try? mergePluginProviders(json, sourcePlugin: pkg)
+        }
     }
 
     /// 持久化当前服务商与默认模型选择到本地文件

@@ -25801,6 +25801,64 @@
         }
       }
     },
+    "model_plugin_merge_result" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Model providers merged: %d added, %d updated (disabled by default - add your API key, then enable)"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "モデルプロバイダをマージしました：追加 %d 件、更新 %d 件（既定で無効。API キーを追加して有効化してください）"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "모델 공급자 병합: %d개 추가, %d개 업데이트(기본 비활성화 - API 키를 추가한 후 활성화하세요)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已合并模型供应商：新增 %d 个、更新 %d 个（默认停用，请填写 API 密钥后启用）"
+          }
+        }
+      }
+    },
+    "model_plugin_no_providers" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "providers.json not found in package (expected the model provider template format)"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "パッケージ内に providers.json が見つかりません（モデルプロバイダテンプレート形式）"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "패키지에서 providers.json을 찾을 수 없습니다(모델 공급자 템플릿 형식)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "包内未找到 providers.json（应为模型供应商模板格式）"
+          }
+        }
+      }
+    },
     "model_provider" : {
       "extractionState" : "manual",
       "localizations" : {

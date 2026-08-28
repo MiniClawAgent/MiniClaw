@@ -47,6 +47,9 @@ struct LLMProvider: Identifiable, Codable, Equatable {
     var modelFetchError: String? = nil
     /// 模型列表拉取的非阻断提示（可持久化）。如实时列表不可用已回退内置目录等。
     var modelFetchNotice: String? = nil
+    /// 来源插件（manifest.id）：由 model 配置包导入的供应商记录来源，
+    /// 删除该插件时连带删除其导入的供应商；手动添加的为 nil。
+    var sourcePlugin: String? = nil
 
     /// API Key 是否已配置（基于落盘标记；运行时密钥由内存 apiKey 提供）
     var keyAdded: Bool {
@@ -60,6 +63,7 @@ extension LLMProvider {
         case azureEnabled, isEnabled, credentialType, customUserAgent
         case appendV1Suffix, imageEndpointMode, hasApiKey
         case organizationId, projectId, customHeaders, modelFetchError, modelFetchNotice
+        case sourcePlugin
         // models 不在 CodingKeys 中——它是运行时属性，不落盘。
         // 加载时由 ProviderFileStore 从 ProvidersContainer.modelEntries 填充。
     }
@@ -86,6 +90,7 @@ extension LLMProvider {
         customHeaders = try container.decodeIfPresent([String: String].self, forKey: .customHeaders) ?? [:]
         modelFetchError = try container.decodeIfPresent(String.self, forKey: .modelFetchError) ?? nil
         modelFetchNotice = try container.decodeIfPresent(String.self, forKey: .modelFetchNotice) ?? nil
+        sourcePlugin = try container.decodeIfPresent(String.self, forKey: .sourcePlugin)
     }
 
     func encode(to encoder: Encoder) throws {
@@ -109,6 +114,7 @@ extension LLMProvider {
         try container.encode(customHeaders, forKey: .customHeaders)
         try container.encode(modelFetchError, forKey: .modelFetchError)
         try container.encode(modelFetchNotice, forKey: .modelFetchNotice)
+        try container.encodeIfPresent(sourcePlugin, forKey: .sourcePlugin)
     }
 }
 

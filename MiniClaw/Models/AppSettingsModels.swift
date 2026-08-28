@@ -68,6 +68,9 @@ struct AppSettings: Codable {
     var tokenUsage: TokenUsageStats?
     /// 按会话累计的 词元 用量（键为 sessionID 的 uuidString），可选以兼容旧 settings.json。
     var sessionTokenUsage: [String: SessionTokenUsageData]? = nil
+    /// 用户主动删除过的内置 model 插件供应商 label：
+    /// 启动时对内置 model 包做幂等合并，但跳过此列表内的 label（否则删除会被启动合并复活）。
+    var modelPluginRemovedLabels: [String] = []
 
     /// 容错解码（源头修复，2026-08-05）：合成解码对**缺键的非 Optional 字段**直接抛
     /// keyNotFound → 旧版 settings.json（无 subagent 等后加字段）整体解码失败 →
@@ -97,6 +100,7 @@ struct AppSettings: Codable {
         skillUseCounts = try c.decodeIfPresent([String: Int].self, forKey: .skillUseCounts) ?? [:]
         tokenUsage = try c.decodeIfPresent(TokenUsageStats.self, forKey: .tokenUsage)
         sessionTokenUsage = try c.decodeIfPresent([String: SessionTokenUsageData].self, forKey: .sessionTokenUsage)
+        modelPluginRemovedLabels = try c.decodeIfPresent([String].self, forKey: .modelPluginRemovedLabels) ?? []
     }
 }
 
