@@ -221,22 +221,20 @@ final class FileSystemManager: @unchecked Sendable {
     /// Bundle 同名覆盖升级；用户导入插件目录保留；已移除的内置插件按 manifest 清理。
     /// **强制 plugin.json**：缺失 plugin.json 或读不到 id/type 时整体拒绝解包（不兼容旧单文件 SKILL.md）。
     private func syncBundledPlugins() {
-        guard let bundledPluginsDir = Bundle.main.resourceURL?
+        // mpk 来源两种布局兼容：
+        // - 逐文件资源（现行为）：.mpk 直接位于 bundle 根；
+        // - 整目录 folder reference（旧构建产物）：.mpk 位于 BundledPlugins/ 子目录。
+        var mpkURLs: [URL] = Bundle.main.urls(forResourcesWithExtension: "mpk", subdirectory: nil) ?? []
+        if let bundledPluginsDir = Bundle.main.resourceURL?
             .appendingPathComponent("BundledPlugins", isDirectory: true),
-              fileManager.fileExists(atPath: bundledPluginsDir.path) else {
-            return
+           fileManager.fileExists(atPath: bundledPluginsDir.path) {
+            let sub = (try? fileManager.contentsOfDirectory(at: bundledPluginsDir, includingPropertiesForKeys: nil))?
+                .filter { $0.pathExtension.lowercased() == "mpk" } ?? []
+            mpkURLs.append(contentsOf: sub)
         }
+        guard !mpkURLs.isEmpty else { return }
         let previousEntries = bundledPluginEntries()
         var currentEntries: [String: String] = [:]
-
-        // 列举内置 .mpk 包
-        let mpkURLs: [URL]
-        do {
-            mpkURLs = try fileManager.contentsOfDirectory(at: bundledPluginsDir, includingPropertiesForKeys: nil)
-                .filter { $0.pathExtension.lowercased() == "mpk" }
-        } catch {
-            mpkURLs = []
-        }
 
         for mpkURL in mpkURLs {
             let tmp = FileManager.default.temporaryDirectory
