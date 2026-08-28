@@ -10,6 +10,13 @@ struct AddProviderDestination: Hashable {
     let label: String
     /// 认证方式：nil=需先选择（支持 OAuth 的服务商）；"apiKey"/"oauth"=直接进入对应配置页。
     var authMethod: String? = nil
+    /// model 插件模板声明的连接字段（创建 draft 时应用）。
+    var templateBaseURL: String? = nil
+    var templateAPIFormat: String? = nil
+    var templateAppendV1Suffix: Bool? = nil
+    var templateCustomHeaders: [String: String]? = nil
+    var templateOrganizationId: String? = nil
+    var templateProjectId: String? = nil
 }
 
 struct AddProviderView: View {
@@ -18,31 +25,87 @@ struct AddProviderView: View {
     @State private var path: [AddProviderDestination] = []
     @State private var showImportFile: Bool = false
 
-    /// 已适配的服务商模板
-    private let templates: [(ProviderType, String)] = [
-        (.openai, "openai_compatible_api"),
-        (.anthropic, "anthropic_compatible_api"),
-        (.google, "google_gemini"),
-        (.grok, "xai_grok"),
-        (.deepSeek, "deepseek"),
-        (.qwen, "qwen"),
-        (.xiaomi, "xiaomi_mimo"),
-        (.zhipu, "zhipu"),
-    ]
+    /// model 插件模板（单条声明 → 添加流程所需字段）。
+    struct ProviderTemplate: Identifiable, Hashable {
+        let id: String
+        let label: String
+        let providerType: ProviderType
+        let baseURL: String
+        let apiFormat: String?
+        let appendV1Suffix: Bool?
+        let headers: [String: String]?
+        let organizationId: String?
+        let projectId: String?
+    }
+
+    /// 模板来源 = 已安装 model 插件的 providers.json 声明（业界语义：装了什么插件，
+    /// 就能添加什么供应商）。
+    private var pluginTemplates: [ProviderTemplate] {
+        var result: [ProviderTemplate] = []
+        let fs = FileSystemManager.shared
+        for dir in fs.allPluginDirectories() {
+            guard let data = try? Data(contentsOf: dir.appendingPathComponent("plugin.json")),
+                  let m = try? JSONDecoder().decode(PluginManifest.self, from: data),
+                  m.type == "model",
+                  let json = try? String(contentsOf: dir.appendingPathComponent("providers.json"), encoding: .utf8),
+                  let decls = try? JSONDecoder().decode([ModelPluginProviderDecl].self, from: Data(json.utf8)) else { continue }
+            for d in decls {
+                let label = d.label.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !label.isEmpty, let pt = ProviderType(flexibleID: d.providerType) else { continue }
+                result.append(ProviderTemplate(
+                    id: dir.lastPathComponent + "/" + label,
+                    label: label,
+                    providerType: pt,
+                    baseURL: d.customBaseURL ?? "",
+                    apiFormat: d.apiFormat,
+                    appendV1Suffix: d.appendV1Suffix,
+                    headers: d.customHeaders,
+                    organizationId: d.organizationId,
+                    projectId: d.projectId
+                ))
+            }
+        }
+        return result
+    }
+
+    /// 由模板声明构造初始 draft（baseURL/格式/追加后缀/自定义头等来自 model 插件声明）。
+    private func draftFromTemplate(_ dest: AddProviderDestination) -> LLMProvider {
+        var draft = LLMProvider(id: dest.id, label: dest.label, providerType: dest.providerType)
+        draft.customBaseURL = dest.templateBaseURL ?? ""
+        if let f = APIFormat(flexibleID: dest.templateAPIFormat) { draft.apiFormat = f }
+        draft.appendV1Suffix = dest.templateAppendV1Suffix ?? false
+        draft.customHeaders = dest.templateCustomHeaders ?? [:]
+        draft.organizationId = dest.templateOrganizationId ?? ""
+        draft.projectId = dest.templateProjectId ?? ""
+        return draft
+    }
 
     var body: some View {
         NavigationStack(path: $path) {
             List {
                 Section {
-                    ForEach(templates, id: \.1) { type, title in
+                    if pluginTemplates.isEmpty {
+                        Text(L10n.l("no_provider_templates"))
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                    }
+                    ForEach(pluginTemplates) { tpl in
                         Button {
-                            let p = LLMProvider(label: title, providerType: type)
-                            path.append(AddProviderDestination(id: p.id, providerType: type, label: title))
+                            // 网关性质模板默认走 API Key 认证（authMethods 声明机制后续扩展）。
+                            path.append(AddProviderDestination(
+                                id: UUID(), providerType: tpl.providerType, label: tpl.label,
+                                authMethod: "apiKey",
+                                templateBaseURL: tpl.baseURL,
+                                templateAPIFormat: tpl.apiFormat,
+                                templateAppendV1Suffix: tpl.appendV1Suffix,
+                                templateCustomHeaders: tpl.headers,
+                                templateOrganizationId: tpl.organizationId,
+                                templateProjectId: tpl.projectId))
                         } label: {
                             HStack {
                                 Image(systemName: "server.rack")
                                     .foregroundStyle(.blue)
-                                Text(L10n.l(title))
+                                Text(tpl.label)
                                 Spacer()
                                 Image(systemName: "chevron.right")
                                     .foregroundStyle(.tertiary)
@@ -50,7 +113,7 @@ struct AddProviderView: View {
                         }
                     }
                 } header: {
-                    Text(L10n.l("supported_providers"))
+                    Text(L10n.l("providers_from_installed_plugins"))
                 } footer: {
                     Text(L10n.l("you_can_add_multiple_instances_of_the_same_provider"))
                 }
@@ -81,8 +144,7 @@ struct AddProviderView: View {
                 } else if dest.authMethod == "oauth" {
                     OAuthSetupView(id: dest.id, providerType: dest.providerType, label: dest.label, onSaved: { dismiss() })
                 } else {
-                    let draft = LLMProvider(id: dest.id, label: dest.label, providerType: dest.providerType)
-                    ProviderDetailView(providerId: dest.id, draftProvider: draft, onSaveDraft: { dismiss() })
+                    ProviderDetailView(providerId: dest.id, draftProvider: draftFromTemplate(dest), onSaveDraft: { dismiss() })
                 }
             }
             .fileImporter(isPresented: $showImportFile, allowedContentTypes: [.json], allowsMultipleSelection: false) { result in

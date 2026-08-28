@@ -25801,6 +25801,35 @@
         }
       }
     },
+    "model_plugin_invalid_providers" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Invalid providers.json in model plugin package"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "model プラグインパッケージの providers.json が不正です"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "model 플러그인 패키지의 providers.json이 잘못되었습니다"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "model 插件包内的 providers.json 格式无效"
+          }
+        }
+      }
+    },
     "model_plugin_merge_result" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -27398,6 +27427,35 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "(无输出)"
+          }
+        }
+      }
+    },
+    "no_provider_templates" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No provider templates yet. Install a model plugin to add providers."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "プロバイダテンプレートがありません。model プラグインをインストールしてください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "공급자 템플릿이 없습니다. model 플러그인을 설치하세요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "暂无供应商模板：安装 model 插件后即可在此添加供应商。"
           }
         }
       }
@@ -33098,6 +33156,35 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "智能体服务商"
+          }
+        }
+      }
+    },
+    "providers_from_installed_plugins" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Providers from installed plugins"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "インストール済みプラグインが提供するプロバイダ"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "설치된 플러그인이 제공하는 공급자"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已安装插件提供的供应商"
           }
         }
       }

@@ -12,6 +12,72 @@ struct SoulConfig: Codable {
     var activePlugin: String? = nil
 }
 
+/// model 插件包 providers.json 的宽松声明结构（外部 JSON 铁律：全字段 decodeIfPresent）。
+/// 供 AppState 幂等合并与 AddProviderView 模板列表共用。
+struct ModelPluginProviderDecl: Codable {
+    var label: String = ""
+    var providerType: String? = nil
+    var customBaseURL: String? = nil
+    var apiFormat: String? = nil
+    var appendV1Suffix: Bool? = nil
+    var organizationId: String? = nil
+    var projectId: String? = nil
+    var customUserAgent: String? = nil
+    var customHeaders: [String: String]? = nil
+    var models: [ModelPluginModelDecl]? = nil
+}
+
+struct ModelPluginModelDecl: Codable {
+    var modelId: String = ""
+    var displayName: String? = nil
+    var contextLimit: Int? = nil
+    var deepThinking: Bool? = nil
+    var maxOutputTokens: Int? = nil
+    var inputText: Bool? = nil
+    var inputImage: Bool? = nil
+    var inputAudio: Bool? = nil
+    var inputVideo: Bool? = nil
+    var outputText: Bool? = nil
+    var outputImage: Bool? = nil
+    var outputAudio: Bool? = nil
+}
+
+extension ProviderType {
+    /// model 插件包内 providerType 字段的宽容映射（小写 id 优先，兼容清单 rawValue）。
+    init?(flexibleID raw: String?) {
+        guard let raw, !raw.isEmpty else { return nil }
+        switch raw.lowercased() {
+        case "openai": self = .openai
+        case "anthropic": self = .anthropic
+        case "google", "gemini": self = .google
+        case "openrouter": self = .openRouter
+        case "custom", "openai-compatible", "openai兼容": self = .custom
+        case "grok": self = .grok
+        case "deepseek": self = .deepSeek
+        case "qwen": self = .qwen
+        case "xiaomi": self = .xiaomi
+        case "zhipu": self = .zhipu
+        default:
+            guard let v = ProviderType(rawValue: raw) else { return nil }
+            self = v
+        }
+    }
+}
+
+extension APIFormat {
+    /// model 插件包内 apiFormat 字段的宽容映射。
+    init?(flexibleID raw: String?) {
+        guard let raw, !raw.isEmpty else { return nil }
+        switch raw.lowercased().replacingOccurrences(of: " ", with: "") {
+        case "chatcompletions", "chat/completions": self = .chatCompletions
+        case "responsesapi", "responses": self = .responsesAPI
+        default:
+            guard let v = APIFormat(rawValue: raw) else { return nil }
+            self = v
+        }
+    }
+}
+
 /// LLM 服务商配置
 struct LLMProvider: Identifiable, Codable, Equatable {
     var id: UUID = UUID()

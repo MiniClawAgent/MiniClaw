@@ -108,34 +108,6 @@ final class AppState: ObservableObject {
         "com.miniclaw.builtin.deepseek",
     ]
 
-    /// 包内 providerType 字段 → ProviderType（宽容匹配：小写 id 优先，兼容清单 rawValue）。
-    private static func mapProviderType(_ raw: String?) -> ProviderType? {
-        guard let raw, !raw.isEmpty else { return nil }
-        switch raw.lowercased() {
-        case "openai": return .openai
-        case "anthropic": return .anthropic
-        case "google", "gemini": return .google
-        case "openrouter": return .openRouter
-        case "custom", "openai-compatible", "openai兼容": return .custom
-        case "grok": return .grok
-        case "deepseek": return .deepSeek
-        case "qwen": return .qwen
-        case "xiaomi": return .xiaomi
-        case "zhipu": return .zhipu
-        default: return ProviderType(rawValue: raw)
-        }
-    }
-
-    /// 包内 apiFormat 字段 → APIFormat（宽容匹配）。
-    private static func mapAPIFormat(_ raw: String?) -> APIFormat? {
-        guard let raw, !raw.isEmpty else { return nil }
-        switch raw.lowercased().replacingOccurrences(of: " ", with: "") {
-        case "chatcompletions", "chat/completions": return .chatCompletions
-        case "responsesapi", "responses": return .responsesAPI
-        default: return APIFormat(rawValue: raw)
-        }
-    }
-
     /// 从 model 插件包的 providers.json（服务商连接模板）**幂等合并**：
     /// - 同 `label`：覆盖非敏感字段（providerType/baseURL/apiFormat 等），
     ///   保留 id、Keychain 密钥与用户启用状态；包内 models 按 modelId 合并
@@ -144,40 +116,13 @@ final class AppState: ObservableObject {
     /// - 全部条目打 sourcePlugin 来源标记（删插件连带删供应商）。
     @MainActor
     func mergePluginProviders(_ json: String, sourcePlugin: String, skipLabels: Set<String> = []) throws -> (added: Int, updated: Int) {
-        // 宽松中间结构（外部 JSON 铁律：全字段 decodeIfPresent）。
-        struct PluginModelDecl: Codable {
-            var modelId: String = ""
-            var displayName: String? = nil
-            var contextLimit: Int? = nil
-            var deepThinking: Bool? = nil
-            var maxOutputTokens: Int? = nil
-            var inputText: Bool? = nil
-            var inputImage: Bool? = nil
-            var inputAudio: Bool? = nil
-            var inputVideo: Bool? = nil
-            var outputText: Bool? = nil
-            var outputImage: Bool? = nil
-            var outputAudio: Bool? = nil
-        }
-        struct PluginProviderDecl: Codable {
-            var label: String = ""
-            var providerType: String? = nil
-            var customBaseURL: String? = nil
-            var apiFormat: String? = nil
-            var appendV1Suffix: Bool? = nil
-            var organizationId: String? = nil
-            var projectId: String? = nil
-            var customUserAgent: String? = nil
-            var customHeaders: [String: String]? = nil
-            var models: [PluginModelDecl]? = nil
-        }
         guard let data = json.data(using: .utf8),
-              let decls = try? JSONDecoder().decode([PluginProviderDecl].self, from: data) else {
+              let decls = try? JSONDecoder().decode([ModelPluginProviderDecl].self, from: data) else {
             throw LLMError.providerRejected(L10n.l("model_plugin_invalid_providers"))
         }
         let removedLabels = Set(SettingsStore.shared.settings.modelPluginRemovedLabels)
 
-        func modelConfig(from d: PluginModelDecl) -> ModelConfig {
+        func modelConfig(from d: ModelPluginModelDecl) -> ModelConfig {
             var c = ModelConfig(modelId: d.modelId)
             c.displayName = d.displayName ?? ""
             if let v = d.contextLimit { c.contextLimit = v }
@@ -201,9 +146,9 @@ final class AppState: ObservableObject {
 
             if let idx = providers.firstIndex(where: { $0.label == label }) {
                 // 已存在：覆盖非敏感字段，保留 id/密钥/启用状态。
-                if let pt = Self.mapProviderType(d.providerType) { providers[idx].providerType = pt }
+                if let pt = ProviderType(flexibleID: d.providerType) { providers[idx].providerType = pt }
                 if let v = d.customBaseURL { providers[idx].customBaseURL = v }
-                if let f = Self.mapAPIFormat(d.apiFormat) { providers[idx].apiFormat = f }
+                if let f = APIFormat(flexibleID: d.apiFormat) { providers[idx].apiFormat = f }
                 if let v = d.appendV1Suffix { providers[idx].appendV1Suffix = v }
                 if let v = d.organizationId { providers[idx].organizationId = v }
                 if let v = d.projectId { providers[idx].projectId = v }
@@ -231,9 +176,9 @@ final class AppState: ObservableObject {
                 updated += 1
             } else {
                 var p = LLMProvider(label: label)
-                if let pt = Self.mapProviderType(d.providerType) { p.providerType = pt }
+                if let pt = ProviderType(flexibleID: d.providerType) { p.providerType = pt }
                 p.customBaseURL = d.customBaseURL ?? ""
-                if let f = Self.mapAPIFormat(d.apiFormat) { p.apiFormat = f }
+                if let f = APIFormat(flexibleID: d.apiFormat) { p.apiFormat = f }
                 p.appendV1Suffix = d.appendV1Suffix ?? false
                 p.organizationId = d.organizationId ?? ""
                 p.projectId = d.projectId ?? ""
