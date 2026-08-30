@@ -63,19 +63,31 @@ final class ThemeManager: ObservableObject, @unchecked Sendable {
 
     /// 当前生效的主题插件 id；nil = 系统默认背景。
     var activeThemeID: String? {
-        get { SettingsStore.shared.settings.appearance.backgroundThemeID }
+        get {
+            let v = SettingsStore.shared.settings.appearance.backgroundThemeID
+            AppLogger.shared.info("[Theme] activeThemeID 读取 = \(v ?? "nil(系统默认)")",
+                                  category: "Theme", subsystem: "Theme")
+            return v
+        }
         set {
             objectWillChange.send()
             SettingsStore.shared.settings.appearance.backgroundThemeID = newValue
             SettingsStore.shared.save()
             imageCache.removeAllObjects()
+            AppLogger.shared.info("[Theme] 选用主题写入 = \(newValue ?? "nil(清除)")，已保存",
+                                  category: "Theme", subsystem: "Theme")
         }
     }
 
     /// 指定主题的声明；未选用或包缺失返回 nil。
     func activeDeclaration() -> ThemePackageDecl? {
         guard let id = activeThemeID else { return nil }
-        return declaration(pluginID: id)
+        let decl = declaration(pluginID: id)
+        if decl == nil {
+            AppLogger.shared.error("[Theme] theme.json 读取失败: plugins/theme/\(id)/theme.json",
+                                   category: "Theme", subsystem: "Theme")
+        }
+        return decl
     }
 
     /// 读取某主题包的 theme.json（宽容解码）。
@@ -92,13 +104,16 @@ final class ThemeManager: ObservableObject, @unchecked Sendable {
         let dir = FileSystemManager.shared.pluginTypeDir("theme")
         let subs = (try? FileManager.default.contentsOfDirectory(
             at: dir, includingPropertiesForKeys: [.isDirectoryKey])) ?? []
-        return subs
+        let result = subs
             .filter { $0.hasDirectoryPath }
             .compactMap { url -> (String, ThemePackageDecl)? in
                 guard let decl = declaration(pluginID: url.lastPathComponent) else { return nil }
                 return (url.lastPathComponent, decl)
             }
             .sorted { $0.0.localizedCaseInsensitiveCompare($1.0) == .orderedAscending }
+        AppLogger.shared.info("[Theme] 已装主题扫描: \(result.count) 个 ← \(result.map { $0.0 })",
+                              category: "Theme", subsystem: "Theme")
+        return result
     }
 
     /// 主题在包内的图片完整路径。
@@ -116,13 +131,24 @@ final class ThemeManager: ObservableObject, @unchecked Sendable {
     ///   ImageIO 按该尺寸降采样解码——4K 源图也不会全分辨率解码（约 33MB/张的内存陷阱）。
     func backgroundImage(for slot: ThemeBackground.Slot, maxPixel: CGFloat) -> UIImage? {
         guard let decl = activeDeclaration(), let id = activeThemeID,
-              let fileName = decl.fileName(for: slot) else { return nil }
+              let fileName = decl.fileName(for: slot) else {
+            AppLogger.shared.info("[Theme] backgroundImage(\(slot.rawValue)) = nil（未选用主题/声明缺失/槽位缺图）",
+                                  category: "Theme", subsystem: "Theme")
+            return nil
+        }
         let clamped = max(320, min(maxPixel, 8_000))
         let key = "\(id)/\(slot.rawValue)/\(Int(clamped))" as NSString
         if let cached = imageCache.object(forKey: key) { return cached }
 
         let url = imageURL(pluginID: id, fileName: fileName)
-        guard let image = Self.downsampledImage(at: url, maxPixel: clamped) else { return nil }
+        let exists = FileManager.default.fileExists(atPath: url.path)
+        guard let image = Self.downsampledImage(at: url, maxPixel: clamped) else {
+            AppLogger.shared.error("[Theme] 背景图解码失败: \(url.path)（存在=\(exists)）",
+                                   category: "Theme", subsystem: "Theme")
+            return nil
+        }
+        AppLogger.shared.info("[Theme] 背景图就绪: \(slot.rawValue) ← \(fileName)（\(image.size.width)x\(image.size.height)@\(clamped)px）",
+                              category: "Theme", subsystem: "Theme")
         imageCache.setObject(image, forKey: key)
         return image
     }

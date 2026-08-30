@@ -9,6 +9,8 @@ struct AppearanceSettingsView: View {
     @ObservedObject private var l10n = L10n.shared
     @State private var selection: ColorSchemePreference = .system
     @State private var chat: ChatSettings = SettingsStore.shared.settings.chat
+    /// 订阅主题管理器：选用/清除背景主题时刷新选中勾与主题列表。
+    @ObservedObject private var themeManager = ThemeManager.shared
 
     var body: some View {
         List {
@@ -90,7 +92,7 @@ struct AppearanceSettingsView: View {
         Section {
             // 「系统默认」恒在首行：清除选用即回退。
             Button {
-                ThemeManager.shared.activeThemeID = nil
+                themeManager.activeThemeID = nil
             } label: {
                 HStack {
                     Image(systemName: "square.on.square")
@@ -99,21 +101,21 @@ struct AppearanceSettingsView: View {
                     Text(L10n.l("background_theme_default"))
                         .foregroundStyle(.primary)
                     Spacer()
-                    if ThemeManager.shared.activeThemeID == nil {
+                    if themeManager.activeThemeID == nil {
                         Image(systemName: "checkmark").foregroundStyle(Color.accentColor)
                     }
                 }
             }
 
-            if ThemeManager.shared.installedThemes().isEmpty {
+            if themeManager.installedThemes().isEmpty {
                 Text(L10n.l("background_theme_empty_hint"))
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
 
-            ForEach(ThemeManager.shared.installedThemes(), id: \.pluginID) { theme in
+            ForEach(themeManager.installedThemes(), id: \.pluginID) { theme in
                 Button {
-                    ThemeManager.shared.activeThemeID = theme.pluginID
+                    themeManager.activeThemeID = theme.pluginID
                 } label: {
                     HStack {
                         themeThumbnail(pluginID: theme.pluginID, decl: theme.decl)
@@ -125,7 +127,7 @@ struct AppearanceSettingsView: View {
                                 .foregroundStyle(.secondary)
                         }
                         Spacer()
-                        if ThemeManager.shared.activeThemeID == theme.pluginID {
+                        if themeManager.activeThemeID == theme.pluginID {
                             Image(systemName: "checkmark").foregroundStyle(Color.accentColor)
                         }
                     }
