@@ -196,6 +196,7 @@ final class FileSystemManager: @unchecked Sendable {
             pluginTypeDir("mcp"),
             pluginTypeDir("model"),
             pluginTypeDir("soul"),
+            pluginTypeDir("theme"),
             mountsDir
         ]
 

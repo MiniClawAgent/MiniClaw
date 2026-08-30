@@ -41,6 +41,7 @@
 		16D603BD32C4629D4A36BD86E168CABA /* ChatSessionRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = A02E0E1886684000760FCCAFAF75E9CA /* ChatSessionRuntime.swift */; };
 		17799CD1204F24CEF8DB70CEA84A3379 /* TokenUsageTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1CE31225B143867E83A2C77A4D4B93D /* TokenUsageTracker.swift */; };
 		1792556847362B0B57268E549FC4ABDE /* html.c in Sources */ = {isa = PBXBuildFile; fileRef = 67B9C8B8FAC53D6CF87F6D30E71401B3 /* html.c */; };
+		188E82E60F60681452109873F0FE2EDB /* ThemeBackground.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38861749215566C5E889093BAAFA8BAA /* ThemeBackground.swift */; };
 		195E8133F64EA1362EEC43839E7D24EE /* RetryPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C83CB7A02F0F1F7E89A32B1E09298E3 /* RetryPolicy.swift */; };
 		1990FC44E2EA353BB78CB48D469BAE5F /* ProviderImportHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = C12A1DF6A1762E6477D3190BF7E5F0E3 /* ProviderImportHelper.swift */; };
 		19C03E7E7AB4FD0FB617EC1B33324ED0 /* HomeSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9B72E5C7C1FA1B465F6DEE8C93E3EC3 /* HomeSupport.swift */; };
@@ -213,6 +214,7 @@
 		960DBB18682383341B75D57D910BF6AD /* SyncTransport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1087A1CADF3EF5ACF39F8B8999E45AA7 /* SyncTransport.swift */; };
 		973019572D82C07FFE3EF899476D08F5 /* com.miniclaw.builtin.subagents.mpk in Resources */ = {isa = PBXBuildFile; fileRef = E3B48407245D0980E96E866BBE24951F /* com.miniclaw.builtin.subagents.mpk */; };
 		9759D4905CE648ADEDD7D69BB5E90CF1 /* ChatMessageViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 52DA349AB758509FF29A0F546CA75900 /* ChatMessageViews.swift */; };
+		982E46CFC025447B1B0B57A07CC2C062 /* ThemeManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8190EB9EDAD996B003FD88A2A8C849C /* ThemeManager.swift */; };
 		9B2C406EEE4253E834FC831BD2C171BB /* com.miniclaw.builtin.skill.skill-creator.mpk in Resources */ = {isa = PBXBuildFile; fileRef = EF50A3CD722BB7CAB4D2495872CE71AC /* com.miniclaw.builtin.skill.skill-creator.mpk */; };
 		9BC5D1F1C9F618C71136D18C3B71D50F /* FileTools.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2DBCCFFA5F5317A71E7F5F18F813E02 /* FileTools.swift */; };
 		9D34EA44F66EE8BE98618CE87340284D /* BashismDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = E09F588F8948F6D2B0CEBE3118964A4F /* BashismDetector.swift */; };
@@ -499,6 +501,7 @@
 		346DF3685CFA5BC87B3934090B66FA05 /* ZipArchive.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZipArchive.swift; sourceTree = "<group>"; };
 		34BE1750DE346FB60B2F417C68D25F91 /* ModelGroupModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelGroupModels.swift; sourceTree = "<group>"; };
 		35251459BCF4180292EA1EA08A8AC961 /* 用户隐私政策.md */ = {isa = PBXFileReference; path = "用户隐私政策.md"; sourceTree = "<group>"; };
+		38861749215566C5E889093BAAFA8BAA /* ThemeBackground.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeBackground.swift; sourceTree = "<group>"; };
 		38AECAEC35878A9E1C0F05B5E534E321 /* ToolLoopBreaker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolLoopBreaker.swift; sourceTree = "<group>"; };
 		38C5D23EF7F146E05F8C8796C0A45929 /* MiniClawTabPool.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MiniClawTabPool.swift; sourceTree = "<group>"; };
 		39F6AC1B8FBC6F4CC84F1360448B4459 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
@@ -695,6 +698,7 @@
 		C63E151D1E5F79070BC9DBD6FDF8A8D4 /* ChatSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatSession.swift; sourceTree = "<group>"; };
 		C732ED2AF64C70FC7D540A97F738FBB3 /* AgentLoopHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentLoopHelpers.swift; sourceTree = "<group>"; };
 		C80091A028DB9E375C20C63688606843 /* MemoryConsolidator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoryConsolidator.swift; sourceTree = "<group>"; };
+		C8190EB9EDAD996B003FD88A2A8C849C /* ThemeManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeManager.swift; sourceTree = "<group>"; };
 		C84EEE4831F59E6151BB01DE63195770 /* GeminiModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeminiModels.swift; sourceTree = "<group>"; };
 		C93ACC7F1B43D4F1BE3B47D793EE2FE4 /* OpenAIProviderAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIProviderAdapter.swift; sourceTree = "<group>"; };
 		C94E17D51065395FF79A4A3098EAE66D /* BackgroundSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundSettingsView.swift; sourceTree = "<group>"; };
@@ -869,6 +873,7 @@
 			children = (
 				C5BF4F345A57D4E0CEF3C1E6000308C7 /* EmptyStateView.swift */,
 				BF595E2FD0AD6CDB246D2C858838E70D /* FileBrowserModels.swift */,
+				38861749215566C5E889093BAAFA8BAA /* ThemeBackground.swift */,
 				5C0AA66465763A6D91141445E0F17DFB /* UnifiedFileBrowser.swift */,
 			);
 			path = Shared;
@@ -1082,6 +1087,14 @@
 			path = SubAgent;
 			sourceTree = "<group>";
 		};
+		811A7F3EF426FB44BD1C79C0CB8B436A /* Theme */ = {
+			isa = PBXGroup;
+			children = (
+				C8190EB9EDAD996B003FD88A2A8C849C /* ThemeManager.swift */,
+			);
+			path = Theme;
+			sourceTree = "<group>";
+		};
 		84B5A0D46E80B6E62FC1C628FC25B5EF /* Products */ = {
 			isa = PBXGroup;
 			children = (
@@ -1219,6 +1232,7 @@
 				F85ACD40B6721D94D760A6ECF1C92D23 /* Storage */,
 				6450DA21297C23E4AA31FC8F84BB69CE /* SubAgent */,
 				2C8A3C99B51DE514984EFD57F1B0E4D5 /* Sync */,
+				811A7F3EF426FB44BD1C79C0CB8B436A /* Theme */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -2014,6 +2028,8 @@
 				7587133D9DECAA303789AA443E7EA8B0 /* SystemProxyStore.swift in Sources */,
 				AB5B839AF6E711BAB0F53E2F4C794423 /* TaskPipController.swift in Sources */,
 				3310528A2D8DBC23745637B4A13BC01B /* TerminalView.swift in Sources */,
+				188E82E60F60681452109873F0FE2EDB /* ThemeBackground.swift in Sources */,
+				982E46CFC025447B1B0B57A07CC2C062 /* ThemeManager.swift in Sources */,
 				7AAC92CCFA32FDBA46EF10919D9B815B /* TokenUsageReport.swift in Sources */,
 				17799CD1204F24CEF8DB70CEA84A3379 /* TokenUsageTracker.swift in Sources */,
 				7F94254FEA6EC4C75C7A3A1BD22E4B6B /* TokenUsageViews.swift in Sources */,

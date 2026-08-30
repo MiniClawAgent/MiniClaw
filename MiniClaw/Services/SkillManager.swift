@@ -395,6 +395,10 @@ final class SkillManager {
                 SettingsStore.shared.save()
             }
         }
+        // theme 插件：若删除的正是当前选用的背景主题 → 清空选用（三页回退系统默认背景）。
+        if manifestType == "theme", ThemeManager.shared.activeThemeID == directoryName {
+            ThemeManager.shared.activeThemeID = nil
+        }
     }
 
     /// 按 directoryName（=插件目录名/插件 id）在统一插件布局下跨类型定位插件目录。
@@ -532,6 +536,13 @@ final class SkillManager {
             }
             do {
                 try fm.copyItem(at: src, to: dest)
+                // theme 类型：图片规格校验（单张 ≤2MB、长边 ≤3840）——超限回滚导入并报错。
+                if parsed.type == "theme",
+                   let violation = ThemeManager.validateThemeAssets(in: dest) {
+                    try? fm.removeItem(at: dest)
+                    result.message = violation
+                    continue
+                }
                 result.imported.append(dirName)
                 // soul 类型导入后默认停用（与导入规则一致），用户在列表/详情页启用开关时
                 // 才应用人格并自动停用其他 soul 插件（排他单选，见 setEnabled）。

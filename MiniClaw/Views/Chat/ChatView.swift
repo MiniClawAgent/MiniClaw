@@ -831,6 +831,9 @@ struct ChatView: View {
 
     var body: some View {
         ZStack {
+            // 背景主题挂载点：Kit 消息列表已透明（host.view.backgroundColor = .clear），
+            // 主题图从这里透出；无主题时组件回退系统背景（视觉与现状一致）。
+            ThemeBackground(slot: .chat)
             messageListView
         }
         // 输入栏以 .overlay(alignment:.bottom) 悬浮,受 safe area 约束,

@@ -142,8 +142,8 @@ struct HomeView: View {
     /// iOS16 适配:body 表达式过长触发类型检查超时,拆为独立子视图。
     private var mainContent: some View {
         ZStack {
-            Color(.systemBackground)
-                .ignoresSafeArea()
+            // 背景主题挂载点：无主题时组件内部回退系统背景（视觉与现状一致）。
+            ThemeBackground(slot: .home)
 
             VStack(spacing: 0) {
                 // 搜索栏直接嵌在当前列表顶部：保持同一列表格式，仅就地过滤，不切到独立界面。

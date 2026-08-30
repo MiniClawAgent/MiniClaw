@@ -4517,6 +4517,122 @@
         }
       }
     },
+    "background_theme" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Background Theme"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "背景テーマ"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "배경 테마"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "背景主题"
+          }
+        }
+      }
+    },
+    "background_theme_default" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "System Default"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "システムデフォルト"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "시스템 기본값"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "系统默认"
+          }
+        }
+      }
+    },
+    "background_theme_empty_hint" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No background themes yet. Install a theme plugin to customize the home, chat and settings backgrounds."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "背景テーマがありません。theme プラグインをインストールすると、ホーム/チャット/設定の背景を変更できます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "배경 테마가 없습니다. theme 플러그인을 설치하면 홈/채팅/설정 배경을 변경할 수 있습니다."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "暂无背景主题：安装 theme 插件后即可在此选用（首页/会话页/设置页背景）。"
+          }
+        }
+      }
+    },
+    "background_theme_footer" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Applies to the home, chat and settings backgrounds; dark mode automatically dims the image for readability. Deleting the theme plugin reverts to the system default."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "選択するとホーム・チャット・設定の背景に適用されます。ダークモードでは自動的に暗くして可読性を確保します。テーマプラグインを削除するとシステムデフォルトに戻ります。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "선택하면 홈, 채팅, 설정 배경에 적용됩니다. 다크 모드에서는 가독성을 위해 이미지가 자동으로 어두워집니다. 테마 플러그인을 삭제하면 시스템 기본값으로 돌아갑니다."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "选用后应用于首页、会话页与设置页背景；暗色模式自动加深以保证可读性。删除主题插件即回退系统默认。"
+          }
+        }
+      }
+    },
     "bashism_array_assign" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -41348,6 +41464,35 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Token 仅用于 Authorization 请求头，界面不会显示其内容。"
+          }
+        }
+      }
+    },
+    "theme_import_image_too_large" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Theme image exceeds limits (≤2MB and long edge ≤3840): %@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "テーマ画像が規定を超えています（1枚 ≤2MB、長辺 ≤3840）：%@"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "테마 이미지가 규격을 초과했습니다(장당 ≤2MB, 긴 변 ≤3840): %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "主题图片超出规格（单张 ≤2MB 且长边 ≤3840）：%@"
           }
         }
       }

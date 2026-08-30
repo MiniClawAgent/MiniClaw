@@ -5,6 +5,9 @@ struct AppearanceSettings: Codable {
     var useLargeText: Bool = false
     var accentColorRaw: String = "blue"
     var appLanguageRaw: String = "auto"     // auto / zh-Hans / en / ja / ko
+    /// 当前生效的背景主题插件 id（plugins/theme/<id>）；nil = 系统默认背景。
+    /// 显式选用 + 排他生效（同一时刻一个主题）；删除主题插件时由 deleteSkill 清空。
+    var backgroundThemeID: String? = nil
 }
 
 /// 后台设置（background）

@@ -187,6 +187,10 @@ struct SettingsView: View {
             }
         }
         .listStyle(.insetGrouped)
+        // 背景主题挂载点：列表整体背景透明（行白卡保留，间隙透出主题）；
+        // 无主题时组件回退系统背景（视觉与现状一致）。
+        .scrollContentBackground(.hidden)
+        .background(ThemeBackground(slot: .settings))
         .navigationTitle(L10n.l("settings"))
         .navigationBarTitleDisplayMode(.inline)
         .navigationDestination(isPresented: $navigateToGroups) {

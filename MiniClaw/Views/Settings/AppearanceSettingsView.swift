@@ -65,6 +65,8 @@ struct AppearanceSettingsView: View {
             } header: {
                 Text(L10n.l("chat_display"))
             }
+
+            backgroundThemeSection
         }
         .navigationTitle(L10n.l("appearance"))
         .navigationBarTitleDisplayMode(.inline)
@@ -78,6 +80,86 @@ struct AppearanceSettingsView: View {
 
     private func saveChat() {
         SettingsStore.shared.set(chat, domain: .chat, summary: L10n.l("edit_appearance_chat_display"))
+    }
+
+    // MARK: - 背景主题（theme 插件，唐唐 2026-08-30 定稿）
+
+    /// 背景主题选择区：系统默认 + 已装 theme 插件预设（缩略图 + 选中态）。
+    /// 显式选用 + 排他生效；未选用时三页保持系统默认背景。
+    private var backgroundThemeSection: some View {
+        Section {
+            // 「系统默认」恒在首行：清除选用即回退。
+            Button {
+                ThemeManager.shared.activeThemeID = nil
+            } label: {
+                HStack {
+                    Image(systemName: "square.on.square")
+                        .frame(width: 44, height: 32)
+                        .background(Color(.tertiarySystemFill), in: RoundedRectangle(cornerRadius: 6))
+                    Text(L10n.l("background_theme_default"))
+                        .foregroundStyle(.primary)
+                    Spacer()
+                    if ThemeManager.shared.activeThemeID == nil {
+                        Image(systemName: "checkmark").foregroundStyle(Color.accentColor)
+                    }
+                }
+            }
+
+            if ThemeManager.shared.installedThemes().isEmpty {
+                Text(L10n.l("background_theme_empty_hint"))
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+
+            ForEach(ThemeManager.shared.installedThemes(), id: \.pluginID) { theme in
+                Button {
+                    ThemeManager.shared.activeThemeID = theme.pluginID
+                } label: {
+                    HStack {
+                        themeThumbnail(pluginID: theme.pluginID, decl: theme.decl)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(theme.decl.name.isEmpty ? theme.pluginID : theme.decl.name)
+                                .foregroundStyle(.primary)
+                            Text(theme.pluginID)
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        if ThemeManager.shared.activeThemeID == theme.pluginID {
+                            Image(systemName: "checkmark").foregroundStyle(Color.accentColor)
+                        }
+                    }
+                }
+            }
+        } header: {
+            Text(L10n.l("background_theme"))
+        } footer: {
+            Text(L10n.l("background_theme_footer"))
+        }
+    }
+
+    /// 主题缩略图：优先 chat 槽位，其次任一可用图，downsample 到小尺寸。
+    @ViewBuilder
+    private func themeThumbnail(pluginID: String, decl: ThemePackageDecl) -> some View {
+        let fileName = decl.fileName(for: .chat)
+            ?? decl.fileName(for: .home)
+            ?? decl.fileName(for: .settings)
+        if let fileName,
+           let small = smallThumbnail(url: ThemeManager.shared.imageURL(pluginID: pluginID, fileName: fileName)) {
+            Image(uiImage: small)
+                .resizable()
+                .aspectRatio(contentMode: .fill)
+                .frame(width: 44, height: 32)
+                .clipShape(RoundedRectangle(cornerRadius: 6))
+        } else {
+            Image(systemName: "photo")
+                .frame(width: 44, height: 32)
+                .background(Color(.tertiarySystemFill), in: RoundedRectangle(cornerRadius: 6))
+        }
+    }
+
+    private func smallThumbnail(url: URL) -> UIImage? {
+        ThemeManager.downsampledImage(at: url, maxPixel: 132)
     }
 
     private func title(for pref: ColorSchemePreference) -> String {
