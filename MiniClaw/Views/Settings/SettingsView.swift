@@ -76,6 +76,28 @@ struct SettingsView: View {
                     SettingsRow(icon: "info.circle.fill", color: .teal, title: L10n.l("about_miniclaw_app"), subtitle: L10n.l("version_info_and_license"))
                 }
             }
+
+            // App version footer（版本号 Bundle.main 真实值；备案号点击跳工信部备案查询）
+            Section {
+                EmptyView()
+            } footer: {
+                HStack {
+                    Spacer()
+                    VStack(spacing: 4) {
+                        Text(versionString)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Text("湘ICP备2023018958号-16A")
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                            .onTapGesture {
+                                openURL(URL(string: "https://beian.miit.gov.cn/")!)
+                            }
+                    }
+                    Spacer()
+                }
+            }
+        }
         .listStyle(.insetGrouped)
         // 背景主题挂载点：列表整体背景透明（行白卡保留，间隙透出主题）；
         // 无主题时组件回退系统背景（视觉与现状一致）。
