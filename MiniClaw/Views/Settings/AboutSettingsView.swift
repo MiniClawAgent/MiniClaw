@@ -55,6 +55,8 @@ struct AboutView: View {
                     .foregroundStyle(.secondary)
             }
         }
+        .scrollContentBackground(.hidden)
+        .background(ThemeBackground(slot: .settings))
         .navigationTitle(L10n.l("about"))
         .navigationBarTitleDisplayMode(.inline)
     }

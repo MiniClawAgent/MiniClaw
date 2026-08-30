@@ -108,6 +108,8 @@ struct ModelGroupEditView: View {
                 }
             }
         }
+        .scrollContentBackground(.hidden)
+        .background(ThemeBackground(slot: .settings))
         .navigationTitle(L10n.l("edit_group"))
         .navigationBarTitleDisplayMode(.inline)
         .environment(\.editMode, $editMode)
@@ -267,6 +269,8 @@ private struct ModelGroupModelPicker: View {
                     }
                 }
             }
+            .scrollContentBackground(.hidden)
+            .background(ThemeBackground(slot: .settings))
             .navigationTitle(L10n.l("add_model"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

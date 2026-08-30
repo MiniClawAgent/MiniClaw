@@ -135,6 +135,8 @@ struct StorageSettingsView: View {
                 Text(L10n.l("lists_each_session_s_on_device_file_usage_workspace_attachments_browser_offloads_excluding_the_chat_history_itself_sorted_by_size_largest_first"))
             }
         }
+        .scrollContentBackground(.hidden)
+        .background(ThemeBackground(slot: .settings))
         .navigationTitle(L10n.l("storage"))
         .navigationBarTitleDisplayMode(.inline)
         .onAppear(perform: reload)

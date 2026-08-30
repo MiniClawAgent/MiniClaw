@@ -139,6 +139,8 @@ struct RuntimeStatusView: View {
                 }
             }
         }
+        .scrollContentBackground(.hidden)
+        .background(ThemeBackground(slot: .settings))
         .listStyle(.insetGrouped)
         .navigationTitle(L10n.l("rootfs_management"))
         .navigationBarTitleDisplayMode(.inline)
@@ -283,6 +285,8 @@ struct MirrorDetailView: View {
                 }
             }
         }
+        .scrollContentBackground(.hidden)
+        .background(ThemeBackground(slot: .settings))
         .navigationTitle(kind.displayName)
         .navigationBarTitleDisplayMode(.inline)
     }

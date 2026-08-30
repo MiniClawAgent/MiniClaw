@@ -136,6 +136,8 @@ struct AddProviderView: View {
                     }
                 }
             }
+            .scrollContentBackground(.hidden)
+            .background(ThemeBackground(slot: .settings))
             .navigationTitle(L10n.l("add_provider_action"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -215,6 +217,8 @@ struct AuthMethodPickerView: View {
                 Text(L10n.l("choose_an_authentication_method_credentials_renew_automatically_after_oauth_sign_in"))
             }
         }
+        .scrollContentBackground(.hidden)
+        .background(ThemeBackground(slot: .settings))
         .navigationTitle(label)
         .navigationBarTitleDisplayMode(.inline)
     }

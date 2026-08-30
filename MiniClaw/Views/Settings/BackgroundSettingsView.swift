@@ -32,6 +32,8 @@ struct BackgroundSettingsView: View {
                 Text(L10n.l("when_background_run_is_on_live_island_live_activity_shows_task_progress_live_activity_controls_rendering_on_the_island_and_lock_screen_picture_in_picture_shows_the_running_task_icon_title_progress_as_a_persistent_pip_window_after_you_leave_the_chat_page"))
             }
         }
+        .scrollContentBackground(.hidden)
+        .background(ThemeBackground(slot: .settings))
         .navigationTitle(L10n.l("background"))
         .navigationBarTitleDisplayMode(.inline)
         // iOS16 兼容:闭包显式带参,强制匹配 onChange(of:) 单参重载(iOS17 新增无参 action 重载会优先选中)。

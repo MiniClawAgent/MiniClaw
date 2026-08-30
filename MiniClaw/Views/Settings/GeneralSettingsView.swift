@@ -50,6 +50,8 @@ struct GeneralSettingsView: View {
                 Text(L10n.l("choose_the_user_agent_form_used_by_the_browser_if_custom_is_selected_fill_in_the_ua_string_below"))
             }
         }
+        .scrollContentBackground(.hidden)
+        .background(ThemeBackground(slot: .settings))
         .navigationTitle(L10n.l("general_settings"))
         .navigationBarTitleDisplayMode(.inline)
         .onChange(of: defaults) { _ in saveDefaults() }

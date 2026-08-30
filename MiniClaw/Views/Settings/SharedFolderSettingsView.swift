@@ -37,6 +37,8 @@ struct SharedFolderSettingsView: View {
                     .foregroundStyle(.secondary)
             }
         }
+        .scrollContentBackground(.hidden)
+        .background(ThemeBackground(slot: .settings))
         .navigationTitle(L10n.l("shared_folders"))
         .navigationBarTitleDisplayMode(.inline)
     }

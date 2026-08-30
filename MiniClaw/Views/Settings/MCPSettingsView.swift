@@ -107,6 +107,8 @@ struct MCPSettingsView: View {
 
             sessionMCPExceptionSection
         }
+        .scrollContentBackground(.hidden)
+        .background(ThemeBackground(slot: .settings))
         .navigationTitle(L10n.l("mcp"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -411,6 +413,8 @@ private struct ImportClaudeConfigView: View {
                 .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
         }
+        .scrollContentBackground(.hidden)
+        .background(ThemeBackground(slot: .settings))
         .navigationTitle(L10n.l("import_claude_desktop_config"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -610,6 +614,8 @@ private struct MCPServerEditorView: View {
                 }
             }
         }
+        .scrollContentBackground(.hidden)
+        .background(ThemeBackground(slot: .settings))
         .navigationTitle(server == nil ? L10n.l("add_mcp_server") : L10n.l("edit_mcp_server"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {

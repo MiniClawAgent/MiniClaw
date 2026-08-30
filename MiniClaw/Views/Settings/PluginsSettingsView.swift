@@ -47,6 +47,8 @@ struct PluginsSettingsView: View {
                 reload()
             }
         }
+        .scrollContentBackground(.hidden)
+        .background(ThemeBackground(slot: .settings))
         .navigationTitle(L10n.l("plugins"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -286,6 +288,8 @@ private struct SkillDetailView: View {
                 }
             }
         }
+        .scrollContentBackground(.hidden)
+        .background(ThemeBackground(slot: .settings))
         .navigationTitle(skill.name)
         .navigationBarTitleDisplayMode(.inline)
         .fileImporter(

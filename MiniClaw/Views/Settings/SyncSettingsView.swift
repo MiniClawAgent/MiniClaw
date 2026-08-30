@@ -101,6 +101,8 @@ struct SyncSettingsView: View {
                 }
             }
         }
+        .scrollContentBackground(.hidden)
+        .background(ThemeBackground(slot: .settings))
         .navigationTitle(L10n.l("sync"))
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {

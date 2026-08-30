@@ -134,6 +134,8 @@ struct CustomModelEditorView: View {
                 }
             }
         }
+        .scrollContentBackground(.hidden)
+        .background(ThemeBackground(slot: .settings))
         .simultaneousGesture(TapGesture().onEnded { fieldFocused = false })
         .navigationTitle(isNew ? L10n.l("add_model") : L10n.l("model_settings"))
         .navigationBarTitleDisplayMode(.inline)

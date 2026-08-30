@@ -44,6 +44,8 @@ struct MountSettingsView: View {
                 Text(L10n.l("select_a_folder_via_the_ios_files_app_to_mount_into_miniclaw_read_only_by_default_the_agent_can_read_its_contents_via_var_miniclaw_mounts_name_to_let_the_agent_write_enable_the_allow_write_switch_on_that_mount_writes_are_persisted_to_the_external_folder_so_please_be_careful_mount_info_remains_valid_after_the_app_restarts"))
             }
         }
+        .scrollContentBackground(.hidden)
+        .background(ThemeBackground(slot: .settings))
         .navigationTitle(L10n.l("mounts"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -222,6 +224,8 @@ struct MountDetailView: View {
                 }
             }
         }
+        .scrollContentBackground(.hidden)
+        .background(ThemeBackground(slot: .settings))
         .navigationTitle(L10n.l("mount_details"))
         .navigationBarTitleDisplayMode(.inline)
         .alert(L10n.l("confirm_unmounting_this_folder"), isPresented: $showUnmount) {

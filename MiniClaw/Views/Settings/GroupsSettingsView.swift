@@ -104,6 +104,8 @@ struct GroupsSettingsView: View {
             groupAssignmentsContent
             configuredModelsContent
         }
+        .scrollContentBackground(.hidden)
+        .background(ThemeBackground(slot: .settings))
         .navigationTitle(L10n.l("model_management"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {

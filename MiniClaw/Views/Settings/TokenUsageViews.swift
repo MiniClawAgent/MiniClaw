@@ -75,6 +75,8 @@ struct TokenUsageView: View {
                     .font(.caption)
             }
         }
+        .scrollContentBackground(.hidden)
+        .background(ThemeBackground(slot: .settings))
         .navigationTitle(L10n.l("token_usage_alias"))
         .navigationBarTitleDisplayMode(.inline)
         .onAppear(perform: reload)
@@ -240,6 +242,8 @@ struct SessionTokenUsageView: View {
                     }
                 }
             }
+            .scrollContentBackground(.hidden)
+            .background(ThemeBackground(slot: .settings))
             .navigationTitle(L10n.l("session_token_usage"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

@@ -73,6 +73,8 @@ struct MemorySettingsView: View {
             }
 
         }
+        .scrollContentBackground(.hidden)
+        .background(ThemeBackground(slot: .settings))
         .navigationTitle(L10n.l("memory"))
         .navigationBarTitleDisplayMode(.inline)
         .onAppear { loadFromStore() }

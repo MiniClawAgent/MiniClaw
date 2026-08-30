@@ -56,6 +56,8 @@ struct SubAgentSettingsView: View {
                 Text(L10n.l("follow_main_model_no_override_use_the_model_s_default_thinking_thinking_off_subagents_answer_quickly_and_directly_saving_tokens_at_some_quality_cost"))
             }
         }
+        .scrollContentBackground(.hidden)
+        .background(ThemeBackground(slot: .settings))
         .navigationTitle(L10n.l("subagents"))
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {

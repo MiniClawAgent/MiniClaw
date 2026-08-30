@@ -74,6 +74,8 @@ struct SoulSettingsView: View {
                 }
             }
         }
+        .scrollContentBackground(.hidden)
+        .background(ThemeBackground(slot: .settings))
         .navigationTitle(L10n.l("soul"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {

@@ -70,6 +70,8 @@ struct AppearanceSettingsView: View {
 
             backgroundThemeSection
         }
+        .scrollContentBackground(.hidden)
+        .background(ThemeBackground(slot: .settings))
         .navigationTitle(L10n.l("appearance"))
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {

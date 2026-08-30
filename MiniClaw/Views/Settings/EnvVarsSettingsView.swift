@@ -51,6 +51,8 @@ struct EnvVarsSettingsView: View {
                 }
             }
         }
+        .scrollContentBackground(.hidden)
+        .background(ThemeBackground(slot: .settings))
         .navigationTitle(L10n.l("environment_variables"))
         .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $showAddVar) {
@@ -60,6 +62,8 @@ struct EnvVarsSettingsView: View {
                     TextField(L10n.l("variable_value"), text: $newValue)
                     Toggle(L10n.l("encrypted_storage"), isOn: $newIsSecret)
                 }
+                .scrollContentBackground(.hidden)
+                .background(ThemeBackground(slot: .settings))
                 .navigationTitle(L10n.l("add_variable"))
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {

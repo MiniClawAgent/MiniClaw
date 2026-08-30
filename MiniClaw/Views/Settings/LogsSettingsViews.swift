@@ -28,6 +28,8 @@ struct LogsView: View {
             crashSection
             auditEntrySection
         }
+        .scrollContentBackground(.hidden)
+        .background(ThemeBackground(slot: .settings))
         .navigationTitle(L10n.l("logs"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -201,6 +203,8 @@ struct AuditLogsView: View {
                 }
             }
         }
+        .scrollContentBackground(.hidden)
+        .background(ThemeBackground(slot: .settings))
         .listStyle(.plain)
         .navigationTitle(L10n.l("audit_log"))
         .navigationBarTitleDisplayMode(.inline)

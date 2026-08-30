@@ -192,6 +192,8 @@ struct ProviderDetailView: View {
                 }
             }
         }
+        .scrollContentBackground(.hidden)
+        .background(ThemeBackground(slot: .settings))
         .navigationTitle(isDraft ? L10n.l("add_provider_action") : (draft.label.isEmpty ? L10n.l("provider") : draft.label))
         .navigationBarTitleDisplayMode(.inline)
         // 已添加（编辑）态：隐藏系统返回按钮，统一由右上角「保存」退出并落盘；草稿态保留返回键取消。

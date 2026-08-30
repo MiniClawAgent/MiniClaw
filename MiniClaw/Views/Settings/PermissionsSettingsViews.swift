@@ -61,6 +61,8 @@ struct PermissionsSettingsView: View {
                 Text(L10n.l("lists_the_permissions_this_app_may_request_and_their_current_authorization_status_tap_an_unauthorized_item_to_request_it_in_app_or_jump_to_system_settings_to_enable_it"))
             }
         }
+        .scrollContentBackground(.hidden)
+        .background(ThemeBackground(slot: .settings))
         .navigationTitle(L10n.l("permissions_background"))
         .navigationBarTitleDisplayMode(.inline)
         .task {
