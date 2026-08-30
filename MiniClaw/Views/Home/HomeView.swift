@@ -651,21 +651,10 @@ struct HomeView: View {
     // MARK: - Toolbar Views
 
     private var settingsButton: some View {
+        // 系统格式：label 仅放 SF Symbol，尺寸/点击区/着色由系统统一渲染（唐唐定稿）。
         Button(action: { appState.showSettings = true }) {
-            toolbarCircleIcon("gearshape.fill")
+            Image(systemName: "gearshape.fill")
         }
-    }
-
-    /// toolbar 圆钮标准规格：27×27 磨砂玻璃圆 + 居中 15pt 图标。
-    /// 显式固定 frame（而非 padding 推算）——Menu 的 label 会被系统注入额外边距，
-    /// 只有两边都用固定尺寸才能保证左右圆钮视觉一致（唐唐实测截图）。
-    private func toolbarCircleIcon(_ systemName: String) -> some View {
-        Image(systemName: systemName)
-            .font(.system(size: 15, weight: .semibold))
-            .foregroundStyle(.primary)
-            .frame(width: 27, height: 27)
-            .background(.ultraThinMaterial, in: Circle())
-            .contentShape(Circle())
     }
 
     private var agentTitleView: some View {
@@ -685,8 +674,8 @@ struct HomeView: View {
     /// 右上角「选项」按钮外观（仅外观，用作 Menu 的 label，点击即在按钮位置就地弹出）。
     /// 右上角「选项」按钮：与会话页菜单按钮同款样式（纯三点 + 圆底 32pt）。
     private var optionsButton: some View {
-        // 与左侧设置按钮同一 toolbarCircleIcon 规格（Menu 系统附加的只是透明点击区）。
-        toolbarCircleIcon("ellipsis")
+        // 系统格式（与会话页 Menu 同款）：label 仅放图标。
+        Image(systemName: "ellipsis")
     }
 
     /// 右上角「选项」菜单：使用 Menu（popover），从按钮位置就地弹出，而非从底部 sheet 弹出。

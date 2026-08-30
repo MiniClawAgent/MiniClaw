@@ -668,15 +668,8 @@ struct ChatView: View {
 
     /// 右上角选项菜单按钮的圆形标签。
     private var sessionMenuLabel: some View {
-        ZStack {
-            Circle()
-                .fill(Color(.secondarySystemBackground))
-            Image(systemName: "ellipsis")
-                .font(.system(size: 17, weight: .semibold))
-                .foregroundStyle(.primary)
-        }
-        .frame(width: 32, height: 32)
-        .contentShape(Circle())
+        // 系统格式（与首页 toolbar 同款）：label 仅放图标，系统统一渲染。
+        Image(systemName: "ellipsis")
     }
 
     /// 输入栏悬浮层(2026-08-11 拆分 body 避免类型推断超时)。
