@@ -117,10 +117,11 @@ final class ThemeManager: ObservableObject, @unchecked Sendable {
     }
 
     /// 主题在包内的图片完整路径。
+    /// **fileName = 相对包根的路径**（如 "assets/bg.jpg"）——theme.json 声明即路径，
+    /// 管理器不再隐式拼接目录（唐唐真机日志实锤：曾双拼 assets/assets 导致解码失败）。
     func imageURL(pluginID: String, fileName: String) -> URL {
         FileSystemManager.shared.pluginTypeDir("theme")
             .appendingPathComponent(pluginID)
-            .appendingPathComponent("assets")
             .appendingPathComponent(fileName)
     }
 
@@ -181,14 +182,14 @@ final class ThemeManager: ObservableObject, @unchecked Sendable {
         return (w, h)
     }
 
-    /// 导入校验：单张 ≤2MB、长边 ≤3840（4K）。返回 nil = 通过；否则返回错误文案 key 已在调用方组装。
+    /// 导入校验：递归扫包内全部图片，单张 ≤2MB、长边 ≤3840。返回 nil = 通过。
     static func validateThemeAssets(in pluginDir: URL) -> String? {
-        let assetsDir = pluginDir.appendingPathComponent("assets")
-        guard FileManager.default.fileExists(atPath: assetsDir.path) else { return nil }
-        let urls = (try? FileManager.default.contentsOfDirectory(
-            at: assetsDir, includingPropertiesForKeys: [.fileSizeKey])) ?? []
-        for url in urls where url.pathExtension.lowercased() == "jpg"
-            || url.pathExtension.lowercased() == "jpeg" || url.pathExtension.lowercased() == "png" {
+        guard let enumerator = FileManager.default.enumerator(
+            at: pluginDir, includingPropertiesForKeys: [.fileSizeKey],
+            options: [.skipsHiddenFiles]) else { return nil }
+        for case let url as URL in enumerator {
+            let ext = url.pathExtension.lowercased()
+            guard ext == "jpg" || ext == "jpeg" || ext == "png" else { continue }
             let size = (try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
             if size > 2 * 1024 * 1024 {
                 return String(format: L10n.l("theme_import_image_too_large"), url.lastPathComponent)
