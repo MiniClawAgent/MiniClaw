@@ -141,8 +141,11 @@ private struct SkillRowView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             Spacer()
-            Toggle("", isOn: enabledBinding)
-                .labelsHidden()
+            // theme 插件无启停语义（启用 = 外观页选用），列表行不显示开关。
+            if skill.type != "theme" {
+                Toggle("", isOn: enabledBinding)
+                    .labelsHidden()
+            }
         }
         .padding(.vertical, 4)
     }
@@ -214,8 +217,8 @@ private struct SkillDetailView: View {
                 }
                 // 启用开关（按类型）：skill=注入会话/指令入口；subagent=角色参与派发；
                 // rule=规则注入；soul=应用此人格（排他单选，启用即自动停用其他 soul 插件）。
-                // mcp/model=配置分发包（导入即合并），无运行时启停语义，不显示开关。
-                if skill.type != "mcp" && skill.type != "model" {
+                // mcp/model=配置分发包（导入即合并）；theme=外观页选用——均无启停语义，不显示开关。
+                if skill.type != "mcp" && skill.type != "model" && skill.type != "theme" {
                     Toggle(skill.type == "skill"
                            ? L10n.l("enable_inject_into_conversation")
                            : L10n.l("enable_plugin"),
