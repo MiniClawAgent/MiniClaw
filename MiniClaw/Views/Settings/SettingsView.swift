@@ -20,69 +20,62 @@ struct SettingsView: View {
     var body: some View {
         List {
             // 主页仅显示组入口行（唐唐 2026-08-30 定稿）：点入二级页才显示组内内容。
-            NavigationLink {
-                AgentSettingsGroupView()
-            } label: {
-                SettingsRow(icon: "cat.fill", color: .orange, title: L10n.l("agent"), subtitle: L10n.l("settings_group_agent_sub"))
-            }
-
-            NavigationLink {
-                PluginsSettingsView()
-            } label: {
-                SettingsRow(icon: "puzzlepiece.extension.fill", color: .blue, title: L10n.l("plugins"), subtitle: L10n.l("manage_extensible_plugin_packages"))
-            }
-
-            NavigationLink {
-                StorageSettingsGroupView()
-            } label: {
-                SettingsRow(icon: "externaldrive.fill", color: .green, title: L10n.l("storage"), subtitle: L10n.l("settings_group_storage_sub"))
-            }
-
-            NavigationLink {
-                AppearanceSettingsView()
-            } label: {
-                SettingsRow(icon: "circle.lefthalf.filled", color: .indigo, title: L10n.l("appearance"), subtitle: L10n.l("system_dark_light"))
-            }
-
-            NavigationLink {
-                GeneralSettingsGroupView()
-            } label: {
-                SettingsRow(icon: "gearshape.2.fill", color: .gray, title: L10n.l("general_section"), subtitle: L10n.l("settings_group_general_sub"))
-            }
-
-            NavigationLink {
-                LogsView()
-            } label: {
-                SettingsRow(icon: "doc.text.below.ecg", color: .blue, title: L10n.l("logs"), subtitle: L10n.l("runtime_logs_and_audit_logs"))
-            }
-
-            NavigationLink {
-                AboutView()
-    
-            // App version footer（版本号 Bundle.main 真实值；备案号点击跳工信部备案查询）
+            // 每行独立 Section = 独立卡片，行间留隙不贴连（唐唐要求）。
             Section {
-                EmptyView()
-            } footer: {
-                HStack {
-                    Spacer()
-                    VStack(spacing: 4) {
-                        Text(versionString)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        Text("湘ICP备2023018958号-16A")
-                            .font(.caption2)
-                            .foregroundStyle(.tertiary)
-                            .onTapGesture {
-                                openURL(URL(string: "https://beian.miit.gov.cn/")!)
-                            }
-                    }
-                    Spacer()
+                NavigationLink {
+                    AgentSettingsGroupView()
+                } label: {
+                    SettingsRow(icon: "cat.fill", color: .orange, title: L10n.l("agent"), subtitle: L10n.l("settings_group_agent_sub"))
                 }
             }
-        } label: {
-                SettingsRow(icon: "info.circle.fill", color: .teal, title: L10n.l("about_miniclaw_app"), subtitle: L10n.l("version_info_and_license"))
+
+            Section {
+                NavigationLink {
+                    PluginsSettingsView()
+                } label: {
+                    SettingsRow(icon: "puzzlepiece.extension.fill", color: .blue, title: L10n.l("plugins"), subtitle: L10n.l("manage_extensible_plugin_packages"))
+                }
             }
-        }
+
+            Section {
+                NavigationLink {
+                    StorageSettingsGroupView()
+                } label: {
+                    SettingsRow(icon: "externaldrive.fill", color: .green, title: L10n.l("storage"), subtitle: L10n.l("settings_group_storage_sub"))
+                }
+            }
+
+            Section {
+                NavigationLink {
+                    AppearanceSettingsView()
+                } label: {
+                    SettingsRow(icon: "circle.lefthalf.filled", color: .indigo, title: L10n.l("appearance"), subtitle: L10n.l("system_dark_light"))
+                }
+            }
+
+            Section {
+                NavigationLink {
+                    GeneralSettingsGroupView()
+                } label: {
+                    SettingsRow(icon: "gearshape.2.fill", color: .gray, title: L10n.l("general_section"), subtitle: L10n.l("settings_group_general_sub"))
+                }
+            }
+
+            Section {
+                NavigationLink {
+                    LogsView()
+                } label: {
+                    SettingsRow(icon: "doc.text.below.ecg", color: .blue, title: L10n.l("logs"), subtitle: L10n.l("runtime_logs_and_audit_logs"))
+                }
+            }
+
+            Section {
+                NavigationLink {
+                    AboutView()
+                } label: {
+                    SettingsRow(icon: "info.circle.fill", color: .teal, title: L10n.l("about_miniclaw_app"), subtitle: L10n.l("version_info_and_license"))
+                }
+            }
         .listStyle(.insetGrouped)
         // 背景主题挂载点：列表整体背景透明（行白卡保留，间隙透出主题）；
         // 无主题时组件回退系统背景（视觉与现状一致）。
