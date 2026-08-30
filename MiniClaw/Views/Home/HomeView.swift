@@ -625,7 +625,8 @@ struct HomeView: View {
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 11)
-            .background(Color(.secondarySystemBackground), in: Capsule())
+            // 磨砂玻璃材质（与会话页输入条同款）：主题背景可透出模糊光晕。
+            .background(.ultraThinMaterial, in: Capsule())
 
             // 取消按钮：圆形背景
             Button(action: {
