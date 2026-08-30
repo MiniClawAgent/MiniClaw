@@ -47,7 +47,7 @@ struct ThemeBackground: View {
     }
 
     private var dimOpacity: Double {
-        min(max(manager.activeDeclaration()?.dimDark ?? 0.35, 0), 1)
+        min(max(manager.activeDeclaration()?.dimDark ?? 0.55, 0), 1)
     }
 
     /// 无主题时的回退色：与各页面原生列表背景一致，保证默认视觉零变化。

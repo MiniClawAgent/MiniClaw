@@ -336,6 +336,7 @@
 		F0C11F777D1D2774DA81E774BA22C934 /* strikethrough.c in Sources */ = {isa = PBXBuildFile; fileRef = 2E0EB59F843898097232E02EBC7882D7 /* strikethrough.c */; };
 		F1924BD0D8EF2FC7FB5F07F0F1C1865E /* AddProviderViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31A11E14DF76BA6F01960EE3773F4AF8 /* AddProviderViews.swift */; };
 		F2345E7D68227A0C93DEDDB19A0B2831 /* RuntimeStatusView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77031C2E9BB1049DD5858BB1E373864B /* RuntimeStatusView.swift */; };
+		F2427DF218B64D7D92B53513B388B4F4 /* SettingsGroupViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74C4F76958BC43F06C769447FC5948D8 /* SettingsGroupViews.swift */; };
 		F3A57BA2582EA6FF3CDDA1C9E55A39A3 /* com.miniclaw.builtin.rules.mpk in Resources */ = {isa = PBXBuildFile; fileRef = B90F5EA497C66D8A9C97893403E80CD1 /* com.miniclaw.builtin.rules.mpk */; };
 		F3DDC911D4AC424D0FBC25B78A3A57AF /* BrowserActionHelpersTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4189E4898FBD005EF2ED7CD67E351246 /* BrowserActionHelpersTests.swift */; };
 		F5509410EB47BD7953841465CD1501F3 /* MountSettingsViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C2B29B8DD54C960AD54DABFFFCE515B /* MountSettingsViews.swift */; };
@@ -579,6 +580,7 @@
 		742BB05DFB02C908AE70505EB43D97C5 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		7464CD95BC0782E0694D4C01EA5D9E18 /* MiniClawChatBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MiniClawChatBridge.swift; sourceTree = "<group>"; };
 		748F46E1A509945DF52890B06AAA9735 /* RuntimeStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RuntimeStatus.swift; sourceTree = "<group>"; };
+		74C4F76958BC43F06C769447FC5948D8 /* SettingsGroupViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsGroupViews.swift; sourceTree = "<group>"; };
 		77031C2E9BB1049DD5858BB1E373864B /* RuntimeStatusView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RuntimeStatusView.swift; sourceTree = "<group>"; };
 		779E8DF07AA1AC95351EF1EF4393ADF0 /* OAuthManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OAuthManager.swift; sourceTree = "<group>"; };
 		7882B565760118B090136535A9AA3763 /* BrowserDelegates.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserDelegates.swift; sourceTree = "<group>"; };
@@ -931,6 +933,7 @@
 				84A04E94B3A2A6DFEC4EF23225785F2D /* ProviderOAuthViews.swift */,
 				CE22A2E0DB7C9A9681A17273C7F661FF /* ProviderSettingsView.swift */,
 				77031C2E9BB1049DD5858BB1E373864B /* RuntimeStatusView.swift */,
+				74C4F76958BC43F06C769447FC5948D8 /* SettingsGroupViews.swift */,
 				7F75B223CFCEA5912307F4BEBF7A58AE /* SettingsView.swift */,
 				B306E9EFA909A0A66A361DAE4C05A030 /* SharedFolderSettingsView.swift */,
 				5CA34BF636ECA7C8A7BFA22BEB198801 /* SoulSettingsView.swift */,
@@ -1993,6 +1996,7 @@
 				8EA264CA56B0B98EDD6A3CDB16DE200B /* SessionRowView.swift in Sources */,
 				46F3909222F70412EC294A82686A23A1 /* SessionsSQLiteMigrator.swift in Sources */,
 				93FC6C980E26C4F30DAD7842C7218D0E /* SessionsTool.swift in Sources */,
+				F2427DF218B64D7D92B53513B388B4F4 /* SettingsGroupViews.swift in Sources */,
 				3F7B009A183184C8C4C6BDEA38BE62F4 /* SettingsMenuView.swift in Sources */,
 				747FE1DD562A1E14BF5EBD729EAB0A5F /* SettingsStore.swift in Sources */,
 				5BD0F3C3E661273A60A99BB9AEC4D0D2 /* SettingsView.swift in Sources */,
