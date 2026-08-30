@@ -548,7 +548,7 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
             while endpointIndex < routingPlan.endpoints.count && !passSucceeded {
                 guard await !state.isCancelled() else { return }
                 let endpoint = routingPlan.endpoints[endpointIndex]
-                print(String(format: L10n.l("loop_router_candidate"), endpointIndex + 1, routingPlan.endpoints.count, endpoint.modelName))
+                AppLogger.shared.info(String(format: L10n.l("loop_router_candidate"), endpointIndex + 1, routingPlan.endpoints.count, endpoint.modelName))
                 let llmClient = LLMClient(
                     endpointURL: endpoint.url,
                     apiKey: endpoint.apiKey,
@@ -755,7 +755,7 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
                           collectedToolCalls.isEmpty,
                           shouldTryNextEndpoint(after: error, fallbackStrategy: endpoint.fallbackStrategy),
                           endpointIndex + 1 < routingPlan.endpoints.count {
-                    print(String(format: L10n.l("loop_router_fallback"), endpoint.fallbackStrategy, error.localizedDescription))
+                    AppLogger.shared.info(String(format: L10n.l("loop_router_fallback"), endpoint.fallbackStrategy, error.localizedDescription))
                     AppLogger.shared.warn(String(format: L10n.l("loop_model_fallback"), endpoint.fallbackStrategy, error.localizedDescription), category: "Agent", subsystem: "ModelRouter")
                     endpointIndex += 1
                     emitRouteChange(routingPlan.endpoints[endpointIndex].displayName)
