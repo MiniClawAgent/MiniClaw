@@ -652,12 +652,20 @@ struct HomeView: View {
 
     private var settingsButton: some View {
         Button(action: { appState.showSettings = true }) {
-            Image(systemName: "gearshape.fill")
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(.primary)
-                .padding(6)
-                .background(.ultraThinMaterial, in: Circle())
+            toolbarCircleIcon("gearshape.fill")
         }
+    }
+
+    /// toolbar 圆钮标准规格：27×27 磨砂玻璃圆 + 居中 15pt 图标。
+    /// 显式固定 frame（而非 padding 推算）——Menu 的 label 会被系统注入额外边距，
+    /// 只有两边都用固定尺寸才能保证左右圆钮视觉一致（唐唐实测截图）。
+    private func toolbarCircleIcon(_ systemName: String) -> some View {
+        Image(systemName: systemName)
+            .font(.system(size: 15, weight: .semibold))
+            .foregroundStyle(.primary)
+            .frame(width: 27, height: 27)
+            .background(.ultraThinMaterial, in: Circle())
+            .contentShape(Circle())
     }
 
     private var agentTitleView: some View {
@@ -677,13 +685,8 @@ struct HomeView: View {
     /// 右上角「选项」按钮外观（仅外观，用作 Menu 的 label，点击即在按钮位置就地弹出）。
     /// 右上角「选项」按钮：与会话页菜单按钮同款样式（纯三点 + 圆底 32pt）。
     private var optionsButton: some View {
-        // 与左侧设置按钮同规格：15pt 图标 + padding(6) + 磨砂玻璃圆（尺寸/材质统一）。
-        Image(systemName: "ellipsis")
-            .font(.system(size: 15, weight: .semibold))
-            .foregroundStyle(.primary)
-            .padding(6)
-            .background(.ultraThinMaterial, in: Circle())
-            .contentShape(Circle())
+        // 与左侧设置按钮同一 toolbarCircleIcon 规格（Menu 系统附加的只是透明点击区）。
+        toolbarCircleIcon("ellipsis")
     }
 
     /// 右上角「选项」菜单：使用 Menu（popover），从按钮位置就地弹出，而非从底部 sheet 弹出。
