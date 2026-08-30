@@ -36,8 +36,10 @@ struct ThemeBackground: View {
                             }
                         }
                 } else {
-                    // 未选用主题：系统默认背景（与无主题时的现状完全一致）。
-                    Color(.systemBackground).ignoresSafeArea()
+                    // 未选用主题：回退与该页面原生列表背景一致的颜色（唐唐反馈：
+                    // 设置页 inset grouped 的原生背景是 systemGroupedBackground 浅灰，
+                    // 行白卡靠它才有分组边界——回退纯白会让边界消失）。
+                    fallbackColor.ignoresSafeArea()
                 }
             }
         }
@@ -46,5 +48,15 @@ struct ThemeBackground: View {
 
     private var dimOpacity: Double {
         min(max(manager.activeDeclaration()?.dimDark ?? 0.35, 0), 1)
+    }
+
+    /// 无主题时的回退色：与各页面原生列表背景一致，保证默认视觉零变化。
+    /// - home / chat：systemBackground（首页 .plain 列表、会话页原生背景）
+    /// - settings：systemGroupedBackground（inset grouped 行白卡的分组底色）
+    private var fallbackColor: Color {
+        switch slot {
+        case .home, .chat: return Color(.systemBackground)
+        case .settings: return Color(.systemGroupedBackground)
+        }
     }
 }
