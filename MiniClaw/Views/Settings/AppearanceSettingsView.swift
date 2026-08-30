@@ -14,6 +14,9 @@ struct AppearanceSettingsView: View {
 
     var body: some View {
         List {
+            // 背景主题置顶（唐唐 2026-08-30 要求）。
+            backgroundThemeSection
+
             Section {
                 ForEach(ColorSchemePreference.allCases, id: \.self) { pref in
                     HStack {
@@ -68,7 +71,6 @@ struct AppearanceSettingsView: View {
                 Text(L10n.l("chat_display"))
             }
 
-            backgroundThemeSection
         }
         .scrollContentBackground(.hidden)
         .background(ThemeBackground(slot: .settings))

@@ -19,7 +19,7 @@ struct SettingsView: View {
 
     var body: some View {
         List {
-            // Section 1: 管理
+            // Section 1: 智能体（供应商/模型/词元用量/灵魂/子代理/记忆）
             Section {
                 NavigationLink {
                     ProviderSettingsView()
@@ -38,22 +38,11 @@ struct SettingsView: View {
                 } label: {
                     SettingsRow(icon: "chart.bar.fill", color: .orange, title: L10n.l("token_usage_alias"), subtitle: L10n.l("view_api_usage_statistics"))
                 }
-            } header: {
-                Text(L10n.l("management"))
-            }
 
-            // Section 2: 智能体
-            Section {
                 NavigationLink {
                     SoulSettingsView()
                 } label: {
                     SettingsRow(icon: "cat.fill", color: .orange, title: L10n.l("soul"), subtitle: L10n.l("define_agent_personality_and_behavior"))
-                }
-
-                NavigationLink {
-                    PluginsSettingsView()
-                } label: {
-                    SettingsRow(icon: "puzzlepiece.extension.fill", color: .blue, title: L10n.l("plugins"), subtitle: L10n.l("manage_extensible_plugin_packages"))
                 }
 
                 NavigationLink {
@@ -69,6 +58,17 @@ struct SettingsView: View {
                 }
             } header: {
                 Text(L10n.l("agent"))
+            }
+
+            // Section 2: 插件（插件页 = 所有插件的列表）
+            Section {
+                NavigationLink {
+                    PluginsSettingsView()
+                } label: {
+                    SettingsRow(icon: "puzzlepiece.extension.fill", color: .blue, title: L10n.l("plugins"), subtitle: L10n.l("manage_extensible_plugin_packages"))
+                }
+            } header: {
+                Text(L10n.l("plugins"))
             }
 
             // Section 3: 存储
@@ -96,7 +96,18 @@ struct SettingsView: View {
                 Text(L10n.l("storage"))
             }
 
-            // Section 4: 通用
+            // Section 4: 外观
+            Section {
+                NavigationLink {
+                    AppearanceSettingsView()
+                } label: {
+                    SettingsRow(icon: "circle.lefthalf.filled", color: .indigo, title: L10n.l("appearance"), subtitle: L10n.l("system_dark_light"))
+                }
+            } header: {
+                Text(L10n.l("appearance"))
+            }
+
+            // Section 5: 通用
             Section {
                 NavigationLink {
                     MCPSettingsView()
@@ -117,11 +128,12 @@ struct SettingsView: View {
                 }
 
                 NavigationLink {
-                    AppearanceSettingsView()
+                    PermissionsSettingsView()
                 } label: {
-                    SettingsRow(icon: "circle.lefthalf.filled", color: .indigo, title: L10n.l("appearance"), subtitle: L10n.l("system_dark_light"))
+                    SettingsRow(icon: "lock.shield.fill", color: .indigo, title: L10n.l("permissions_background"), subtitle: L10n.l("background_permission_grants"))
                 }
 
+                // 通用设置（默认名/语言/确认对话）——用户重排清单未提及，暂保留于此。
                 NavigationLink {
                     GeneralSettingsView()
                 } label: {
@@ -131,7 +143,7 @@ struct SettingsView: View {
                 Text(L10n.l("general_section"))
             }
 
-            // Section 5: 日志
+            // Section 6: 日志
             Section {
                 NavigationLink {
                     LogsView()
@@ -142,18 +154,7 @@ struct SettingsView: View {
                 Text(L10n.l("logs"))
             }
 
-            // Section 5.8: 权限与后台
-            Section {
-                NavigationLink {
-                    PermissionsSettingsView()
-                } label: {
-                    SettingsRow(icon: "lock.shield.fill", color: .indigo, title: L10n.l("permissions_background"), subtitle: L10n.l("background_permission_grants"))
-                }
-            } header: {
-                Text(L10n.l("permissions_background"))
-            }
-
-            // Section 6: 关于与反馈
+            // Section 7: 关于MiniClaw
             Section {
                 NavigationLink {
                     AboutView()
@@ -161,7 +162,7 @@ struct SettingsView: View {
                     SettingsRow(icon: "info.circle.fill", color: .teal, title: L10n.l("about_miniclaw_app"), subtitle: L10n.l("version_info_and_license"))
                 }
             } header: {
-                Text(L10n.l("others"))
+                Text(L10n.l("about_miniclaw_app"))
             }
 
             // App version footer（版本号读取 Bundle.main 真实值，2026-08-14 起不再硬编码）
