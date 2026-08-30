@@ -513,7 +513,6 @@ final class FileSystemManager: @unchecked Sendable {
         let url = try resolveAgentPath(path, sessionID: sessionID)
         try validateWrite(url, actor: actor, mustExist: false)
         if path.hasPrefix("/var/MiniClaw/mounts/") {
-            NSLog("[FileSystemManager] writeFile path=%@ → resolved=%@", path, url.path)
         }
 
         if createDirs {
@@ -578,7 +577,6 @@ final class FileSystemManager: @unchecked Sendable {
         }
         let url = resolvePath(path, sessionID: sessionID)
         if path.hasPrefix("/var/MiniClaw/mounts/") {
-            NSLog("[FileSystemManager] listDirectory path=%@ → resolved=%@ exists=%d", path, url.path, fileManager.fileExists(atPath: url.path))
         }
         return try fileManager.contentsOfDirectory(atPath: url.path)
     }

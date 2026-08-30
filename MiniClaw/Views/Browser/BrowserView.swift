@@ -82,7 +82,6 @@ struct BrowserView: View {
         .background(Color(.systemBackground))
         .animation(.easeInOut(duration: 0.2), value: isFullscreen)
         .onAppear {
-            AppLogger.shared.info("[BrowserView][BrowserTakeover] onAppear startURL=\(startURL?.absoluteString ?? "nil")", category: "Browser")
             // 重新打开浏览器视图 = 新一轮会话期：重置「用户取消托管」标记，智能体可恢复操作。
             controller.resetAgentTakeover()
             // 重置上次浏览会话残留的进度条状态（源头修复）：关闭浏览器时若
@@ -101,7 +100,6 @@ struct BrowserView: View {
             }
         }
         .onDisappear {
-            AppLogger.shared.info("[BrowserView][BrowserTakeover] onDisappear", category: "Browser")
         }
         .onChange(of: controller.loadingProgress) { newValue in
             if newValue >= 1 {

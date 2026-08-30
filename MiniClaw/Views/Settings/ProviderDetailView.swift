@@ -506,9 +506,7 @@ struct ProviderDetailView: View {
         let logURL = (draft.providerType == .google)
             ? (lastURL?.absoluteString.replacingOccurrences(of: "key=[^&]*", with: "key=***", options: .regularExpression) ?? "")
             : (lastURL?.absoluteString ?? "")
-        print("[ProviderDetail] 🔍 \(draft.providerType.rawValue) 模型列表 HTTP \(status)  url=\(logURL)")
         if let preview = String(data: data.prefix(600), encoding: .utf8) {
-            print("[ProviderDetail] 📄 响应片段: \(preview)")
         }
         guard (200...299).contains(status) else {
             var serverMsg = ""

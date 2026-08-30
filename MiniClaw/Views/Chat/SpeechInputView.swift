@@ -33,13 +33,8 @@ final class SpeechController: @unchecked Sendable {
     /// ★ 注意：调用方必须确保本方法在 GCD 主队列上执行（AVAudioSession 内部有
     ///   dispatchPrecondition(.onQueue(.main)) 断言，@MainActor 无法满足）。
     func start() {
-        AppLogger.shared.info("[SpeechController] start() 调用，thread=\(Thread.isMainThread ? "main" : "bg")，recording=\(recording)", category: "Voice", subsystem: "Recording")
-        guard recognitionTask == nil else {
-            AppLogger.shared.info("[SpeechController] start() 忽略：recognitionTask 已存在", category: "Voice", subsystem: "Recording")
-            return
-        }
+        guard recognitionTask == nil else { return }
         guard SFSpeechRecognizer.authorizationStatus() == .authorized else {
-            AppLogger.shared.info("[SpeechController] start() 中止：语音识别未授权", category: "Voice", subsystem: "Recording")
             onError?(L10n.l("speech_recognition_is_not_authorized_please_enable_it_in_system_settings"))
             return
         }
@@ -52,9 +47,7 @@ final class SpeechController: @unchecked Sendable {
                 let session = AVAudioSession.sharedInstance()
                 try session.setCategory(.record, mode: .measurement, options: .duckOthers)
                 try session.setActive(true, options: .notifyOthersOnDeactivation)
-                AppLogger.shared.info("[SpeechController] 音频会话已激活", category: "Voice", subsystem: "Recording")
             } catch {
-                AppLogger.shared.info("[SpeechController] 音频会话配置失败：\(error.localizedDescription)", category: "Voice", subsystem: "Recording")
                 self.onError?(String(format: L10n.l("audio_session_configuration_failed"), error.localizedDescription))
                 return
             }
@@ -80,14 +73,11 @@ final class SpeechController: @unchecked Sendable {
             self?.recognitionRequest?.append(buffer)
         }
         tapInstalled = true
-        AppLogger.shared.info("[SpeechController] inputNode tap 已安装", category: "Voice", subsystem: "Recording")
 
         audioEngine.prepare()
         do {
             try audioEngine.start()
-            AppLogger.shared.info("[SpeechController] audioEngine 已启动", category: "Voice", subsystem: "Recording")
         } catch {
-            AppLogger.shared.info("[SpeechController] 启动录音失败：\(error.localizedDescription)", category: "Voice", subsystem: "Recording")
             onError?(String(format: L10n.l("unable_to_start_recording"), error.localizedDescription))
             return
         }
@@ -95,7 +85,6 @@ final class SpeechController: @unchecked Sendable {
         recording = true
 
         guard let recognizer, recognizer.isAvailable else {
-            AppLogger.shared.info("[SpeechController] 语言不支持 → stop()", category: "Voice", subsystem: "Recording")
             onError?(L10n.l("speech_recognition_is_not_supported_in_the_current_language"))
             stop()
             return
@@ -110,25 +99,21 @@ final class SpeechController: @unchecked Sendable {
                 self?.onError?(error.localizedDescription)
             }
         }
-        AppLogger.shared.info("[SpeechController] recognitionTask 已启动 → onStateChanged(true)", category: "Voice", subsystem: "Recording")
         onStateChanged?(true)
     }
 
     /// 停止录音并让识别任务收尾（会产出最终识别结果）。
     func stop() {
-        AppLogger.shared.info("[SpeechController] stop() 调用，recording=\(recording)，running=\(audioEngine.isRunning)，tapInstalled=\(tapInstalled)", category: "Voice", subsystem: "Recording")
         recording = false
         // 幂等保护：仅在引擎确实运行过、且 tap 确实安装过时才触碰音频硬件，
         // 避免「从未开始录音（如用户拒绝授权）却调用 stop()」去移除并不存在的 tap，
         // 触发 AVAudioEngine 内部断言崩溃。
         if audioEngine.isRunning {
             audioEngine.stop()
-            AppLogger.shared.info("[SpeechController] audioEngine 已停止", category: "Voice", subsystem: "Recording")
         }
         if tapInstalled {
             audioEngine.inputNode.removeTap(onBus: 0)
             tapInstalled = false
-            AppLogger.shared.info("[SpeechController] tap 已移除", category: "Voice", subsystem: "Recording")
         }
         recognitionRequest?.endAudio()
         recognitionTask?.finish()
@@ -145,7 +130,6 @@ final class SpeechController: @unchecked Sendable {
         } else {
             DispatchQueue.main.async { deactivateSession() }
         }
-        AppLogger.shared.info("[SpeechController] stop() 完成", category: "Voice", subsystem: "Recording")
     }
 
     /// 取消：等同停止，但不产出/保留结果（调用方直接关闭界面即可）。

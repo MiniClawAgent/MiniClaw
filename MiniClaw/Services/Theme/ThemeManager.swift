@@ -65,8 +65,6 @@ final class ThemeManager: ObservableObject, @unchecked Sendable {
     var activeThemeID: String? {
         get {
             let v = SettingsStore.shared.settings.appearance.backgroundThemeID
-            AppLogger.shared.info("[Theme] activeThemeID 读取 = \(v ?? "nil(系统默认)")",
-                                  category: "Theme", subsystem: "Theme")
             return v
         }
         set {
@@ -74,8 +72,6 @@ final class ThemeManager: ObservableObject, @unchecked Sendable {
             SettingsStore.shared.settings.appearance.backgroundThemeID = newValue
             SettingsStore.shared.save()
             imageCache.removeAllObjects()
-            AppLogger.shared.info("[Theme] 选用主题写入 = \(newValue ?? "nil(清除)")，已保存",
-                                  category: "Theme", subsystem: "Theme")
         }
     }
 
@@ -111,8 +107,6 @@ final class ThemeManager: ObservableObject, @unchecked Sendable {
                 return (url.lastPathComponent, decl)
             }
             .sorted { $0.0.localizedCaseInsensitiveCompare($1.0) == .orderedAscending }
-        AppLogger.shared.info("[Theme] 已装主题扫描: \(result.count) 个 ← \(result.map { $0.0 })",
-                              category: "Theme", subsystem: "Theme")
         return result
     }
 
@@ -133,8 +127,6 @@ final class ThemeManager: ObservableObject, @unchecked Sendable {
     func backgroundImage(for slot: ThemeBackground.Slot, maxPixel: CGFloat) -> UIImage? {
         guard let decl = activeDeclaration(), let id = activeThemeID,
               let fileName = decl.fileName(for: slot) else {
-            AppLogger.shared.info("[Theme] backgroundImage(\(slot.rawValue)) = nil（未选用主题/声明缺失/槽位缺图）",
-                                  category: "Theme", subsystem: "Theme")
             return nil
         }
         let clamped = max(320, min(maxPixel, 8_000))
@@ -148,8 +140,6 @@ final class ThemeManager: ObservableObject, @unchecked Sendable {
                                    category: "Theme", subsystem: "Theme")
             return nil
         }
-        AppLogger.shared.info("[Theme] 背景图就绪: \(slot.rawValue) ← \(fileName)（\(image.size.width)x\(image.size.height)@\(clamped)px）",
-                              category: "Theme", subsystem: "Theme")
         imageCache.setObject(image, forKey: key)
         return image
     }

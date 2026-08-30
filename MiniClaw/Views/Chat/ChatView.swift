@@ -233,7 +233,6 @@ struct ChatView: View {
     /// 向输入框注入文本（输入文本已本地化，外部写入统一走此通道）。
     private func injectInput(_ text: String) {
         // 运行时打点(2026-08-13):注入通道入口。
-        AppLogger.shared.info("injectInput: 注入 \(text.count) 字 text=\(String(text.prefix(40))) 即将推进 injectionID=\(inputInjectionID + 1)", category: "ChatInputInject")
         injectedInputText = text
         inputInjectionID += 1
         inputText = text // 镜像同步（草稿落盘/其他读取仍用 inputText）
@@ -280,7 +279,6 @@ struct ChatView: View {
         let raw = workingText
         // 用户主动发送 → 视为想回到最新位置，重新钉住底部（后续的 onChange 才会滚动到底）。
         shouldAutoFollow = true
-        AppLogger.shared.info("[Chat] sendMessage follow=true", category: "Chat")
 
         // 回复进行中 / 已暂停 → 新消息进入排队队列（以虚线气泡展示，不立即落盘为真实消息），
         // 等当前回复完成后按 FIFO 逐条处理；暂停态会在恢复后续跑时一并处理。
@@ -461,7 +459,6 @@ struct ChatView: View {
         AgentRunService.shared.generateAITitleIfNeeded(session: session, firstUserText: prompt)
 
         shouldAutoFollow = true
-        AppLogger.shared.info("[Chat] deepLink dispatch follow=true", category: "Chat")
         // 回调绑定到「真正处理这条深链消息的这轮运行」：onComplete→x-success，onError/onInterrupted→x-error。
         startAgentResponse(to: prompt, userMessageID: userMessage.id, injectedSkill: nil, attachments: attachmentPaths, thinkingLevel: session.thinkingLevel, deepLinkCallback: (task.xSuccess, task.xError))
         // 启动成功（startAgentResponse 内部已创建运行时并清除 pendingDeepLinkTask）则到此为止；
@@ -783,11 +780,9 @@ struct ChatView: View {
                 // 每次上报打 frame.height + onscreen,seed/commit 时打结果。
                 if newH != lastLoggedInputBarH {
                     lastLoggedInputBarH = newH
-                    AppLogger.shared.info("[InputBarLayout] h=\(String(format: "%.1f", newH)) onscreen=\(onscreen) y=\(String(format: "%.1f", frame.minY)) win.h=\(String(format: "%.1f", hostWindow.height))", category: "InputBarLayout")
                 }
                 if !didSeedInputBarHeight, onscreen {
                     didSeedInputBarHeight = true
-                    AppLogger.shared.info("[InputBarLayout] SEED inputBarHeight=\(String(format: "%.1f", newH))", category: "InputBarLayout")
                     inputBarHeightDebounce?.cancel()
                     inputBarHeight = newH
                     inputBarHeightDebounce = Task { @MainActor in
@@ -806,9 +801,6 @@ struct ChatView: View {
                     try? await Task.sleep(for: .milliseconds(380))
                     guard !Task.isCancelled else { return }
                     let committed = latestInputBarFrameH > 0 ? latestInputBarFrameH : newH
-                    if abs(committed - inputBarHeight) > 0.5 {
-                        AppLogger.shared.info("[InputBarLayout] COMMIT inputBarHeight=\(String(format: "%.1f", committed))", category: "InputBarLayout")
-                    }
                     inputBarHeight = committed
                     try? await Task.sleep(for: .milliseconds(320))
                     guard !Task.isCancelled else { return }
@@ -843,18 +835,13 @@ struct ChatView: View {
             if let url = note.object as? URL,
                let scheme = url.scheme?.lowercased(),
                scheme == "http" || scheme == "https" {
-                AppLogger.shared.info("[Chat][BrowserTakeover] 收到通知 url=\(url.absoluteString) browserURL=\(browserURL?.absoluteString ?? "nil") → 设置", category: "Browser")
                 browserURL = url
             } else {
-                AppLogger.shared.info("[Chat][BrowserTakeover] 收到通知但类型/scheme 不符 object=\(String(describing: note.object))", category: "Browser")
             }
         }
         .sheet(isPresented: Binding(
             get: { browserURL != nil },
             set: { if !$0 {
-                if browserURL != nil {
-                    AppLogger.shared.info("[Chat][BrowserTakeover] browserURL sheet set(false) 关闭浏览器", category: "Browser")
-                }
                 browserURL = nil
             } }
         )) {
@@ -941,7 +928,6 @@ struct ChatView: View {
             restorePersistedState()
             // 调试日志（2026-08-08）：重进会话后的回复状态全链路追踪。
             let lastAssistant = session.messages.last(where: { $0.role == .assistant })
-            AppLogger.shared.info("[Resume] onAppear: runtimeExists=\(appState.chatRuntimes[session.id] != nil), messages=\(session.messages.count), 最后AI消息 content=\(lastAssistant?.content.count ?? -1)字 toolCalls=\(lastAssistant?.toolCalls.count ?? -1) isStreaming=\(lastAssistant?.isStreaming ?? false) wasStopped=\(lastAssistant?.wasStopped ?? false) wasInterrupted=\(lastAssistant?.wasInterrupted ?? false) sessionStatus=\(session.status.rawValue)", category: "Agent", subsystem: "Resume")
             recoverIfNeeded()
             syncContextSnapshot()
             consumePendingDeepLinkTask()
@@ -1059,11 +1045,8 @@ struct ChatView: View {
         .ignoresSafeArea(.container, edges: .bottom)
         .onAppear {
             shouldAutoFollow = true
-            AppLogger.shared.info("[Chat] onAppear follow=true messages=" + String(session.messages.count)
-                + " scrollToMessageID=" + (appState.scrollToMessageID != nil ? "set" : "nil"), category: "Chat")
             // 初始贴底：延迟到布局完成后滚动一次（用户已上滑则放弃）
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-                AppLogger.shared.info("[Chat] delayedScroll follow=" + (shouldAutoFollow ? "1" : "0"), category: "Chat")
                 guard shouldAutoFollow else { return }
                 chatBridge.vm.scrollToBottomSignal.send()
             }

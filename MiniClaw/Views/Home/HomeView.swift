@@ -101,7 +101,6 @@ struct HomeView: View {
         // 内存态为唯一可信源（SessionManager.load 启动时全量加载,变更即时落盘）。
         let loaded = SessionManager.shared.sessions
         // sessions 现为 computed（基于 sessionManager.sessions 实时过滤），无需拷贝赋值。
-        AppLogger.shared.info("reloadSessions: 已加载 \(loaded.count) 个会话,显示 \(sessions.count) 个(过滤未发言空会话)")
         // 方案B：kill 后状态闭环。把「上次被系统杀死、且本进程已无存活运行时」的检查点
         // 从 running 翻成 interrupted，使「未完成任务」语义准确。
         // 关键守卫：仅当 appState.chatRuntimes 中已无该会话运行时才翻——后台挂起/运行中

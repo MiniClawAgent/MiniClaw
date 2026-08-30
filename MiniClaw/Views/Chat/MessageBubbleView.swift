@@ -358,7 +358,6 @@ struct MessageBubbleView: View {
 
         if Self.renderLogGate.shouldLog() {
             let src = liveContent != nil ? "liveContent" : (runtime?.streamingMessageID == message.id ? "runtime流式" : "message.content落盘")
-            AppLogger.shared.info("[Render] msg=\(message.id.uuidString.prefix(8)) source=\(src) content=\(content.count)字 tools=\(events.count)pos=\(events.map { String($0.position) }.joined(separator: ",")) reasoning=\(segments.count)pos=\(segments.map { String($0.position) }.joined(separator: ",")) isStreaming=\(effectiveIsStreaming) wasStopped=\(message.wasStopped ?? false) wasInterrupted=\(message.wasInterrupted) taskElapsed=\(message.taskElapsedSeconds ?? -1)", category: "Agent", subsystem: "Render")
         }
 
         return Self.assistantSegments(content: content, toolCalls: events, reasoningSegments: effectiveReasoningSegments, showThinking: showThinking)

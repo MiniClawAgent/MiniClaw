@@ -683,7 +683,6 @@ struct ChatInputBar: View {
                 .focused(focused)
                 .onChange(of: focused.wrappedValue) { now in
                     // [KbdDiag 2026-08-11] 输入焦点变化(键盘弹出/收起直接信号)。
-                    AppLogger.shared.info("[InputFocus] focused=\(now) draftLen=\(draft.count)", category: "KbdDiag")
                 }
                 .lineLimit(SettingsStore.shared.settings.chat.enterToSend ? 1 : 6)
                 .submitLabel(SettingsStore.shared.settings.chat.enterToSend ? .send : .return)
@@ -704,7 +703,6 @@ struct ChatInputBar: View {
                 )
             .onChange(of: focused.wrappedValue) { now in
                 // [KbdDiag 2026-08-11] 输入焦点变化(键盘弹出/收起直接信号)。
-                AppLogger.shared.info("[InputFocus] focused=\(now) draftLen=\(draft.count)", category: "KbdDiag")
             }
             .simultaneousGesture(
                 DragGesture(minimumDistance: 20)
@@ -802,7 +800,6 @@ struct ChatInputBar: View {
                 .onChanged { _ in
                     if !isPressingMic {
                         isPressingMic = true
-                        AppLogger.shared.info("麦克风按下 → 设标志位 shouldRequestMicPermission=true（不直接调 API）", category: "Voice", subsystem: "Permission")
                         // ★ 只写标志位，不调用任何 AVAudioSession / SFSpeechRecognizer API ★
                         // 实际权限请求由 .onChange(of: shouldRequestMicPermission) 在视图更新周期中触发
                         shouldRequestMicPermission = true
@@ -810,7 +807,6 @@ struct ChatInputBar: View {
                 }
                 .onEnded { _ in
                     isPressingMic = false
-                    AppLogger.shared.info("麦克风松开 → controller.isRecording=\(controller.isRecording)，需停则停", category: "Voice", subsystem: "Recording")
                     // 仅当确实在录音时才停止；用户拒绝授权时 start() 从未执行，
                     // 直接 stop() 会去移除并不存在的 audio tap，可能触发 AVAudioEngine 崩溃。
                     if controller.isRecording {
@@ -847,7 +843,6 @@ struct ChatInputBar: View {
     /// 避免手势回调栈 / 动画回调栈 / 视图更新栈导致的
     /// _dispatch_assert_queue_fail 崩溃（已由真机 .ips 5 次验证）。
     private func performMicPermissionRequest() {
-        AppLogger.shared.info("performMicPermissionRequest → 双重延迟派发", category: "Voice", subsystem: "Permission")
         DispatchQueue.main.async {
             DispatchQueue.main.async {
                 self.requestMicThenStart(controller: self.controller, vm: self.speechVM)
@@ -870,16 +865,13 @@ struct ChatInputBar: View {
         // ── 第一步：检查麦克风权限（不请求，只查）──
         // iOS16 兼容:AVAudioApplication(iOS17 API) 改回 AVAudioSession 查询(语义等价)。
         let micStatus = AVAudioSession.sharedInstance().recordPermission
-        AppLogger.shared.info("麦克风权限状态：\(micStatus.rawValue)", category: "Voice", subsystem: "Permission")
 
         let proceedToSpeech: () -> Void = {
             DispatchQueue.main.async {
                 let speechStatus = SFSpeechRecognizer.authorizationStatus()
                 if speechStatus == .authorized {
-                    AppLogger.shared.info("语音识别已授权 → startRecordingOnMainQueue", category: "Voice", subsystem: "Permission")
                     self.startRecordingOnMainQueue(controller)
                 } else {
-                    AppLogger.shared.info("语音识别未授权（\(speechStatus)）→ 弹引导框", category: "Voice", subsystem: "Permission")
                     vm.permissionAlertMessage = L10n.l("miniclaw_needs_speech_recognition_permission_to_transcribe_your_voice_n_ntap_go_to_settings_below_enable_speech_recognition_in_app_settings_permissions_background_then_return")
                     vm.showPermissionAlert = true
                 }
@@ -890,12 +882,10 @@ struct ChatInputBar: View {
         case .granted:
             proceedToSpeech()
         case .denied:
-            AppLogger.shared.info("麦克风被拒绝 → 弹提示", category: "Voice", subsystem: "Permission")
             vm.permissionAlertMessage = L10n.l("miniclaw_was_denied_microphone_access_n_ntap_go_to_settings_below_enable_microphone_in_app_settings_permissions_background_microphone_then_return")
             vm.showPermissionAlert = true
         case .undetermined:
             // 未决定：引导用户去 App 内「权限与后台」页点麦克风开关申请（那里能正常弹系统授权框）。
-            AppLogger.shared.info("麦克风权限未决定 → 弹引导框（去 App 内权限与后台）", category: "Voice", subsystem: "Permission")
             vm.permissionAlertMessage = L10n.l("miniclaw_needs_microphone_access_for_voice_input_n_ntap_go_to_settings_below_enable_microphone_in_app_settings_permissions_background_microphone_then_return")
             vm.showPermissionAlert = true
         @unknown default:

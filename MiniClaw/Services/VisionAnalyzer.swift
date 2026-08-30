@@ -103,7 +103,6 @@ final class VisionAnalyzer: @unchecked Sendable {
 
     /// 同步执行 Vision 分析（在全局队列上跑，不占协作线程池）。
     private static func performSyncAnalysis(_ path: String) -> VisionAnalysisResult {
-        AppLogger.shared.info("Vision analyze ENTER: \(path)", category: "Vision")
         let url = URL(fileURLWithPath: path)
         guard let imageData = try? Data(contentsOf: url),
               let image = UIImage(data: imageData) else {
@@ -198,7 +197,6 @@ final class VisionAnalyzer: @unchecked Sendable {
             _ = semaphore.wait(timeout: .now() + 10)
         }
 
-        AppLogger.shared.info("Vision analyze DONE: \(path)", category: "Vision")
         return finalResult
     }
 }

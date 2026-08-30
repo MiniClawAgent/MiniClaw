@@ -171,7 +171,6 @@ final class MemoryConsolidator: @unchecked Sendable {
             UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: Self.lastRunKey)
             report.didRun = true
             report.skippedReason = nil
-            AppLogger.shared.info("记忆整理：无变化", category: "Memory")
             return report
         }
 

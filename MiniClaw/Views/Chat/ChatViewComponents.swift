@@ -28,7 +28,6 @@ struct ChatMenuListeners: ViewModifier {
                     return
                 }
                 // 运行时打点(2026-08-13):宿主收到「添加到输入框」通知。
-                AppLogger.shared.info("ChatMenuListeners: 收到「添加到输入框」通知 text=\(String(text.prefix(40)))", category: "ChatInputInject")
                 onAppend(text)
             }
             .onReceive(NotificationCenter.default.publisher(for: Notification.Name("rerunFromToolBlock"))) { note in
