@@ -135,7 +135,7 @@ private struct SkillRowView: View {
                     sourceBadge
                 }
                 Text(skill.description)
-                    .font(.subheadline)
+                    .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)

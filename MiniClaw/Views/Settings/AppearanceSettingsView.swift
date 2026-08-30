@@ -127,7 +127,7 @@ struct AppearanceSettingsView: View {
                             Text(theme.decl.name.isEmpty ? theme.pluginID : theme.decl.name)
                                 .foregroundStyle(.primary)
                             Text(theme.pluginID)
-                                .font(.caption2)
+                                .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
                         Spacer()
