@@ -677,15 +677,13 @@ struct HomeView: View {
     /// 右上角「选项」按钮外观（仅外观，用作 Menu 的 label，点击即在按钮位置就地弹出）。
     /// 右上角「选项」按钮：与会话页菜单按钮同款样式（纯三点 + 圆底 32pt）。
     private var optionsButton: some View {
-        ZStack {
-            Circle()
-                .fill(Color(.secondarySystemBackground))
-            Image(systemName: "ellipsis")
-                .font(.system(size: 17, weight: .semibold))
-                .foregroundStyle(.primary)
-        }
-        .frame(width: 32, height: 32)
-        .contentShape(Circle())
+        // 与左侧设置按钮同规格：15pt 图标 + padding(6) + 磨砂玻璃圆（尺寸/材质统一）。
+        Image(systemName: "ellipsis")
+            .font(.system(size: 15, weight: .semibold))
+            .foregroundStyle(.primary)
+            .padding(6)
+            .background(.ultraThinMaterial, in: Circle())
+            .contentShape(Circle())
     }
 
     /// 右上角「选项」菜单：使用 Menu（popover），从按钮位置就地弹出，而非从底部 sheet 弹出。
