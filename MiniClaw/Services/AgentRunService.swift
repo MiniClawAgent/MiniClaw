@@ -62,6 +62,19 @@ final class AgentRunService {
         toolRouter.register(SkillLoadTool(currentSessionID: sessionID))
         // 4.5 子代理结果分页读取（dispatch_subagent 只回有界预览，本工具读完整回答）
         toolRouter.register(ReadSubagentResultTool(currentSessionID: sessionID))
+        // 4.6 tool 类型插件（Stage-6a）：已启用插件的声明式 shell 工具。
+        // 重名（与内置/先注册插件/MCP）一律拒绝注册并日志——模型按名字精确调用，重名即歧义。
+        // 执行复用 shell 运行时与会话隔离；确认走「设置→通用→每次工具调用前确认」全局阀门。
+        for def in ToolPluginManager.shared.enabledToolDefinitions() {
+            if toolRouter.contains(def.name) {
+                AppLogger.shared.warn(
+                    "[ToolPlugin] 工具名与已有工具冲突，拒绝注册: \(def.name)",
+                    category: "Plugin", subsystem: "Tool"
+                )
+                continue
+            }
+            toolRouter.register(DeclarativeShellTool(definition: def, currentSessionID: sessionID))
+        }
         return toolRouter
     }
 

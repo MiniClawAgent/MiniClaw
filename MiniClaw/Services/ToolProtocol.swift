@@ -135,6 +135,11 @@ final class ToolRouter {
         tools[tool.name] = tool
     }
 
+    /// 工具名是否已被占用（内置/已注册）：tool 插件注册时的重名冲突判定。
+    func contains(_ name: String) -> Bool {
+        tools[name] != nil
+    }
+
     func execute(name: String, parameters: [String: Any]) async throws -> ToolResult {
         guard let tool = tools[name] else {
             throw ToolError.unknownTool(name)
