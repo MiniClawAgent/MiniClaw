@@ -128,7 +128,10 @@ enum ModelSelection: Codable, Equatable, Hashable {
 struct SessionSettings: Codable, Equatable {
     var autoGenerateTitle: Bool = true
     var defaultModelId: String = ""
-    var maxContextMessages: Int = 50
+    /// 历史防御硬上限（条）。2026-08-31 起语义变更：不再是每轮裁剪窗口——
+    /// 上下文长度由 token 分档压缩唯一管理；此值仅在压缩链路整体失效、
+    /// 历史异常膨胀时兜底裁剪（保护服务端前缀缓存的字节稳定前缀）。
+    var maxContextMessages: Int = 400
     var streamResponses: Bool = true
     /// 模型槽位分配：可选模型组或单个模型；.none 表示"无"。
     /// 解码兼容旧版 settings.json 的 mainModelGroupId 等 UUID 字段（自动迁移为 .group）。
@@ -166,7 +169,7 @@ struct SessionSettings: Codable, Equatable {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         autoGenerateTitle = try c.decodeIfPresent(Bool.self, forKey: .autoGenerateTitle) ?? true
         defaultModelId = try c.decodeIfPresent(String.self, forKey: .defaultModelId) ?? ""
-        maxContextMessages = try c.decodeIfPresent(Int.self, forKey: .maxContextMessages) ?? 50
+        maxContextMessages = try c.decodeIfPresent(Int.self, forKey: .maxContextMessages) ?? 400
         streamResponses = try c.decodeIfPresent(Bool.self, forKey: .streamResponses) ?? true
 
         /// 新字段优先；缺失时回读旧版 UUID 字段并迁移为 .group。

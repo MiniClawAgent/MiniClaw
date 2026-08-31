@@ -122,9 +122,15 @@ final class AgentRunService {
     /// 从会话历史构建发送给模型的 `history`（排除当前轮 user / 本轮 assistant 气泡，
     /// 且过滤掉 tool 角色消息——工具配对存在于引擎的检查点，不在此重建）。
     /// 返回 history 消息及与之一一对应的 session 消息 id（供引擎自动压缩时定位锚点）。
+    ///
+    /// 2026-08-31 缓存前缀稳定改造（对齐 dsh）：历史只增不减——
+    /// 旧的条数窗口（suffix(50)）在溢出后每轮挤掉最旧消息，前缀第一个字节即变，
+    /// 服务端前缀缓存全部 miss。上下文长度改由 token 分档压缩（applyPreRunCompression）
+    /// 唯一管理；此处仅保留防御性硬上限（maxContextMessages，默认 400），
+    /// 防止压缩机制整体失效时无限膨胀——正常会话永远触不到。
     func buildHistory(session: ChatSession, userMessageID: UUID, responseMessageID: UUID)
         -> (messages: [ChatCompletionMessage], sourceIDs: [UUID]) {
-        let maxHistoryMessages = SettingsStore.shared.settings.session.maxContextMessages
+        let historyHardCap = max(50, SettingsStore.shared.settings.session.maxContextMessages)
         let sorted = session.messages
             .filter { $0.id != userMessageID && $0.id != responseMessageID }
             .filter { $0.role == .user || ($0.role == .assistant && !$0.content.isEmpty) }
@@ -142,7 +148,8 @@ final class AgentRunService {
             prefixSummary = summary
             effective = Array(effective[idx...])
         }
-        let historyMessages = effective.suffix(maxHistoryMessages)
+        // 防御性硬上限：仅当压缩链路整体失效导致历史异常膨胀时才裁剪（缓存代价可接受）。
+        let historyMessages = effective.suffix(historyHardCap)
         var history: [ChatCompletionMessage] = []
         if let summary = prefixSummary {
             history.append(ChatCompletionMessage(role: "system", content: L10n.l("history_summary_header") + summary))
