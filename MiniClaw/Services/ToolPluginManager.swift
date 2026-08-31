@@ -90,8 +90,9 @@ struct DeclarativeShellTool: AgentTool {
             jsonInput = "{}"
         }
         // heredoc 单引号定界符：内容零展开零转义；分隔符带随机后缀，与 JSON 内容无碰撞面。
+        // 管道必须与 cat 同一行（'| ' 开头的独立行是 sh 语法错误——2026-08-31 真机实测翻车点）。
         let delimiter = "MINICLAW_IN_\(UUID().uuidString.prefix(8))"
-        let wrapped = "cat <<'\(delimiter)'\n\(jsonInput)\n\(delimiter)\n| \(definition.command)"
+        let wrapped = "cat <<'\(delimiter)' | \(definition.command)\n\(jsonInput)\n\(delimiter)"
 
         do {
             let result = try await ShellRuntimeFactory.runtime.execute(
@@ -113,6 +114,13 @@ struct DeclarativeShellTool: AgentTool {
             }
             let thresholdBytes = settings.files.autoOffloadThresholdKB * 1024
             let final = FileSystemManager.shared.offloadIfLarge(text, thresholdBytes: thresholdBytes, sessionID: currentSessionID)
+            if result.exitCode != 0 {
+                // 失败诊断：退出码 + 结果前 200 字（已掩码）——工具卡报错时日志可定位。
+                AppLogger.shared.warn(
+                    "[ToolPlugin] 工具执行失败: \(definition.name) exit=\(result.exitCode) out=\(final.prefix(200))",
+                    category: "Plugin", subsystem: "Tool"
+                )
+            }
             return ToolResult(success: result.exitCode == 0, text: final)
         } catch {
             return ToolResult(success: false, text: error.localizedDescription)
