@@ -406,6 +406,18 @@ final class SkillManager {
         fs.allPluginDirectories().first { $0.lastPathComponent == directoryName }
     }
 
+    /// 导出插件为 `.mpk`（zip，Store，含 `<id>/` 前缀，与内置包同布局）。
+    /// 用户可把导入的插件、或让 AI 生成的插件打包分享给他人（他人导入即可用）。
+    /// 返回临时目录中的文件 URL，调用方通过系统分享面板发出后自行清理。
+    func exportPluginMPK(directoryName: String) throws -> URL {
+        guard let dir = pluginDir(named: directoryName) else { throw SkillError.notFound }
+        let out = FileManager.default.temporaryDirectory
+            .appendingPathComponent("\(directoryName).mpk")
+        try? FileManager.default.removeItem(at: out)
+        try ZipArchive.create(at: out, from: dir, entryPrefix: directoryName)
+        return out
+    }
+
     /// 列出插件目录下的所有文件（相对路径），SKILL.md 始终排第一。
     func skillFiles(directoryName: String) -> [String] {
         guard let dir = pluginDir(named: directoryName) else { return [] }

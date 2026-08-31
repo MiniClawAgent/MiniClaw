@@ -186,6 +186,9 @@ private struct SkillDetailView: View {
     @State private var fileView: (name: String, content: String)?
     @State private var alertMsg = ""
     @State private var showAlert = false
+    /// 导出产出的临时 .mpk（非 nil 即弹出系统分享面板）。
+    @State private var exportedURL: URL?
+    @State private var showExport = false
 
     init(skill: SkillPackage, onChanged: @escaping () -> Void) {
         self.skill = skill
@@ -313,6 +316,28 @@ private struct SkillDetailView: View {
         .background(ThemeBackground(slot: .settings))
         .navigationTitle(skill.name)
         .navigationBarTitleDisplayMode(.inline)
+        // 右上角导出：把插件目录打包成 .mpk 走系统分享面板（导入的插件、
+        // 或让 AI 生成的插件都能直接分享给他人安装）。
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    do {
+                        exportedURL = try SkillManager.shared.exportPluginMPK(directoryName: skill.directoryName)
+                        showExport = exportedURL != nil
+                    } catch {
+                        alertMsg = String(format: L10n.l("export_plugin_failed"), error.localizedDescription)
+                        showAlert = true
+                    }
+                } label: {
+                    Image(systemName: "square.and.arrow.up")
+                }
+            }
+        }
+        .sheet(isPresented: $showExport) {
+            if let url = exportedURL {
+                ShareSheet(items: [url])
+            }
+        }
         .fileImporter(
             isPresented: $showUpdateImporter,
             allowedContentTypes: [.zip, .mpk],

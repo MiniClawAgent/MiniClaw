@@ -7,6 +7,117 @@ import zlib
 /// 抽自 `SkillManager`：内置插件同步（`FileSystemManager.syncBundledPlugins`）与
 /// 用户导入（`SkillManager.importSkillFile`/`updateSkill`）共用同一解压实现，避免重复。
 enum ZipArchive {
+    /// 把目录打包为 zip/mpk（Store 方式，不压缩）。
+    ///
+    /// 为什么用 Store 而非 Deflate：iOS 侧打包只是为了让用户把插件分享出去，
+    /// 体积不是瓶颈（图片本身已压缩）；Store 不需要压缩状态机，把封包出错面
+    /// 压到最小（inflate 死循环的教训：能不引状态机就不引）。
+    /// **不写目录条目**——与内置包/导入包同口径（目录条目会让部分解压实现把
+    /// 后续同名文件写入判为已存在）。
+    static func create(at zipURL: URL, from directory: URL, entryPrefix: String = "") throws {
+        let fm = FileManager.default
+        var isDir: ObjCBool = false
+        guard fm.fileExists(atPath: directory.path, isDirectory: &isDir), isDir.boolValue else {
+            throw ZipArchiveError.invalidArchive
+        }
+
+        struct Item { let name: String; let data: Data; let mtime: Date }
+        var items: [Item] = []
+        let enumerator = fm.enumerator(
+            at: directory,
+            includingPropertiesForKeys: [.isDirectoryKey, .contentModificationDateKey],
+            options: [.skipsHiddenFiles]
+        )
+        while let url = enumerator?.nextObject() as? URL {
+            let values = try url.resourceValues(forKeys: [.isDirectoryKey, .contentModificationDateKey])
+            if values.isDirectory == true { continue }
+            let relative = url.path.replacingOccurrences(of: directory.path + "/", with: "")
+            let name = entryPrefix.isEmpty ? relative : entryPrefix + "/" + relative
+            items.append(Item(
+                name: name,
+                data: try Data(contentsOf: url),
+                mtime: values.contentModificationDate ?? Date()
+            ))
+        }
+        guard !items.isEmpty else { throw ZipArchiveError.invalidArchive }
+
+        var body = Data()
+        var central = Data()
+        var offsets: [UInt32] = []
+        for item in items {
+            guard let nameData = item.name.data(using: .utf8) else { throw ZipArchiveError.invalidArchive }
+            let crc = item.data.withUnsafeBytes { buf -> UInt32 in
+                let base = buf.baseAddress?.assumingMemoryBound(to: Bytef.self)
+                return UInt32(zlib.crc32(0, base, uInt(item.data.count)))
+            }
+            let (dosTime, dosDate) = Self.dosDateTime(item.mtime)
+            let localOffset = UInt32(body.count)
+
+            var local = Data()
+            local.append(uint32: 0x04034b50)          // local file header signature
+            local.append(uint16: 20)                  // version needed
+            local.append(uint16: 0x0800)              // flags: UTF-8 名称
+            local.append(uint16: 0)                   // method: store
+            local.append(uint16: dosTime)
+            local.append(uint16: dosDate)
+            local.append(uint32: crc)
+            local.append(uint32: UInt32(item.data.count))
+            local.append(uint32: UInt32(item.data.count))
+            local.append(uint16: UInt16(nameData.count))
+            local.append(uint16: 0)                   // extra len
+            local.append(nameData)
+            local.append(item.data)
+            body.append(local)
+
+            var c = Data()
+            c.append(uint32: 0x02014b50)              // central directory signature
+            c.append(uint16: 20)                      // version made by
+            c.append(uint16: 20)                      // version needed
+            c.append(uint16: 0x0800)
+            c.append(uint16: 0)                       // method
+            c.append(uint16: dosTime)
+            c.append(uint16: dosDate)
+            c.append(uint32: crc)
+            c.append(uint32: UInt32(item.data.count))
+            c.append(uint32: UInt32(item.data.count))
+            c.append(uint16: UInt16(nameData.count))
+            c.append(uint16: 0)                       // extra
+            c.append(uint16: 0)                       // comment
+            c.append(uint16: 0)                       // disk number
+            c.append(uint16: 0)                       // internal attrs
+            c.append(uint32: 0)                       // external attrs
+            c.append(uint32: localOffset)
+            c.append(nameData)
+            central.append(c)
+            offsets.append(localOffset)
+        }
+
+        var out = Data()
+        out.append(body)
+        let cdOffset = UInt32(out.count)
+        out.append(central)
+        out.append(uint32: 0x06054b50)                // EOCD
+        out.append(uint16: 0)                         // disk number
+        out.append(uint16: 0)                         // disk with cd
+        out.append(uint16: UInt16(items.count))
+        out.append(uint16: UInt16(items.count))
+        out.append(uint32: UInt32(central.count))
+        out.append(uint32: cdOffset)
+        out.append(uint16: 0)                         // comment len
+        try out.write(to: zipURL)
+    }
+
+    /// DOS 时间戳（zip 格式要求）：时间 = 时<<11 | 分<<5 | 秒/2；日期 = (年-1980)<<9 | 月<<5 | 日。
+    private static func dosDateTime(_ date: Date) -> (time: UInt16, date: UInt16) {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone.current
+        let c = calendar.dateComponents([.year, .month, .day, .hour, .minute, .second], from: date)
+        let year = max(1980, c.year ?? 1980)
+        let time = UInt16(((c.hour ?? 0) << 11) | ((c.minute ?? 0) << 5) | ((c.second ?? 0) / 2))
+        let day = UInt16(((year - 1980) << 9) | ((c.month ?? 1) << 5) | (c.day ?? 1))
+        return (time, day)
+    }
+
     /// 解压 zip/mpk 到目标目录（目标目录会被逐级创建）。
     /// - 压缩大小必须读自**中央目录记录**（offset+20），而非本地文件头——本地头的
     ///   压缩大小在流式打包（data descriptor）时为 0，从那里读会解压出 0 字节的空文件。
@@ -119,6 +230,18 @@ extension Data {
             self.copyBytes(to: UnsafeMutableBufferPointer(start: ptr, count: 4), from: range)
         }
         return value.littleEndian
+    }
+
+    /// 追加小端 UInt16（zip 封包用）。
+    fileprivate mutating func append(uint16 value: UInt16) {
+        var v = value.littleEndian
+        append(Data(bytes: &v, count: 2))
+    }
+
+    /// 追加小端 UInt32（zip 封包用）。
+    fileprivate mutating func append(uint32 value: UInt32) {
+        var v = value.littleEndian
+        append(Data(bytes: &v, count: 4))
     }
 }
 
