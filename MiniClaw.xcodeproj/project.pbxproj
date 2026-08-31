@@ -124,6 +124,7 @@
 		5426ABCB220DD591B7FED278F8DCC70C /* tasklist.c in Sources */ = {isa = PBXBuildFile; fileRef = 1FA4016C04A3D135F486FD5F4E92FAA0 /* tasklist.c */; };
 		5510EA61E19308373BF058EBB8F2EDFE /* MCPModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1B8C5043C91833039B2124660623FE1 /* MCPModels.swift */; };
 		55548529CDBAEB22CBE92CEAC7BA4229 /* BrowserEngineAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C6EF3B1270F2A8D952F00D542597C77 /* BrowserEngineAdapter.swift */; };
+		55B31280E2B991E7E904940706F13DF5 /* com.miniclaw.builtin.tools.mpk in Resources */ = {isa = PBXBuildFile; fileRef = F071D17FB9FFF030FC87322C58E9AA47 /* com.miniclaw.builtin.tools.mpk */; };
 		55E5D68DEC58EB2CB060804BC0969F35 /* MarkdownParserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92D90472A1A53AF3B5A22BABF5A83688 /* MarkdownParserTests.swift */; };
 		563B7C460FA3AEDC0892B29FAC9569F8 /* StdioMCPClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AEC49D3DB385E2D8F136148221AAD71 /* StdioMCPClient.swift */; };
 		567829A683C571B5083F812595FD0721 /* MTLabel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5720CB21C3FBB1A3427EB33319959EBA /* MTLabel.swift */; };
@@ -771,6 +772,7 @@
 		EF0B9C431715CD8FD9D37FAB2B54D26A /* ChatMemoryModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatMemoryModels.swift; sourceTree = "<group>"; };
 		EF50A3CD722BB7CAB4D2495872CE71AC /* com.miniclaw.builtin.skill.skill-creator.mpk */ = {isa = PBXFileReference; path = "com.miniclaw.builtin.skill.skill-creator.mpk"; sourceTree = "<group>"; };
 		EFE9292B97226BF8D2B6C74DFBB8F9B1 /* com.miniclaw.builtin.apigateway.mpk */ = {isa = PBXFileReference; path = com.miniclaw.builtin.apigateway.mpk; sourceTree = "<group>"; };
+		F071D17FB9FFF030FC87322C58E9AA47 /* com.miniclaw.builtin.tools.mpk */ = {isa = PBXFileReference; path = com.miniclaw.builtin.tools.mpk; sourceTree = "<group>"; };
 		F0DF3CA705906B70F738E5BDA81AEE8D /* ModelGroupEditViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelGroupEditViews.swift; sourceTree = "<group>"; };
 		F22703CBE3DB640DD075ECEAC6C0607F /* CacheStabilityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CacheStabilityTests.swift; sourceTree = "<group>"; };
 		F27512D34E4468020AD04EAF25D9525A /* BackgroundTaskComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundTaskComponents.swift; sourceTree = "<group>"; };
@@ -867,6 +869,7 @@
 				EF50A3CD722BB7CAB4D2495872CE71AC /* com.miniclaw.builtin.skill.skill-creator.mpk */,
 				146E6F4078E78D10E50C988E3DA14F94 /* com.miniclaw.builtin.soul.mpk */,
 				E3B48407245D0980E96E866BBE24951F /* com.miniclaw.builtin.subagents.mpk */,
+				F071D17FB9FFF030FC87322C58E9AA47 /* com.miniclaw.builtin.tools.mpk */,
 			);
 			name = BundledPlugins;
 			path = MiniClaw/Resources/BundledPlugins;
@@ -1699,6 +1702,7 @@
 				9B2C406EEE4253E834FC831BD2C171BB /* com.miniclaw.builtin.skill.skill-creator.mpk in Resources */,
 				CBD6F7A6676C7A6431A54DDF2300C336 /* com.miniclaw.builtin.soul.mpk in Resources */,
 				973019572D82C07FFE3EF899476D08F5 /* com.miniclaw.builtin.subagents.mpk in Resources */,
+				55B31280E2B991E7E904940706F13DF5 /* com.miniclaw.builtin.tools.mpk in Resources */,
 				5BA4A77CBEFA24BD873802FC68ABBC53 /* mathFonts.bundle in Resources */,
 				9165BB74342F79D1E6F8CFE564AC410B /* rootfs in Resources */,
 				B5A8FA7F503F213B5928011CAD598DC0 /* 关于MiniClaw.md in Resources */,

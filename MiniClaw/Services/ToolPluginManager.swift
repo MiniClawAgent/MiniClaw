@@ -20,9 +20,12 @@ struct ToolDefinition: Codable {
     var command: String = ""
     /// 执行超时（秒），缺省 120（与工具调用铁律一致）。
     var timeout: Int = 120
+    /// 执行后端："shell"（默认，声明式脚本）| "builtin"（内置 Swift 工具的插件化声明，
+    /// Stage-6b 内置迁移用——包只做声明载体，schema/执行仍在 Swift 侧单一真相源）。
+    var backend: String = "shell"
 
     private enum CodingKeys: String, CodingKey {
-        case name, description, parameters, command, timeout
+        case name, description, parameters, command, timeout, backend
     }
 
     init(
@@ -30,13 +33,15 @@ struct ToolDefinition: Codable {
         description: String = "",
         parameters: JSONSchema = JSONSchema(type: "object"),
         command: String = "",
-        timeout: Int = 120
+        timeout: Int = 120,
+        backend: String = "shell"
     ) {
         self.name = name
         self.description = description
         self.parameters = parameters
         self.command = command
         self.timeout = timeout
+        self.backend = backend
     }
 
     init(from decoder: Decoder) throws {
@@ -47,6 +52,7 @@ struct ToolDefinition: Codable {
         parameters = try c.decodeIfPresent(JSONSchema.self, forKey: .parameters) ?? d.parameters
         command = try c.decodeIfPresent(String.self, forKey: .command) ?? d.command
         timeout = try c.decodeIfPresent(Int.self, forKey: .timeout) ?? d.timeout
+        backend = try c.decodeIfPresent(String.self, forKey: .backend) ?? d.backend
     }
 
     /// 工具名合法性：模型调用靠名字精确匹配，只允许安全字符。
@@ -131,7 +137,10 @@ struct DeclarativeShellTool: AgentTool {
 // MARK: - Tool 插件管理器
 
 /// 扫描已启用的 tool 类型插件（`plugins/tool/<id>/tools/*.json`），
-/// 产出声明式工具定义供 buildToolRouter 注册。
+/// 按后端产出可注册的 AgentTool 实例：
+/// - backend == "shell"：声明式脚本工具（DeclarativeShellTool）
+/// - backend == "builtin"：内置 Swift 工具的插件化声明——按 name 从工厂注册表
+///   构建实例（Stage-6b：系统能力类工具迁移为 builtin 包声明，启停由插件开关驱动）
 /// 无缓存：buildToolRouter 每轮重建，扫描为量级极小的目录 IO；
 /// loadSkills 自带缓存，此处只做轻量目录遍历。
 /// @MainActor：与 SkillManager 同隔离域（buildToolRouter 在 MainActor 上调用）。
@@ -140,12 +149,40 @@ final class ToolPluginManager {
     static let shared = ToolPluginManager()
     private init() {}
 
-    /// 已启用插件的全部声明式工具定义（自动跳过非法项并日志）。
-    func enabledToolDefinitions() -> [ToolDefinition] {
-        let packages = SkillManager.shared.loadSkills().filter { $0.type == "tool" && $0.isEnabled }
+    /// 内置工具工厂注册表（Stage-6b 迁移的系统能力类工具）。
+    /// name → 工具构造器：包内 `{"name": "...", "backend": "builtin"}` 声明按此映射；
+    /// schema/执行逻辑仍是 Swift 侧单一真相源，包只承载「归属 + 启停」。
+    /// 未列出的 builtin 声明按非法项跳过并日志。
+    private static let builtinFactories: [String: (UUID?) -> AgentTool] = [
+        "memory_write": { _ in MemoryWriteTool() },
+        "memory_get": { _ in MemoryGetTool() },
+        "apple-clipboard": { _ in AppleClipboardTool() },
+        "apple-device": { _ in AppleDeviceTool() },
+        "apple-nlp": { _ in AppleNLPTool() },
+        "apple-notification": { _ in AppleNotificationTool() },
+        "apple-open": { _ in AppleOpenTool() },
+        "open-in-safari": { _ in SafariOpenTool() },
+        "apple-speak": { _ in AppleSpeakTool() },
+        "miniclaw_config": { _ in ConfigTool() },
+        "miniclaw-model-use": { _ in MiniClawModelUseTool() },
+    ]
+
+    /// 已启用插件的全部工具实例（shell 与 builtin 后端统一产出；非法项跳过并日志）。
+    func enabledPluginTools(sessionID: UUID?) -> [AgentTool] {
+        let allToolPackages = SkillManager.shared.loadSkills().filter { $0.type == "tool" }
+        // 首启时序兜底：bundled 同步是后台任务，同步未完成前沙盒里还没有内置 tool 包。
+        // 此时按「内置能力全量可用」处理（与迁移前行为一致）——绝不能让内置工具
+        // 因同步时序而消失。同步完成后缓存已失效（syncBundledPlugins 末尾），
+        // 此后由包内声明与启用状态驱动。
+        if allToolPackages.isEmpty {
+            return Self.builtinFactories.keys.sorted().compactMap { name in
+                Self.builtinFactories[name]?(sessionID)
+            }
+        }
+        let packages = allToolPackages.filter { $0.isEnabled }
         guard !packages.isEmpty else { return [] }
         let fm = FileManager.default
-        var result: [ToolDefinition] = []
+        var result: [AgentTool] = []
         for pkg in packages {
             let dir = FileSystemManager.shared.pluginTypeDir("tool")
                 .appendingPathComponent(pkg.directoryName)
@@ -160,14 +197,38 @@ final class ToolPluginManager {
                     )
                     continue
                 }
-                guard def.isValidName, !def.command.trimmingCharacters(in: .whitespaces).isEmpty else {
+                guard def.isValidName else {
                     AppLogger.shared.warn(
-                        "[ToolPlugin] 工具名非法或缺 command，跳过: \(pkg.directoryName)/\(def.name)",
+                        "[ToolPlugin] 工具名非法，跳过: \(pkg.directoryName)/\(def.name)",
                         category: "Plugin", subsystem: "Tool"
                     )
                     continue
                 }
-                result.append(def)
+                switch def.backend {
+                case "builtin":
+                    guard let factory = Self.builtinFactories[def.name] else {
+                        AppLogger.shared.warn(
+                            "[ToolPlugin] builtin 声明无对应工厂，跳过: \(pkg.directoryName)/\(def.name)",
+                            category: "Plugin", subsystem: "Tool"
+                        )
+                        continue
+                    }
+                    result.append(factory(sessionID))
+                case "shell":
+                    guard !def.command.trimmingCharacters(in: .whitespaces).isEmpty else {
+                        AppLogger.shared.warn(
+                            "[ToolPlugin] shell 工具缺 command，跳过: \(pkg.directoryName)/\(def.name)",
+                            category: "Plugin", subsystem: "Tool"
+                        )
+                        continue
+                    }
+                    result.append(DeclarativeShellTool(definition: def, currentSessionID: sessionID))
+                default:
+                    AppLogger.shared.warn(
+                        "[ToolPlugin] 未知后端 \(def.backend)，跳过: \(pkg.directoryName)/\(def.name)",
+                        category: "Plugin", subsystem: "Tool"
+                    )
+                }
             }
         }
         return result

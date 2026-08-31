@@ -289,6 +289,11 @@ final class FileSystemManager: @unchecked Sendable {
         }
 
         saveBundledPluginEntries(currentEntries)
+        // 内置包落地后必须失效插件缓存：SkillManager.loadSkills 若在同步完成前被
+        // 调用过，其缓存里不含新同步的内置包，插件列表会缺失内置项（对 tool 类型
+        // 还会导致内置工具声明读不到）。此失效覆盖全部插件类型，不写迁移器。
+        // 非隔离域（后台同步线程）→ 失效动作切回主线程（SkillManager 为 @MainActor）。
+        Task { @MainActor in SkillManager.shared.invalidateSkillsCache() }
     }
 
     /// 从 plugin.json 宽松读取插件 id 与 type（JSONSerialization，与导入链路同口径；二者均强制非空）。

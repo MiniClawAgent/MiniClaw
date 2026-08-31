@@ -26,10 +26,12 @@ final class AgentRunService {
 
     // MARK: - 工具路由（单一事实来源：主会话引擎 / 上下文估算共用）
 
-    /// 装配本轮可用的 Agent 工具（与 ChatView 原 buildToolRouter 完全一致）。
+    /// 装配本轮可用的 Agent 工具。
+    /// Stage-6b：系统能力类工具（memory/Apple 系/config/model-use）改由内置 tool 插件包
+    /// 声明驱动（见 ToolPluginManager），会话耦合类仍在此无条件注册。
     func buildToolRouter(sessionID: UUID) -> ToolRouter {
         let toolRouter = ToolRouter()
-        // 4.1 Agent 原生工具
+        // 4.1 Agent 原生工具（会话耦合类——启停属运行限制治理，不走插件化）
         toolRouter.register(FileReadTool(currentSessionID: sessionID))
         toolRouter.register(ListDirTool(currentSessionID: sessionID))
         toolRouter.register(FileWriteTool(currentSessionID: sessionID))
@@ -37,43 +39,31 @@ final class AgentRunService {
         toolRouter.register(ReadImageTool(currentSessionID: sessionID))
         toolRouter.register(VisionAnalyzeTool(currentSessionID: sessionID))
         toolRouter.register(ReadDocumentTool(currentSessionID: sessionID))
-        toolRouter.register(MemoryWriteTool())
-        toolRouter.register(MemoryGetTool())
         toolRouter.register(ShellExecuteTool(currentSessionID: sessionID))
         toolRouter.register(BrowserTool(currentSessionID: sessionID))
-        // 4.2 Apple 原生框架工具
-        // 只注册已经接入的工具。尚未实现、执行时固定返回「尚未接入」的占位工具
-        // 不能暴露给模型，否则模型可能在收到失败结果后重复调用，形成无限工具循环。
-        toolRouter.register(AppleClipboardTool())
-        toolRouter.register(AppleDeviceTool())
-        toolRouter.register(AppleNLPTool())
-        toolRouter.register(AppleNotificationTool())
-        toolRouter.register(AppleOpenTool())
-        toolRouter.register(SafariOpenTool())
-        toolRouter.register(AppleSpeakTool())
-        // 4.3 MiniClaw 基础设施工具
-        toolRouter.register(ConfigTool())
+        // 4.3 MiniClaw 基础设施工具（会话耦合类）
         toolRouter.register(SessionsTool(currentSessionID: sessionID))
         toolRouter.register(MiniClawOpenTool(currentSessionID: sessionID))
-        toolRouter.register(MiniClawModelUseTool())
         toolRouter.register(MiniClawBrowserUseTool(currentSessionID: sessionID))
         toolRouter.register(MiniClawDebugTool(currentSessionID: sessionID))
         // 4.4 渐进式技能加载工具（按需读入技能正文，避免每轮全量注入）
         toolRouter.register(SkillLoadTool(currentSessionID: sessionID))
         // 4.5 子代理结果分页读取（dispatch_subagent 只回有界预览，本工具读完整回答）
         toolRouter.register(ReadSubagentResultTool(currentSessionID: sessionID))
-        // 4.6 tool 类型插件（Stage-6a）：已启用插件的声明式 shell 工具。
+        // 4.6 tool 类型插件（Stage-6a/6b）：已启用插件的工具统一注册。
+        // shell 后端 = 声明式脚本工具；builtin 后端 = 内置系统能力类工具的插件化声明
+        // （memory/Apple 系/config/model-use——Swift 执行，包承载归属与启停）。
         // 重名（与内置/先注册插件/MCP）一律拒绝注册并日志——模型按名字精确调用，重名即歧义。
-        // 执行复用 shell 运行时与会话隔离；确认走「设置→通用→每次工具调用前确认」全局阀门。
-        for def in ToolPluginManager.shared.enabledToolDefinitions() {
-            if toolRouter.contains(def.name) {
+        // 确认走「设置→通用→每次工具调用前确认」全局阀门。
+        for tool in ToolPluginManager.shared.enabledPluginTools(sessionID: sessionID) {
+            if toolRouter.contains(tool.name) {
                 AppLogger.shared.warn(
-                    "[ToolPlugin] 工具名与已有工具冲突，拒绝注册: \(def.name)",
+                    "[ToolPlugin] 工具名与已有工具冲突，拒绝注册: \(tool.name)",
                     category: "Plugin", subsystem: "Tool"
                 )
                 continue
             }
-            toolRouter.register(DeclarativeShellTool(definition: def, currentSessionID: sessionID))
+            toolRouter.register(tool)
         }
         return toolRouter
     }
