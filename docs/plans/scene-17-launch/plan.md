@@ -91,11 +91,17 @@ Scene #17 的目标是 **辅助把 MiniClaw 送审上架**，而非继续堆功�
 | FileTimestamp | `C617.1` | ✅ 大量使用 `.contentModificationDateKey`（`MemoryIndexer` / `BackgroundScheduler` / `ZipArchive` / `CrashReporter` 等 10+ 处） | 匹配 |
 | DiskSpace | `E174.1` | ✅ `InfraTools.swift:197` 用 `.volumeAvailableCapacityKey` 展示磁盘余量 | 匹配 |
 | UserDefaults | `CA92.1` | ✅ `SettingsStore` 使用**标准** `UserDefaults`；全库 `UserDefaults(suiteName:)` **零命中**（无 App Groups 共享 suite）→ 标准 `CA92.1` 正确，**不需要** `1C8F.1` | 匹配 |
-| SystemBootTime | `35F9.1` | ⚠️ 全库 `systemUptime` / `mach_absolute_time` / `clock_gettime` / `sysctl(KERN_BOOTTIME)` **零命中** | **声明了但找不到使用点**，见下 |
+| SystemBootTime | `35F9.1` | ⚠️ 自有 Swift/C 代码**零命中**，但 vendored iSH 静态库**确实在调用** | ✅ **必须保留**，见下 |
 
-- **SystemBootTime 存疑项**：未删也未加，待你定夺。两种可能：① 遗留声明（早期写过启动时间逻辑，后已删）→ 可安全移除；② 由 vendored 预编译库（iSH `libish.a` 等）内部使用 → **必须保留**，因为第三方静态库自身不携带 PrivacyInfo 时，使用行为要算在宿主 App 头上。
-  - 判定方法：若最终 archive 的二进制里能 `nm` 到 `mach_absolute_time` / `clock_gettime` 符号，走 ②；否则走 ①。
-  - 风险提示：**多声明不会导致拒审，漏声明才会**。故在核实前倾向保留。
+- **`SystemBootTime` 定性（2026-08-31 用 `nm` 查实，不再是存疑项）**：自有代码里没有任何取启动时间的调用，但直接扫链接进来的预编译静态库，未定义符号里躺着一串时间 API：
+  ```
+  nm -u 第三方源码/ish-arm64/build-arm64-ios/libish.a
+    → _mach_absolute_time  _clock_gettime  _gettimeofday  _sysctlbyname
+  nm -u 第三方源码/ish-arm64/build-arm64-ios/libish_emu.a
+    → _clock_gettime
+  ```
+  → 这两个库由 `project.yml:41-42` 链接进 App，**不自带 PrivacyInfo**，其内部使用行为算在宿主 App 头上 → `35F9.1` **必须保留，删除即构成漏声明**。
+- **教训（可复用）**：核查 Required Reason API 时**不能只扫自有源码**——vendored 的 `.a` / framework 同样要声明。判定手法是 `nm -u <静态库> | grep -E "mach_absolute_time|clock_gettime|gettimeofday|sysctl"`。
 - **CoreLocation / HealthKit 不在 Required Reason 四类之列**，无需 reason code。
 
 ### 风险 R4 — 后台模式真实性 ✅ 已闭环（2026-08-31）
