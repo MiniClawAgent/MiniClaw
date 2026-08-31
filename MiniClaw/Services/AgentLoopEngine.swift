@@ -1436,8 +1436,18 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
         let recent = Array(rest[splitAt...])
         guard !toSummarize.isEmpty else { return nil }
 
-        let prompt = buildSummaryPrompt(toSummarize, compressionRules: (await SettingsStore.shared.snapshot()).memory.compressionRules)
-        let summary = await requestSummary(prompt, endpoint: endpoint, modelId: modelId)
+        // 2026-08-31 缓存感知压缩（对齐 dsh）：摘要请求逐字回放主请求前缀
+        // （system 稳定段 + 工具 schema + 被压缩区原始消息），压缩指令作为唯一新增
+        // user 消息追加在末尾——摘要调用本身命中服务端热前缀缓存，只对指令与
+        // 摘要输出付全价。此前「扁平化文本 + 全新 system」的请求 0% 命中。
+        let rules = (await SettingsStore.shared.snapshot()).memory.compressionRules
+        let summary = await requestSummary(
+            toSummarize: toSummarize,
+            systemStableText: systemMsg?.content?.asText ?? "",
+            compressionRules: rules,
+            endpoint: endpoint,
+            modelId: modelId
+        )
         guard !summary.isEmpty else {
             AppLogger.shared.warn(L10n.l("err_compress_empty"), category: "Agent", subsystem: "Context")
             return nil
@@ -1459,33 +1469,32 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
         return (result, anchorID, summary)
     }
 
-    /// 将待压缩消息序列化为易读的对话文本，交给 LLM 生成摘要。
-    /// compressionRules 由调用方传主线程快照（2026-08-13 竞争修复）。
-    private func buildSummaryPrompt(_ msgs: [ChatCompletionMessage], compressionRules: String) -> String {
-        var lines: [String] = []
-        for m in msgs {
-            if let calls = m.toolCalls, !calls.isEmpty {
-                let parts = calls.map { String(format: L10n.l("loop_calling_tool_args"), $0.function.name, $0.function.arguments) }
-                lines.append("[assistant] " + parts.joined(separator: "；"))
-            } else if m.role == "tool" {
-                lines.append("[tool:\(m.toolCallID ?? "?")] " + (m.content?.asText ?? ""))
-            } else {
-                lines.append("[\(m.role)] " + (m.content?.asText ?? ""))
-            }
-        }
-        var prompt = L10n.l("compress_prompt_zh") + lines.joined(separator: "\n")
+    /// 压缩指令尾部（唯一新增的 user 消息）：消息体（被压缩区）已逐字回放在它之前，
+    /// 指令只负责说明任务。这样摘要请求的前缀与主请求逐字节一致，可命中服务端热缓存。
+    private func buildSummaryInstructionTail(compressionRules: String) -> String {
+        var instruction = L10n.l("compress_prompt_zh")
         let customRules = compressionRules
             .trimmingCharacters(in: .whitespacesAndNewlines)
         if !customRules.isEmpty {
-            prompt += String(format: L10n.l("loop_extra_compress"), customRules)
+            instruction += String(format: L10n.l("loop_extra_compress"), customRules)
         }
-        return prompt
+        return instruction
     }
 
     /// 调用 LLM 生成一次性的历史摘要（非流式展示，仅收集结果文本）。
     /// 复用现有 endpoint 与 providerType，压缩失败时返回空串交由上层跳过。
     /// 复用 activeRequestTask 以便用户取消时可中断压缩请求。
-    private func requestSummary(_ text: String, endpoint: ModelRouteEndpoint, modelId: String) async -> String {
+    ///
+    /// 2026-08-31 缓存感知压缩：请求 = system 稳定段 + 被压缩区消息逐字回放 +
+    /// 压缩指令尾部（唯一新增 user 消息），并携带与主请求同款的工具 schema——
+    /// 前缀与主请求逐字节一致，命中服务端热前缀缓存。
+    private func requestSummary(
+        toSummarize: [ChatCompletionMessage],
+        systemStableText: String,
+        compressionRules: String,
+        endpoint: ModelRouteEndpoint,
+        modelId: String
+    ) async -> String {
         await withCheckedContinuation { (cont: CheckedContinuation<String, Never>) in
             let client = LLMClient(
                 endpointURL: endpoint.url,
@@ -1499,14 +1508,19 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
                 providerType: endpoint.providerType
             )
             var summaryText = ""
-            let summarizeMessages: [ChatCompletionMessage] = [
-                ChatCompletionMessage(role: "system", content: L10n.l("compress_prompt")),
-                ChatCompletionMessage(role: "user", content: text)
-            ]
+            var summarizeMessages: [ChatCompletionMessage] = []
+            if !systemStableText.isEmpty {
+                summarizeMessages.append(ChatCompletionMessage(role: "system", content: systemStableText))
+            }
+            summarizeMessages.append(contentsOf: toSummarize)
+            summarizeMessages.append(ChatCompletionMessage(
+                role: "user",
+                content: buildSummaryInstructionTail(compressionRules: compressionRules)
+            ))
             let task = client.streamChat(
                 model: modelId,
                 messages: summarizeMessages,
-                tools: nil,
+                tools: activeToolSchemas.isEmpty ? nil : activeToolSchemas,
                 onToken: { piece in summaryText += piece },
                 onToolCall: { _ in },
                 onUsage: { _, _, _, _ in },

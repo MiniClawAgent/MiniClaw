@@ -9401,25 +9401,25 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Compress the following conversation, keeping only key decisions, user intent, completed tasks, important conclusions, and open items. Output concise Chinese; do not add extra content:\\n\\n"
+            "value" : "Compress the conversation above into a concise summary, keeping only key decisions, user intent, completed tasks, important conclusions, and open items. Output only the summary text; do not call any tools or add extra content."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "请压缩以下对话记录，仅保留关键决策、用户意图、已完成的任务、重要结论与未决事项，用简洁中文输出，不要添加额外内容：\\n\\n"
+            "value" : "请把上面的对话压缩为简洁摘要，仅保留关键决策、用户意图、已完成的任务、重要结论与未决事项。直接输出摘要文本，不要调用任何工具，不要添加额外内容。"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "以下の会話を圧縮し、重要な決定、ユーザーの意図、完了したタスク、重要な結論、未決事項のみを残してください。簡潔に_output し、余計な内容は追加しないでください：\\n\\n"
+            "value" : "上の会話を簡潔な要約に圧縮し、重要な決定、ユーザーの意図、完了したタスク、重要な結論、未決事項のみを残してください。要約テキストのみを出力し、ツールは使用せず、余計な内容は追加しないでください。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "다음 대화를 압축하여 핵심 결정, 사용자 의도, 완료된 작업, 중요 결론, 미결 사항만 남기고 간결하게 출력하세요. 추가 내용을 넣지 마세요:\\n\\n"
+            "value" : "위 대화를 간결한 요약으로 압축하여 핵심 결정, 사용자 의도, 완료된 작업, 중요 결론, 미결 사항만 남기세요. 요약 텍스트만 출력하고 도구를 사용하지 말며 추가 내용을 넣지 마세요."
           }
         }
       }
@@ -35095,25 +35095,25 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Maximum context message count"
+            "value" : "Context history hard cap (messages). Context length is managed by automatic compression; this only guards against abnormal growth. Default 400."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "上下文最大消息数"
+            "value" : "历史消息防御硬上限。上下文长度由自动压缩管理，此值仅在异常膨胀时兜底，默认 400。"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "コンテキストの最大メッセージ数"
+            "value" : "履歴メッセージの防御用上限。コンテキスト長は自動圧縮で管理され、この値は異常な増大時のフォールバックのみに使用（デフォルト 400）。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "컨텍스트 최대 메시지 수"
+            "value" : "히스토리 메시지 방어 상한. 컨텍스트 길이는 자동 압축이 관리하며, 이 값은 비정상적인 증가 시에만 fallback으로 사용됨(기본값 400)."
           }
         }
       }

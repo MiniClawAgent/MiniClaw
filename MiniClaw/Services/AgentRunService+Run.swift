@@ -113,7 +113,8 @@ extension AgentRunService {
             }
         }
         guard !lines.isEmpty else { return nil }
-        let prompt = L10n.l("compress_prompt_zh") + lines.joined(separator: "\n")
+        // 指令置于文本之后（compress_prompt_zh 现为「压缩上面的对话」语义，2026-08-31 统一）。
+        let prompt = lines.joined(separator: "\n") + "\n\n" + L10n.l("compress_prompt_zh")
         let client = LLMClient(
             endpointURL: endpoint.url, apiKey: endpoint.apiKey, format: endpoint.format,
             usesAzureAPIKey: endpoint.usesAzureAPIKey, customHeaders: endpoint.customHeaders,
