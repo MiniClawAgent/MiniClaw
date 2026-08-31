@@ -730,25 +730,25 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "MiniClaw needs to read health data to provide health analysis and suggestions."
+            "value": "MiniClaw needs to read your health data—activity and steps, heart rate, body measurements, sleep, blood pressure, blood glucose, oxygen saturation, hydration and nutrition, and workout records—to answer your health-related questions."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "MiniClaw needs to read health data to provide health analysis and suggestions."
+            "value": "MiniClaw は健康に関するご質問にお答えするため、健康データ（活動量と歩数、心拍数、体重などの身体測定値、睡眠、血圧・血糖値・血中酸素濃度、水分と栄養、ワークアウト記録）を読み取ります。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "MiniClaw needs to read health data to provide health analysis and suggestions."
+            "value": "MiniClaw는 건강 관련 질문에 답하기 위해 건강 데이터(활동량 및 걸음 수, 심박수, 체중 등 신체 측정값, 수면, 혈압·혈당·혈중 산소 포화도, 수분 및 영양, 운동 기록)를 읽습니다."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "MiniClaw 需要读取健康数据以提供健康分析和建议。"
+            "value": "MiniClaw 需要读取您的健康数据——活动与步数、心率、体重等身体测量、睡眠、血压/血糖/血氧、饮水与膳食、运动记录——用于回答您的健康相关提问。"
           }
         }
       }
@@ -759,25 +759,25 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "MiniClaw needs to write health data to record your health information."
+            "value": "MiniClaw needs to write the health data you authorize—steps, active energy, body mass, height, body fat, mindful minutes, water and dietary energy—to record entries you ask it to log."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "MiniClaw needs to write health data to record your health information."
+            "value": "MiniClaw はご依頼いただいた項目（歩数、活動エネルギー、体重、身長、体脂肪率、マインドフルネス時間、水分、摂取エネルギー）を健康データに書き込みます。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "MiniClaw needs to write health data to record your health information."
+            "value": "MiniClaw는 기록을 요청하신 항목(걸음 수, 활동 에너지, 체중, 키, 체지방률, 마음챙김 시간, 수분, 섭취 에너지)을 건강 데이터에 기록합니다."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "MiniClaw 需要写入健康数据以记录您的健康信息。"
+            "value": "MiniClaw 需要写入您授权的健康数据——步数、活动能量、体重、身高、体脂率、正念时长、饮水量与膳食能量——用于记录您让 AI 代为录入的条目。"
           }
         }
       }

@@ -10,9 +10,9 @@
 
 "NSCameraUsageDescription" = "MiniClaw needs the camera to take photos or scan QR codes.";
 
-"NSHealthShareUsageDescription" = "MiniClaw needs to read health data to provide health analysis and suggestions.";
+"NSHealthShareUsageDescription" = "MiniClaw は健康に関するご質問にお答えするため、健康データ（活動量と歩数、心拍数、体重などの身体測定値、睡眠、血圧・血糖値・血中酸素濃度、水分と栄養、ワークアウト記録）を読み取ります。";
 
-"NSHealthUpdateUsageDescription" = "MiniClaw needs to write health data to record your health information.";
+"NSHealthUpdateUsageDescription" = "MiniClaw はご依頼いただいた項目（歩数、活動エネルギー、体重、身長、体脂肪率、マインドフルネス時間、水分、摂取エネルギー）を健康データに書き込みます。";
 
 "NSHomeKitUsageDescription" = "MiniClaw needs HomeKit access to control your smart home devices.";
 
