@@ -112,6 +112,8 @@ enum AgentLoopHelpers {
 struct CachePrefixFingerprint: Equatable {
     let system: String
     let toolsHash: String
+    /// 工具名 → 单工具 schema 哈希：tools 整段哈希变化时，用它定位具体是哪个工具在变。
+    let toolHashes: [String: String]
     let history: [String]
 
     static func shortHash(_ s: String) -> String {
@@ -121,6 +123,7 @@ struct CachePrefixFingerprint: Equatable {
     init(messages: [ChatCompletionMessage], tools: [ToolSchema]?) {
         var sysParts: [String] = []
         var histHashes: [String] = []
+        var perTool: [String: String] = [:]
         let lastUserIdx = messages.lastIndex { $0.role == "user" }
         for (i, m) in messages.enumerated() {
             let text = m.content?.asText ?? ""
@@ -134,11 +137,15 @@ struct CachePrefixFingerprint: Equatable {
         }
         system = Self.shortHash(sysParts.joined(separator: "\n"))
         if let tools, !tools.isEmpty {
-            let data = (try? JSONEncoder().encode(tools)) ?? Data()
-            toolsHash = Self.shortHash(String(decoding: data, as: UTF8.self))
+            for t in tools {
+                let data = (try? JSONEncoder().encode(t)) ?? Data()
+                perTool[t.function.name] = Self.shortHash(String(decoding: data, as: UTF8.self))
+            }
+            toolsHash = Self.shortHash(String(decoding: (try? JSONEncoder().encode(tools)) ?? Data(), as: UTF8.self))
         } else {
             toolsHash = "none"
         }
+        toolHashes = perTool
         history = histHashes
     }
 
@@ -146,7 +153,18 @@ struct CachePrefixFingerprint: Equatable {
     func diffDescription(against last: CachePrefixFingerprint) -> String {
         var diffs: [String] = []
         if last.system != system { diffs.append("sys变") }
-        if last.toolsHash != toolsHash { diffs.append("tools变") }
+        if last.toolsHash != toolsHash {
+            let changed = toolHashes
+                .compactMap { name, h -> String? in last.toolHashes[name] != h ? name : nil }
+                .sorted()
+            if changed.isEmpty {
+                diffs.append("tools变(组合或数量)")
+            } else {
+                let shown = changed.prefix(4).joined(separator: ",")
+                let more = changed.count > 4 ? "等\(changed.count)个" : ""
+                diffs.append("tools变[\(shown)\(more)]")
+            }
+        }
         let common = min(last.history.count, history.count)
         let firstDiffIdx = (0..<common).first { last.history[$0] != history[$0] }
         if let idx = firstDiffIdx {
