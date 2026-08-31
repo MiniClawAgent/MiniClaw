@@ -149,6 +149,26 @@ final class ToolPluginManager {
     static let shared = ToolPluginManager()
     private init() {}
 
+    /// 记忆工具包 id：其启用态不以插件开关为准，而是与「设置-记忆-启用记忆」
+    /// 同一个状态（单一真相源），避免两套开关各说各话。
+    static let memoryPluginID = "com.miniclaw.builtin.memory"
+
+    /// 记忆工具是否启用 = 记忆总开关（记忆设置页与插件列表共用此状态）。
+    static func memoryToolsEnabled() -> Bool {
+        SettingsStore.shared.settings.memory.isEnabled
+    }
+
+    /// 记忆开关写入（插件列表开关与记忆设置页共用）：与 MemorySettingsView.persist 同口径。
+    static func setMemoryToolsEnabled(_ on: Bool) {
+        SettingsStore.shared.settings.memory.isEnabled = on
+        SettingsStore.shared.save()
+    }
+
+    /// 某个包是否为记忆工具包（按沙盒目录名判定）。
+    static func isMemoryPlugin(directoryName: String) -> Bool {
+        directoryName == memoryPluginID
+    }
+
     /// 内置工具工厂注册表（Stage-6b 迁移的系统能力类工具）。
     /// name → 工具构造器：包内 `{"name": "...", "backend": "builtin"}` 声明按此映射；
     /// schema/执行逻辑仍是 Swift 侧单一真相源，包只承载「归属 + 启停」。
@@ -175,11 +195,22 @@ final class ToolPluginManager {
         // 因同步时序而消失。同步完成后缓存已失效（syncBundledPlugins 末尾），
         // 此后由包内声明与启用状态驱动。
         if allToolPackages.isEmpty {
+            // 兜底：内置能力全量提供；但记忆工具仍受记忆总开关约束（单一真相源，
+            // 总开关关闭时绝不注册记忆工具——否则与「设置-记忆」的语义打架）。
             return Self.builtinFactories.keys.sorted().compactMap { name in
-                Self.builtinFactories[name]?(sessionID)
+                if (name == "memory_write" || name == "memory_get") && !Self.memoryToolsEnabled() {
+                    return nil
+                }
+                return Self.builtinFactories[name]?(sessionID)
             }
         }
-        let packages = allToolPackages.filter { $0.isEnabled }
+        // 记忆工具包的启用态取记忆总开关；其余包按插件开关。
+        let packages = allToolPackages.filter { pkg in
+            if Self.isMemoryPlugin(directoryName: pkg.directoryName) {
+                return Self.memoryToolsEnabled()
+            }
+            return pkg.isEnabled
+        }
         guard !packages.isEmpty else { return [] }
         let fm = FileManager.default
         var result: [AgentTool] = []

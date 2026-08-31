@@ -112,6 +112,7 @@
 		4CB9E143920CF3340D668D644C6F23DA /* BrowserSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFBF6E23977C08C8766052D672698035 /* BrowserSupport.swift */; };
 		4E057CC5C2D99067FD86833BFD80C133 /* MiniClawResourceMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3CD1C0D7B63C9A53F8535768B86884E /* MiniClawResourceMonitor.swift */; };
 		4FA5A294DB7436F5FAD86B4108D3B4D8 /* tasklist.h in Sources */ = {isa = PBXBuildFile; fileRef = BFFEB106AA00A20F61A47507A16B5FB9 /* tasklist.h */; };
+		4FD802DDFFE8EE508D9089A6D0CF3140 /* com.miniclaw.builtin.memory.mpk in Resources */ = {isa = PBXBuildFile; fileRef = 6C56C8AF1CC52DB9AD9C8973C06B2B7A /* com.miniclaw.builtin.memory.mpk */; };
 		4FE95DD069F78A0B235C379EF74174C3 /* ToolPluginManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36CB016B2EBACE9BAB7DD24E0E55215E /* ToolPluginManager.swift */; };
 		502A74E80ACA20581A8EFB826D331067 /* MessageBubbleSubviews.swift in Sources */ = {isa = PBXBuildFile; fileRef = A66FCD64E5BD02A317E44159CB9EF081 /* MessageBubbleSubviews.swift */; };
 		5090CB503C8AA0801629F51702B888BD /* blocks.c in Sources */ = {isa = PBXBuildFile; fileRef = 1607180BB66B8F2B0454641E64175B21 /* blocks.c */; };
@@ -571,6 +572,7 @@
 		6B6BE2B494055ECB6493BA7D13ECAA57 /* AppleFrameworkTools.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleFrameworkTools.swift; sourceTree = "<group>"; };
 		6B92C0E9DF0CC89A63E4D9C66A59572B /* EnvVarModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnvVarModels.swift; sourceTree = "<group>"; };
 		6BC7DAA48467F75F62ED29C727E72068 /* latex.c */ = {isa = PBXFileReference; path = latex.c; sourceTree = "<group>"; };
+		6C56C8AF1CC52DB9AD9C8973C06B2B7A /* com.miniclaw.builtin.memory.mpk */ = {isa = PBXFileReference; path = com.miniclaw.builtin.memory.mpk; sourceTree = "<group>"; };
 		6C57B1B1D13EE54E496F7F5C546B69F0 /* MTConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MTConfig.swift; sourceTree = "<group>"; };
 		6C59FAE68187B233524F120CD8D240F4 /* ContextUsageEstimator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContextUsageEstimator.swift; sourceTree = "<group>"; };
 		6CDFE3A5CD8D1D9C32D30C5952404DCF /* com.miniclaw.builtin.deepseek.mpk */ = {isa = PBXFileReference; path = com.miniclaw.builtin.deepseek.mpk; sourceTree = "<group>"; };
@@ -865,6 +867,7 @@
 			children = (
 				EFE9292B97226BF8D2B6C74DFBB8F9B1 /* com.miniclaw.builtin.apigateway.mpk */,
 				6CDFE3A5CD8D1D9C32D30C5952404DCF /* com.miniclaw.builtin.deepseek.mpk */,
+				6C56C8AF1CC52DB9AD9C8973C06B2B7A /* com.miniclaw.builtin.memory.mpk */,
 				B90F5EA497C66D8A9C97893403E80CD1 /* com.miniclaw.builtin.rules.mpk */,
 				EF50A3CD722BB7CAB4D2495872CE71AC /* com.miniclaw.builtin.skill.skill-creator.mpk */,
 				146E6F4078E78D10E50C988E3DA14F94 /* com.miniclaw.builtin.soul.mpk */,
@@ -1698,6 +1701,7 @@
 				C1E27EF99F9BD0D50B295AB98E9F8C98 /* PrivacyInfo.xcprivacy in Resources */,
 				914951ED93A60FE3455E2A45E4C903EE /* com.miniclaw.builtin.apigateway.mpk in Resources */,
 				1F57887C20A320F4F2159A99FFB9CB9B /* com.miniclaw.builtin.deepseek.mpk in Resources */,
+				4FD802DDFFE8EE508D9089A6D0CF3140 /* com.miniclaw.builtin.memory.mpk in Resources */,
 				F3A57BA2582EA6FF3CDDA1C9E55A39A3 /* com.miniclaw.builtin.rules.mpk in Resources */,
 				9B2C406EEE4253E834FC831BD2C171BB /* com.miniclaw.builtin.skill.skill-creator.mpk in Resources */,
 				CBD6F7A6676C7A6431A54DDF2300C336 /* com.miniclaw.builtin.soul.mpk in Resources */,

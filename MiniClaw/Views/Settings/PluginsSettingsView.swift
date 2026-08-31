@@ -152,8 +152,16 @@ private struct SkillRowView: View {
 
     /// 拉取式绑定：开关状态以持久化设置 + 来源缺省为唯一真相（每次渲染重读），
     /// 列表行与详情页两处切换即时同步，杜绝 @State 快照漂移。
+    /// 例外：记忆工具包（com.miniclaw.builtin.memory）的开关即「设置-记忆-启用记忆」，
+    /// 两处共用同一状态，避免插件开关与记忆总开关各说各话。
     private var enabledBinding: Binding<Bool> {
-        Binding(
+        if ToolPluginManager.isMemoryPlugin(directoryName: skill.directoryName) {
+            return Binding(
+                get: { ToolPluginManager.memoryToolsEnabled() },
+                set: { ToolPluginManager.setMemoryToolsEnabled($0) }
+            )
+        }
+        return Binding(
             get: { SkillManager.shared.effectiveEnabled(name: skill.name, source: skill.source) },
             set: { SkillManager.shared.setEnabled(skill.name, $0) }
         )
@@ -194,8 +202,18 @@ private struct SkillDetailView: View {
 
     /// 拉取式绑定（与列表行同口径）：get 每帧读持久化真相，set 写回并通知父级刷新。
     /// 详情页开关状态因此与列表行即时一致，退出重进也不会再出现旧值。
+    /// 记忆工具包同列表行：开关即「设置-记忆-启用记忆」，单一真相源。
     private var enabledBinding: Binding<Bool> {
-        Binding(
+        if ToolPluginManager.isMemoryPlugin(directoryName: skill.directoryName) {
+            return Binding(
+                get: { ToolPluginManager.memoryToolsEnabled() },
+                set: { newValue in
+                    ToolPluginManager.setMemoryToolsEnabled(newValue)
+                    onChanged()
+                }
+            )
+        }
+        return Binding(
             get: { SkillManager.shared.effectiveEnabled(name: skill.name, source: skill.source) },
             set: { newValue in
                 SkillManager.shared.setEnabled(skill.name, newValue)

@@ -76,6 +76,8 @@ targets:
         buildPhase: resources
       - path: MiniClaw/Resources/BundledPlugins/com.miniclaw.builtin.tools.mpk
         buildPhase: resources
+      - path: MiniClaw/Resources/BundledPlugins/com.miniclaw.builtin.memory.mpk
+        buildPhase: resources
       # AboutDocs：开发者与用户的协议/产品说明文档（用户使用协议/隐私政策/关于MiniClaw）。
       # 不走插件体系——协议内容不开放给用户通过插件更改，仅由「设置-关于」页展示。
       # 逐文件列出（folder reference 增量构建不保证拷贝目录内新增/变更文件，2026-08-29 体检 P1）。
