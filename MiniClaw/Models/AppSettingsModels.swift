@@ -34,6 +34,27 @@ struct DefaultSettings: Codable, Equatable {
     var defaultAgentName: String = "MiniClaw"
     var defaultLanguage: String = "auto"
     var confirmBeforeToolCall: Bool = false
+    /// 允许 AI 写入 / 删除健康数据（apple-healthkit 的 write 与 delete）。
+    /// 默认关闭：写入会直接改动用户的健康记录，属高副作用，需要用户显式表达意图。
+    /// 删除虽受 HealthKit 限制「只能删本 App 写入的样本」，仍由同一开关守卫。
+    var healthWriteEnabled: Bool = false
+
+    /// 全默认构造：自定义 `init(from:)` 会挤掉自动生成的无参 init，必须显式补回
+    /// （与 `AppSettings.init()` 同一处坑）。
+    init() {}
+
+    /// 容错解码（2026-08-31）：本域由 `AppSettings.init(from:)` 以
+    /// `decodeIfPresent(DefaultSettings.self) ?? DefaultSettings()` 兜底。若此处沿用
+    /// 合成解码，旧 settings.json 缺任意一个键就会让**整个 defaults 域**解码失败、
+    /// 回退全默认（表现为 confirmBeforeToolCall 等既有设置被静默重置）。
+    /// 故逐键 decodeIfPresent；新增字段必须同步进此 init。
+    init(from decoder: any Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        defaultAgentName = try c.decodeIfPresent(String.self, forKey: .defaultAgentName) ?? "MiniClaw"
+        defaultLanguage = try c.decodeIfPresent(String.self, forKey: .defaultLanguage) ?? "auto"
+        confirmBeforeToolCall = try c.decodeIfPresent(Bool.self, forKey: .confirmBeforeToolCall) ?? false
+        healthWriteEnabled = try c.decodeIfPresent(Bool.self, forKey: .healthWriteEnabled) ?? false
+    }
 }
 
 /// 统一配置聚合：除 providers 外的 13 个配置域。

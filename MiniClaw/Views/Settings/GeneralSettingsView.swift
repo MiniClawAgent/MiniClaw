@@ -18,6 +18,17 @@ struct GeneralSettingsView: View {
                 Text(L10n.l("when_enabled_the_agent_will_ask_for_your_confirmation_before_each_tool_call_file_browser_shell_etc"))
             }
 
+            // 健康写入总闸：write / delete 执行前检查（apple-healthkit）。
+            // 独立于 confirmBeforeToolCall —— 后者只控制「调用前要不要问」，
+            // 这个开关决定「这条能力存不存在」。
+            Section {
+                Toggle(L10n.l("allow_health_write"), isOn: $defaults.healthWriteEnabled)
+            } header: {
+                Text(L10n.l("health_data_section"))
+            } footer: {
+                Text(L10n.l("allow_health_write_footer"))
+            }
+
             Section {
                 Toggle(L10n.l("show_thinking_process"), isOn: $chat.showThinking)
                 Toggle(L10n.l("enter_to_send_off_newline"), isOn: $chat.enterToSend)

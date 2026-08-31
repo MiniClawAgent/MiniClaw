@@ -237,14 +237,17 @@ final class PermissionManager: @unchecked Sendable {
         }
     }
 
+    /// 健康数据授权状态。
+    ///
+    /// **iOS 不提供读授权的查询能力**：为防止「用授权状态反推用户健康状况」的侧信道，
+    /// 系统对**只读类型**的 `authorizationStatus(for:)` 永远返回 `.sharingDenied`，
+    /// 哪怕用户刚刚点了允许——旧实现据此判断会永远显示「未授权」，属假阴性。
+    /// 故此处不再查询系统，只返回本 App 记录的「是否已请求过」：
+    /// `.authorized` = 已向用户弹过授权页（不代表用户同意读取），
+    /// `.notDetermined` = 从未请求。实际能否读到数据由查询时的返回结果决定。
     private static func healthStatus() -> PermissionState {
         guard HKHealthStore.isHealthDataAvailable() else { return .restricted }
-        let type = HKObjectType.quantityType(forIdentifier: .stepCount)!
-        switch HKHealthStore().authorizationStatus(for: type) {
-        case .sharingAuthorized: return .authorized
-        case .sharingDenied:     return .denied
-        default:                 return .notDetermined
-        }
+        return SettingsStore.shared.settings.permissions.healthKit
     }
 
     // MARK: - 系统权限：申请（弹系统对话框）
@@ -283,17 +286,15 @@ final class PermissionManager: @unchecked Sendable {
         return state
     }
 
+    /// 申请健康数据授权。**只申请读，不申请写** —— 写授权在用户开启
+    /// 「设置 → 通用 → 允许 AI 写入健康数据」后，由 apple-healthkit 的 write / delete
+    /// 按需申请：写入弹窗对用户更敏感，不应在权限页首次授权时就一并索要。
     private func requestHealth() async -> PermissionState {
         guard HKHealthStore.isHealthDataAvailable() else { return .restricted }
-        let store = HKHealthStore()
-        let type = HKObjectType.quantityType(forIdentifier: .stepCount)!
-        let shareTypes: Set<HKSampleType> = [type as HKSampleType]
-        let readTypes: Set<HKObjectType> = [type]
-        return await withCheckedContinuation { cont in
-            store.requestAuthorization(toShare: shareTypes, read: readTypes) { success, _ in
-                cont.resume(returning: success ? .authorized : .denied)
-            }
-        }
+        // 与工具内部共用 HealthKitAuthGate：iOS 同一时刻只接受一个授权请求。
+        let completed = await HealthKitAuthGate.shared.request(read: AppleHealthKitTool.readableTypes, share: [])
+        // completed 仅表示授权流程正常结束，不代表用户已授权（读授权不可探测）。
+        return completed ? .authorized : .denied
     }
 
     private func requestEK(_ type: EKEntityType) async -> PermissionState {

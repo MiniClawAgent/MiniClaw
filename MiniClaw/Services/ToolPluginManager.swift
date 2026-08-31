@@ -185,6 +185,9 @@ final class ToolPluginManager {
         "apple-speak": { _ in AppleSpeakTool() },
         "miniclaw_config": { _ in ConfigTool() },
         "miniclaw-model-use": { _ in MiniClawModelUseTool() },
+        // 2026-08-31 新增：健康与定位。二者都是 iOS 原生能力，无法用 shell 后端表达。
+        "apple-healthkit": { _ in AppleHealthKitTool() },
+        "apple-location": { _ in AppleLocationTool() },
     ]
 
     /// 已启用插件的全部工具实例（shell 与 builtin 后端统一产出；非法项跳过并日志）。

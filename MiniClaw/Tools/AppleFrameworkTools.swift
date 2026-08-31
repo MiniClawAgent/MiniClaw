@@ -4,32 +4,7 @@ import AVFoundation
 import NaturalLanguage
 import UserNotifications
 
-struct AppleHealthKitTool: AgentTool {
-    let name = "apple-healthkit"
-    let schema = ToolSchema(
-        type: "function",
-        function: ToolSchema.FunctionDef(
-            name: "apple-healthkit",
-            description: L10n.l("health_tool_desc"),
-            parameters: JSONSchema(
-                type: "object",
-                properties: [
-                    "action": JSONSchema.JSONProperty(type: "string", description: L10n.l("op_bluetooth_actions"), enum: ["read", "write", "query"]),
-                    "data_type": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_data_type")),
-                    "value": JSONSchema.JSONProperty(type: "number", description: L10n.l("param_write_value")),
-                    "unit": JSONSchema.JSONProperty(type: "string", description: L10n.l("unit_label")),
-                    "start_date": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_query_start")),
-                    "end_date": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_query_end")),
-                ],
-                required: ["action"]
-            )
-        )
-    )
-
-    func execute(_ parameters: [String: Any]) async throws -> ToolResult {
-        return ToolResult(success: false, text: L10n.l("not_implemented_healthkit"))
-    }
-}
+// 注：apple-healthkit 的真实现已迁至 HealthKitTools.swift（此处占位实现已删除）。
 
 // MARK: - 7. apple-homekit (HomeKit)
 
@@ -60,30 +35,7 @@ struct AppleHomeKitTool: AgentTool {
 
 // MARK: - 8. apple-location (CoreLocation)
 
-struct AppleLocationTool: AgentTool {
-    let name = "apple-location"
-    let schema = ToolSchema(
-        type: "function",
-        function: ToolSchema.FunctionDef(
-            name: "apple-location",
-            description: L10n.l("location_tool_desc"),
-            parameters: JSONSchema(
-                type: "object",
-                properties: [
-                    "action": JSONSchema.JSONProperty(type: "string", description: L10n.l("op_location_actions"), enum: ["current", "geocode", "reverse_geocode"]),
-                    "address": JSONSchema.JSONProperty(type: "string", description: L10n.l("address_param")),
-                    "latitude": JSONSchema.JSONProperty(type: "number", description: L10n.l("param_latitude_reverse")),
-                    "longitude": JSONSchema.JSONProperty(type: "number", description: L10n.l("param_longitude_reverse")),
-                ],
-                required: ["action"]
-            )
-        )
-    )
-
-    func execute(_ parameters: [String: Any]) async throws -> ToolResult {
-        return ToolResult(success: false, text: L10n.l("not_implemented_location"))
-    }
-}
+// 注：apple-location 的真实现已迁至 LocationTools.swift（此处占位实现已删除）。
 
 // MARK: - 9. apple-maps (MapKit)
 

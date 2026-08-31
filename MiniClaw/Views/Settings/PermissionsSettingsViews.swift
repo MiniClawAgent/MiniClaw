@@ -18,12 +18,12 @@ struct PermissionsSettingsView: View {
     /// 定位授权状态（2026-08-07 自后台页移入；模糊定位保活依赖）。
     @State private var locationState: PermissionState = .notDetermined
 
-    /// 权限清单（仅展示用户指定的项；健康仅保留「健康数据」，位置已移至「后台」页）。
-    /// 2026-08-07：健康数据/家庭配件工具尚未接入（AppleHealthKitTool/AppleHomeKitTool 未注册，
-    /// execute 为占位空壳），隐藏其授权入口，避免半成品入口暴露。
-    /// 恢复 = 取消下方对应行注释（与用户沟通开发 HealthKit/HomeKit 工具后再恢复显示）。
+    /// 权限清单（仅展示用户指定的项；健康仅保留「健康数据」，位置已移至「后台」页定位行）。
+    /// 2026-08-31：健康数据已恢复展示——AppleHealthKitTool 真实现已接入（读 24 项 / 写 8 项白名单），
+    /// 此处点击即一次性申请全量读类型授权（写入授权由「设置 → 通用 → 允许 AI 写入健康数据」按需申请）。
+    /// 家庭配件（AppleHomeKitTool）仍是占位空壳，入口继续保持隐藏。
     private let permissionItems: [(key: String, label: String)] = [
-        // ("healthData",L10n.l("health_data")),   // 待 HealthKit 工具接入后恢复
+        ("healthData", L10n.l("health_data")),
         ("calendar",  L10n.l("calendar")),
         ("photos",    L10n.l("images")),
         // ("homeKit",   L10n.l("home_accessories")),   // 待 HomeKit 工具接入后恢复
