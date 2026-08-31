@@ -1,31 +1,31 @@
 /* Usage descriptions (localized) */
 
-"NFCReaderUsageDescription" = "MiniClaw needs NFC to read tag information.";
+"NFCReaderUsageDescription" = "MiniClaw는 태그 정보를 읽기 위해 NFC를 사용합니다.";
 
-"NSAppleMusicUsageDescription" = "MiniClaw needs media library access to play and control music.";
+"NSAppleMusicUsageDescription" = "MiniClaw는 음악을 재생하고 제어하기 위해 미디어 라이브러리 접근이 필요합니다.";
 
-"NSBluetoothAlwaysUsageDescription" = "MiniClaw needs Bluetooth to scan and connect nearby Bluetooth devices.";
+"NSBluetoothAlwaysUsageDescription" = "MiniClaw는 주변 Bluetooth 기기를 검색하고 연결하기 위해 Bluetooth가 필요합니다.";
 
-"NSCalendarsUsageDescription" = "MiniClaw needs calendar access to manage and create events.";
+"NSCalendarsUsageDescription" = "MiniClaw는 일정을 만들고 관리하기 위해 캘린더 접근이 필요합니다.";
 
-"NSCameraUsageDescription" = "MiniClaw needs the camera to take photos or scan QR codes.";
+"NSCameraUsageDescription" = "MiniClaw는 사진 촬영이나 QR 코드 스캔을 위해 카메라가 필요합니다.";
 
 "NSHealthShareUsageDescription" = "MiniClaw는 건강 관련 질문에 답하기 위해 건강 데이터(활동량 및 걸음 수, 심박수, 체중 등 신체 측정값, 수면, 혈압·혈당·혈중 산소 포화도, 수분 및 영양, 운동 기록)를 읽습니다.";
 
 "NSHealthUpdateUsageDescription" = "MiniClaw는 기록을 요청하신 항목(걸음 수, 활동 에너지, 체중, 키, 체지방률, 마음챙김 시간, 수분, 섭취 에너지)을 건강 데이터에 기록합니다.";
 
-"NSHomeKitUsageDescription" = "MiniClaw needs HomeKit access to control your smart home devices.";
+"NSHomeKitUsageDescription" = "MiniClaw는 스마트 홈 기기를 제어하기 위해 HomeKit 접근이 필요합니다.";
 
-"NSLocalNetworkUsageDescription" = "MiniClaw needs local network access to discover and connect local devices and services.";
+"NSLocalNetworkUsageDescription" = "MiniClaw는 로컬 네트워크의 기기와 서비스를 찾아 연결하기 위해 로컬 네트워크 접근이 필요합니다.";
 
-"NSLocationWhenInUseUsageDescription" = "MiniClaw needs your location to provide location-based services such as weather and location features.";
+"NSLocationWhenInUseUsageDescription" = "MiniClaw는 날씨 등 위치 기반 기능을 제공하기 위해 사용자의 위치가 필요합니다.";
 
-"NSMicrophoneUsageDescription" = "MiniClaw needs the microphone for voice input and speech recognition.";
+"NSMicrophoneUsageDescription" = "MiniClaw는 음성 입력과 음성 인식을 위해 마이크가 필요합니다.";
 
-"NSPhotoLibraryUsageDescription" = "MiniClaw needs photo library access to read and save images.";
+"NSPhotoLibraryUsageDescription" = "MiniClaw는 이미지를 읽고 저장하기 위해 사진 보관함 접근이 필요합니다.";
 
-"NSRemindersUsageDescription" = "MiniClaw needs Reminders access to create and manage reminders.";
+"NSRemindersUsageDescription" = "MiniClaw는 미리 알림을 만들고 관리하기 위해 미리 알림 접근이 필요합니다.";
 
-"NSSpeechRecognitionUsageDescription" = "MiniClaw needs speech recognition to convert your voice to text.";
+"NSSpeechRecognitionUsageDescription" = "MiniClaw는 음성을 텍스트로 변환하기 위해 음성 인식이 필요합니다.";
 
-"NSUserNotificationsUsageDescription" = "MiniClaw needs to send notifications to alert you about important information.";
+"NSUserNotificationsUsageDescription" = "MiniClaw는 중요한 정보를 알리기 위해 알림을 보냅니다.";

@@ -591,13 +591,13 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "MiniClaw needs NFC to read tag information."
+            "value": "MiniClaw はタグの情報を読み取るために NFC を使用します。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "MiniClaw needs NFC to read tag information."
+            "value": "MiniClaw는 태그 정보를 읽기 위해 NFC를 사용합니다."
           }
         },
         "zh-Hans": {
@@ -620,13 +620,13 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "MiniClaw needs media library access to play and control music."
+            "value": "MiniClaw は音楽を再生・操作するためにメディアライブラリへのアクセスを必要とします。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "MiniClaw needs media library access to play and control music."
+            "value": "MiniClaw는 음악을 재생하고 제어하기 위해 미디어 라이브러리 접근이 필요합니다."
           }
         },
         "zh-Hans": {
@@ -649,13 +649,13 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "MiniClaw needs Bluetooth to scan and connect nearby Bluetooth devices."
+            "value": "MiniClaw は近くの Bluetooth デバイスを検索して接続するために Bluetooth を使用します。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "MiniClaw needs Bluetooth to scan and connect nearby Bluetooth devices."
+            "value": "MiniClaw는 주변 Bluetooth 기기를 검색하고 연결하기 위해 Bluetooth가 필요합니다."
           }
         },
         "zh-Hans": {
@@ -678,13 +678,13 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "MiniClaw needs calendar access to manage and create events."
+            "value": "MiniClaw は予定を作成・管理するためにカレンダーへのアクセスを必要とします。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "MiniClaw needs calendar access to manage and create events."
+            "value": "MiniClaw는 일정을 만들고 관리하기 위해 캘린더 접근이 필요합니다."
           }
         },
         "zh-Hans": {
@@ -707,13 +707,13 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "MiniClaw needs the camera to take photos or scan QR codes."
+            "value": "MiniClaw は写真の撮影や QR コードの読み取りにカメラを使用します。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "MiniClaw needs the camera to take photos or scan QR codes."
+            "value": "MiniClaw는 사진 촬영이나 QR 코드 스캔을 위해 카메라가 필요합니다."
           }
         },
         "zh-Hans": {
@@ -794,13 +794,13 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "MiniClaw needs HomeKit access to control your smart home devices."
+            "value": "MiniClaw はスマートホーム機器を操作するために HomeKit へのアクセスを必要とします。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "MiniClaw needs HomeKit access to control your smart home devices."
+            "value": "MiniClaw는 스마트 홈 기기를 제어하기 위해 HomeKit 접근이 필요합니다."
           }
         },
         "zh-Hans": {
@@ -823,13 +823,13 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "MiniClaw needs local network access to discover and connect local devices and services."
+            "value": "MiniClaw はローカルネットワーク上のデバイスやサービスを検出して接続するために、ローカルネットワークへのアクセスを必要とします。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "MiniClaw needs local network access to discover and connect local devices and services."
+            "value": "MiniClaw는 로컬 네트워크의 기기와 서비스를 찾아 연결하기 위해 로컬 네트워크 접근이 필요합니다."
           }
         },
         "zh-Hans": {
@@ -852,13 +852,13 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "MiniClaw needs your location to provide location-based services such as weather and location features."
+            "value": "MiniClaw は天気予報などの位置情報を利用した機能を提供するために、現在地の情報を必要とします。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "MiniClaw needs your location to provide location-based services such as weather and location features."
+            "value": "MiniClaw는 날씨 등 위치 기반 기능을 제공하기 위해 사용자의 위치가 필요합니다."
           }
         },
         "zh-Hans": {
@@ -881,13 +881,13 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "MiniClaw needs the microphone for voice input and speech recognition."
+            "value": "MiniClaw は音声入力と音声認識のためにマイクを使用します。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "MiniClaw needs the microphone for voice input and speech recognition."
+            "value": "MiniClaw는 음성 입력과 음성 인식을 위해 마이크가 필요합니다."
           }
         },
         "zh-Hans": {
@@ -910,13 +910,13 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "MiniClaw needs photo library access to read and save images."
+            "value": "MiniClaw は画像の読み取りと保存のためにフォトライブラリへのアクセスを必要とします。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "MiniClaw needs photo library access to read and save images."
+            "value": "MiniClaw는 이미지를 읽고 저장하기 위해 사진 보관함 접근이 필요합니다."
           }
         },
         "zh-Hans": {
@@ -939,13 +939,13 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "MiniClaw needs Reminders access to create and manage reminders."
+            "value": "MiniClaw はリマインダーを作成・管理するためにリマインダーへのアクセスを必要とします。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "MiniClaw needs Reminders access to create and manage reminders."
+            "value": "MiniClaw는 미리 알림을 만들고 관리하기 위해 미리 알림 접근이 필요합니다."
           }
         },
         "zh-Hans": {
@@ -968,13 +968,13 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "MiniClaw needs speech recognition to convert your voice to text."
+            "value": "MiniClaw は音声をテキストに変換するために音声認識を使用します。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "MiniClaw needs speech recognition to convert your voice to text."
+            "value": "MiniClaw는 음성을 텍스트로 변환하기 위해 음성 인식이 필요합니다."
           }
         },
         "zh-Hans": {
@@ -997,13 +997,13 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "MiniClaw needs to send notifications to alert you about important information."
+            "value": "MiniClaw は重要な情報を知らせるためにお知らせを送信します。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "MiniClaw needs to send notifications to alert you about important information."
+            "value": "MiniClaw는 중요한 정보를 알리기 위해 알림을 보냅니다."
           }
         },
         "zh-Hans": {
