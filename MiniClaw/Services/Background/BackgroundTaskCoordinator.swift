@@ -12,11 +12,14 @@ import os
 /// 这是 Apple 审核红线。 用 `beginBackgroundTask` 申请宽限期，过期前优雅挂起循环、
 /// 停掉正在跑的工具，回前台用 continuation 自动续跑。
 ///
-/// ## 设计要点（按用户要求：标准 UIBackgroundTask，无 Info.plist 后台模式，零审核风险）
+/// ## 设计要点（按用户要求：标准 UIBackgroundTask，零审核风险）
 /// - `begin()`：申请一个系统后台任务（带 name「AgentLoop」），并挂过期处理器。幂等（已持有则忽略）。
 /// - 过期处理器：宽限期耗尽时把 `suspended` 置真、结束已过期任务、广播 `.didExpire` 让引擎取消当前工具
-///   （让循环在安全点干净停下）。不主动再延长——我们没有音频/定位等后台模式，无 Info.plist 模式即无法
-///   真正常驻，拖延无意义。
+///   （让循环在安全点干净停下）。不主动再延长——本 App 刻意不声明任何「可常驻」的后台模式
+///   （audio / location）：这类模式必须对应真实的持久功能，否则触发 2.5.4 拒审
+///   （`audio` 已因该原因实测被拒并在 dd8183d 移除，`location` 于 2026-08-31 一并移除）。
+///   现保留的 fetch / processing / remote-notification 均为系统调度的唤醒型模式，
+///   不能让进程常驻，故拖延无意义。
 /// - `waitIfSuspended() async`：循环在安全点调用；若已 suspended 则挂起在 continuation 上，
 ///   直到 `willEnterForegroundNotification` 复位并续跑。
 /// - 前后台通知：进后台启动「剩余时间监测定时器」（<15s 告警，留日志便于定位）；回前台复位、续跑、重新申请。
