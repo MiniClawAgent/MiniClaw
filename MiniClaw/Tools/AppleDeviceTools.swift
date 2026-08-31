@@ -59,36 +59,7 @@ struct AppleBluetoothTool: AgentTool {
 
 // MARK: - 3. apple-calendar (EventKit)
 
-struct AppleCalendarTool: AgentTool {
-    let name = "apple-calendar"
-    let schema = ToolSchema(
-        type: "function",
-        function: ToolSchema.FunctionDef(
-            name: "apple-calendar",
-            description: L10n.l("calendar_tool_desc"),
-            parameters: JSONSchema(
-                type: "object",
-                properties: [
-                    "action": JSONSchema.JSONProperty(type: "string", description: L10n.l("op_crud_actions"), enum: ["list", "create", "update", "delete"]),
-                    "title": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_event_title")),
-                    "start_date": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_start_time")),
-                    "end_date": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_end_time")),
-                    "event_id": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_event_id")),
-                    "calendar_name": JSONSchema.JSONProperty(type: "string", description: L10n.l("calendar_name")),
-                    "notes": JSONSchema.JSONProperty(type: "string", description: L10n.l("note_label")),
-                    "location": JSONSchema.JSONProperty(type: "string", description: L10n.l("place_param")),
-                    "all_day": JSONSchema.JSONProperty(type: "boolean", description: L10n.l("param_all_day")),
-                    "range_days": JSONSchema.JSONProperty(type: "integer", description: L10n.l("param_query_days")),
-                ],
-                required: ["action"]
-            )
-        )
-    )
-
-    func execute(_ parameters: [String: Any]) async throws -> ToolResult {
-        return ToolResult(success: false, text: L10n.l("not_implemented_calendar"))
-    }
-}
+// 注：apple-calendar 的真实现已迁至 CalendarTools.swift（此处占位实现已删除）。
 
 // MARK: - 4. apple-clipboard (UIKit UIPasteboard)
 

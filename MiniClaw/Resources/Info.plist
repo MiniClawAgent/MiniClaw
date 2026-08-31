@@ -17,7 +17,7 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0</string>
+	<string>$(MARKETING_VERSION)</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
@@ -30,13 +30,11 @@
 		</dict>
 	</array>
 	<key>CFBundleVersion</key>
-	<string>8</string>
+	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
-	<key>NFCReaderUsageDescription</key>
-	<string>MiniClaw 需要使用 NFC 读取标签信息。</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsLocalNetworking</key>
@@ -46,6 +44,8 @@
 	<string>MiniClaw 需要访问媒体库以播放和控制音乐。</string>
 	<key>NSBluetoothAlwaysUsageDescription</key>
 	<string>MiniClaw 需要使用蓝牙来扫描和连接附近的蓝牙设备。</string>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>MiniClaw 需要完整访问日历以读取、创建和修改您的日程事件。</string>
 	<key>NSCalendarsUsageDescription</key>
 	<string>MiniClaw 需要访问日历以管理和创建日程事件。</string>
 	<key>NSCameraUsageDescription</key>
@@ -62,8 +62,12 @@
 	<string>MiniClaw 需要使用您的位置信息来提供基于位置的服务，如天气查询和定位相关功能。</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>MiniClaw 需要使用麦克风进行语音输入和语音识别。</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>MiniClaw 需要写入权限以把图片保存到您的照片库。</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>MiniClaw 需要访问照片库以读取和保存图片。</string>
+	<key>NSRemindersFullAccessUsageDescription</key>
+	<string>MiniClaw 需要完整访问提醒事项以读取、创建和修改您的提醒。</string>
 	<key>NSRemindersUsageDescription</key>
 	<string>MiniClaw 需要访问提醒事项以创建和管理提醒。</string>
 	<key>NSSpeechRecognitionUsageDescription</key>

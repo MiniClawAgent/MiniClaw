@@ -1,10 +1,11 @@
 /* Usage descriptions (localized) */
 
-"NFCReaderUsageDescription" = "MiniClaw はタグの情報を読み取るために NFC を使用します。";
 
 "NSAppleMusicUsageDescription" = "MiniClaw は音楽を再生・操作するためにメディアライブラリへのアクセスを必要とします。";
 
 "NSBluetoothAlwaysUsageDescription" = "MiniClaw は近くの Bluetooth デバイスを検索して接続するために Bluetooth を使用します。";
+
+"NSCalendarsFullAccessUsageDescription" = "MiniClaw は予定の読み取り・作成・変更のために、カレンダーへの完全アクセスを必要とします。";
 
 "NSCalendarsUsageDescription" = "MiniClaw は予定を作成・管理するためにカレンダーへのアクセスを必要とします。";
 
@@ -22,7 +23,11 @@
 
 "NSMicrophoneUsageDescription" = "MiniClaw は音声入力と音声認識のためにマイクを使用します。";
 
+"NSPhotoLibraryAddUsageDescription" = "MiniClaw は画像をフォトライブラリに保存するために、書き込み権限を必要とします。";
+
 "NSPhotoLibraryUsageDescription" = "MiniClaw は画像の読み取りと保存のためにフォトライブラリへのアクセスを必要とします。";
+
+"NSRemindersFullAccessUsageDescription" = "MiniClaw はリマインダーの読み取り・作成・変更のために、リマインダーへの完全アクセスを必要とします。";
 
 "NSRemindersUsageDescription" = "MiniClaw はリマインダーを作成・管理するためにリマインダーへのアクセスを必要とします。";
 

@@ -118,29 +118,7 @@ struct SafariOpenTool: AgentTool {
 
 // MARK: - 15. apple-photos (Photos)
 
-struct ApplePhotosTool: AgentTool {
-    let name = "apple-photos"
-    let schema = ToolSchema(
-        type: "function",
-        function: ToolSchema.FunctionDef(
-            name: "apple-photos",
-            description: L10n.l("photos_tool_desc"),
-            parameters: JSONSchema(
-                type: "object",
-                properties: [
-                    "action": JSONSchema.JSONProperty(type: "string", description: L10n.l("op_media_actions"), enum: ["list", "save", "delete"]),
-                    "path": JSONSchema.JSONProperty(type: "string", description: L10n.l("image_path_save_param")),
-                    "limit": JSONSchema.JSONProperty(type: "integer", description: L10n.l("param_return_limit")),
-                ],
-                required: ["action"]
-            )
-        )
-    )
-
-    func execute(_ parameters: [String: Any]) async throws -> ToolResult {
-        return ToolResult(success: false, text: L10n.l("not_implemented_photos"))
-    }
-}
+// 注：apple-photos 的真实现已迁至 PhotosTools.swift（此处占位实现已删除）。
 
 // MARK: - 16. apple-player (AVFoundation)
 
@@ -170,32 +148,7 @@ struct ApplePlayerTool: AgentTool {
 
 // MARK: - 17. apple-reminders (EventKit)
 
-struct AppleRemindersTool: AgentTool {
-    let name = "apple-reminders"
-    let schema = ToolSchema(
-        type: "function",
-        function: ToolSchema.FunctionDef(
-            name: "apple-reminders",
-            description: L10n.l("reminders_tool_desc"),
-            parameters: JSONSchema(
-                type: "object",
-                properties: [
-                    "action": JSONSchema.JSONProperty(type: "string", description: L10n.l("op_todo_actions"), enum: ["list", "create", "complete", "delete"]),
-                    "title": JSONSchema.JSONProperty(type: "string", description: L10n.l("reminder_title")),
-                    "due_date": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_due_time")),
-                    "reminder_id": JSONSchema.JSONProperty(type: "string", description: L10n.l("reminder_id")),
-                    "notes": JSONSchema.JSONProperty(type: "string", description: L10n.l("note_label")),
-                    "priority": JSONSchema.JSONProperty(type: "integer", description: L10n.l("param_priority")),
-                ],
-                required: ["action"]
-            )
-        )
-    )
-
-    func execute(_ parameters: [String: Any]) async throws -> ToolResult {
-        return ToolResult(success: false, text: L10n.l("not_implemented_reminders"))
-    }
-}
+// 注：apple-reminders 的真实现已迁至 ReminderTools.swift（此处占位实现已删除）。
 
 // MARK: - 18. apple-speak (AVSpeechSynthesizer)
 

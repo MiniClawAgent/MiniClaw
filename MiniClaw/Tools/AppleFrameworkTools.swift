@@ -8,30 +8,7 @@ import UserNotifications
 
 // MARK: - 7. apple-homekit (HomeKit)
 
-struct AppleHomeKitTool: AgentTool {
-    let name = "apple-homekit"
-    let schema = ToolSchema(
-        type: "function",
-        function: ToolSchema.FunctionDef(
-            name: "apple-homekit",
-            description: L10n.l("homekit_tool_desc"),
-            parameters: JSONSchema(
-                type: "object",
-                properties: [
-                    "action": JSONSchema.JSONProperty(type: "string", description: L10n.l("op_homekit_actions"), enum: ["list", "get", "set", "control"]),
-                    "device_name": JSONSchema.JSONProperty(type: "string", description: L10n.l("device_name")),
-                    "characteristic": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_characteristic_name")),
-                    "value": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_target_value")),
-                ],
-                required: ["action"]
-            )
-        )
-    )
-
-    func execute(_ parameters: [String: Any]) async throws -> ToolResult {
-        return ToolResult(success: false, text: L10n.l("not_implemented_homekit"))
-    }
-}
+// 注：apple-homekit 的真实现已迁至 HomeKitTools.swift（此处占位实现已删除）。
 
 // MARK: - 8. apple-location (CoreLocation)
 
@@ -93,28 +70,8 @@ struct AppleMediaTool: AgentTool {
 
 // MARK: - 11. apple-nfc (CoreNFC)
 
-struct AppleNFCTool: AgentTool {
-    let name = "apple-nfc"
-    let schema = ToolSchema(
-        type: "function",
-        function: ToolSchema.FunctionDef(
-            name: "apple-nfc",
-            description: L10n.l("nfc_desc"),
-            parameters: JSONSchema(
-                type: "object",
-                properties: [
-                    "action": JSONSchema.JSONProperty(type: "string", description: L10n.l("op_nfc_actions"), enum: ["read", "write", "emv"]),
-                    "message": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_ndef_message")),
-                ],
-                required: ["action"]
-            )
-        )
-    )
-
-    func execute(_ parameters: [String: Any]) async throws -> ToolResult {
-        return ToolResult(success: false, text: L10n.l("not_implemented_nfc"))
-    }
-}
+// 注：apple-nfc 已整体移除（v1 用不上，且会额外索取 NFC 读取权限）。
+// 权限描述 `NFCReaderUsageDescription` 与 L10n 的 nfc 相关 key 一并摘除。
 
 // MARK: - 12. apple-nlp (NaturalLanguage)
 

@@ -188,6 +188,13 @@ final class ToolPluginManager {
         // 2026-08-31 新增：健康与定位。二者都是 iOS 原生能力，无法用 shell 后端表达。
         "apple-healthkit": { _ in AppleHealthKitTool() },
         "apple-location": { _ in AppleLocationTool() },
+        // 2026-08-31 新增：日历 / 提醒 / 相册 / HomeKit。
+        // 这四个原本是「有 schema、有 i18n、execute 却返回 not_implemented」的占位工具，
+        // 与本轮补齐的四个真实现同名，故删占位后在此按同名注册即可。
+        "apple-calendar": { _ in AppleCalendarTool() },
+        "apple-reminders": { _ in AppleRemindersTool() },
+        "apple-photos": { _ in ApplePhotosTool() },
+        "apple-homekit": { _ in AppleHomeKitTool() },
     ]
 
     /// 已启用插件的全部工具实例（shell 与 builtin 后端统一产出；非法项跳过并日志）。

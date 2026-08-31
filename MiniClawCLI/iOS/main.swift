@@ -19,7 +19,6 @@ let capabilities = [
     "camera": "相机（NSCameraUsageDescription）",
     "photos": "照片库（NSPhotoLibraryUsageDescription）",
     "notifications": "通知（NSUserNotificationsUsageDescription）",
-    "nfc": "NFC（NFCReaderUsageDescription）",
     "music": "Apple Music（NSAppleMusicUsageDescription）",
     "localnetwork": "本地网络（NSLocalNetworkUsageDescription）"
 ]

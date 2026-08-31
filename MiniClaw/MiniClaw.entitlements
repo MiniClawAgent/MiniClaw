@@ -6,5 +6,9 @@
 	<string>development</string>
 	<key>com.apple.developer.healthkit</key>
 	<true/>
+	<!-- HomeKit：apple-homekit 工具读写配件与场景所必需。
+	     需在 Apple 开发者后台为 App ID 勾选 HomeKit capability 并重生成 profile 后才能真机签名通过。 -->
+	<key>com.apple.developer.homekit</key>
+	<true/>
 </dict>
 </plist>

@@ -8,6 +8,11 @@ options:
 
 settings:
   base:
+    # 2026-08-31:版本号唯一真相源。此前主 App / Widget / ShareExtension 各自硬编码
+    # 8 / 5 / 1，扩展与宿主不一致会在上传校验阶段直接报错。三份 Info.plist 现统一
+    # 填 $(CURRENT_PROJECT_VERSION) / $(MARKETING_VERSION)，发版只改这里。
+    CURRENT_PROJECT_VERSION: "8"
+    MARKETING_VERSION: "1.0"
     SWIFT_VERSION: "6.0"
     SWIFT_OBJC_BRIDGING_HEADER: "MiniClaw/MiniClaw-Bridging-Header.h"
     ALWAYS_SEARCH_USER_PATHS: NO
@@ -188,8 +193,8 @@ targets:
         DYLIB_INSTALL_NAME_BASE: "@rpath"
         DEFINES_MODULE: YES
         GENERATE_INFOPLIST_FILE: YES
-        CURRENT_PROJECT_VERSION: 1
-        MARKETING_VERSION: 1.0
+        # CURRENT_PROJECT_VERSION / MARKETING_VERSION 不再在此覆盖——
+        # 一律继承顶层 settings.base，避免版本号出现第二处真相源。
         SWIFT_OBJC_BRIDGING_HEADER: ""
         HEADER_SEARCH_PATHS:
           - "$(SRCROOT)/../Kit/swift-cmark/src/include"
