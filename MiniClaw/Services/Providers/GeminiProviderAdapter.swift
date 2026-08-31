@@ -242,7 +242,8 @@ final class GeminiProviderAdapter: LLMProviderAdapter, @unchecked Sendable {
             safetySettings: safety,
             generationConfig: genConfig
         )
-        return (try? JSONEncoder().encode(req)) ?? Data()
+        // .sortedKeys:请求体字节逐轮可复现是前缀缓存命中的硬前提（详见 OpenAIProviderAdapter.cacheStableEncoder）。
+        return (try? OpenAIProviderAdapter.cacheStableEncoder.encode(req)) ?? Data()
     }
 
     // MARK: - 错误分类

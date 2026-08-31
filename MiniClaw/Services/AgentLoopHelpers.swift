@@ -120,6 +120,14 @@ struct CachePrefixFingerprint: Equatable {
         String(SHA256.hash(data: Data(s.utf8)).prefix(4).map { String(format: "%02x", $0) }.joined())
     }
 
+    /// 键序确定编码器：与请求体序列化（OpenAIProviderAdapter.cacheStableEncoder）同口径，
+    /// 保证指纹只反映内容差异、不掺入 Foundation 字典键序抖动。
+    private static let hashEncoder: JSONEncoder = {
+        let enc = JSONEncoder()
+        enc.outputFormatting = [.sortedKeys]
+        return enc
+    }()
+
     init(messages: [ChatCompletionMessage], tools: [ToolSchema]?) {
         var sysParts: [String] = []
         var histHashes: [String] = []
@@ -138,10 +146,10 @@ struct CachePrefixFingerprint: Equatable {
         system = Self.shortHash(sysParts.joined(separator: "\n"))
         if let tools, !tools.isEmpty {
             for t in tools {
-                let data = (try? JSONEncoder().encode(t)) ?? Data()
+                let data = (try? Self.hashEncoder.encode(t)) ?? Data()
                 perTool[t.function.name] = Self.shortHash(String(decoding: data, as: UTF8.self))
             }
-            toolsHash = Self.shortHash(String(decoding: (try? JSONEncoder().encode(tools)) ?? Data(), as: UTF8.self))
+            toolsHash = Self.shortHash(String(decoding: (try? Self.hashEncoder.encode(tools)) ?? Data(), as: UTF8.self))
         } else {
             toolsHash = "none"
         }

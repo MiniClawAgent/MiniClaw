@@ -129,7 +129,8 @@ final class GeminiStreamDelegate: NSObject, URLSessionDataDelegate, @unchecked S
                     meaningfulOutput = true
                     let argsString: String
                     if let args = fc.args {
-                        argsString = (try? JSONEncoder().encode(args)).flatMap { String(data: $0, encoding: .utf8) } ?? "{}"
+                        // .sortedKeys:工具参数 JSON 会随消息历史回灌请求,键序必须逐轮一致（缓存前提）。
+                        argsString = (try? OpenAIProviderAdapter.cacheStableEncoder.encode(args)).flatMap { String(data: $0, encoding: .utf8) } ?? "{}"
                     } else {
                         argsString = "{}"
                     }

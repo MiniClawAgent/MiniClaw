@@ -254,7 +254,10 @@ class OpenAIProviderAdapter: LLMProviderAdapter, @unchecked Sendable {
             parallelToolCalls: adjusted.parallelToolCalls
         )
         // 编码失败场景:调用方收到空 body 会直接失败;此处尽力而为。
-        guard let jsonData = try? JSONEncoder().encode(cc),
+        // 2026-08-31 .sortedKeys:Swift JSONEncoder/JSONSerialization 默认不排字典键,
+        // 同一 schema 多次编码键序会漂移 → 服务端按原始字节做前缀匹配,tools 段每轮
+        // miss(真机日志实锤:8176tok 工具目录命中率为零)。键序确定化是缓存命中的前提。
+        guard let jsonData = try? Self.cacheStableEncoder.encode(cc),
               var dict = (try? JSONSerialization.jsonObject(with: jsonData)) as? [String: Any] else {
             return Data()
         }
@@ -262,8 +265,15 @@ class OpenAIProviderAdapter: LLMProviderAdapter, @unchecked Sendable {
         if let extra = extraBodyFields(request: adjusted) {
             for (k, v) in extra { dict[k] = v }
         }
-        return (try? JSONSerialization.data(withJSONObject: dict)) ?? Data()
+        return (try? JSONSerialization.data(withJSONObject: dict, options: [.sortedKeys])) ?? Data()
     }
+
+    /// 键序确定的编码器:请求体字节逐轮可复现是提示词前缀缓存的硬前提。
+    static let cacheStableEncoder: JSONEncoder = {
+        let enc = JSONEncoder()
+        enc.outputFormatting = [.sortedKeys]
+        return enc
+    }()
 
     private func buildResponsesBody(request: LLMStreamRequest) -> Data {
         let messages = resolveVolatile(request.messages)
@@ -325,7 +335,7 @@ class OpenAIProviderAdapter: LLMProviderAdapter, @unchecked Sendable {
                 effort == "none" && !config.providerType.supportsReasoningNone ? nil : ResponsesRequest.Reasoning(effort: effort)
             } ?? nil
         )
-        return (try? JSONEncoder().encode(req)) ?? Data()
+        return (try? Self.cacheStableEncoder.encode(req)) ?? Data()
     }
 
     /// 把 system/developer 消息上的 volatileSuffix 从 system 剥离,追加为消息流末尾的独立 user 消息。
