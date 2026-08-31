@@ -35,6 +35,9 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
     private var activeEndpointIndex: Int = 0
     /// 循环迭代计数（熔断 / 安全阀延续）。
     private var iterations: Int = 0
+
+    /// 本次 run 内的模型调用序号（缓存诊断日志用）。
+    private var modelCallSeq: Int = 0
     /// 失败工具调用连续计数（熔断用，恢复时重置）。
     private var failedToolCallCounts: [String: Int] = [:]
     /// 连续无效工具调用轮数（熔断用）。
@@ -561,6 +564,20 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
                     providerType: endpoint.providerType
                 )
                 let requestMessages = limitMessages(messages, endpoint: endpoint)
+                // 2026-08-31 缓存命中诊断：对实际发出的请求计算前缀指纹并与上一轮对比。
+                // sys/tools 任一哈希变化 = 前缀在历史之前就断了；hist 首差异定位到具体消息。
+                // 指纹存 AgentRunService 单例（引擎每轮重建，跨轮对比必须跨实例存活）。
+                modelCallSeq += 1
+                let cacheFP = CachePrefixFingerprint(messages: requestMessages, tools: tools)
+                let cacheSessionKey = (sessionID.map { String($0.uuidString.prefix(8)) } ?? "anon") + (isSubagentEngine ? "-sub" : "")
+                let cacheDiff = await MainActor.run {
+                    AgentRunService.shared.recordCachePrefixFingerprint(sessionKey: cacheSessionKey, cacheFP)
+                }
+                let cacheBD = ContextUsageEstimator.breakdown(messages: requestMessages, tools: tools)
+                AppLogger.shared.info(
+                    "[Cache指纹] #\(modelCallSeq) \(endpoint.modelName) sys=\(cacheFP.system)/约\(cacheBD.system)tok tools=\(cacheFP.toolsHash)/约\(cacheBD.tools)tok hist=\(cacheFP.history.count)条/约\(cacheBD.history)tok 对比上轮:\(cacheDiff)",
+                    category: "Cache", subsystem: "Context"
+                )
                 // 重试瞬时网络错误（退后台 / 网络抖动导致连接中断、超时、空响应）。
                 // 仅当本轮「尚未产生任何输出」时重试，避免把半截内容重复拼接给用户。
                 var capturedUsage: (input: Int, output: Int, cachedRead: Int, cachedWrite: Int)? = nil
@@ -718,6 +735,15 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
                         outputTokens = usage.output
                         cachedReadTokens = usage.cachedRead
                         cachedWriteTokens = usage.cachedWrite
+                        // 2026-08-31 缓存命中诊断：与 [Cache指纹] 日志配对使用——
+                        // 指纹告诉你前缀哪段变了，命中量告诉你服务商实际复用了多少。
+                        if usage.input > 0 {
+                            let hitPct = String(format: "%.1f", Double(usage.cachedRead) / Double(usage.input) * 100)
+                            AppLogger.shared.info(
+                                "[Cache命中] #\(modelCallSeq) \(endpoint.modelName) prompt=\(usage.input) 命中=\(usage.cachedRead)(\(hitPct)%) 写入=\(usage.cachedWrite)",
+                                category: "Cache", subsystem: "Context"
+                            )
+                        }
                         // 真值优先：服务商回传的 prompt_tokens 就是本次请求的真实上下文占用。
                         // 用它校准本地估算器，并直接驱动 UI 占用（measured=true）。
                         if usage.input > 0 {

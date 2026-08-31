@@ -589,6 +589,21 @@ final class AgentRunService {
     /// 上限 20 个会话，超出删最旧（字典无序，用首元素近似淘汰，量小无碍）。
     private var stablePromptCache: [UUID: String] = [:]
 
+    // MARK: - 缓存前缀指纹（2026-08-31 诊断）
+
+    /// 按会话记录上一轮请求的前缀指纹。引擎实例每轮重建，指纹必须存在跨轮存活的
+    /// AgentRunService 单例上；主会话与子代理（各自 sessionID）互不干扰。
+    /// 本类为 @MainActor，字典读写天然串行（引擎侧经 MainActor.run 调用）。
+    private var cachePrefixFingerprints: [String: CachePrefixFingerprint] = [:]
+
+    /// 记录本轮指纹并返回与上一轮的差异描述（"first" = 该会话首轮无参照）。
+    func recordCachePrefixFingerprint(sessionKey: String, _ fp: CachePrefixFingerprint) -> String {
+        let last = cachePrefixFingerprints[sessionKey]
+        cachePrefixFingerprints[sessionKey] = fp
+        guard let last else { return "first" }
+        return fp.diffDescription(against: last)
+    }
+
     func buildSystemPromptCached(with toolRouter: ToolRouter, extraSkillName: String? = nil, sessionID: UUID) async -> (stable: String, volatile: String) {
         if extraSkillName == nil, let stable = stablePromptCache[sessionID] {
             let (_, volatile) = await buildSystemPrompt(with: toolRouter, sessionID: sessionID)

@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 
 /// Agent 循环引擎的纯逻辑工具（2026-08 提取：与引擎实例状态解耦，可独立单测）。
@@ -99,5 +100,60 @@ enum AgentLoopHelpers {
         // 余数并入结构开销，保证总和精确等于 target。
         scaled.overhead = max(0, target - (scaled.system + scaled.tools + scaled.history + scaled.current + scaled.media))
         return scaled
+    }
+}
+
+/// 缓存前缀指纹（2026-08-31 诊断）：对实际发出的请求按「system 段 / 工具 schema /
+/// 逐条历史消息」分别取 SHA256 前 8 位 hex 指纹，跨轮对比即可定位服务端前缀缓存
+/// 从哪一段开始失效——system 或 tools 哈希变化意味着前缀在历史之前就断了；
+/// history 首差异位置指明历史内第几条消息开始变化。
+/// 注意：最后一条 user 消息（本轮新输入）不计入 history——它每轮必然不同，
+/// 属设计内的尾部增量。volatileSuffix 是独立字段，不参与指纹。
+struct CachePrefixFingerprint: Equatable {
+    let system: String
+    let toolsHash: String
+    let history: [String]
+
+    static func shortHash(_ s: String) -> String {
+        String(SHA256.hash(data: Data(s.utf8)).prefix(4).map { String(format: "%02x", $0) }.joined())
+    }
+
+    init(messages: [ChatCompletionMessage], tools: [ToolSchema]?) {
+        var sysParts: [String] = []
+        var histHashes: [String] = []
+        let lastUserIdx = messages.lastIndex { $0.role == "user" }
+        for (i, m) in messages.enumerated() {
+            let text = m.content?.asText ?? ""
+            let calls = (m.toolCalls ?? []).map { $0.function.name + ":" + $0.function.arguments }.joined(separator: ",")
+            let line = "\(m.role)|\(text)|\(calls)|\(m.reasoningContent ?? "")"
+            if m.role == "system" || m.role == "developer" {
+                sysParts.append(line)
+            } else if i != lastUserIdx {
+                histHashes.append(Self.shortHash(line))
+            }
+        }
+        system = Self.shortHash(sysParts.joined(separator: "\n"))
+        if let tools, !tools.isEmpty {
+            let data = (try? JSONEncoder().encode(tools)) ?? Data()
+            toolsHash = Self.shortHash(String(decoding: data, as: UTF8.self))
+        } else {
+            toolsHash = "none"
+        }
+        history = histHashes
+    }
+
+    /// 与上一轮指纹对比，产出人读差异描述（first = 首轮无参照）。
+    func diffDescription(against last: CachePrefixFingerprint) -> String {
+        var diffs: [String] = []
+        if last.system != system { diffs.append("sys变") }
+        if last.toolsHash != toolsHash { diffs.append("tools变") }
+        let common = min(last.history.count, history.count)
+        let firstDiffIdx = (0..<common).first { last.history[$0] != history[$0] }
+        if let idx = firstDiffIdx {
+            diffs.append("hist第\(idx + 1)条起变(旧\(last.history.count)/新\(history.count)条)")
+        } else if last.history.count != history.count {
+            diffs.append("hist前\(common)条同,新增\(history.count - last.history.count)条")
+        }
+        return diffs.isEmpty ? "完全相同" : diffs.joined(separator: ",")
     }
 }
