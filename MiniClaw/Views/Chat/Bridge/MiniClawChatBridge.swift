@@ -55,8 +55,12 @@ final class MiniClawChatBridge: ObservableObject {
         // 2026-08-12:浏览器接管内容注入主工程 BrowserView(照原版机制,
         // 由 ToolLiveSheet 二级 sheet 呈现,稳定弹出;池与会话级池同一对象,标签同步)。
         vm.browserContentProvider = { url in
+            // 2026-09-01：工具卡片改为独立 UIWindow 呈现——窗口视图树中没有
+            // environmentObject 继承链，BrowserView 依赖 AppState（@EnvironmentObject），
+            // 必须在此显式注入（原 sheet 链路同样缺失，只是从未被点到）。
             AnyView(BrowserView(startURL: url)
-                .presentationDetents([.large]))
+                .presentationDetents([.large])
+                .environmentObject(AppState.shared))
         }
         // 重进会话:清空对象缓存 + 重置指纹,强制从磁盘重建 blocks
         // (buildBlocks 按 timelineOrder 正确排序)。否则 bridgeCache 复用流式期间

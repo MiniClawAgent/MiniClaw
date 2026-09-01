@@ -55,7 +55,9 @@ struct ToolCardOverlay: View {
                                 toolSnapshots: toolSnapshots,
                                 browserPool: browserPool,
                                 browserContentProvider: browserContentProvider,
-                                onClose: onClose,
+                                // 关闭按钮与卡外点按走同一动画路径（close() 先播
+                                // 下沉淡出，再触发 onClose 隐藏窗口）。
+                                onClose: { close() },
                                 hidesSwitchRow: true,
                                 cardSurface: true
                             )
