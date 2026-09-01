@@ -3,8 +3,6 @@
 
 "NSAppleMusicUsageDescription" = "MiniClaw は音楽を再生・操作するためにメディアライブラリへのアクセスを必要とします。";
 
-"NSBluetoothAlwaysUsageDescription" = "MiniClaw は近くの Bluetooth デバイスを検索して接続するために Bluetooth を使用します。";
-
 "NSCalendarsFullAccessUsageDescription" = "MiniClaw は予定の読み取り・作成・変更のために、カレンダーへの完全アクセスを必要とします。";
 
 "NSCalendarsUsageDescription" = "MiniClaw は予定を作成・管理するためにカレンダーへのアクセスを必要とします。";

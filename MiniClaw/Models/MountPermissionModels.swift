@@ -16,11 +16,13 @@ struct MountPoint: Identifiable, Codable {
 }
 
 /// 权限配置
+///
+/// 注：bluetooth / nfc 两个字段已删除——其对应的能力（apple-bluetooth、NFC）都已移除，
+/// 留着只会让 AI 通过 `miniclaw_config` 去读写一个永远不会被更新的状态。
 struct PermissionConfig: Codable {
     /// 是否允许 miniclaw-config（Agent Tool / CLI）写入配置 — 对齐 spec 9.2.9 / 9.5
     var miniclawConfigWrite: Bool = false
     var location: PermissionState = .notDetermined
-    var bluetooth: PermissionState = .notDetermined
     var microphone: PermissionState = .notDetermined
     var speechRecognition: PermissionState = .notDetermined
     var camera: PermissionState = .notDetermined
@@ -30,7 +32,6 @@ struct PermissionConfig: Codable {
     var reminders: PermissionState = .notDetermined
     var healthKit: PermissionState = .notDetermined
     var homeKit: PermissionState = .notDetermined
-    var nfc: PermissionState = .notDetermined
     var localNetwork: PermissionState = .notDetermined
     /// 蜂窝数据访问状态（读取自 CTCellularData；iOS 无公网联网授权弹窗，
     /// 此项反映用户在「设置 → 蜂窝网络」中对本 app 的开关）

@@ -3,8 +3,6 @@
 
 "NSAppleMusicUsageDescription" = "MiniClaw needs media library access to play and control music.";
 
-"NSBluetoothAlwaysUsageDescription" = "MiniClaw needs Bluetooth to scan and connect nearby Bluetooth devices.";
-
 "NSCalendarsFullAccessUsageDescription" = "MiniClaw needs full calendar access to read, create, and modify your events.";
 
 "NSCalendarsUsageDescription" = "MiniClaw needs calendar access to manage and create events.";

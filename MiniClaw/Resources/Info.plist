@@ -42,8 +42,6 @@
 	</dict>
 	<key>NSAppleMusicUsageDescription</key>
 	<string>MiniClaw 需要访问媒体库以播放和控制音乐。</string>
-	<key>NSBluetoothAlwaysUsageDescription</key>
-	<string>MiniClaw 需要使用蓝牙来扫描和连接附近的蓝牙设备。</string>
 	<key>NSCalendarsFullAccessUsageDescription</key>
 	<string>MiniClaw 需要完整访问日历以读取、创建和修改您的日程事件。</string>
 	<key>NSCalendarsUsageDescription</key>

@@ -550,35 +550,6 @@
         }
       }
     },
-    "NFC": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "NFC"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "NFC"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "NFC"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "NFC"
-          }
-        }
-      }
-    },
     "NSAppleMusicUsageDescription": {
       "extractionState": "manual",
       "localizations": {
@@ -604,35 +575,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "MiniClaw 需要访问媒体库以播放和控制音乐。"
-          }
-        }
-      }
-    },
-    "NSBluetoothAlwaysUsageDescription": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "MiniClaw needs Bluetooth to scan and connect nearby Bluetooth devices."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "MiniClaw は近くの Bluetooth デバイスを検索して接続するために Bluetooth を使用します。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "MiniClaw는 주변 Bluetooth 기기를 검색하고 연결하기 위해 Bluetooth가 필요합니다."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "MiniClaw 需要使用蓝牙来扫描和连接附近的蓝牙设备。"
           }
         }
       }
@@ -6433,64 +6375,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "拦截弹窗"
-          }
-        }
-      }
-    },
-    "bluetooth": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Bluetooth"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Bluetooth"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "블루투스"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "蓝牙"
-          }
-        }
-      }
-    },
-    "bluetooth_permission": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Bluetooth permission"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "蓝牙权限"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Bluetooth 権限"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "블루투스 권한"
           }
         }
       }
@@ -33925,64 +33809,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "새 작업: %@"
-          }
-        }
-      }
-    },
-    "nfc": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "NFC"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "NFC"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "NFC"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "NFC"
-          }
-        }
-      }
-    },
-    "nfc_permission": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "NFC permission"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "NFC 权限"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "NFC 権限"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "NFC 권한"
           }
         }
       }

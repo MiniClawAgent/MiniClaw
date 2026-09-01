@@ -467,7 +467,6 @@ struct ConfigTool: AgentTool {
         "permissions": [
             ("miniclawConfigWrite", "bool", L10n.l("allow_config_write")),
             ("location", "enum", L10n.l("location_permission")),
-            ("bluetooth", "enum", L10n.l("bluetooth_permission")),
             ("microphone", "enum", L10n.l("microphone_permission")),
             ("speechRecognition", "enum", L10n.l("speech_recognition_permission")),
             ("camera", "enum", L10n.l("camera_permission")),
@@ -477,7 +476,6 @@ struct ConfigTool: AgentTool {
             ("reminders", "enum", L10n.l("reminder_permission")),
             ("healthKit", "enum", L10n.l("health_permission")),
             ("homeKit", "enum", L10n.l("homekit_permission")),
-            ("nfc", "enum", L10n.l("nfc_permission")),
             ("localNetwork", "enum", L10n.l("local_network_permission")),
         ],
         "defaults": [
