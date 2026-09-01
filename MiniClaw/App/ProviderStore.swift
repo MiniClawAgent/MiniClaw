@@ -137,7 +137,7 @@ enum ProviderFileStore {
         return c
     }
 
-    /// 按厂商适配器内置目录(权威来源)与名称启发式重新校正每个模型的模态开关。
+    /// 按 model 插件声明的模型能力目录(唯一事实来源)重新校正每个模型的模态开关;
     /// [ModelEntry] 直接校正 modelEntries 里的 baseModel（API 报告值）。
     private static func reconcileModelModalities(_ container: ProvidersContainer) -> ProvidersContainer {
         var c = container
