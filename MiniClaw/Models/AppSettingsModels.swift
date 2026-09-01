@@ -38,6 +38,9 @@ struct DefaultSettings: Codable, Equatable {
     /// 默认关闭：写入会直接改动用户的健康记录，属高副作用，需要用户显式表达意图。
     /// 删除虽受 HealthKit 限制「只能删本 App 写入的样本」，仍由同一开关守卫。
     var healthWriteEnabled: Bool = false
+    /// AI 安装插件（miniclaw_plugin 的 install）前是否需要用户确认。
+    /// 默认开启：AI 安装插件 = 改变自身能力集，弹窗过一道人审；关闭则直接安装。
+    var aiPluginInstallRequiresConfirmation: Bool = true
 
     /// 全默认构造：自定义 `init(from:)` 会挤掉自动生成的无参 init，必须显式补回
     /// （与 `AppSettings.init()` 同一处坑）。
@@ -54,6 +57,7 @@ struct DefaultSettings: Codable, Equatable {
         defaultLanguage = try c.decodeIfPresent(String.self, forKey: .defaultLanguage) ?? "auto"
         confirmBeforeToolCall = try c.decodeIfPresent(Bool.self, forKey: .confirmBeforeToolCall) ?? false
         healthWriteEnabled = try c.decodeIfPresent(Bool.self, forKey: .healthWriteEnabled) ?? false
+        aiPluginInstallRequiresConfirmation = try c.decodeIfPresent(Bool.self, forKey: .aiPluginInstallRequiresConfirmation) ?? true
     }
 }
 

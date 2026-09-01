@@ -12,10 +12,12 @@ struct GeneralSettingsView: View {
         Form {
             Section {
                 Toggle(L10n.l("confirm_before_tool_calls"), isOn: $defaults.confirmBeforeToolCall)
+                Toggle(L10n.l("ai_plugin_install_requires_confirmation"), isOn: $defaults.aiPluginInstallRequiresConfirmation)
             } header: {
                 Text(L10n.l("default_behavior"))
             } footer: {
-                Text(L10n.l("when_enabled_the_agent_will_ask_for_your_confirmation_before_each_tool_call_file_browser_shell_etc"))
+                Text(L10n.l("when_enabled_the_agent_will_ask_for_your_confirmation_before_each_tool_call_file_browser_shell_etc")
+                     + "\n" + L10n.l("ai_plugin_install_requires_confirmation_footer"))
             }
 
             // 健康写入总闸：write / delete 执行前检查（apple-healthkit）。

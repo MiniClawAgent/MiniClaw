@@ -51,6 +51,8 @@ final class AgentRunService {
         toolRouter.register(SkillLoadTool(currentSessionID: sessionID))
         // 4.5 子代理结果分页读取（dispatch_subagent 只回有界预览，本工具读完整回答）
         toolRouter.register(ReadSubagentResultTool(currentSessionID: sessionID))
+        // 4.5b 插件管理（AI 自主安装/启停；install 受通用页确认开关守卫）
+        toolRouter.register(PluginTool(currentSessionID: sessionID))
         // 4.6 tool 类型插件（Stage-6a/6b）：已启用插件的工具统一注册。
         // shell 后端 = 声明式脚本工具；builtin 后端 = 内置系统能力类工具的插件化声明
         // （memory/Apple 系/config/model-use——Swift 执行，包承载归属与启停）。

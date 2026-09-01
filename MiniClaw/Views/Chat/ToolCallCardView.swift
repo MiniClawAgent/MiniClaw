@@ -132,6 +132,7 @@ struct ToolCallCardView: View {
         case "miniclaw_config": return ("gearshape", L10n.l("configuration_management"))
         case "sessions_cli": return ("bubble.left.and.bubble.right", L10n.l("session_management"))
         case "miniclaw-debug": return ("ladybug", L10n.l("debug_info"))
+        case "miniclaw_plugin": return ("puzzlepiece.extension", L10n.l("plugin_management"))
         default: return ("wrench.and.screwdriver", name.replacingOccurrences(of: "_", with: " "))
         }
     }
@@ -164,6 +165,7 @@ struct ToolCallCardView: View {
         case "miniclaw_config": return "gearshape"
         case "sessions_cli": return ("bubble.left.and.bubble.right")
         case "miniclaw-debug": return "ladybug"
+        case "miniclaw_plugin": return "puzzlepiece.extension"
         default: return "wrench.and.screwdriver"
         }
     }
