@@ -174,8 +174,9 @@ struct AppleSpeakTool: AgentTool {
 
 // MARK: - 20. apple-vision (Vision)
 
-// 注：apple-vision 已移除——其能力已被已注册的 `vision_analyze`（MediaTools.swift）
-// 完全覆盖，留着只会让模型看到两个功能重复的工具。
+// 注：apple-vision 的真实现就在 MediaTools.swift 的 `VisionAnalyzeTool`（原名
+// vision_analyze，统一到 apple- 前缀族后更名并迁入 builtinFactories），
+// 此处不再保留任何占位——避免模型看到两个功能重复的工具。
 
 // MARK: - 21. apple-weather (WeatherKit)
 

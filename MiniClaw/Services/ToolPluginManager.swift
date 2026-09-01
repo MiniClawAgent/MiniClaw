@@ -200,6 +200,12 @@ final class ToolPluginManager {
         "apple-maps": { _ in AppleMapsTool() },
         "apple-media": { _ in AppleMediaTool() },
         "apple-speech": { _ in AppleSpeechTool() },
+        // 2026-09-01 新增：图片读取 / 端侧视觉分析。
+        // 二者原名 read_image / vision_analyze，从 AgentRunService 的 toolRouter 迁来——
+        // 归入 `apple-` 前缀族后应出现在插件列表。它们需要 sessionID 解析会话隔离路径，
+        // 工厂闭包的入参就是 sessionID，故直接透传即可。
+        "apple-image": { ReadImageTool(currentSessionID: $0) },
+        "apple-vision": { VisionAnalyzeTool(currentSessionID: $0) },
     ]
 
     /// 已启用插件的全部工具实例（shell 与 builtin 后端统一产出；非法项跳过并日志）。

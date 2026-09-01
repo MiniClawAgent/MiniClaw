@@ -36,8 +36,9 @@ final class AgentRunService {
         toolRouter.register(ListDirTool(currentSessionID: sessionID))
         toolRouter.register(FileWriteTool(currentSessionID: sessionID))
         toolRouter.register(FileEditTool(currentSessionID: sessionID))
-        toolRouter.register(ReadImageTool(currentSessionID: sessionID))
-        toolRouter.register(VisionAnalyzeTool(currentSessionID: sessionID))
+        // 注：`apple-image` / `apple-vision` 原在此注册，已迁至 ToolPluginManager 的
+        // builtinFactories——归入 `apple-` 前缀族后应出现在插件列表并受插件开关控制。
+        // 工厂闭包可接收 sessionID，会话隔离路径解析能力不受影响。
         toolRouter.register(ReadDocumentTool(currentSessionID: sessionID))
         toolRouter.register(ShellExecuteTool(currentSessionID: sessionID))
         toolRouter.register(BrowserTool(currentSessionID: sessionID))

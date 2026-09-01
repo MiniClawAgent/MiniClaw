@@ -2,15 +2,19 @@ import Foundation
 import UIKit
 import PDFKit
 
+/// 读取图片并以 base64 返回，供支持原生视觉输入的模型直接「看图」。
+///
+/// 工具名归 `apple-` 前缀族：与 `apple-vision` 同为本文件的图片能力，
+/// 都走 Apple 框架（UIKit / Vision）。会话 ID 用于解析会话隔离路径。
 struct ReadImageTool: AgentTool {
-    let name = "read_image"
+    let name = "apple-image"
     /// 当前会话 ID：注入后读取的图片走本会话的隔离命名空间。
     let currentSessionID: UUID?
     let schema = ToolSchema(
         type: "function",
         function: ToolSchema.FunctionDef(
-            name: "read_image",
-            description: L10n.l("read_image_tool_desc"),
+            name: "apple-image",
+            description: L10n.l("apple_image_tool_desc"),
             parameters: JSONSchema(
                 type: "object",
                 properties: [
@@ -60,19 +64,22 @@ struct ReadImageTool: AgentTool {
     }
 }
 
-// MARK: - Vision Analyze Tool (Apple Vision Framework)
+// MARK: - Apple Vision Tool (Vision Framework)
 
 /// 使用 Apple 本地 Vision 框架分析图片，返回场景分类、OCR 文字、人脸检测结果。
 /// 适用于**所有模型**——即使是不支持原生视觉输入的文本模型（如 DeepSeek），
 /// 也可以通过此工具"看到"图片内容。这是 MiniClaw 的核心视觉能力工具。
+///
+/// 原名 `vision_analyze`：改用 `apple-` 前缀族命名，与其余 Apple 框架能力一致，
+/// 并随之迁进 `builtinFactories`（工具会出现在插件列表，可受插件开关控制）。
 struct VisionAnalyzeTool: AgentTool {
-    let name = "vision_analyze"
+    let name = "apple-vision"
     let currentSessionID: UUID?
     let schema = ToolSchema(
         type: "function",
         function: ToolSchema.FunctionDef(
-            name: "vision_analyze",
-            description: L10n.l("vision_analyze_tool_desc"),
+            name: "apple-vision",
+            description: L10n.l("apple_vision_tool_desc"),
             parameters: JSONSchema(
                 type: "object",
                 properties: [

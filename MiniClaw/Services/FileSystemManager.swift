@@ -759,7 +759,7 @@ final class FileSystemManager: @unchecked Sendable {
     }
 
     /// 将浏览器工具（screenshot/fetch）返回的 `miniclaw://browser/xxx` 内部链接
-    /// 归一化为 `/var/MiniClaw/...` 绝对路径，使其能被 read_image / vision_analyze /
+    /// 归一化为 `/var/MiniClaw/...` 绝对路径，使其能被 apple-image / apple-vision /
     /// read_document 等文件工具直接消费（二者协议不互通是此前的 bug 来源）。
     /// 非 miniclaw:// 路径原样返回。
     static func normalizeMiniClawURL(_ path: String) -> String {

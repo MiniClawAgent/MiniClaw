@@ -217,7 +217,7 @@ final class BrowserController: NSObject, ObservableObject {
         let result = try await pool.execute(action: input, singleTab: false)
         // 2026-08-12 治本:引擎截图写 tmp/browser_screenshots/(临时目录,Agent 在会话 browser/
         // 找不到文件),fetch 数据更只在内存——此处把引擎产物落盘到会话 browser/ 目录并返回
-        // miniclaw://browser/<file> 链接,与旧实现协议一致(AI 可用 read_image/list_dir 访问)。
+        // miniclaw://browser/<file> 链接,与旧实现协议一致(AI 可用 apple-image/list_dir 访问)。
         if input.action == .screenshot, let filePath = result.imageFilePath {
             return try await persistEngineArtifact(filePath: filePath, sessionID: sessionID, fallbackText: result.text)
         }

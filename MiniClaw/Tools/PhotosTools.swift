@@ -34,7 +34,7 @@ private enum PhotoPayload: Sendable {
 /// 照片」时，AI 需要有能力自己翻。
 ///
 /// ## 关键设计：`get` 导出为沙盒内 JPEG
-/// PhotoKit 的 `PHAsset` 只是一个句柄，AI（以及 `vision_analyze` / `read_image` 等工具）
+/// PhotoKit 的 `PHAsset` 只是一个句柄，AI（以及 `apple-vision` / `apple-image` 等工具）
 /// 读不了。`get` 把目标照片落盘到 `attachmentsDir/photos/`，返回路径，后续交给既有工具处理。
 /// HEIC/HEIF 会转成 JPEG——多数图像管线对 JPEG 的支持最稳。
 ///

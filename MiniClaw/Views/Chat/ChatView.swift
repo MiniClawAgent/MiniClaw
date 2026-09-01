@@ -472,7 +472,7 @@ struct ChatView: View {
     /// 把用户选中的附件迁入当前会话的 `attachments/` 目录，返回会话相对路径（"attachments/<name>"）。
     /// - 直接沿用选图/选文件时**已生成的文件名**（自带 UUID 前缀、保证不重名），把共享
     ///   `attachments/` 里的副本**移动**进会话目录，**不再二次重命名**。
-    ///   这样 hint 注入的名字、磁盘落盘的名字、工具（vision_analyze / read_image / read_document）
+    ///   这样 hint 注入的名字、磁盘落盘的名字、工具（apple-vision / apple-image / read_document）
     ///   解析的名字三方完全一致，避免「路径对、文件名对不上」导致工具调用失败。
     /// - 会话目录由 SessionFileRouter 管理，删除会话时整个目录树（含 attachments）一并清理；
     /// - 移动失败回退为「复制 + 沿用原名」，仍失败则回退为该附件的原始绝对路径（向后兼容旧数据展示）。
@@ -1279,14 +1279,14 @@ struct ChatView: View {
               let firstEndpoint = routingPlan.endpoints.first else { return }
 
         // 按首选端点的输入模态能力过滤附件：不支持的模态不进请求体，并提示用户。
-        // 被模型原生模态拒收的附件（含图片——图片改由 vision_analyze 工具兜底读取）
+        // 被模型原生模态拒收的附件（含图片——图片改由 apple-vision 工具兜底读取）
         // 统一在输入栏上方弹一条提示，用户可点按关闭。
         let (allowedAttachments, droppedNames, droppedPaths) = AgentRunService.filterAttachments(attachments, endpoint: firstEndpoint)
         showAttachmentNotice(droppedNames: droppedNames)
 
         // 对于因模型不支持而被丢弃的附件，在用户消息中注入路径提示，
         // 让 智能体自行通过工具读取（模仿端侧「让 智能体自己找工具读文件」的模式）：
-        // - 图片 → vision_analyze 工具（Apple Vision 端侧分析）
+        // - 图片 → apple-vision 工具（Apple Vision 端侧分析）
         // - 其它文件 → read_document 工具（txt/md/json/pdf 等）
         // 路径统一用 /var/MiniClaw/... 形式，与文件工具的 resolveAgentPath 约定一致，
         // 否则工具会因路径前缀不对而读取失败。

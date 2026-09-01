@@ -106,7 +106,7 @@ extension AgentRunService {
         ```
 
         目录写入策略：
-        - attachments/、workspace/、offloads/、browser/ 为**当前会话独享**（每个会话独立命名空间，互不可见）；Agent 的 file_write/file_edit/file_read/list_dir/read_image 与 Shell 命令均落在本会话目录下
+        - attachments/、workspace/、offloads/、browser/ 为**当前会话独享**（每个会话独立命名空间，互不可见）；Agent 的 file_write/file_edit/file_read/list_dir/apple-image 与 Shell 命令均落在本会话目录下
         - shared/：Agent file_write、Shell 可写；跨会话共享、持久
         - offloads/：仅 Shell 自动写；可清理
         - browser/：仅浏览器截图/下载自动写；可清理

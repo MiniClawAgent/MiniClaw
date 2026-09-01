@@ -113,7 +113,8 @@ struct ToolCallCardView: View {
         case "shell_execute": return ("terminal", L10n.l("run_command"))
         case "memory_write": return ("brain.head.profile", L10n.l("write_to_memory"))
         case "memory_get": return ("magnifyingglass", L10n.l("search_memory"))
-        case "read_image": return ("photo", L10n.l("read_image"))
+        case "apple-image": return ("photo", L10n.l("apple_image"))
+        case "apple-vision": return ("viewfinder", L10n.l("apple_vision"))
         case "apple-calendar": return ("calendar", L10n.l("calendar_actions"))
         case "apple-reminders": return ("checklist", L10n.l("reminders"))
         case "apple-speak": return ("speaker.wave.2", L10n.l("read_aloud"))
@@ -144,7 +145,8 @@ struct ToolCallCardView: View {
         case "shell_execute": return "terminal"
         case "memory_write": return "brain.head.profile"
         case "memory_get": return "magnifyingglass"
-        case "read_image": return "photo"
+        case "apple-image": return "photo"
+        case "apple-vision": return "viewfinder"
         case "apple-calendar": return "calendar"
         case "apple-reminders": return "checklist"
         case "apple-speak": return "speaker.wave.2"

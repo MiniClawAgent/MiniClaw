@@ -16,10 +16,10 @@ struct VisionAnalysisResult: Sendable {
         let confidence: Double
     }
 
-    /// 格式化为 LLM 可读的结构化文本（与 `vision_analyze` 工具的输出格式一致）。
+    /// 格式化为 LLM 可读的结构化文本（与 `apple-vision` 工具的输出格式一致）。
     ///
-    /// 注：这里不再自称 `apple-vision`——那是个从未实现的占位工具，已删除；
-    /// 端侧视觉分析的实际入口是 MediaTools.swift 里的 `vision_analyze`。
+    /// 注：`apple-vision` 的实现就在 MediaTools.swift 的 `VisionAnalyzeTool`，
+    /// 本结构体只负责 Vision 框架结果的文本化——工具名是它的唯一消费者。
     func formattedText() -> String {
         var lines: [String] = []
         lines.append("{")
@@ -70,7 +70,7 @@ struct VisionAnalysisResult: Sendable {
         lines.append("  \"ok\" : true,")
         let ts = ISO8601DateFormatter().string(from: Date())
         lines.append("  \"timestamp\" : \"\(ts)\",")
-        lines.append("  \"tool\" : \"vision_analyze\"")
+        lines.append("  \"tool\" : \"apple-vision\"")
         lines.append("}")
 
         return lines.joined(separator: "\n")

@@ -270,7 +270,7 @@ enum MiniClawChatAdapter {
         case "browser", "miniclaw-browser-use":
             let action = pick("action", "query", "search", "url", "link", "href")
             return .browserTool(action: action)
-        case "read_image":
+        case "apple-image":
             return .readImageTool(path: pick("path", "file", "file_path", "filename"))
         case "memory_write", "memory_get":
             return .memoryTool(action: pick("action", "key", "topic", "subject"))
