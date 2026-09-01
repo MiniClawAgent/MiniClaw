@@ -37,8 +37,8 @@ enum LLMProviderFactory {
                     organizationId: organizationId,
                     projectId: projectId,
                     clientRequestId: clientRequestId,
-                    providerType: providerType,
-                    behavior: behavior
+                    behavior: behavior,
+                    providerType: providerType
                 )
             )
         case .anthropic:

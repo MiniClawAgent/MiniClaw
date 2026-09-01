@@ -553,7 +553,8 @@ final class SkillManager {
                 // 供应商配置/密钥全保留——用户数据不在插件目录内）；版本相同 → 跳过；
                 // 更低 → 拒绝（降级需先删除插件再手动导入）。
                 let oldVer = Self.pluginVersion(from: dest.appendingPathComponent("plugin.json"))
-                let newVer = parsed.version
+                // 新包版本从 staging 中新包的 plugin.json 读取（pluginIDAndType 元组不含 version）。
+                let newVer = Self.pluginVersion(from: src.appendingPathComponent("plugin.json"))
                 switch Self.compareVersion(newVer, oldVer) {
                 case 0:
                     result.skipped.append(dirName)

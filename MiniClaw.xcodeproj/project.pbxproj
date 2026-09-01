@@ -48,6 +48,7 @@
 		1B8F4FAC1E58C98C0E081EC4EFA580E3 /* MiniClawChatBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7464CD95BC0782E0694D4C01EA5D9E18 /* MiniClawChatBridge.swift */; };
 		1CB7CB46BCE10679250F8478147D5271 /* core-extensions.c in Sources */ = {isa = PBXBuildFile; fileRef = 8DE186781C6AD7651C7F0F7BC762E88D /* core-extensions.c */; };
 		1E85A6848B2DD80C3A733564FF3A2F9E /* MiniClawLiveActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD55006D9E09FA0FD30B67FD7C280628 /* MiniClawLiveActivityAttributes.swift */; };
+		1EF245CFF3BDBC535C9B3F62B0516D4F /* PluginTool.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F280901058859344DA1FE572DD22AE9 /* PluginTool.swift */; };
 		1FC8FC180B9F0F7B6390F183E03D665F /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B084FFFFF84BE48B9955CAEF32AE20E2 /* Security.framework */; };
 		20CB1D95D7EDC9EED9D76A9D22B5110A /* StorageSettingsViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49DFB199827ABA62782944333A1B6A09 /* StorageSettingsViews.swift */; };
 		21C9DBF0509503742BDC919CE80DD58C /* OpenAIOAuthManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 208025688B257E60634572797EF445A6 /* OpenAIOAuthManager.swift */; };
@@ -588,6 +589,7 @@
 		6C59FAE68187B233524F120CD8D240F4 /* ContextUsageEstimator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContextUsageEstimator.swift; sourceTree = "<group>"; };
 		6CFBBCC8DCFAC67D0178B08ADDB0BAC1 /* CollectionViewMessageListV3.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CollectionViewMessageListV3.swift; sourceTree = "<group>"; };
 		6D3CB996001168F6BF88870B4D021B5D /* 关于MiniClaw.md */ = {isa = PBXFileReference; path = "关于MiniClaw.md"; sourceTree = "<group>"; };
+		6F280901058859344DA1FE572DD22AE9 /* PluginTool.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PluginTool.swift; sourceTree = "<group>"; };
 		71ED55A2D5385FABE3D7B0FCE7169F44 /* MiniClawBrowserActions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MiniClawBrowserActions.swift; sourceTree = "<group>"; };
 		7267DF00DA20D9811FEBE0903CBC54A7 /* references.c */ = {isa = PBXFileReference; path = references.c; sourceTree = "<group>"; };
 		72D62B0EFBBC5D29C5A487452CAC56E3 /* ShellRuntimeSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShellRuntimeSupport.swift; sourceTree = "<group>"; };
@@ -866,6 +868,7 @@
 				7D8294303C176FCBC960544AD7567AC9 /* MemoryTools.swift */,
 				14C95CDD017069EE1454BE3B971062CF /* MusicTools.swift */,
 				73572D850552F8641C143927C068765F /* PhotosTools.swift */,
+				6F280901058859344DA1FE572DD22AE9 /* PluginTool.swift */,
 				3CD8496255BA172E7BAB50754D4D1A9F /* ReadSubagentResultTool.swift */,
 				B5C65D21FD2A436CFA5EE6132565D68A /* ReminderTools.swift */,
 				AE0A5CDE0A328180E6155E0C8D9AF22C /* SessionsTool.swift */,
@@ -2004,6 +2007,7 @@
 				611FD44F26C5BC8EB7F0A529564732D6 /* PermissionsSettingsViews.swift in Sources */,
 				DE11A77967DF785E5C39DDE04F541FB3 /* PhotosTools.swift in Sources */,
 				CE7FB96A158BD7B6B21E5F6322B9A2E5 /* PluginModelCatalog.swift in Sources */,
+				1EF245CFF3BDBC535C9B3F62B0516D4F /* PluginTool.swift in Sources */,
 				6ABB97254FC0BA3A4070DBDB9261990C /* PluginsSettingsView.swift in Sources */,
 				3EEB2B0D43333C49BD8DDE6256DE882D /* PortableRecord.swift in Sources */,
 				14E52438BEF3CFE8C2F24FD0ABFE437C /* ProviderDetailView.swift in Sources */,

@@ -52,7 +52,7 @@ class OpenAIProviderAdapter: LLMProviderAdapter, @unchecked Sendable {
             supportsSeed: c?.seed ?? true,
             supportsPromptCaching: c?.promptCaching ?? false,
             supportsReasoning: c?.reasoning ?? true,
-            supportedInputModalities: c?.supportedInputModalities ?? ["text", "image", "audio"]
+            supportedInputModalities: Set(c?.supportedInputModalities ?? ["text", "image", "audio"])
         )
     }
 

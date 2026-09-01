@@ -13,8 +13,6 @@ import Foundation
 
 struct PluginTool: AgentTool {
     let name = "miniclaw_plugin"
-    /// 当前会话 ID（确认弹窗按会话隔离展示）。
-    let currentSessionID: UUID?
     let schema = ToolSchema(
         type: "function",
         function: ToolSchema.FunctionDef(
@@ -99,7 +97,7 @@ struct PluginTool: AgentTool {
             guard approved else { return ToolResult(success: false, text: L10n.l("plugin_tool_install_denied")) }
         }
 
-        let result = SkillManager.shared.importSkillFile(from: url)
+        let result = await MainActor.run { SkillManager.shared.importSkillFile(from: url) }
 
         // 安装即启用（AI 安装的语义就是直接使用）；soul 例外——排他单选由用户
         // 在详情页显式启用（启用即应用人格，属高影响操作）。

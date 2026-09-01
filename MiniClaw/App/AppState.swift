@@ -457,12 +457,12 @@ final class AppState: ObservableObject {
                 normalized += "v1beta/models/\(escapedModel):streamGenerateContent"
             } else {
                 // Responses 端点按厂商能力表(ProviderType.responsesPath):DeepSeek 无 /v1 前缀、
-                // 智谱不支持(自动回落 chat/completions);DeepSeek 模型级限制(仅 v4-flash 支持
-                // Responses)同步回落——两处与适配器 effectiveFormat 共用同一能力来源。
+                // 智谱不支持(自动回落 chat/completions);模型级限制(声明 responsesSupported ==
+                // false,数据由 model 插件承载)同步回落——两处与适配器 effectiveFormat 共用同一来源。
                 if provider.apiFormat == .responsesAPI,
                    let responsesPath = provider.providerType.responsesPath {
-                    if provider.providerType == .deepSeek,
-                       !DeepSeekProviderAdapter.responsesSupportedModels.contains(model.modelId) {
+                    if PluginModelCatalog.modelCapabilities(providerType: provider.providerType, modelID: model.modelId)?
+                        .responsesSupported == false {
                         normalized += "v1/chat/completions"
                     } else {
                         normalized += responsesPath

@@ -361,12 +361,13 @@ private struct ModelLatencyTestView: View {
         guard !base.isEmpty else { throw TestError.invalidURL }
 
         let urlString: String
-        // Responses 是否实际生效(与 AppState.makeRouteEndpoint 同源):供应商能力表支持
-        // 且 DeepSeek 模型在官方支持列表内,否则自动回落 Chat Completions。
+        // Responses 是否实际生效(与 AppState.makeRouteEndpoint 同源):供应商能力表支持,
+        // 且模型声明 responsesSupported != false(声明数据由 model 插件承载)——
+        // 不满足则自动回落 Chat Completions。
         let usesResponses = provider.apiFormat == .responsesAPI
             && provider.providerType.responsesPath != nil
-            && !(provider.providerType == .deepSeek
-                 && !DeepSeekProviderAdapter.responsesSupportedModels.contains(model.modelId))
+            && PluginModelCatalog.modelCapabilities(providerType: provider.providerType, modelID: model.modelId)?
+                .responsesSupported != false
         switch provider.providerType {
         case .google:
             let escapedModel = model.modelId.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? model.modelId

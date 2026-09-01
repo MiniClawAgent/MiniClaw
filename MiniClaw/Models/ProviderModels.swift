@@ -33,7 +33,18 @@ struct ModelPluginProviderDecl: Codable {
 
 /// 厂商行为声明（OpenAI 兼容族）。全部字段可选，nil = 基类默认。
 struct ProviderBehaviorDecl: Codable {
-    // ── 能力标志（对齐 ProviderCapabilities）──
+    /// 能力标志（对齐 ProviderCapabilities）。
+    var capabilities: ProviderCapabilitiesDecl? = nil
+    // ── 思考开关参数映射（原 extraBodyFields 的条件分支）──
+    var thinkingParam: ThinkingParamDecl? = nil
+    // ── 无条件附加的请求体字段（如 Grok 的 store:false）──
+    var extraBody: [String: JSONSchemaValue]? = nil
+    // ── 采样参数约束（原 clampSampling）──
+    var samplingRules: SamplingRulesDecl? = nil
+}
+
+/// 能力标志声明（behavior.capabilities）。
+struct ProviderCapabilitiesDecl: Codable {
     /// 支持 response_format(JSON 输出)。默认 true。
     var responseFormat: Bool? = nil
     /// 支持并行工具调用。不支持并行调用的厂商**必须**显式 false（引擎退化单工具循环）。
@@ -49,13 +60,6 @@ struct ProviderBehaviorDecl: Codable {
     /// 带 tools 的后续请求保留 assistant 消息的 reasoning_content
     /// （DeepSeek 官方硬性要求，否则 400）。默认 false。
     var preserveReasoningContent: Bool? = nil
-
-    // ── 思考开关参数映射（原 extraBodyFields 的条件分支）──
-    var thinkingParam: ThinkingParamDecl? = nil
-    // ── 无条件附加的请求体字段（如 Grok 的 store:false）──
-    var extraBody: [String: JSONSchemaValue]? = nil
-    // ── 采样参数约束（原 clampSampling）──
-    var samplingRules: SamplingRulesDecl? = nil
 }
 
 /// 思考开关 → 请求体字段映射：用户选择思考档位时注入。

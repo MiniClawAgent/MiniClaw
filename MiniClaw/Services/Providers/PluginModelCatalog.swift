@@ -13,18 +13,34 @@ import Foundation
 //
 // 缓存策略：按「全部 providers.json 的 path+mtime+size」指纹自失效——插件导入/删除/
 // 启停（目录内容变化）后下一次查询自动重建，无需插件生命周期代码手动通知。
+// 缓存状态收纳进锁保护的实例：Swift 6 下 static var 属非隔离全局可变状态不被允许，
+// 「static let 常量 + @unchecked Sendable 实例 + NSLock」为标准并发安全模式。
 
 enum PluginModelCatalog {
+
+    private static let store = Store()
+
+    private final class Store: @unchecked Sendable {
+        private let lock = NSLock()
+        private var cache: [ProviderType: Entry] = [:]
+        private var fingerprint: String = ""
+
+        /// 指纹命中返回缓存；否则在锁内重建。
+        func load(fingerprint fp: String, build: () -> [ProviderType: Entry]) -> [ProviderType: Entry] {
+            lock.lock(); defer { lock.unlock() }
+            if fp == fingerprint { return cache }
+            let built = build()
+            cache = built
+            fingerprint = fp
+            return built
+        }
+    }
 
     /// 单个 providerType 的聚合视图。
     struct Entry {
         var models: [String: BuiltinModelInfo] = [:]
         var behavior: ProviderBehaviorDecl? = nil
     }
-
-    private static let lock = NSLock()
-    private static var cache: [ProviderType: Entry] = [:]
-    private static var fingerprint: String = ""
 
     /// 聚合已安装 model 插件的全部声明。
     static func catalog() -> [ProviderType: Entry] {
@@ -43,27 +59,24 @@ enum PluginModelCatalog {
             .sorted()
             .joined(separator: "\n")
 
-        lock.lock(); defer { lock.unlock() }
-        if fp == fingerprint { return cache }
-
-        var result: [ProviderType: Entry] = [:]
-        for it in items.sorted(by: { $0.path < $1.path }) {
-            guard let data = FileManager.default.contents(atPath: it.path),
-                  let decls = try? JSONDecoder().decode([ModelPluginProviderDecl].self, from: data)
-            else { continue }
-            for decl in decls {
-                guard let pt = ProviderType(flexibleID: decl.providerType) else { continue }
-                var entry = result[pt] ?? Entry()
-                for m in decl.models ?? [] where !m.modelId.isEmpty {
-                    entry.models[m.modelId] = Self.info(from: m)
+        return store.load(fingerprint: fp) {
+            var result: [ProviderType: Entry] = [:]
+            for it in items.sorted(by: { $0.path < $1.path }) {
+                guard let data = FileManager.default.contents(atPath: it.path),
+                      let decls = try? JSONDecoder().decode([ModelPluginProviderDecl].self, from: data)
+                else { continue }
+                for decl in decls {
+                    guard let pt = ProviderType(flexibleID: decl.providerType) else { continue }
+                    var entry = result[pt] ?? Entry()
+                    for m in decl.models ?? [] where !m.modelId.isEmpty {
+                        entry.models[m.modelId] = Self.info(from: m)
+                    }
+                    if entry.behavior == nil { entry.behavior = decl.behavior }
+                    result[pt] = entry
                 }
-                if entry.behavior == nil { entry.behavior = decl.behavior }
-                result[pt] = entry
             }
+            return result
         }
-        cache = result
-        fingerprint = fp
-        return result
     }
 
     /// 能力精确匹配（对齐原适配器 `builtinModels[modelID]` 语义）。
