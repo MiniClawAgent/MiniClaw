@@ -60,8 +60,10 @@ struct ToolCardOverlay: View {
                                 cardSurface: true
                             )
                             .frame(height: cardHeight)
-                            .clipShape(RoundedRectangle(cornerRadius: 20))
+                            // 背景必须在 clipShape 之前：先画底色再裁圆角——
+                            // 顺序反了会让直角背景从圆角外露出（唐唐真机截图）。
                             .background(Color(UIColor.systemGray5))
+                            .clipShape(RoundedRectangle(cornerRadius: 20))
                             .overlay(
                                 RoundedRectangle(cornerRadius: 20)
                                     .stroke(Color(.separator).opacity(0.8), lineWidth: 1)
