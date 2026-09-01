@@ -66,6 +66,11 @@ struct ToolLiveSheet: View {
     /// 照原版机制:浏览器由本弹层的二级 sheet 呈现(同视图树同 present 链,
     /// 稳定弹出);有 provider 时显示主工程浏览器,否则回退 Kit 内置 BrowserSheetView。
     var browserContentProvider: ((URL?) -> AnyView)?
+    /// 2026-09-01 卡片形态（ToolCardOverlay 宿主）：关闭回调。提供时关闭按钮走
+    /// 此回调（overlay 无 dismiss 环境语义）；缺省 nil = 沿用 dismiss（sheet 形态）。
+    var onClose: (() -> Void)? = nil
+    /// 卡片模式下隐藏底部「上一个/下一个」切换行——TabView 横向分页 + 圆点指示替代。
+    var hidesSwitchRow: Bool = false
     @Environment(\.dismiss) private var dismiss
     @Environment(\.chatSessionId) private var sessionId
 
@@ -124,7 +129,8 @@ struct ToolLiveSheet: View {
 
     init(toolBlocks: [AssistantBlock],initialIdx: Int,toolSnapshots: [ToolSnapshotItem] = [],browserPool: MiniClawTabPool?,
          onBrowserTakeover: (() -> Void)? = nil,onTakeoverDone: (() -> Void)? = nil,
-         browserContentProvider: ((URL?) -> AnyView)? = nil) {
+         browserContentProvider: ((URL?) -> AnyView)? = nil,
+         onClose: (() -> Void)? = nil, hidesSwitchRow: Bool = false) {
         self.toolBlocks = toolBlocks
         self._currentIdx = State(initialValue: initialIdx)
         self.toolSnapshots = toolSnapshots
@@ -132,6 +138,8 @@ struct ToolLiveSheet: View {
         self.onBrowserTakeover = onBrowserTakeover
         self.onTakeoverDone = onTakeoverDone
         self.browserContentProvider = browserContentProvider
+        self.onClose = onClose
+        self.hidesSwitchRow = hidesSwitchRow
     }
 
     /// Get snapshot for the current block (matched by toolUseId).
@@ -220,7 +228,10 @@ struct ToolLiveSheet: View {
                         .padding(.horizontal, 12)
                         .padding(.bottom, 4)
 
-                    switchRow
+                    // 卡片形态：TabView 横向分页 + 圆点指示替代上/下切换行。
+                    if !hidesSwitchRow {
+                        switchRow
+                    }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
@@ -372,7 +383,10 @@ struct ToolLiveSheet: View {
     private var sheetNavBar: some View {
         VStack(spacing: 0) {
             HStack {
-                Button { dismiss() } label: {
+                Button {
+                    // 卡片形态（ToolCardOverlay 宿主）走 onClose；sheet 形态走 dismiss。
+                    if let onClose { onClose() } else { dismiss() }
+                } label: {
                     Image(systemName: "xmark")
                         .font(.system(size: 14,weight: .semibold))
                         .foregroundStyle(ChatColors.primaryText)

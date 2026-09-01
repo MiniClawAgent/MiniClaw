@@ -67,6 +67,7 @@
 		2ECF2C1AAAB6DA81CC3EACCC655B3760 /* ProviderOAuthViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84A04E94B3A2A6DFEC4EF23225785F2D /* ProviderOAuthViews.swift */; };
 		2F0602ADF1632652488D5E90AC1B572F /* ChatPickers.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB832C5A4799922CB79A9847C268D189 /* ChatPickers.swift */; };
 		3163EB5FC3594058B8A0A919E2A3297B /* ChatInputBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4ECC95D820C57555E83AAC68482DB537 /* ChatInputBar.swift */; };
+		329F024F178D93ABC34CBE3E032A18DE /* ToolCardOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 591B2B881ADA304A0B73829F0838CFFD /* ToolCardOverlay.swift */; };
 		3310528A2D8DBC23745637B4A13BC01B /* TerminalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46D0800AF6D6349A223F26B1B6906958 /* TerminalView.swift */; };
 		3318008C9DF2CD8DDB8BC35DAD48F3A5 /* MathImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57DFF377EBDE3C5E2F12123CDEA7BE9D /* MathImage.swift */; };
 		33F7C4E09E10DB1CF3010A6AEC766BDF /* ChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5031F34D2F244C8908D3C0297B0CF9EF /* ChatView.swift */; };
@@ -556,6 +557,7 @@
 		57C215DDAA940A67010383CBCB140A2A /* ChatViewComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatViewComponents.swift; sourceTree = "<group>"; };
 		57DFF377EBDE3C5E2F12123CDEA7BE9D /* MathImage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MathImage.swift; sourceTree = "<group>"; };
 		58624A6823B3E9771B06C413A70856FE /* HomeKitTools.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeKitTools.swift; sourceTree = "<group>"; };
+		591B2B881ADA304A0B73829F0838CFFD /* ToolCardOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolCardOverlay.swift; sourceTree = "<group>"; };
 		596EE6EBB10920AA44EFFE150B1260A4 /* DownloadProgressTracker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadProgressTracker.swift; sourceTree = "<group>"; };
 		59EBF79E4D73C3CD2B35FA75A8D91D0C /* MTFontMathTable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MTFontMathTable.swift; sourceTree = "<group>"; };
 		5ABE3D8C3CE6799EF62441953AF4E2C9 /* InfraTools.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InfraTools.swift; sourceTree = "<group>"; };
@@ -1490,6 +1492,7 @@
 				01BDC9ADED3BF3C716C11D453087B5FD /* SelectableMarkdownView.swift */,
 				87D272729DE28B80F3DF1D7026123814 /* SwiftMathRenderer.swift */,
 				0B1BCDC2C9B72337530C5A56D377574F /* TextFadeAnimator.swift */,
+				591B2B881ADA304A0B73829F0838CFFD /* ToolCardOverlay.swift */,
 				2AD6A61BF3C5B3B8138B399C1DB359E2 /* ToolLiveSheet.swift */,
 			);
 			path = MiniClawKit;
@@ -1789,6 +1792,7 @@
 				E564FB6C4D6BEF5E851135460F6FCF6A /* SelectableMarkdownView.swift in Sources */,
 				4A407795FC831226DDECBB9FC9C9AEB2 /* SwiftMathRenderer.swift in Sources */,
 				34A58A18698B7F8AC8116FB9ABDB9EB0 /* TextFadeAnimator.swift in Sources */,
+				329F024F178D93ABC34CBE3E032A18DE /* ToolCardOverlay.swift in Sources */,
 				6780DC202D2EEC7DC8326C16C1871A3E /* ToolLiveSheet.swift in Sources */,
 				57420251E9C72BF47D74377ED291F6F3 /* arena.c in Sources */,
 				00E995CAFF27F8EF0B4981F90E36C478 /* autolink.c in Sources */,

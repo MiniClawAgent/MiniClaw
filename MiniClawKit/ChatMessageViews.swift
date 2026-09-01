@@ -550,10 +550,18 @@ struct ChatMessageRow: View {
                     MessageContextMenuPreview(text: fullReplyStr)
                 }
         }
-        .sheet(item: $detailBlock) { block in
-            ToolLiveSheet(toolBlocks: message.blocks.filter { $0.toolStatus != nil },
-                          initialIdx: message.blocks.filter({ $0.toolStatus != nil }).firstIndex(where: { $0.id == block.id }) ?? 0,
-                          toolSnapshots: toolSnapshots,browserPool: browserPool)
+        // 2026-09-01 唐唐拍板：工具指示器详情改为会话页浮层卡片（ToolCardOverlay）。
+        .overlay {
+            if let block = detailBlock {
+                ToolCardOverlay(
+                    toolBlocks: message.blocks.filter { $0.toolStatus != nil },
+                    initialBlockID: block.id,
+                    toolSnapshots: toolSnapshots,
+                    browserPool: browserPool,
+                    onClose: { detailBlock = nil }
+                )
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
         }
     }
 

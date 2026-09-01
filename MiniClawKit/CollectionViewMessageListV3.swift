@@ -3698,14 +3698,22 @@ private struct SheetOverlayView: View {
     var body: some View {
         Color.clear
             .frame(width: 0,height: 0)
-            .sheet(item: $toolPresenter.sheetData) { data in
-                ToolLiveSheet(
-                    toolBlocks: data.toolBlocks,
-                    initialIdx: data.toolBlocks.firstIndex(where: { $0.id == data.block.id }) ?? 0,
-                    toolSnapshots: data.toolSnapshots,
-                    browserPool: data.browserPool,
-                    browserContentProvider: data.browserContentProvider
-                )
+            // 2026-09-01 唐唐拍板：工具指示器详情从全屏 sheet 改为会话页浮层卡片
+            // （ToolCardOverlay：60% 高不透明实体卡、左右分页切换、下滑关闭）。
+            // overlay 挂在 VC 层级锚点上（与原 sheet 同层），避开 cell 内呈现的
+            // 动画禁用与双 present 崩溃问题。
+            .overlay {
+                if let data = toolPresenter.sheetData {
+                    ToolCardOverlay(
+                        toolBlocks: data.toolBlocks,
+                        initialBlockID: data.block.id,
+                        toolSnapshots: data.toolSnapshots,
+                        browserPool: data.browserPool,
+                        browserContentProvider: data.browserContentProvider,
+                        onClose: { toolPresenter.sheetData = nil }
+                    )
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
             }
             .onChange(of: toolPresenter.sheetData?.id) { newVal in
                 if newVal == nil {
