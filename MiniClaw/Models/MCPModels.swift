@@ -24,6 +24,10 @@ struct MCPServerConfig: Identifiable, Codable, Hashable, Sendable {
     /// 来源插件（manifest.id）：由 mcp 配置包导入的 server 记录来源，
     /// 删除该插件时连带删除其导入的 server；手动添加的为 nil。
     var sourcePlugin: String? = nil
+    /// 认证需求（唐唐 2026-09-01：mcp 插件必须声明认证方式）：
+    /// servers.json 条目的 auth 字段（"oauth"）导入时落到此标记；
+    /// true 时列表显示「认证」按钮，走 MCP OAuth 2.1 授权流程。
+    var requiresAuthorization: Bool? = false
 
     init(
         id: UUID = UUID(),
@@ -39,7 +43,8 @@ struct MCPServerConfig: Identifiable, Codable, Hashable, Sendable {
         lastStatus: MCPServerStatus = .unknown,
         lastError: String? = nil,
         lastToolCount: Int = 0,
-        lastCheckedAt: Date? = nil
+        lastCheckedAt: Date? = nil,
+        requiresAuthorization: Bool? = false
     ) {
         self.id = id
         self.name = name
@@ -55,12 +60,14 @@ struct MCPServerConfig: Identifiable, Codable, Hashable, Sendable {
         self.lastError = lastError
         self.lastToolCount = lastToolCount
         self.lastCheckedAt = lastCheckedAt
+        self.requiresAuthorization = requiresAuthorization
     }
 
     private enum CodingKeys: String, CodingKey {
         case id, name, endpointURL, transport, isEnabled, hasBearerToken, customHeaders
         case envVars, command, args
         case lastStatus, lastError, lastToolCount, lastCheckedAt, sourcePlugin
+        case requiresAuthorization
     }
 
     init(from decoder: Decoder) throws {
@@ -80,6 +87,7 @@ struct MCPServerConfig: Identifiable, Codable, Hashable, Sendable {
         lastToolCount = try values.decodeIfPresent(Int.self, forKey: .lastToolCount) ?? 0
         lastCheckedAt = try values.decodeIfPresent(Date.self, forKey: .lastCheckedAt)
         sourcePlugin = try values.decodeIfPresent(String.self, forKey: .sourcePlugin)
+        requiresAuthorization = try values.decodeIfPresent(Bool.self, forKey: .requiresAuthorization) ?? false
     }
 }
 

@@ -89,9 +89,9 @@ final class MCPConfigStore: ObservableObject {
     }
 
     func refresh(id: UUID) async {
-        guard let server = server(id: id), server.isEnabled else { return }
+        guard var server = server(id: id), server.isEnabled else { return }
         markConnecting(id: id)
-        let token = bearerToken(for: id)
+        var token = bearerToken(for: id)
         do {
             let tools = try await MCPToolDiscoveryCache.shared.definitions(
                 for: server,
@@ -100,6 +100,35 @@ final class MCPConfigStore: ObservableObject {
             )
             updateDiscovery(id: id, toolCount: tools.count, error: nil)
         } catch {
+            // 2026-09-01 唐唐拍板：401 时优先尝试 OAuth refresh_token 换新重试一次；
+            // 仍失败且需要 OAuth 授权 → 标记 requiresAuthorization（列表显示「认证」按钮）。
+            if isMCPUnauthorizedError(error),
+               let refreshed = try? await MCPOAuthManager.shared.refreshToken(serverID: id) {
+                token = refreshed
+                server = self.server(id: id) ?? server
+                do {
+                    let tools = try await MCPToolDiscoveryCache.shared.definitions(
+                        for: server,
+                        bearerToken: token,
+                        forceRefresh: true
+                    )
+                    updateDiscovery(id: id, toolCount: tools.count, error: nil)
+                    return
+                } catch {
+                    updateDiscovery(id: id, toolCount: 0, error: error)
+                    return
+                }
+            }
+            if isMCPUnauthorizedError(error) {
+                server.requiresAuthorization = true
+                var snapshot = server
+                if let idx = servers.firstIndex(where: { $0.id == id }) {
+                    servers[idx] = snapshot
+                }
+                persist()
+                updateDiscovery(id: id, toolCount: 0, error: MCPClientError.httpStatus(401, L10n.l("mcp_needs_authorization_hint")))
+                return
+            }
             updateDiscovery(id: id, toolCount: 0, error: error)
         }
     }
@@ -173,13 +202,18 @@ final class MCPConfigStore: ObservableObject {
                 let hasBearer = headers["Authorization"]?.hasPrefix("Bearer ") ?? false
                 var customHeaders = headers
                 customHeaders.removeValue(forKey: "Authorization")
+                // 2026-09-01 唐唐拍板：mcp 插件 servers.json 必须声明认证方式——
+                // "auth": "oauth" 落到 requiresAuthorization（列表显示「认证」按钮，
+                // 走 MCP OAuth 2.1 授权流程）；bearer/缺省 = 静态令牌。
+                let requiresAuth = (entry["auth"] as? String)?.lowercased() == "oauth"
                 let config = MCPServerConfig(
                     name: displayName,
                     endpointURL: url,
                     transport: transport,
                     isEnabled: true,
                     hasBearerToken: hasBearer,
-                    customHeaders: customHeaders
+                    customHeaders: customHeaders,
+                    requiresAuthorization: requiresAuth
                 )
                 if hasBearer, let token = headers["Authorization"]?.dropFirst("Bearer ".count) {
                     // Bearer 令牌 不写进 MCPServerConfig 明文；调用方 upsert 时通过 bearerToken 参数入库。

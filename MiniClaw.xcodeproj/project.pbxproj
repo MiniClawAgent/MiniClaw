@@ -24,6 +24,7 @@
 		0AFBFABFE1458EC868049C31070FD8A1 /* LLMProviderFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = B31DD8E59F84C1F51D8A74AB891F9466 /* LLMProviderFactory.swift */; };
 		0C06159FC0866067C8B9B57BB110B0D5 /* UnifiedFileBrowser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C0AA66465763A6D91141445E0F17DFB /* UnifiedFileBrowser.swift */; };
 		0CE133D8BCC6C16A9AC95A2129CD8C34 /* EnvVarsSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6029D723E634E468D128AC8EA192F333 /* EnvVarsSettingsView.swift */; };
+		0E257E1550AC2A7E4B574F23718E148F /* MCPOAuthWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 67BCBF70531FDD21D37B123EE035AF42 /* MCPOAuthWebView.swift */; };
 		0EF85CE4B1E700E57AA0DADE9C2CE400 /* ToolCardWindowPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4BEE88F57DCCF05CF8C30F3BDFF7147 /* ToolCardWindowPresenter.swift */; };
 		0F18455C96C213BFC7FABCF42E2BB2F9 /* CloseSubagentTool.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23C95B8BDCEDE7D7F4C399C232512B8E /* CloseSubagentTool.swift */; };
 		0FF49465308C9E3A2BD44603AE17666F /* 用户隐私政策.md in Resources */ = {isa = PBXBuildFile; fileRef = 35251459BCF4180292EA1EA08A8AC961 /* 用户隐私政策.md */; };
@@ -369,6 +370,7 @@
 		FBFD9D21A45CAA5BC8A6337FA3F7E0EF /* references.c in Sources */ = {isa = PBXBuildFile; fileRef = 7267DF00DA20D9811FEBE0903CBC54A7 /* references.c */; };
 		FC0DB8B5EE1D5996DC548CA32DB2750B /* AnthropicModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0DC2536645F8623BEBBCDC139D5FC95C /* AnthropicModels.swift */; };
 		FDD2F9237C006C9F3C63CA3D361201C0 /* MTMathListDisplay.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5C9BF56FED42FBB6DE3B90D8D8FD8E4 /* MTMathListDisplay.swift */; };
+		FE1164A148B341875C7E117984C86D2E /* MCPOAuthManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80C241DDB3EBA89EDED48F96E18DF57D /* MCPOAuthManager.swift */; };
 		FEEBC0FE346C983960CE44548577D48E /* DocumentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B47B03E554F4450B238BFDF4339E849F /* DocumentView.swift */; };
 		FF0CB1B9ABC098295ACF429D8D3E87A6 /* BrowserSheetSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DBA85964E496268B51802EEB40E319DF /* BrowserSheetSettingsView.swift */; };
 /* End PBXBuildFile section */
@@ -583,6 +585,7 @@
 		669E97D64A74F2BEE378FA70B74E1FA8 /* MetricKitCollector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricKitCollector.swift; sourceTree = "<group>"; };
 		67A9EDDECF5D2491737CFB1A2F100C50 /* BrowserTool.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserTool.swift; sourceTree = "<group>"; };
 		67B9C8B8FAC53D6CF87F6D30E71401B3 /* html.c */ = {isa = PBXFileReference; path = html.c; sourceTree = "<group>"; };
+		67BCBF70531FDD21D37B123EE035AF42 /* MCPOAuthWebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MCPOAuthWebView.swift; sourceTree = "<group>"; };
 		6B4B1E425C1BA41CC2D9DA8F2D83734A /* MTFontManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MTFontManager.swift; sourceTree = "<group>"; };
 		6B6BE2B494055ECB6493BA7D13ECAA57 /* AppleFrameworkTools.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleFrameworkTools.swift; sourceTree = "<group>"; };
 		6B92C0E9DF0CC89A63E4D9C66A59572B /* EnvVarModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnvVarModels.swift; sourceTree = "<group>"; };
@@ -616,6 +619,7 @@
 		7DFE4997E28F9D920D752A28E3A52885 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		7E1D40B100988F5ECB0D828A58DCCC3A /* node.c */ = {isa = PBXFileReference; path = node.c; sourceTree = "<group>"; };
 		7F75B223CFCEA5912307F4BEBF7A58AE /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		80C241DDB3EBA89EDED48F96E18DF57D /* MCPOAuthManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MCPOAuthManager.swift; sourceTree = "<group>"; };
 		80E8F3AAE58BCB71A53EBF0840B47B9E /* AppLogger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLogger.swift; sourceTree = "<group>"; };
 		80EBE37D2A91BF8CF651A82784A5914A /* SyncCore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncCore.swift; sourceTree = "<group>"; };
 		81F0B1CEBE75963A9B9BA2AA8D370252 /* BackgroundDownloader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundDownloader.swift; sourceTree = "<group>"; };
@@ -1226,6 +1230,7 @@
 				3CD3C48965814103DB76F73A215B9BA2 /* MarkdownCacheStore.swift */,
 				224FF9027BF5834326F8E650024B0DF5 /* MCPClient.swift */,
 				A42F4AB06349D7863CD2CD40B07AD3BD /* MCPConfigStore.swift */,
+				80C241DDB3EBA89EDED48F96E18DF57D /* MCPOAuthManager.swift */,
 				B9618E90A48C99591B2452AFB338F7D9 /* MCPProtocol.swift */,
 				C80091A028DB9E375C20C63688606843 /* MemoryConsolidator.swift */,
 				2EF5022303A10F1BB1DB87610632D6F4 /* MemoryIndexer.swift */,
@@ -1477,6 +1482,7 @@
 				B7C1DF3E89AE43D3FC187352C8856832 /* KaTeXRenderer.swift */,
 				F5251B578A483D30D7C656695192FB57 /* MarkdownPrepRegex.swift */,
 				112D81A4C474030294FC27507E498A2C /* MathRenderScheduler.swift */,
+				67BCBF70531FDD21D37B123EE035AF42 /* MCPOAuthWebView.swift */,
 				D3B856892C53609701658F7722C77318 /* MessageListInfrastructure.swift */,
 				992152DF6E17CEF21C517498C4786435 /* MessageListLayout.swift */,
 				71ED55A2D5385FABE3D7B0FCE7169F44 /* MiniClawBrowserActions.swift */,
@@ -1755,6 +1761,7 @@
 				919DE7DA6FC57AF892AC99A65A98DF31 /* EquatableContextMenu.swift in Sources */,
 				240C59042D6458CCE364A81D29116A1B /* FontSettings.swift in Sources */,
 				F8CFFEB1F589768C3102F40FFA53F94E /* KaTeXRenderer.swift in Sources */,
+				0E257E1550AC2A7E4B574F23718E148F /* MCPOAuthWebView.swift in Sources */,
 				6A04F3548240A1AD01E53925778FFCBC /* MTBezierPath.swift in Sources */,
 				7A85EA96B2D7A41615D3A27BC94D2EFC /* MTColor.swift in Sources */,
 				B50B4E8C1B969C68AEA3FC01A0AAAEB9 /* MTConfig.swift in Sources */,
@@ -1968,6 +1975,7 @@
 				40ACC26185986537BA6A55AB18F4CF60 /* MCPClient.swift in Sources */,
 				908B45A26B8F08CA4FAFF34DD81440F8 /* MCPConfigStore.swift in Sources */,
 				5510EA61E19308373BF058EBB8F2EDFE /* MCPModels.swift in Sources */,
+				FE1164A148B341875C7E117984C86D2E /* MCPOAuthManager.swift in Sources */,
 				EDF9EA7272ACD9B168EBBF8A5CBE55AE /* MCPProtocol.swift in Sources */,
 				861D8F55D3FBC8AEAFAEFB087412550F /* MCPSettingsView.swift in Sources */,
 				E0C91809FFA0DBEF32EC56F1DFD83FAB /* MapsTools.swift in Sources */,

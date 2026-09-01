@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import MiniClawKit
 
 extension MCPTransport: Identifiable {
     var id: Self { self }
@@ -24,6 +25,8 @@ extension MCPTransport: Identifiable {
 
 struct MCPSettingsView: View {
     @StateObject private var store = MCPConfigStore.shared
+    /// MCP OAuth 2.1：授权流程状态与认证页 sheet 驱动。
+    @ObservedObject private var oauth = MCPOAuthManager.shared
     @State private var editorItem: MCPServerEditorItem?
     @State private var serverPendingDeletion: MCPServerConfig?
     @State private var refreshingServerIDs: Set<UUID> = []
@@ -58,51 +61,43 @@ struct MCPSettingsView: View {
                     }
                 }
 
-                Button {
-                    editorItem = MCPServerEditorItem(server: nil)
-                } label: {
-                    Label(L10n.l("add_mcp_server"), systemImage: "plus.circle.fill")
-                }
-
-                Button {
-                    refreshAll()
-                } label: {
-                    HStack {
-                        Label(L10n.l("refresh_all_servers"), systemImage: "arrow.clockwise")
-                        Spacer()
-                        if isRefreshingAll {
-                            ProgressView()
+                // 2026-09-01 唐唐拍板：需要 OAuth 授权的 server 在列表下方
+                // 显示「认证」按钮，点击直接进入对应认证流程（App 内 WebKit 授权页）。
+                if let pending = store.servers.first(where: { needsAuthorization($0) }) {
+                    Button {
+                        startAuthorization(for: pending)
+                    } label: {
+                        HStack {
+                            Label(
+                                L10n.l("mcp_authorize_server_button") + pending.name,
+                                systemImage: "checkmark.shield"
+                            )
+                            Spacer()
+                            if oauth.activeFlow?.serverID == pending.id {
+                                ProgressView().controlSize(.small)
+                            }
                         }
                     }
+                    .disabled(oauth.activeFlow != nil)
                 }
-                .disabled(store.servers.isEmpty || isRefreshingAll)
             } header: {
                 HStack {
                     Text(L10n.l("remote_server"))
                     Spacer()
                     if isRefreshingAll {
-                        Text(L10n.l("refreshing"))
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                        ProgressView()
+                            .controlSize(.small)
+                    } else {
+                        // 2026-09-01 唐唐拍板：刷新收进标题行最右，一键刷新全部远端服务器。
+                        Button {
+                            refreshAll()
+                        } label: {
+                            Image(systemName: "arrow.clockwise")
+                        }
+                        .disabled(store.servers.isEmpty)
+                        .accessibilityLabel(L10n.l("refresh_all_servers"))
                     }
                 }
-            }
-
-            Section {
-                Button {
-                    exportedConfig = ExportedConfigItem(json: store.exportClaudeDesktopConfig(for: store.servers))
-                } label: {
-                    Label(L10n.l("export_claude_desktop_config"), systemImage: "square.and.arrow.up")
-                }
-                Button {
-                    showImportSheet = true
-                } label: {
-                    Label(L10n.l("import_claude_desktop_config_from_text"), systemImage: "square.and.arrow.down")
-                }
-            } header: {
-                Text(L10n.l("claude_desktop_compatible"))
-            } footer: {
-                Text(L10n.l("export_currently_enabled_servers_as_mcpservers_json_import_json_in_the_same_format_to_add_servers_in_bulk"))
             }
 
             sessionMCPExceptionSection
@@ -113,10 +108,26 @@ struct MCPSettingsView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    editorItem = MCPServerEditorItem(server: nil)
+                // 2026-09-01 唐唐拍板：入口收敛到右上角 + 菜单（添加/导出/从文本导入）；
+                // CLAUDE DESKTOP 兼容独立区块移除，导出/导入功能保留在菜单里。
+                Menu {
+                    Button {
+                        editorItem = MCPServerEditorItem(server: nil)
+                    } label: {
+                        Label(L10n.l("add_mcp_server"), systemImage: "plus.circle")
+                    }
+                    Button {
+                        exportedConfig = ExportedConfigItem(json: store.exportClaudeDesktopConfig(for: store.servers))
+                    } label: {
+                        Label(L10n.l("export_claude_desktop_config"), systemImage: "square.and.arrow.up")
+                    }
+                    Button {
+                        showImportSheet = true
+                    } label: {
+                        Label(L10n.l("import_claude_desktop_config_from_text"), systemImage: "square.and.arrow.down")
+                    }
                 } label: {
-                    Label(L10n.l("add_server"), systemImage: "plus")
+                    Image(systemName: "plus")
                 }
             }
         }
@@ -132,6 +143,11 @@ struct MCPSettingsView: View {
                     editorItem = nil
                 }
             }
+        }
+        // MCP OAuth 授权页（App 内 WebKit；redirect 由 WebView 拦截回调）。
+        .sheet(item: $oauth.activeFlow) { context in
+            MCPOAuthFlowSheet(context: context, title: L10n.l("mcp_oauth_authorize_title"))
+                .interactiveDismissDisabled()
         }
         .confirmationDialog(
             L10n.l("delete_mcp_server_confirm"),
@@ -303,20 +319,7 @@ struct MCPSettingsView: View {
                     )
                 )
                 .labelsHidden()
-
-                Button {
-                    refresh(server.id)
-                } label: {
-                    if isRefreshing(server) {
-                        ProgressView()
-                            .controlSize(.small)
-                    } else {
-                        Image(systemName: "arrow.clockwise")
-                    }
-                }
-                .buttonStyle(.borderless)
-                .disabled(isRefreshing(server) || isRefreshingAll)
-                .accessibilityLabel(L10n.l("refresh_label") + server.name)
+                // 2026-09-01 唐唐拍板：行内刷新钮移除——刷新统一收进列表标题行最右。
             }
         }
         .padding(.vertical, 5)
@@ -342,6 +345,30 @@ struct MCPSettingsView: View {
 
     private func isRefreshing(_ server: MCPServerConfig) -> Bool {
         refreshingServerIDs.contains(server.id) || server.lastStatus == .connecting
+    }
+
+    /// 需要 OAuth 授权：插件 servers.json 声明 auth=oauth、尚未完成授权、
+    /// 且没有可用的静态 Bearer Token。
+    private func needsAuthorization(_ server: MCPServerConfig) -> Bool {
+        server.requiresAuthorization == true
+            && !server.hasBearerToken
+            && !oauth.isAuthorized(serverID: server.id)
+    }
+
+    /// 启动 MCP OAuth 2.1 授权（发现 → 注册 → App 内 WebKit 授权 → Token 入 Keychain），
+    /// 完成后自动刷新该 server 的工具列表。
+    private func startAuthorization(for server: MCPServerConfig) {
+        Task {
+            do {
+                try await MCPOAuthManager.shared.startAuthorization(server: server)
+                await store.refresh(id: server.id)
+            } catch is CancellationError {
+                // 用户取消，静默。
+            } catch {
+                // 失败信息落到 server 行（复用 lastError 展示位）。
+                store.updateDiscovery(id: server.id, toolCount: 0, error: error)
+            }
+        }
     }
 
     private func refresh(_ id: UUID) {
