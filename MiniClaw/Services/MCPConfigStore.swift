@@ -90,6 +90,7 @@ final class MCPConfigStore: ObservableObject {
 
     func refresh(id: UUID) async {
         guard var server = server(id: id), server.isEnabled else { return }
+        AppLogger.shared.info("[MCP] 刷新开始: \(server.name) → \(server.endpointURL)")
         markConnecting(id: id)
         var token = bearerToken(for: id)
         do {
@@ -98,6 +99,7 @@ final class MCPConfigStore: ObservableObject {
                 bearerToken: token,
                 forceRefresh: true
             )
+            AppLogger.shared.info("[MCP] \(server.name): 刷新成功, 工具 \(tools.count) 个")
             updateDiscovery(id: id, toolCount: tools.count, error: nil)
         } catch {
             // 2026-09-01 唐唐拍板：401 时优先尝试 OAuth refresh_token 换新重试一次；
@@ -112,6 +114,7 @@ final class MCPConfigStore: ObservableObject {
                         bearerToken: token,
                         forceRefresh: true
                     )
+                    AppLogger.shared.info("[MCP] \(server.name): refresh_token 重试成功, 工具 \(tools.count) 个")
                     updateDiscovery(id: id, toolCount: tools.count, error: nil)
                     return
                 } catch {
@@ -120,6 +123,7 @@ final class MCPConfigStore: ObservableObject {
                 }
             }
             if isMCPUnauthorizedError(error) {
+                AppLogger.shared.info("[MCP] \(server.name): 401 未授权 → 标记 requiresAuthorization（列表将显示认证按钮）")
                 server.requiresAuthorization = true
                 var snapshot = server
                 if let idx = servers.firstIndex(where: { $0.id == id }) {
@@ -129,6 +133,7 @@ final class MCPConfigStore: ObservableObject {
                 updateDiscovery(id: id, toolCount: 0, error: MCPClientError.httpStatus(401, L10n.l("mcp_needs_authorization_hint")))
                 return
             }
+            AppLogger.shared.info("[MCP] \(server.name): 刷新失败: \(error.localizedDescription)")
             updateDiscovery(id: id, toolCount: 0, error: error)
         }
     }

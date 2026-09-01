@@ -198,6 +198,7 @@ final class MCPOAuthManager: ObservableObject {
 
     /// 对指定 server 启动完整 OAuth 授权（发现 → 注册 → PKCE 授权 → 换 token）。
     func startAuthorization(server: MCPServerConfig) async throws {
+        AppLogger.shared.info("[MCP-OAuth] \(server.name): 授权流程开始 → \(server.endpointURL)")
         pendingServerID = server.id
         let base = server.endpointURL
 
@@ -205,6 +206,7 @@ final class MCPOAuthManager: ObservableObject {
         //    失败则以 server URL 本身作为授权服务器再试。
         var serverMeta: MCPOAuthAuthorizationServerMetadata?
         if let resourceMeta = await discoverProtectedResource(base) {
+            AppLogger.shared.info("[MCP-OAuth] 受保护资源发现成功, 授权服务器: \(resourceMeta.authorizationServers ?? [])")
             for asURL in resourceMeta.authorizationServers ?? [] {
                 if let meta = await fetchAuthorizationServerMetadata(asURL) {
                     serverMeta = meta
@@ -214,17 +216,23 @@ final class MCPOAuthManager: ObservableObject {
         }
         if serverMeta == nil {
             // 回退：按 MCP 规范，授权服务器可能直接托管在同一域的 well-known 路径。
+            AppLogger.shared.info("[MCP-OAuth] 受保护资源发现未命中, 回退 origin well-known 直探")
             guard let origin = originOf(base),
                   let meta = await fetchAuthorizationServerMetadata(origin)
-            else { throw MCPOAuthError.missingMetadata }
+            else {
+                AppLogger.shared.error("[MCP-OAuth] 授权服务器元数据发现失败（authorize/token 端点不可知）")
+                throw MCPOAuthError.missingMetadata
+            }
             serverMeta = meta
         }
         guard let meta = serverMeta else { throw MCPOAuthError.missingMetadata }
+        AppLogger.shared.info("[MCP-OAuth] authorize=\(meta.authorizationEndpoint) token=\(meta.tokenEndpoint) register=\(meta.registrationEndpoint ?? "无")")
 
         // 2. 动态客户端注册（服务器支持时；否则假定预注册的公共客户端）。
         var clientID = "miniclaw"
         var clientSecret: String?
         if let regEndpoint = meta.registrationEndpoint {
+            AppLogger.shared.info("[MCP-OAuth] 动态客户端注册: \(regEndpoint)")
             let registration = await registerClient(
                 registrationEndpoint: regEndpoint,
                 serverName: server.name
@@ -254,6 +262,7 @@ final class MCPOAuthManager: ObservableObject {
         if let secret = clientSecret { query.append(URLQueryItem(name: "client_secret", value: secret)) }
         comps.queryItems = query
         guard let authorizeURL = comps.url else { throw MCPOAuthError.missingMetadata }
+        AppLogger.shared.info("[MCP-OAuth] 授权页 URL: \(authorizeURL.absoluteString)")
 
         // 4. App 内 WebKit 认证页（sheet），等待 redirect 捕获授权码。
         pendingServerID = server.id
@@ -274,6 +283,7 @@ final class MCPOAuthManager: ObservableObject {
         MCPOAuthTokenStore.save(tokens, for: server.id)
         authorizedServerIDs.insert(server.id)
         pendingServerID = nil
+        AppLogger.shared.info("[MCP-OAuth] \(server.name): 授权完成, token 已入 Keychain")
     }
 
     // MARK: 等待授权码（continuation）
@@ -305,6 +315,7 @@ final class MCPOAuthManager: ObservableObject {
 
     /// WebView 捕获到 redirect 回调时由认证页调用。
     func handleRedirect(_ url: URL) {
+        AppLogger.shared.info("[MCP-OAuth] redirect 捕获: \(url.absoluteString)")
         guard let comps = URLComponents(url: url, resolvingAgainstBaseURL: false) else { return }
         let state = comps.queryItems?.first(where: { $0.name == "state" })?.value
         guard state == stateValue else {
@@ -344,7 +355,11 @@ final class MCPOAuthManager: ObservableObject {
         guard let tokens = MCPOAuthTokenStore.load(for: serverID),
               let refreshToken = tokens.refreshToken,
               let endpoint = tokens.tokenEndpoint
-        else { return nil }
+        else {
+            AppLogger.shared.info("[MCP-OAuth] serverID \(serverID.uuidString): 无 refresh_token，跳过刷新")
+            return nil
+        }
+        AppLogger.shared.info("[MCP-OAuth] refresh_token 刷新开始: \(endpoint)")
         var request = URLRequest(url: URL(string: endpoint)!)
         request.httpMethod = "POST"
         request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
@@ -482,6 +497,7 @@ final class MCPOAuthManager: ObservableObject {
                 case scope
             }
         }
+        AppLogger.shared.info("[MCP-OAuth] token 交换成功 (\(http.statusCode))")
         let decoded = try JSONDecoder().decode(TokenResponse.self, from: data)
         let tokens = MCPOAuthTokenSet(
             accessToken: decoded.accessToken,

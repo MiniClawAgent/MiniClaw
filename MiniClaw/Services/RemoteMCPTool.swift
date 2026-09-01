@@ -20,10 +20,13 @@ actor MCPToolDiscoveryCache {
         if !forceRefresh,
            let entry = entries[server.id],
            Date().timeIntervalSince(entry.fetchedAt) < lifetime {
+            AppLogger.shared.info("[MCP-发现] \(server.name): 缓存命中, \(entry.definitions.count) 个工具")
             return entry.definitions
         }
+        AppLogger.shared.info("[MCP-发现] \(server.name): listTools 开始 (forceRefresh=\(forceRefresh))")
         let client = await MCPClientManager.shared.client(for: server, bearerToken: bearerToken)
         let definitions = try await client.listTools()
+        AppLogger.shared.info("[MCP-发现] \(server.name): listTools 完成, \(definitions.count) 个工具")
         entries[server.id] = Entry(definitions: definitions, fetchedAt: Date())
         return definitions
     }

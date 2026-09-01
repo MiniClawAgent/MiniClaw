@@ -252,7 +252,11 @@ actor RemoteMCPClient {
                 throw MCPClientError.invalidResponse(L10n.l("mcp_response_not_http"))
             }
             if let value = http.value(forHTTPHeaderField: "Mcp-Session-Id"), !value.isEmpty { sessionID = value }
+            if http.statusCode != 200 {
+                AppLogger.shared.info("[MCP-HTTP] \(http.statusCode) \(http.url?.absoluteString ?? "")")
+            }
             guard (200..<300).contains(http.statusCode) else {
+                AppLogger.shared.info("[MCP-HTTP] \(http.statusCode) 响应体: \(String(decoding: data.prefix(300), as: UTF8.self))")
                 throw MCPClientError.httpStatus(http.statusCode, String(decoding: data.prefix(2048), as: UTF8.self))
             }
             if !expectsResponse { return data }
