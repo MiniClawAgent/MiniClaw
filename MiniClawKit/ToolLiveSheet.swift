@@ -207,9 +207,12 @@ struct ToolLiveSheet: View {
             GeometryReader { geo in
                 VStack(spacing: 0) {
                     nav
-                    divider
+                    if !cardSurface { divider }
                     // [2026-08-14 Apple Music 风格卡片] L1+L2 摘要卡（灰底圆角矩形）：
                     // 工具信息行 + 参数行作为「摘要」，卡片内细线分隔。
+                    // 2026-09-01 卡片模式（cardSurface）：内容满铺到外框边缘，
+                    // 去掉内层水平 padding 与内层圆角——外框（圆角 20 + 描边）即内容边界，
+                    // 避免「框大内容小、圆角不齐」（唐唐真机反馈）。
                     VStack(spacing: 0) {
                         toolInfoRow
                         if hasParameterRow {
@@ -219,19 +222,19 @@ struct ToolLiveSheet: View {
                         parameterRow
                     }
                     .background(Color(UIColor.systemGray6))
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-                    .padding(.horizontal, 12)
-                    .padding(.top, 12)
-                    .padding(.bottom, 8)
+                    .clipShape(cardSurface ? AnyShape(Rectangle()) : AnyShape(RoundedRectangle(cornerRadius: 12)))
+                    .padding(.horizontal, cardSurface ? 0 : 12)
+                    .padding(.top, cardSurface ? 0 : 12)
+                    .padding(.bottom, cardSurface ? 0 : 8)
 
                     // L3 内容卡（灰底圆角矩形，占满剩余；内部各内容分支自带
                     // 白色结果卡/截图卡，形成「灰卡托白卡」的层级，Apple Music 风格）。
                     content
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .background(Color(UIColor.systemGray6))
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
-                        .padding(.horizontal, 12)
-                        .padding(.bottom, 4)
+                        .clipShape(cardSurface ? AnyShape(Rectangle()) : AnyShape(RoundedRectangle(cornerRadius: 12)))
+                        .padding(.horizontal, cardSurface ? 0 : 12)
+                        .padding(.bottom, cardSurface ? 0 : 4)
 
                     // 卡片形态：TabView 横向分页 + 圆点指示替代上/下切换行。
                     if !hidesSwitchRow {
