@@ -290,9 +290,18 @@ public final class MiniClawTabPool: ObservableObject {
     @Published public var isBrowserLoading: Bool = false
 
     /// Whether the agent is actively executing a browser action on any tab.
+    /// ⚠️ 含完成后 15s 宽限期（inUse 的 tab 预留语义）——**不可直接用作 UI 的
+    /// 「AI 正在操作」指示**（唐唐 2026-09-02：AI 拿到结果就应脱手，宽限期内
+    /// 不得显示 AI 操作覆盖层）。UI 指示用 `isAgentActivelyOperating`。
     public var isAgentBrowsing: Bool {
         tabs.contains { $0.inUse }
     }
+
+    /// 当前实际执行中的 browser 动作数（不含 15s 宽限期）。
+    private var activeActionCount = 0
+    /// 「AI 正在操作」的 UI 指示语义：有动作**正在实际执行**（排除宽限期）。
+    /// 浏览器覆盖层（agentOperatingOverlay）应绑定此状态。
+    @Published public var isAgentActivelyOperating = false
 
     /// The manager for the currently selected UI tab.
     public var activeManager: MiniClawBrowserEngine? {
@@ -679,6 +688,13 @@ public final class MiniClawTabPool: ObservableObject {
             url: input.url,
             tabId: input.tabId
         )
+        // 动作执行中计数（排除 15s 宽限期——宽限只是 tab 预留，不算「AI 正在操作」）。
+        activeActionCount += 1
+        isAgentActivelyOperating = true
+        defer {
+            activeActionCount -= 1
+            if activeActionCount <= 0 { isAgentActivelyOperating = false }
+        }
         do {
             let result = try await executeInner(action: input,singleTab: singleTab)
             MiniClawResourceMonitor.shared.actionDidFinish(

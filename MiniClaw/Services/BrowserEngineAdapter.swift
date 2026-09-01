@@ -165,7 +165,17 @@ final class BrowserEngineAdapter: ObservableObject {
                             isLoading: tab.manager.isLoading)
                 }
                 self.activeIndex = tabs.firstIndex(where: { $0.id == selected }) ?? 0
-                self.isAgentOperating = self.pool.isAgentBrowsing
+                // 2026-09-02 唐唐：AI 完成即脱手——UI 指示排除 15s 宽限期
+                //（isAgentBrowsing 含宽限，是 tab 预留语义而非操作中语义）。
+                self.isAgentOperating = self.pool.isAgentActivelyOperating
+            }
+            .store(in: &subs)
+        // 2026-09-02：「AI 正在操作」指示改由动作执行中状态直接驱动
+        //（排除 15s 宽限期；动作开始即亮、结束即灭，不延迟不粘滞）。
+        pool.$isAgentActivelyOperating
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] active in
+                self?.isAgentOperating = active
             }
             .store(in: &subs)
         // 活跃 manager 状态
