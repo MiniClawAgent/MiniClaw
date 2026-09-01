@@ -16,57 +16,11 @@ import UserNotifications
 
 // MARK: - 9. apple-maps (MapKit)
 
-struct AppleMapsTool: AgentTool {
-    let name = "apple-maps"
-    let schema = ToolSchema(
-        type: "function",
-        function: ToolSchema.FunctionDef(
-            name: "apple-maps",
-            description: L10n.l("maps_tool_desc"),
-            parameters: JSONSchema(
-                type: "object",
-                properties: [
-                    "action": JSONSchema.JSONProperty(type: "string", description: L10n.l("op_map_actions"), enum: ["search_poi", "route", "eta"]),
-                    "query": JSONSchema.JSONProperty(type: "string", description: L10n.l("poi_search_keyword")),
-                    "from": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_origin")),
-                    "to": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_destination")),
-                    "transport_type": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_transit_mode"), enum: ["driving", "walking", "transit"]),
-                    "limit": JSONSchema.JSONProperty(type: "integer", description: L10n.l("param_result_limit")),
-                ],
-                required: ["action"]
-            )
-        )
-    )
-
-    func execute(_ parameters: [String: Any]) async throws -> ToolResult {
-        return ToolResult(success: false, text: L10n.l("not_implemented_maps"))
-    }
-}
+// 注：apple-maps 的真实现已迁至 MapsTools.swift（此处占位实现已删除）。
 
 // MARK: - 10. apple-media (MediaPlayer)
 
-struct AppleMediaTool: AgentTool {
-    let name = "apple-media"
-    let schema = ToolSchema(
-        type: "function",
-        function: ToolSchema.FunctionDef(
-            name: "apple-media",
-            description: L10n.l("music_tool_desc"),
-            parameters: JSONSchema(
-                type: "object",
-                properties: [
-                    "action": JSONSchema.JSONProperty(type: "string", description: L10n.l("op_music_actions"), enum: ["play", "pause", "next", "previous", "search", "info"]),
-                    "query": JSONSchema.JSONProperty(type: "string", description: L10n.l("search_keyword_alt")),
-                ],
-                required: ["action"]
-            )
-        )
-    )
-
-    func execute(_ parameters: [String: Any]) async throws -> ToolResult {
-        return ToolResult(success: false, text: L10n.l("not_implemented_media"))
-    }
-}
+// 注：apple-media 的真实现已迁至 MusicTools.swift（此处占位实现已删除）。
 
 // MARK: - 11. apple-nfc (CoreNFC)
 

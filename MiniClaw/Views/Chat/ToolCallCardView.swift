@@ -116,9 +116,10 @@ struct ToolCallCardView: View {
         case "read_image": return ("photo", L10n.l("read_image"))
         case "apple-calendar": return ("calendar", L10n.l("calendar_actions"))
         case "apple-reminders": return ("checklist", L10n.l("reminders"))
-        case "apple-weather": return ("cloud.sun", L10n.l("check_weather"))
         case "apple-speak": return ("speaker.wave.2", L10n.l("read_aloud"))
         case "apple-speech": return ("mic", L10n.l("speech_recognition"))
+        case "apple-contacts": return ("person.crop.circle", L10n.l("contacts_actions"))
+        case "apple-media": return ("music.note", L10n.l("media_playback"))
         case "apple-clipboard": return ("doc.on.clipboard", L10n.l("clipboard_actions"))
         case "apple-device": return ("iphone", L10n.l("device_info"))
         case "apple-nlp": return ("text.alignleft", L10n.l("text_analysis"))
@@ -146,9 +147,10 @@ struct ToolCallCardView: View {
         case "read_image": return "photo"
         case "apple-calendar": return "calendar"
         case "apple-reminders": return "checklist"
-        case "apple-weather": return "cloud.sun"
         case "apple-speak": return "speaker.wave.2"
         case "apple-speech": return "mic"
+        case "apple-contacts": return "person.crop.circle"
+        case "apple-media": return "music.note"
         case "apple-clipboard": return "doc.on.clipboard"
         case "apple-device": return "iphone"
         case "apple-nlp": return "text.alignleft"

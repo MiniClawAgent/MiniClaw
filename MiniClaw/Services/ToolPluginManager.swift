@@ -195,6 +195,11 @@ final class ToolPluginManager {
         "apple-reminders": { _ in AppleRemindersTool() },
         "apple-photos": { _ in ApplePhotosTool() },
         "apple-homekit": { _ in AppleHomeKitTool() },
+        // 2026-09-01 新增：通讯录 / 地图 / 媒体播放 / 语音识别。
+        "apple-contacts": { _ in AppleContactsTool() },
+        "apple-maps": { _ in AppleMapsTool() },
+        "apple-media": { _ in AppleMediaTool() },
+        "apple-speech": { _ in AppleSpeechTool() },
     ]
 
     /// 已启用插件的全部工具实例（shell 与 builtin 后端统一产出；非法项跳过并日志）。

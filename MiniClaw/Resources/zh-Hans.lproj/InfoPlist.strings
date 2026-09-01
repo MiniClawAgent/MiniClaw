@@ -11,6 +11,8 @@
 
 "NSCameraUsageDescription" = "MiniClaw 需要使用相机拍照或扫描二维码。";
 
+"NSContactsUsageDescription" = "MiniClaw 需要访问通讯录以查找联系人信息，以及创建和修改您让 AI 代为录入的联系人。";
+
 "NSHealthShareUsageDescription" = "MiniClaw 需要读取您的健康数据——活动与步数、心率、体重等身体测量、睡眠、血压/血糖/血氧、饮水与膳食、运动记录——用于回答您的健康相关提问。";
 
 "NSHealthUpdateUsageDescription" = "MiniClaw 需要写入您授权的健康数据——步数、活动能量、体重、身高、体脂率、正念时长、饮水量与膳食能量——用于记录您让 AI 代为录入的条目。";

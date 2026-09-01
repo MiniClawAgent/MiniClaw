@@ -11,6 +11,8 @@
 
 "NSCameraUsageDescription" = "MiniClaw needs the camera to take photos or scan QR codes.";
 
+"NSContactsUsageDescription" = "MiniClaw needs access to your contacts to look up contact information, and to create and update contacts you ask the AI to add.";
+
 "NSHealthShareUsageDescription" = "MiniClaw needs to read your health data—activity and steps, heart rate, body measurements, sleep, blood pressure, blood glucose, oxygen saturation, hydration and nutrition, and workout records—to answer your health-related questions.";
 
 "NSHealthUpdateUsageDescription" = "MiniClaw needs to write the health data you authorize—steps, active energy, body mass, height, body fat, mindful minutes, water and dietary energy—to record entries you ask it to log.";

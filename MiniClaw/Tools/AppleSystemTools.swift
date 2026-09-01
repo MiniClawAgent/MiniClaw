@@ -122,29 +122,8 @@ struct SafariOpenTool: AgentTool {
 
 // MARK: - 16. apple-player (AVFoundation)
 
-struct ApplePlayerTool: AgentTool {
-    let name = "apple-player"
-    let schema = ToolSchema(
-        type: "function",
-        function: ToolSchema.FunctionDef(
-            name: "apple-player",
-            description: L10n.l("player_tool_desc"),
-            parameters: JSONSchema(
-                type: "object",
-                properties: [
-                    "action": JSONSchema.JSONProperty(type: "string", description: L10n.l("op_player_actions"), enum: ["play", "pause", "stop", "seek"]),
-                    "url": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_media_url")),
-                    "position": JSONSchema.JSONProperty(type: "number", description: L10n.l("param_seek_position")),
-                ],
-                required: ["action"]
-            )
-        )
-    )
-
-    func execute(_ parameters: [String: Any]) async throws -> ToolResult {
-        return ToolResult(success: false, text: L10n.l("not_implemented_player"))
-    }
-}
+// 注：apple-player 已移除——App 内没有持久播放器实例，其能力已被已注册的
+// `apple-speak`（TTS 朗读）与新增的 `apple-media`（系统播放控制）覆盖。
 
 // MARK: - 17. apple-reminders (EventKit)
 
@@ -191,78 +170,14 @@ struct AppleSpeakTool: AgentTool {
 
 // MARK: - 19. apple-speech (Speech)
 
-struct AppleSpeechTool: AgentTool {
-    let name = "apple-speech"
-    let schema = ToolSchema(
-        type: "function",
-        function: ToolSchema.FunctionDef(
-            name: "apple-speech",
-            description: L10n.l("stt_tool_desc"),
-            parameters: JSONSchema(
-                type: "object",
-                properties: [
-                    "language": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_lang_code_zh")),
-                    "duration": JSONSchema.JSONProperty(type: "integer", description: L10n.l("param_speech_duration")),
-                ],
-                required: []
-            )
-        )
-    )
-
-    func execute(_ parameters: [String: Any]) async throws -> ToolResult {
-        return ToolResult(success: false, text: L10n.l("not_implemented_speech"))
-    }
-}
+// 注：apple-speech 的真实现已迁至 SpeechTools.swift（此处占位实现已删除）。
 
 // MARK: - 20. apple-vision (Vision)
 
-struct AppleVisionTool: AgentTool {
-    let name = "apple-vision"
-    let schema = ToolSchema(
-        type: "function",
-        function: ToolSchema.FunctionDef(
-            name: "apple-vision",
-            description: L10n.l("vision_tool_desc"),
-            parameters: JSONSchema(
-                type: "object",
-                properties: [
-                    "action": JSONSchema.JSONProperty(type: "string", description: L10n.l("op_vision_actions"), enum: ["ocr", "face_detect", "barcode", "classify", "similarity", "stitch"]),
-                    "image_path": JSONSchema.JSONProperty(type: "string", description: L10n.l("image_path_param")),
-                    "image_path_2": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_second_image")),
-                ],
-                required: ["action", "image_path"]
-            )
-        )
-    )
-
-    func execute(_ parameters: [String: Any]) async throws -> ToolResult {
-        return ToolResult(success: false, text: L10n.l("not_implemented_vision"))
-    }
-}
+// 注：apple-vision 已移除——其能力已被已注册的 `vision_analyze`（MediaTools.swift）
+// 完全覆盖，留着只会让模型看到两个功能重复的工具。
 
 // MARK: - 21. apple-weather (WeatherKit)
 
-struct AppleWeatherTool: AgentTool {
-    let name = "apple-weather"
-    let schema = ToolSchema(
-        type: "function",
-        function: ToolSchema.FunctionDef(
-            name: "apple-weather",
-            description: L10n.l("weather_tool_desc"),
-            parameters: JSONSchema(
-                type: "object",
-                properties: [
-                    "action": JSONSchema.JSONProperty(type: "string", description: L10n.l("op_weather_actions"), enum: ["current", "forecast", "alerts"]),
-                    "latitude": JSONSchema.JSONProperty(type: "number", description: L10n.l("param_latitude_current")),
-                    "longitude": JSONSchema.JSONProperty(type: "number", description: L10n.l("param_longitude_current")),
-                    "days": JSONSchema.JSONProperty(type: "integer", description: L10n.l("param_forecast_days")),
-                ],
-                required: ["action"]
-            )
-        )
-    )
-
-    func execute(_ parameters: [String: Any]) async throws -> ToolResult {
-        return ToolResult(success: false, text: L10n.l("not_implemented_weather"))
-    }
-}
+// 注：apple-weather 已移除——WeatherKit 需要 `com.apple.developer.weatherkit`
+// entitlement 且需付费开发者账号在后台勾选 capability，v1 不引入。

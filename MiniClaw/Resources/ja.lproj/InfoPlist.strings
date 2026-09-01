@@ -11,6 +11,8 @@
 
 "NSCameraUsageDescription" = "MiniClaw は写真の撮影や QR コードの読み取りにカメラを使用します。";
 
+"NSContactsUsageDescription" = "MiniClaw は連絡先を検索するために連絡先へのアクセスを必要とします。また、AI に作成・変更を依頼した連絡先を登録するためにも使用します。";
+
 "NSHealthShareUsageDescription" = "MiniClaw は健康に関するご質問にお答えするため、健康データ（活動量と歩数、心拍数、体重などの身体測定値、睡眠、血圧・血糖値・血中酸素濃度、水分と栄養、ワークアウト記録）を読み取ります。";
 
 "NSHealthUpdateUsageDescription" = "MiniClaw はご依頼いただいた項目（歩数、活動エネルギー、体重、身長、体脂肪率、マインドフルネス時間、水分、摂取エネルギー）を健康データに書き込みます。";

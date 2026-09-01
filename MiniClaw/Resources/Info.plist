@@ -50,6 +50,8 @@
 	<string>MiniClaw 需要访问日历以管理和创建日程事件。</string>
 	<key>NSCameraUsageDescription</key>
 	<string>MiniClaw 需要使用相机拍照或扫描二维码。</string>
+	<key>NSContactsUsageDescription</key>
+	<string>MiniClaw 需要访问通讯录以查找联系人信息，以及创建和修改您让 AI 代为录入的联系人。</string>
 	<key>NSHealthShareUsageDescription</key>
 	<string>MiniClaw 需要读取您的健康数据——活动与步数、心率、体重等身体测量、睡眠、血压/血糖/血氧、饮水与膳食、运动记录——用于回答您的健康相关提问。</string>
 	<key>NSHealthUpdateUsageDescription</key>

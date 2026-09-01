@@ -4,58 +4,16 @@ import AVFoundation
 import NaturalLanguage
 import UserNotifications
 
-struct AppleAlarmTool: AgentTool {
-    let name = "apple-alarm"
-    let schema = ToolSchema(
-        type: "function",
-        function: ToolSchema.FunctionDef(
-            name: "apple-alarm",
-            description: L10n.l("alarm_tool_desc"),
-            parameters: JSONSchema(
-                type: "object",
-                properties: [
-                    "action": JSONSchema.JSONProperty(type: "string", description: L10n.l("op_reminder_actions"), enum: ["set", "cancel", "list"]),
-                    "time": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_alarm_time")),
-                    "label": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_tab_label")),
-                ],
-                required: ["action"]
-            )
-        )
-    )
+// MARK: - 1. apple-alarm
 
-    func execute(_ parameters: [String: Any]) async throws -> ToolResult {
-        return ToolResult(success: false, text: L10n.l("not_implemented_alarm"))
-    }
-}
+// 注：apple-alarm 已移除——iOS 没有第三方读写系统闹钟的公开 API
+// （OpenMinis 支持它是因为 macOS/快捷指令侧另有通路，iOS 照搬不了）。
+// 定时提醒需求走 `apple-notification`（本地通知）或 `apple-reminders`。
 
 // MARK: - 2. apple-bluetooth (CoreBluetooth)
 
-struct AppleBluetoothTool: AgentTool {
-    let name = "apple-bluetooth"
-    let schema = ToolSchema(
-        type: "function",
-        function: ToolSchema.FunctionDef(
-            name: "apple-bluetooth",
-            description: L10n.l("bluetooth_tool_desc"),
-            parameters: JSONSchema(
-                type: "object",
-                properties: [
-                    "action": JSONSchema.JSONProperty(type: "string", description: L10n.l("op_ble_actions"), enum: ["scan", "connect", "disconnect", "read", "write", "notify"]),
-                    "device_id": JSONSchema.JSONProperty(type: "string", description: L10n.l("device_uuid")),
-                    "service_uuid": JSONSchema.JSONProperty(type: "string", description: L10n.l("service_uuid")),
-                    "characteristic_uuid": JSONSchema.JSONProperty(type: "string", description: L10n.l("characteristic_uuid")),
-                    "data": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_write_data")),
-                    "duration": JSONSchema.JSONProperty(type: "integer", description: L10n.l("param_scan_duration")),
-                ],
-                required: ["action"]
-            )
-        )
-    )
-
-    func execute(_ parameters: [String: Any]) async throws -> ToolResult {
-        return ToolResult(success: false, text: L10n.l("not_implemented_bluetooth"))
-    }
-}
+// 注：apple-bluetooth 已移除——BLE 中心态机（扫描/连接/特征读写/订阅）工作量大，
+// v1 用不上，且会额外索取蓝牙权限、易引审核问询。
 
 // MARK: - 3. apple-calendar (EventKit)
 
