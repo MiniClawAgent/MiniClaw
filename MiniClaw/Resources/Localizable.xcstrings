@@ -60883,6 +60883,93 @@
           }
         }
       }
+    },
+    "import_updated_list": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Upgraded plugins: %@"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已升级插件：%@"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アップグレード済みプラグイン：%@"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "업그레이드된 플러그인: %@"
+          }
+        }
+      }
+    },
+    "plugin_update_downgrade_rejected": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rejected: new version (%1$@) is lower than the installed version (%2$@). To downgrade, delete the plugin first and import again."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "拒绝安装：新版本 (%1$@) 低于已安装版本 (%2$@)。如需降级，请先删除该插件再手动导入。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "拒否：新バージョン (%1$@) はインストール済み (%2$@) より低いため。ダウングレードするには先にプラグインを削除して再インポートしてください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "거부됨: 새 버전(%1$@)이 설치된 버전(%2$@)보다 낮습니다. 다운그레이드하려면 먼저 플러그인을 삭제한 후 다시 가져오세요."
+          }
+        }
+      }
+    },
+    "plugin_tool_updated_note": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The plugin was upgraded in place. Enable state and configuration are preserved; for model plugins the new model/behavior data takes effect immediately."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "插件已原地升级，启用状态与配置全部保留；model 插件的新模型/行为数据即时生效，无需重新添加供应商。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "プラグインはその場でアップグレードされました。有効状態と設定は保持され、model プラグインの新しいモデル/動作データは即時反映されます。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "플러그인이 그 자리에서 업그레이드되었습니다. 활성 상태와 설정이 유지되며, model 플러그인의 새 모델/동작 데이터는 즉시 적용됩니다."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

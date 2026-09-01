@@ -493,6 +493,8 @@ final class SkillManager {
     /// 导入结果：成功导入的技能名、跳过的（已存在或非法）、失败原因。
     struct ImportResult {
         var imported: [String] = []
+        /// 原地升级条目（展示串："dirName 旧版本 → 新版本"）。
+        var updated: [String] = []
         var skipped: [String] = []
         var message: String = ""
     }
@@ -541,10 +543,58 @@ final class SkillManager {
             let typeDir = fs.pluginTypeDir(parsed.type)
             try? fm.createDirectory(at: typeDir, withIntermediateDirectories: true)
             let dest = typeDir.appendingPathComponent(dirName)
-            // 同名 id 已存在一律跳过（不覆盖内置/已编辑插件）。
             if fm.fileExists(atPath: dest.path) {
-                result.skipped.append(dirName)
-                continue
+                // 内置包由 Bundle 同步管理（syncBundledPlugins 同名先删后拷），用户导入不得覆盖。
+                guard !fs.bundledPluginIds().contains(dirName) else {
+                    result.skipped.append(dirName)
+                    continue
+                }
+                // 同 id 升级（唐唐 2026-09-01）：新包版本高于已安装 → 原地替换（启用状态/
+                // 供应商配置/密钥全保留——用户数据不在插件目录内）；版本相同 → 跳过；
+                // 更低 → 拒绝（降级需先删除插件再手动导入）。
+                let oldVer = Self.pluginVersion(from: dest.appendingPathComponent("plugin.json"))
+                let newVer = parsed.version
+                switch Self.compareVersion(newVer, oldVer) {
+                case 0:
+                    result.skipped.append(dirName)
+                    continue
+                case -1:
+                    result.message = String(format: L10n.l("plugin_update_downgrade_rejected"), newVer, oldVer)
+                    continue
+                default:
+                    break
+                }
+                let backup = fm.temporaryDirectory
+                    .appendingPathComponent("miniclaw_plugin_upgrade_\(UUID().uuidString)")
+                do {
+                    try fm.copyItem(at: dest, to: backup)
+                    try fm.removeItem(at: dest)
+                    try fm.copyItem(at: src, to: dest)
+                    if parsed.type == "theme",
+                       let violation = ThemeManager.validateThemeAssets(in: dest) {
+                        // theme 超限回滚旧版本
+                        try? fm.removeItem(at: dest)
+                        try? fm.copyItem(at: backup, to: dest)
+                        try? fm.removeItem(at: backup)
+                        result.message = violation
+                        continue
+                    }
+                    // mcp：升级后 servers.json 幂等重合并（保留用户启用状态）。
+                    if parsed.type == "mcp",
+                       let json = try? String(contentsOf: dest.appendingPathComponent("servers.json"), encoding: .utf8) {
+                        _ = try? MCPConfigStore.shared.mergePluginServers(json, sourcePlugin: dirName)
+                    }
+                    try? fm.removeItem(at: backup)
+                    result.updated.append("\(dirName) \(oldVer) → \(newVer)")
+                    continue
+                } catch {
+                    // 升级失败回滚旧版本
+                    try? fm.removeItem(at: dest)
+                    try? fm.copyItem(at: backup, to: dest)
+                    try? fm.removeItem(at: backup)
+                    result.skipped.append(dirName)
+                    continue
+                }
             }
             do {
                 try fm.copyItem(at: src, to: dest)
@@ -580,9 +630,9 @@ final class SkillManager {
             }
         }
 
-        if !result.imported.isEmpty {
+        if !result.imported.isEmpty || !result.updated.isEmpty {
             invalidateSkillsCache()
-            // 导入后即时刷新子代理角色注册表（subagent 类型插件无需重启即可派发）。
+            // 导入/升级后即时刷新子代理角色注册表（subagent 类型插件无需重启即可派发）。
             refreshSubagentProfiles()
         }
         if result.imported.isEmpty && result.skipped.isEmpty {
@@ -590,6 +640,7 @@ final class SkillManager {
         } else {
             var parts: [String] = []
             if !result.imported.isEmpty { parts.append(String(format: L10n.l("import_done_list"), result.imported.joined(separator: "、"))) }
+            if !result.updated.isEmpty { parts.append(String(format: L10n.l("import_updated_list"), result.updated.joined(separator: "、"))) }
             if !result.skipped.isEmpty { parts.append(String(format: L10n.l("import_skipped_list"), result.skipped.joined(separator: "、"))) }
             result.message = parts.joined(separator: "；")
         }
@@ -632,6 +683,27 @@ final class SkillManager {
     /// 将插件 id 清洗为安全目录名——统一转调 PluginManifest.sanitizeID（唯一真相源）。
     private static func sanitizePluginID(_ id: String) -> String {
         PluginManifest.sanitizeID(id)
+    }
+
+    /// 读取插件 manifest 的 version（缺省 "0.0.0"）。
+    private static func pluginVersion(from url: URL) -> String {
+        guard let data = try? Data(contentsOf: url),
+              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let v = obj["version"] as? String, !v.isEmpty else { return "0.0.0" }
+        return v
+    }
+
+    /// 点分数字版本比较（semver 子集）：-1 = a<b，0 = 相等，1 = a>b。非数字段按 0 处理。
+    static func compareVersion(_ a: String, _ b: String) -> Int {
+        let pa = a.split(separator: ".").map { Int($0) ?? 0 }
+        let pb = b.split(separator: ".").map { Int($0) ?? 0 }
+        for i in 0..<max(pa.count, pb.count) {
+            let x = i < pa.count ? pa[i] : 0
+            let y = i < pb.count ? pb[i] : 0
+            if x < y { return -1 }
+            if x > y { return 1 }
+        }
+        return 0
     }
 
     // MARK: - Frontmatter 解析（最小实现，无第三方依赖）
