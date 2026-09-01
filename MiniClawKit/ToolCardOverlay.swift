@@ -25,8 +25,6 @@ struct ToolCardOverlay: View {
 
     /// TabView 分页选中索引。
     @State private var pageIdx: Int = 0
-    /// 把手下拉的跟手位移（限幅，只向下）。
-    @State private var dragOffset: CGFloat = 0
     /// 出现动画状态。
     @State private var appeared = false
 
@@ -45,9 +43,6 @@ struct ToolCardOverlay: View {
                     .onTapGesture { close() }
 
                 VStack(spacing: 14) {
-                    grabber
-                        .gesture(dragToClose)
-
                     TabView(selection: $pageIdx) {
                         ForEach(toolBlocks.indices, id: \.self) { i in
                             ToolLiveSheet(
@@ -57,7 +52,8 @@ struct ToolCardOverlay: View {
                                 browserPool: browserPool,
                                 browserContentProvider: browserContentProvider,
                                 onClose: onClose,
-                                hidesSwitchRow: true
+                                hidesSwitchRow: true,
+                                cardSurface: true
                             )
                             .padding(.horizontal, 16)
                             .tag(i)
@@ -66,11 +62,15 @@ struct ToolCardOverlay: View {
                     .tabViewStyle(.page(indexDisplayMode: .never))
                     .frame(height: cardHeight)
                     .clipShape(RoundedRectangle(cornerRadius: 20))
-                    .shadow(color: .black.opacity(0.4), radius: 24, y: 8)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 20)
+                            .stroke(Color(.separator).opacity(0.8), lineWidth: 1)
+                    )
+                    .shadow(color: .black.opacity(0.45), radius: 28, y: 10)
 
                     pageDots
                 }
-                .offset(y: appeared ? dragOffset : geo.size.height)
+                .offset(y: appeared ? 0 : geo.size.height)
                 .opacity(appeared ? 1 : 0)
             }
             .onAppear {
@@ -88,35 +88,6 @@ struct ToolCardOverlay: View {
     private func close() {
         withAnimation(.easeIn(duration: 0.22)) { appeared = false }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.24) { onClose() }
-    }
-
-    // MARK: - 把手 + 下拉关闭手势
-
-    private var grabber: some View {
-        Capsule()
-            .fill(Color.white.opacity(0.5))
-            .frame(width: 44, height: 5)
-            .padding(.vertical, 8)
-            .frame(maxWidth: .infinity)
-            .contentShape(Rectangle())
-    }
-
-    private var dragToClose: some Gesture {
-        DragGesture(minimumDistance: 8)
-            .onChanged { value in
-                // 只响应向下拖动，限幅避免卡片飞出。
-                dragOffset = max(0, min(value.translation.height, 320))
-            }
-            .onEnded { value in
-                let shouldClose = value.translation.height > 140
-                    || value.predictedEndTranslation.height > 260
-                if shouldClose {
-                    withAnimation(.easeIn(duration: 0.2)) { dragOffset = 420 }
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.22) { onClose() }
-                } else {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) { dragOffset = 0 }
-                }
-            }
     }
 
     // MARK: - 分页指示

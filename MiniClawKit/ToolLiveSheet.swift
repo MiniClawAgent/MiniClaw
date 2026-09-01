@@ -71,6 +71,9 @@ struct ToolLiveSheet: View {
     var onClose: (() -> Void)? = nil
     /// 卡片模式下隐藏底部「上一个/下一个」切换行——TabView 横向分页 + 圆点指示替代。
     var hidesSwitchRow: Bool = false
+    /// 卡片模式底色：用 systemGray5（深浅色都与纯黑/纯白会话页有明确边界对比），
+    /// 而非 systemGroupedBackground（深色≈纯黑、浅色≈纯白，卡片会融进会话页背景）。
+    var cardSurface: Bool = false
     @Environment(\.dismiss) private var dismiss
     @Environment(\.chatSessionId) private var sessionId
 
@@ -130,7 +133,8 @@ struct ToolLiveSheet: View {
     init(toolBlocks: [AssistantBlock],initialIdx: Int,toolSnapshots: [ToolSnapshotItem] = [],browserPool: MiniClawTabPool?,
          onBrowserTakeover: (() -> Void)? = nil,onTakeoverDone: (() -> Void)? = nil,
          browserContentProvider: ((URL?) -> AnyView)? = nil,
-         onClose: (() -> Void)? = nil, hidesSwitchRow: Bool = false) {
+         onClose: (() -> Void)? = nil, hidesSwitchRow: Bool = false,
+         cardSurface: Bool = false) {
         self.toolBlocks = toolBlocks
         self._currentIdx = State(initialValue: initialIdx)
         self.toolSnapshots = toolSnapshots
@@ -140,6 +144,7 @@ struct ToolLiveSheet: View {
         self.browserContentProvider = browserContentProvider
         self.onClose = onClose
         self.hidesSwitchRow = hidesSwitchRow
+        self.cardSurface = cardSurface
     }
 
     /// Get snapshot for the current block (matched by toolUseId).
@@ -255,7 +260,7 @@ struct ToolLiveSheet: View {
             // distribute space between the fixed chrome and the flexible content.
             // On iPhone `.infinity` just fills the sheet detent as before.
             .frame(maxWidth: .infinity,maxHeight: .infinity)
-            .background(Color(UIColor.systemGroupedBackground))
+            .background(cardSurface ? Color(UIColor.systemGray5) : Color(UIColor.systemGroupedBackground))
     }
 
     private func lifecycleModifiers(_ root: some View) -> some View {
