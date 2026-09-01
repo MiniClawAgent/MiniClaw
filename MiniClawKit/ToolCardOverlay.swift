@@ -35,7 +35,13 @@ struct ToolCardOverlay: View {
     }
 
     var body: some View {
-        GeometryReader { geo in
+        // 锚点问题：本视图被挂载在 0x0 尺寸的锚点视图 overlay 上
+        //（CollectionViewMessageListV3.SheetOverlayView 的 Color.clear.frame(0,0)），
+        // GeometryReader 只能读到 0x0 的 proposed 尺寸 → 卡片高度塌缩。
+        // 因此显式使用主屏坐标系自定尺寸，不依赖挂载点的几何环境。
+        let screenBounds = UIScreen.main.bounds
+
+        return GeometryReader { geo in
             let cardHeight = geo.size.height * 0.6
             ZStack {
                 // 遮罩：轻暗化，点按关闭（卡片外区域）。
@@ -79,6 +85,8 @@ struct ToolCardOverlay: View {
                 }
             }
         }
+        .frame(width: screenBounds.width, height: screenBounds.height)
+        .ignoresSafeArea()
     }
 
     // MARK: - 关闭
