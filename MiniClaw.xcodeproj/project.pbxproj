@@ -24,6 +24,7 @@
 		0AFBFABFE1458EC868049C31070FD8A1 /* LLMProviderFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = B31DD8E59F84C1F51D8A74AB891F9466 /* LLMProviderFactory.swift */; };
 		0C06159FC0866067C8B9B57BB110B0D5 /* UnifiedFileBrowser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C0AA66465763A6D91141445E0F17DFB /* UnifiedFileBrowser.swift */; };
 		0CE133D8BCC6C16A9AC95A2129CD8C34 /* EnvVarsSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6029D723E634E468D128AC8EA192F333 /* EnvVarsSettingsView.swift */; };
+		0EF85CE4B1E700E57AA0DADE9C2CE400 /* ToolCardWindowPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4BEE88F57DCCF05CF8C30F3BDFF7147 /* ToolCardWindowPresenter.swift */; };
 		0F18455C96C213BFC7FABCF42E2BB2F9 /* CloseSubagentTool.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23C95B8BDCEDE7D7F4C399C232512B8E /* CloseSubagentTool.swift */; };
 		0FF49465308C9E3A2BD44603AE17666F /* 用户隐私政策.md in Resources */ = {isa = PBXBuildFile; fileRef = 35251459BCF4180292EA1EA08A8AC961 /* 用户隐私政策.md */; };
 		105B2D7B9A0E40C6070226E567D3D64A /* SkillLoadTool.swift in Sources */ = {isa = PBXBuildFile; fileRef = A095DD6B9F5B953F4090FF8C8B502F54 /* SkillLoadTool.swift */; };
@@ -798,6 +799,7 @@
 		F3CD1C0D7B63C9A53F8535768B86884E /* MiniClawResourceMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MiniClawResourceMonitor.swift; sourceTree = "<group>"; };
 		F4448CFFE03D1DD28B6B78F365739A73 /* ToolProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolProtocol.swift; sourceTree = "<group>"; };
 		F499E6F988EBC5B4BCBFFDA3DBFB3346 /* SessionsSQLiteMigrator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionsSQLiteMigrator.swift; sourceTree = "<group>"; };
+		F4BEE88F57DCCF05CF8C30F3BDFF7147 /* ToolCardWindowPresenter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolCardWindowPresenter.swift; sourceTree = "<group>"; };
 		F5251B578A483D30D7C656695192FB57 /* MarkdownPrepRegex.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownPrepRegex.swift; sourceTree = "<group>"; };
 		F5C76925A1A0B68200AF6C42668341A5 /* SubAgentProfile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubAgentProfile.swift; sourceTree = "<group>"; };
 		F8F5F71E45D9943FA43E8AB2875D52F1 /* AssistantSegment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssistantSegment.swift; sourceTree = "<group>"; };
@@ -1493,6 +1495,7 @@
 				87D272729DE28B80F3DF1D7026123814 /* SwiftMathRenderer.swift */,
 				0B1BCDC2C9B72337530C5A56D377574F /* TextFadeAnimator.swift */,
 				591B2B881ADA304A0B73829F0838CFFD /* ToolCardOverlay.swift */,
+				F4BEE88F57DCCF05CF8C30F3BDFF7147 /* ToolCardWindowPresenter.swift */,
 				2AD6A61BF3C5B3B8138B399C1DB359E2 /* ToolLiveSheet.swift */,
 			);
 			path = MiniClawKit;
@@ -1793,6 +1796,7 @@
 				4A407795FC831226DDECBB9FC9C9AEB2 /* SwiftMathRenderer.swift in Sources */,
 				34A58A18698B7F8AC8116FB9ABDB9EB0 /* TextFadeAnimator.swift in Sources */,
 				329F024F178D93ABC34CBE3E032A18DE /* ToolCardOverlay.swift in Sources */,
+				0EF85CE4B1E700E57AA0DADE9C2CE400 /* ToolCardWindowPresenter.swift in Sources */,
 				6780DC202D2EEC7DC8326C16C1871A3E /* ToolLiveSheet.swift in Sources */,
 				57420251E9C72BF47D74377ED291F6F3 /* arena.c in Sources */,
 				00E995CAFF27F8EF0B4981F90E36C478 /* autolink.c in Sources */,

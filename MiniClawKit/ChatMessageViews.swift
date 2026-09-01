@@ -550,19 +550,8 @@ struct ChatMessageRow: View {
                     MessageContextMenuPreview(text: fullReplyStr)
                 }
         }
-        // 2026-09-01 唐唐拍板：工具指示器详情改为会话页浮层卡片（ToolCardOverlay）。
-        .overlay {
-            if let block = detailBlock {
-                ToolCardOverlay(
-                    toolBlocks: message.blocks.filter { $0.toolStatus != nil },
-                    initialBlockID: block.id,
-                    toolSnapshots: toolSnapshots,
-                    browserPool: browserPool,
-                    onClose: { detailBlock = nil }
-                )
-                .transition(.move(edge: .bottom).combined(with: .opacity))
-            }
-        }
+        // 2026-09-01 唐唐拍板：工具卡片浮层改由 ToolCardWindowPresenter 独立窗口承载
+        //（bridge.detailBlock → V3 sink → 窗口呈现），此处不再弹 sheet，避免双弹。
     }
 
     @ViewBuilder

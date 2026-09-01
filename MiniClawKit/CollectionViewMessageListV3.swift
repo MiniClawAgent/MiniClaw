@@ -229,33 +229,11 @@ extension CollectionViewMessageListV3 {
                 let host = UIHostingController(rootView: overlay)
                 host.view.backgroundColor = .clear
                 host.view.isUserInteractionEnabled = true
-                // 2026-09-01：工具卡片浮层（ToolCardOverlay）需要全屏坐标系定位，
-                // host.view 从 .zero 改为全屏 + 自动跟随 VC 尺寸。
-                host.view.frame = vc.view.bounds
-                host.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+                host.view.frame = .zero
                 vc.addChild(host)
                 vc.view.addSubview(host.view)
                 host.didMove(toParent: vc)
                 sheetOverlayHost = host
-
-                // 2026-09-01：全屏 host 在无卡片时会拦截消息列表的滚动手势——
-                // 无 sheetData 且无 compact summary 时直接隐藏宿主 view
-                //（isHidden 同时移出 hit test；关闭动画由 ToolCardOverlay 先播完再回调 onClose）。
-                let updateHostVisibility = { [weak self, weak host] in
-                    guard let self, let host else { return }
-                    host.view.isHidden = (self.sheetPresenter.sheetData == nil
-                                          && self.compactSummaryPresenter.summary == nil)
-                }
-                sheetPresenter.$sheetData
-                    .receive(on: DispatchQueue.main)
-                    .sink { _ in updateHostVisibility() }
-                    .store(in: &subscriptions)
-                compactSummaryPresenter.$summary
-                    .receive(on: DispatchQueue.main)
-                    .sink { _ in updateHostVisibility() }
-                    .store(in: &subscriptions)
-                updateHostVisibility()
-
 
                 sheetPresenter.onDismiss = { [weak self] in
                     self?.flushPendingSnapshotIfNeeded(caller: "sheetDismiss")
@@ -610,16 +588,20 @@ extension CollectionViewMessageListV3 {
                     guard let self else { return }
                     if let block {
                         let toolBlocks = message.blocks.filter { $0.toolStatus != nil }
-                        self.sheetPresenter.sheetData = ToolSheetPresenter.SheetData(
-                            id: block.id,
-                            block: block,
+                        // 2026-09-01 唐唐拍板：工具卡片浮层改为独立 UIWindow 呈现层
+                        //（ToolCardWindowPresenter），**不再触碰会话页的宿主视图**——
+                        // 原全屏 sheet 与 0×0 锚点宿主两条路都会影响消息列表布局/滑动。
+                        ToolCardWindowPresenter.shared.present(
                             toolBlocks: toolBlocks,
+                            initialBlockID: block.id,
                             toolSnapshots: bridge.toolSnapshots,
                             browserPool: bridge.browserPool,
-                            browserContentProvider: self.vm?.browserContentProvider
+                            browserContentProvider: self.vm?.browserContentProvider,
+                            onDismiss: { [weak self] in
+                                self?.flushPendingSnapshotIfNeeded(caller: "toolCardDismiss")
+                            }
                         )
                     }
-                    // Dismiss is handled by sheetPresenter.onDismiss (set in attach)
                 }
             return bridge
         }
@@ -3718,30 +3700,22 @@ private struct SheetOverlayView: View {
     @ObservedObject var compactPresenter: CompactSummaryPresenter
 
     var body: some View {
-        // 2026-09-01 唐唐拍板：工具指示器详情从全屏 sheet 改为会话页浮层卡片
-        // （ToolCardOverlay：60% 高不透明实体卡、左右分页切换、下滑关闭）。
-        // 呈现容器从 0×0 锚点改为全屏 ZStack——卡片需要全屏坐标系定位；
-        // 无卡片时 allowsHitTesting(false) 让触摸穿透回消息列表。
-        ZStack {
-            if let data = toolPresenter.sheetData {
-                ToolCardOverlay(
+        Color.clear
+            .frame(width: 0,height: 0)
+            .sheet(item: $toolPresenter.sheetData) { data in
+                ToolLiveSheet(
                     toolBlocks: data.toolBlocks,
-                    initialBlockID: data.block.id,
+                    initialIdx: data.toolBlocks.firstIndex(where: { $0.id == data.block.id }) ?? 0,
                     toolSnapshots: data.toolSnapshots,
                     browserPool: data.browserPool,
-                    browserContentProvider: data.browserContentProvider,
-                    onClose: { toolPresenter.sheetData = nil }
+                    browserContentProvider: data.browserContentProvider
                 )
-                .transition(.move(edge: .bottom).combined(with: .opacity))
             }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .allowsHitTesting(toolPresenter.sheetData != nil)
-        .onChange(of: toolPresenter.sheetData?.id) { newVal in
-            if newVal == nil {
-                toolPresenter.onDismiss?()
+            .onChange(of: toolPresenter.sheetData?.id) { newVal in
+                if newVal == nil {
+                    toolPresenter.onDismiss?()
+                }
             }
-        }
             .sheet(isPresented: Binding(
                 get: { compactPresenter.summary != nil },
                 set: { if !$0 { compactPresenter.summary = nil } }
