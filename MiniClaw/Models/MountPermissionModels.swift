@@ -17,17 +17,18 @@ struct MountPoint: Identifiable, Codable {
 
 /// 权限配置
 ///
-/// 注：bluetooth / nfc 两个字段已删除——其对应的能力（apple-bluetooth、NFC）都已移除，
-/// 留着只会让 AI 通过 `miniclaw_config` 去读写一个永远不会被更新的状态。
+/// 注：bluetooth / nfc / camera / notifications 四个字段已删除——它们都曾是
+/// 「只有声明、从不写回」的假状态，AI 通过 `miniclaw_config` 读到的是恒为
+/// `.notDetermined` 的脏数据，开启写入后还会把假值持久化。其中通知的真实
+/// 状态走 `PermissionManager.notificationAuthorized` 独立通道（设置-权限页使用），
+/// 相机则无任何授权查询代码（拍照由 UIImagePickerController 系统侧处理）。
 struct PermissionConfig: Codable {
     /// 是否允许 miniclaw-config（Agent Tool / CLI）写入配置 — 对齐 spec 9.2.9 / 9.5
     var miniclawConfigWrite: Bool = false
     var location: PermissionState = .notDetermined
     var microphone: PermissionState = .notDetermined
     var speechRecognition: PermissionState = .notDetermined
-    var camera: PermissionState = .notDetermined
     var photoLibrary: PermissionState = .notDetermined
-    var notifications: PermissionState = .notDetermined
     var calendar: PermissionState = .notDetermined
     var reminders: PermissionState = .notDetermined
     var healthKit: PermissionState = .notDetermined

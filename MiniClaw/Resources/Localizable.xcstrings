@@ -7056,35 +7056,6 @@
         }
       }
     },
-    "camera_permission": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Camera permission"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "カメラ権限"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "카메라 권한"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "相机权限"
-          }
-        }
-      }
-    },
     "cancel": {
       "extractionState": "manual",
       "localizations": {
@@ -36204,64 +36175,6 @@
         }
       }
     },
-    "not_implemented_healthkit": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "🔴 healthkit is not wired up yet. HealthKit requires Info.plist permission declarations and user authorization."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "🔴 healthkit は未接続です。HealthKit には Info.plist の権限宣言とユーザー認可が必要です。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "🔴 healthkit은 아직 연결되지 않았습니다. HealthKit에는 Info.plist 권한 선언과 사용자 승인이 필요합니다."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "🔴 healthkit 尚未接入。HealthKit 需要 Info.plist 权限声明和用户授权。"
-          }
-        }
-      }
-    },
-    "not_implemented_location": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "🔴 location is not wired up yet. CoreLocation requires location permission."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "🔴 location は未接続です。CoreLocation には位置情報権限の認可が必要です。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "🔴 location은 아직 연결되지 않았습니다. CoreLocation에는 위치 권한 승인이 필요합니다."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "🔴 location 尚未接入。CoreLocation 需要位置权限授权。"
-          }
-        }
-      }
-    },
     "not_implemented_model_use": {
       "extractionState": "manual",
       "localizations": {
@@ -36606,35 +36519,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "通知正文"
-          }
-        }
-      }
-    },
-    "notification_permission": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Notification permission"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "通知権限"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "알림 권한"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "通知权限"
           }
         }
       }
