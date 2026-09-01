@@ -1,28 +1,33 @@
 import Foundation
 
-// MARK: - 插件模型目录（模型能力数据的单一事实来源）
+// MARK: - 插件模型目录（模型能力数据 + 厂商行为声明的单一事实来源）
 //
-// 2026-09-01 起，模型能力数据不再内嵌于厂商适配器（各适配器的 builtinModels 已删除，
-// 适配器瘦身仅保留请求行为），统一由 model 插件包的 providers.json 声明承载：
-// - 内置 8 家厂商各有一个 com.miniclaw.builtin.<vendor> 包（project.yml 逐文件登记）；
-// - 第三方 model 插件包按同一格式提供新厂商的模型数据，无需改代码；
-// - 同一 providerType 有多个包声明时按目录序合并（后写覆盖同 modelId）。
-//
-// 消费点：
-// - `modelCapabilities(providerType:modelID:)`：拉取到的模型 ID 与插件声明精确匹配，
-//   匹配不到返回 nil（调用方按默认值处理；不兜底、不猜测——唐唐 2026-09-01 拍板）。
+// 2026-09-01 起，厂商适配器零数据零兜底（唐唐拍板），model 插件包的 providers.json
+// 承载两类声明，本类型聚合查询：
+// - `models`：模型能力数据（`modelCapabilities(providerType:modelID:)` 精确匹配，
+//   匹配不到返回 nil，调用方按默认值处理；不兜底、不猜测）
+// - `behavior`：厂商行为声明（能力标志/思考参数映射/采样约束），由 OpenAI 兼容基类
+//   通用执行器消费，替代原厂商薄壳适配器的覆写（薄壳已删除）
+// - 内置无任何厂商预设；`apigateway` 仅协议网关模板（无厂商数据）。
+// - 同一 providerType 多包声明时按目录序合并（模型后写覆盖同 modelId；行为取首个非 nil）。
 //
 // 缓存策略：按「全部 providers.json 的 path+mtime+size」指纹自失效——插件导入/删除/
 // 启停（目录内容变化）后下一次查询自动重建，无需插件生命周期代码手动通知。
 
 enum PluginModelCatalog {
 
+    /// 单个 providerType 的聚合视图。
+    struct Entry {
+        var models: [String: BuiltinModelInfo] = [:]
+        var behavior: ProviderBehaviorDecl? = nil
+    }
+
     private static let lock = NSLock()
-    private static var cache: [ProviderType: [String: BuiltinModelInfo]] = [:]
+    private static var cache: [ProviderType: Entry] = [:]
     private static var fingerprint: String = ""
 
-    /// 聚合已安装 model 插件的模型声明。
-    static func catalog() -> [ProviderType: [String: BuiltinModelInfo]] {
+    /// 聚合已安装 model 插件的全部声明。
+    static func catalog() -> [ProviderType: Entry] {
         let fs = FileSystemManager.shared
         var items: [(path: String, mtime: Date, size: Int)] = []
         for dir in fs.allPluginDirectories() {
@@ -41,18 +46,19 @@ enum PluginModelCatalog {
         lock.lock(); defer { lock.unlock() }
         if fp == fingerprint { return cache }
 
-        var result: [ProviderType: [String: BuiltinModelInfo]] = [:]
+        var result: [ProviderType: Entry] = [:]
         for it in items.sorted(by: { $0.path < $1.path }) {
             guard let data = FileManager.default.contents(atPath: it.path),
                   let decls = try? JSONDecoder().decode([ModelPluginProviderDecl].self, from: data)
             else { continue }
             for decl in decls {
                 guard let pt = ProviderType(flexibleID: decl.providerType) else { continue }
-                var bucket = result[pt] ?? [:]
+                var entry = result[pt] ?? Entry()
                 for m in decl.models ?? [] where !m.modelId.isEmpty {
-                    bucket[m.modelId] = Self.info(from: m)
+                    entry.models[m.modelId] = Self.info(from: m)
                 }
-                result[pt] = bucket
+                if entry.behavior == nil { entry.behavior = decl.behavior }
+                result[pt] = entry
             }
         }
         cache = result
@@ -62,7 +68,12 @@ enum PluginModelCatalog {
 
     /// 能力精确匹配（对齐原适配器 `builtinModels[modelID]` 语义）。
     static func modelCapabilities(providerType: ProviderType, modelID: String) -> BuiltinModelInfo? {
-        catalog()[providerType]?[modelID]
+        catalog()[providerType]?.models[modelID]
+    }
+
+    /// 厂商行为声明（OpenAI 兼容族基类消费；该 providerType 无声明时返回 nil = 基类默认行为）。
+    static func behavior(providerType: ProviderType) -> ProviderBehaviorDecl? {
+        catalog()[providerType]?.behavior
     }
 
     // MARK: - 声明 → 能力信息 映射

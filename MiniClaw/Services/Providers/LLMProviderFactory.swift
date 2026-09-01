@@ -20,8 +20,12 @@ enum LLMProviderFactory {
         projectId: String?,
         clientRequestId: UUID?
     ) -> (any LLMProviderAdapter)? {
+        // 2026-09-01：OpenAI 兼容族厂商行为（能力标志/思考映射/采样约束）由
+        // model 插件包的 behavior 声明驱动（PluginModelCatalog 聚合），薄壳适配器已删除。
+        // 未安装对应插件 = 无行为声明 = 基类默认行为（不兜底）。
+        let behavior = PluginModelCatalog.behavior(providerType: providerType)
         switch providerType {
-        case .openai, .openRouter, .custom:
+        case .openai, .openRouter, .custom, .grok, .deepSeek, .qwen, .xiaomi, .zhipu:
             return OpenAIProviderAdapter(
                 name: "OpenAI(\(providerType.rawValue))",
                 config: OpenAICompatConfig(
@@ -33,77 +37,8 @@ enum LLMProviderFactory {
                     organizationId: organizationId,
                     projectId: projectId,
                     clientRequestId: clientRequestId,
-                    providerType: providerType
-                )
-            )
-        case .grok:
-            return GrokProviderAdapter(
-                config: OpenAICompatConfig(
-                    endpointURL: endpointURL,
-                    apiKey: apiKey,
-                    usesAzureAPIKey: false,
-                    format: format,
-                    customHeaders: customHeaders,
-                    organizationId: organizationId,
-                    projectId: projectId,
-                    clientRequestId: clientRequestId,
-                    providerType: providerType
-                )
-            )
-        case .deepSeek:
-            return DeepSeekProviderAdapter(
-                config: OpenAICompatConfig(
-                    endpointURL: endpointURL,
-                    apiKey: apiKey,
-                    usesAzureAPIKey: false,
-                    format: format,
-                    customHeaders: customHeaders,
-                    organizationId: organizationId,
-                    projectId: projectId,
-                    clientRequestId: clientRequestId,
-                    providerType: providerType
-                )
-            )
-        case .qwen:
-            return QwenProviderAdapter(
-                config: OpenAICompatConfig(
-                    endpointURL: endpointURL,
-                    apiKey: apiKey,
-                    usesAzureAPIKey: false,
-                    format: format,
-                    customHeaders: customHeaders,
-                    organizationId: organizationId,
-                    projectId: projectId,
-                    clientRequestId: clientRequestId,
-                    providerType: providerType
-                )
-            )
-        case .xiaomi:
-            return XiaomiProviderAdapter(
-                config: OpenAICompatConfig(
-                    endpointURL: endpointURL,
-                    apiKey: apiKey,
-                    usesAzureAPIKey: false,
-                    format: format,
-                    customHeaders: customHeaders,
-                    organizationId: organizationId,
-                    projectId: projectId,
-                    clientRequestId: clientRequestId,
-                    providerType: providerType
-                )
-            )
-        case .zhipu:
-            return ZhipuProviderAdapter(
-                config: OpenAICompatConfig(
-                    endpointURL: endpointURL,
-                    apiKey: apiKey,
-                    usesAzureAPIKey: false,
-                    format: format,
-                    customHeaders: customHeaders,
-                    organizationId: organizationId,
-                    projectId: projectId,
-                    clientRequestId: clientRequestId,
-                    providerType: providerType
+                    providerType: providerType,
+                    behavior: behavior
                 )
             )
         case .anthropic:

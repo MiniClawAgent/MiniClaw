@@ -25,6 +25,59 @@ struct ModelPluginProviderDecl: Codable {
     var customUserAgent: String? = nil
     var customHeaders: [String: String]? = nil
     var models: [ModelPluginModelDecl]? = nil
+    /// 厂商行为声明（2026-09-01）：能力标志/思考参数映射/采样约束。
+    /// 缺省 = OpenAI 兼容基类默认行为；这是行为级差异（原厂商薄壳适配器的覆写点）
+    /// 的声明化承载，插件作者可完整定制 OpenAI 兼容族的请求行为。
+    var behavior: ProviderBehaviorDecl? = nil
+}
+
+/// 厂商行为声明（OpenAI 兼容族）。全部字段可选，nil = 基类默认。
+struct ProviderBehaviorDecl: Codable {
+    // ── 能力标志（对齐 ProviderCapabilities）──
+    /// 支持 response_format(JSON 输出)。默认 true。
+    var responseFormat: Bool? = nil
+    /// 支持并行工具调用。不支持并行调用的厂商**必须**显式 false（引擎退化单工具循环）。
+    var parallelToolCalls: Bool? = nil
+    /// 支持 seed 参数。默认 true。
+    var seed: Bool? = nil
+    /// 支持服务端提示词缓存。默认 false。
+    var promptCaching: Bool? = nil
+    /// 支持推理/思考输出。默认 true。
+    var reasoning: Bool? = nil
+    /// 支持的输入模态（默认 ["text","image","audio"]）。
+    var supportedInputModalities: [String]? = nil
+    /// 带 tools 的后续请求保留 assistant 消息的 reasoning_content
+    /// （DeepSeek 官方硬性要求，否则 400）。默认 false。
+    var preserveReasoningContent: Bool? = nil
+
+    // ── 思考开关参数映射（原 extraBodyFields 的条件分支）──
+    var thinkingParam: ThinkingParamDecl? = nil
+    // ── 无条件附加的请求体字段（如 Grok 的 store:false）──
+    var extraBody: [String: JSONSchemaValue]? = nil
+    // ── 采样参数约束（原 clampSampling）──
+    var samplingRules: SamplingRulesDecl? = nil
+}
+
+/// 思考开关 → 请求体字段映射：用户选择思考档位时注入。
+/// 仅当 thinkingLevel 非 nil 时生效（与原适配器条件一致）；`off` 档用 `off` 值（未提供则不发）。
+struct ThinkingParamDecl: Codable {
+    /// 请求体顶层键（如 "thinking"）。
+    var body: String = ""
+    /// 非 off 档位注入的值（如 {"type": "enabled"} 或 true）。
+    var on: JSONSchemaValue? = nil
+    /// off 档位注入的值（如 {"type": "disabled"}；未提供则 off 时不发该字段）。
+    var off: JSONSchemaValue? = nil
+}
+
+/// 采样参数约束。
+struct SamplingRulesDecl: Codable {
+    /// 思考开启时（thinkingLevel 非 nil 且非 "off"）置 nil 的采样参数名：
+    /// "temperature" / "top_p" / "frequency_penalty" / "presence_penalty"。
+    var disableWhenThinking: [String]? = nil
+    /// temperature 数值范围钳制 [min, max]（如智谱 [0, 1]）。
+    var temperatureRange: [Double]? = nil
+    /// top_p 数值范围钳制 [min, max]。
+    var topPRange: [Double]? = nil
 }
 
 struct ModelPluginModelDecl: Codable {

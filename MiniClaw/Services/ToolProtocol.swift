@@ -47,6 +47,22 @@ struct ToolSchema: Codable {
 }
 
 /// 可无损承载任意 JSON 的递归值，同时供 MCP JSON-RPC、工具 schema 与各 LLM 协议复用。
+
+extension JSONSchemaValue {
+    /// 转为 Foundation 类型（供 JSONSerialization 组装请求体；model 插件行为声明用）。
+    var foundationValue: Any {
+        switch self {
+        case .string(let s): return s
+        case .number(let d): return d
+        case .integer(let i): return i
+        case .boolean(let b): return b
+        case .object(let o): return o.mapValues { $0.foundationValue }
+        case .array(let a): return a.map { $0.foundationValue }
+        case .null: return NSNull()
+        }
+    }
+}
+
 indirect enum JSONSchemaValue: Codable, Sendable, Equatable {
     case string(String)
     case number(Double)

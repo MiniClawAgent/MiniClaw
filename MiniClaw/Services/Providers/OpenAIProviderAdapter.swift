@@ -18,6 +18,9 @@ struct OpenAICompatConfig: Sendable {
     var organizationId: String?
     var projectId: String?
     var clientRequestId: UUID?
+    /// 厂商行为声明（来自 model 插件包 providers.json 的 behavior 块）；
+    /// 缺省 = OpenAI 兼容基类默认行为。
+    var behavior: ProviderBehaviorDecl? = nil
     /// 供应商类型：适配器据此查询厂商能力表(responsesPath / supportsReasoningNone)，
     /// 决定 Responses API 回落与 reasoning 字段兼容(单一事实来源,见 ProviderType 扩展)。
     var providerType: ProviderType = .openai
@@ -41,13 +44,15 @@ class OpenAIProviderAdapter: LLMProviderAdapter, @unchecked Sendable {
     }
 
     var capabilities: ProviderCapabilities {
-        ProviderCapabilities(
-            supportsResponseFormat: true,
-            supportsParallelToolCalls: true,
-            supportsSeed: true,
-            supportsPromptCaching: false,
-            supportsReasoning: true,
-            supportedInputModalities: ["text", "image", "audio"]
+        // 2026-09-01：由 model 插件包的 behavior.capabilities 声明驱动（nil = 基类默认）。
+        let c = config.behavior?.capabilities
+        return ProviderCapabilities(
+            supportsResponseFormat: c?.responseFormat ?? true,
+            supportsParallelToolCalls: c?.parallelToolCalls ?? true,
+            supportsSeed: c?.seed ?? true,
+            supportsPromptCaching: c?.promptCaching ?? false,
+            supportsReasoning: c?.reasoning ?? true,
+            supportedInputModalities: c?.supportedInputModalities ?? ["text", "image", "audio"]
         )
     }
 
@@ -58,15 +63,48 @@ class OpenAIProviderAdapter: LLMProviderAdapter, @unchecked Sendable {
     /// 是否在请求体中保留 assistant 消息的 reasoning_content。
     /// 默认 false(OpenAI/Groq/智谱等对未知消息字段容忍度不一,统一剥离保行为不变);
     /// DeepSeek 必须保留(官方硬性要求:带 tools 的后续请求必须回传 reasoning_content,否则 400)。
-    var preserveReasoningContent: Bool { false }
+    var preserveReasoningContent: Bool { config.behavior?.capabilities?.preserveReasoningContent ?? false }
 
     /// 请求体附加字段:子类注入本厂商的非 OpenAI 标准参数
     /// (如智谱 `thinking`、千问 `enable_thinking`)。返回 nil 表示无附加。
-    func extraBodyFields(request: LLMStreamRequest) -> [String: Any]? { nil }
+    func extraBodyFields(request: LLMStreamRequest) -> [String: Any]? {
+        // 声明驱动：无条件附加字段 + 思考开关参数映射（behavior.thinkingParam）。
+        var body: [String: Any] = [:]
+        for (k, v) in config.behavior?.extraBody ?? [:] { body[k] = v.foundationValue }
+        if let tp = config.behavior?.thinkingParam, !tp.body.isEmpty, let level = request.thinkingLevel {
+            if level == "off" {
+                if let off = tp.off { body[tp.body] = off.foundationValue }
+            } else if let on = tp.on {
+                body[tp.body] = on.foundationValue
+            }
+        }
+        return body.isEmpty ? nil : body
+    }
 
     /// 采样参数钳制:子类按官方约束调整参数
     /// (如智谱 temperature ∈ [0,1])。默认不调整。
-    func clampSampling(request: inout LLMStreamRequest) {}
+    func clampSampling(request: inout LLMStreamRequest) {
+        // 声明驱动：采样参数约束（behavior.samplingRules）。
+        guard let rules = config.behavior?.samplingRules else { return }
+        let thinkingOn = request.thinkingLevel != nil && request.thinkingLevel != "off"
+        if thinkingOn {
+            for name in rules.disableWhenThinking ?? [] {
+                switch name {
+                case "temperature": request.temperature = nil
+                case "top_p": request.topP = nil
+                case "frequency_penalty": request.frequencyPenalty = nil
+                case "presence_penalty": request.presencePenalty = nil
+                default: break
+                }
+            }
+        }
+        if let range = rules.temperatureRange, let t = request.temperature {
+            request.temperature = min(max(t, range.first ?? t), range.last ?? t)
+        }
+        if let range = rules.topPRange, let t = request.topP {
+            request.topP = min(max(t, range.first ?? t), range.last ?? t)
+        }
+    }
 
     // MARK: - 请求构造
 
@@ -171,8 +209,15 @@ class OpenAIProviderAdapter: LLMProviderAdapter, @unchecked Sendable {
     /// 本次请求实际生效的协议格式。基类:供应商不支持 Responses(能力表 responsesPath == nil)
     /// 时回落 Chat Completions;子类(DeepSeek)可追加模型级回落。URL 侧(AppState)同步判断。
     func effectiveFormat(for request: LLMStreamRequest) -> APIFormat {
-        if config.format == .responsesAPI, config.providerType.responsesPath == nil {
-            return .chatCompletions
+        if config.format == .responsesAPI {
+            // 回落 1：providerType 协议不支持 Responses（anthropic/gemini 族）。
+            if config.providerType.responsesPath == nil { return .chatCompletions }
+            // 回落 2：请求模型的插件声明 responsesSupported == false
+            //（模型能力数据的唯一事实来源是插件声明，如 DeepSeek v4-pro 暂不支持）。
+            if let info = PluginModelCatalog.modelCapabilities(providerType: config.providerType, modelID: request.model),
+               info.responsesSupported == false {
+                return .chatCompletions
+            }
         }
         return config.format
     }
