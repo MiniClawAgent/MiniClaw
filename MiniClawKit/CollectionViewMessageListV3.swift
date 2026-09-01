@@ -238,6 +238,25 @@ extension CollectionViewMessageListV3 {
                 host.didMove(toParent: vc)
                 sheetOverlayHost = host
 
+                // 2026-09-01：全屏 host 在无卡片时会拦截消息列表的滚动手势——
+                // 无 sheetData 且无 compact summary 时直接隐藏宿主 view
+                //（isHidden 同时移出 hit test；关闭动画由 ToolCardOverlay 先播完再回调 onClose）。
+                let updateHostVisibility = { [weak self, weak host] in
+                    guard let self, let host else { return }
+                    host.view.isHidden = (self.sheetPresenter.sheetData == nil
+                                          && self.compactSummaryPresenter.summary == nil)
+                }
+                sheetPresenter.$sheetData
+                    .receive(on: DispatchQueue.main)
+                    .sink { _ in updateHostVisibility() }
+                    .store(in: &subscriptions)
+                compactSummaryPresenter.$summary
+                    .receive(on: DispatchQueue.main)
+                    .sink { _ in updateHostVisibility() }
+                    .store(in: &subscriptions)
+                updateHostVisibility()
+
+
                 sheetPresenter.onDismiss = { [weak self] in
                     self?.flushPendingSnapshotIfNeeded(caller: "sheetDismiss")
                 }
