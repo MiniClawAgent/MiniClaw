@@ -40,25 +40,6 @@ final class AnthropicProviderAdapter: LLMProviderAdapter, @unchecked Sendable {
 
     // MARK: 内置模型目录(Anthropic 官方模型)
 
-    class var builtinModels: [String: BuiltinModelInfo] {
-        [
-
-            "claude-fable-5": BuiltinModelInfo(displayName: "Claude Fable 5", contextWindow: 1000000, maxOutputTokens: 128000, deepThinking: true, thinkingLevels: ["low", "medium", "high", "xhigh", "max"], input: ["text", "image"], output: ["text"]),
-            "claude-haiku-4-5": BuiltinModelInfo(displayName: "Claude Haiku 4.5", contextWindow: 200000, maxOutputTokens: 64000, deepThinking: true, thinkingLevels: ["low", "medium", "high", "max"], input: ["text", "image"], output: ["text"]),
-            "claude-mythos-5": BuiltinModelInfo(displayName: "Claude Mythos 5", contextWindow: 1000000, maxOutputTokens: 128000, deepThinking: true, thinkingLevels: ["low", "medium", "high", "xhigh", "max"], input: ["text", "image"], output: ["text"]),
-            "claude-opus-4-5": BuiltinModelInfo(displayName: "Claude Opus 4.5", contextWindow: 200000, maxOutputTokens: 64000, deepThinking: true, thinkingLevels: ["low", "medium", "high", "max"], input: ["text", "image"], output: ["text"]),
-            "claude-opus-4-6": BuiltinModelInfo(displayName: "Claude Opus 4.6", contextWindow: 1000000, maxOutputTokens: 128000, deepThinking: true, thinkingLevels: ["low", "medium", "high", "max"], input: ["text", "image"], output: ["text"]),
-            "claude-opus-5": BuiltinModelInfo(displayName: "Claude Opus 5", contextWindow: 1000000, maxOutputTokens: 128000, deepThinking: true, thinkingLevels: ["low", "medium", "high", "xhigh", "max"], input: ["text", "image"], output: ["text"]),
-            "claude-sonnet-4-5": BuiltinModelInfo(displayName: "Claude Sonnet 4.5", contextWindow: 200000, maxOutputTokens: 64000, deepThinking: true, thinkingLevels: ["low", "medium", "high", "max"], input: ["text", "image"], output: ["text"]),
-            "claude-sonnet-4-6": BuiltinModelInfo(displayName: "Claude Sonnet 4.6", contextWindow: 1000000, maxOutputTokens: 128000, deepThinking: true, thinkingLevels: ["low", "medium", "high"], input: ["text", "image"], output: ["text"]),
-            "claude-sonnet-5": BuiltinModelInfo(displayName: "Claude Sonnet 5", contextWindow: 1000000, maxOutputTokens: 128000, deepThinking: true, thinkingLevels: ["low", "medium", "high", "xhigh", "max"], input: ["text", "image"], output: ["text"]),
-        ]
-    }
-
-    class func modelCapabilities(for modelID: String) -> BuiltinModelInfo? {
-        builtinModels[modelID] ?? heuristicCapabilities(for: modelID)
-    }
-
     // MARK: - 请求
 
     func streamChat(request: LLMStreamRequest) -> LLMStreamHandle {

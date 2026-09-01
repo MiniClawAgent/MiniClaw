@@ -42,23 +42,6 @@ final class GeminiProviderAdapter: LLMProviderAdapter, @unchecked Sendable {
 
     // MARK: 内置模型目录(Google Gemini 官方模型)
 
-    class var builtinModels: [String: BuiltinModelInfo] {
-        [
-
-            "gemini-2.5-flash": BuiltinModelInfo(displayName: "Gemini 2.5 Flash", contextWindow: 1000000, maxOutputTokens: 65536, deepThinking: true, thinkingLevels: ["low", "medium", "high", "xhigh", "max"], input: ["text", "image", "audio"], output: ["text"]),
-            "gemini-2.5-flash-lite": BuiltinModelInfo(displayName: "Gemini 2.5 Flash-Lite", contextWindow: 1000000, maxOutputTokens: 65536, deepThinking: true, thinkingLevels: ["low", "medium", "high", "xhigh", "max"], input: ["text", "image", "audio"], output: ["text"]),
-            "gemini-2.5-pro": BuiltinModelInfo(displayName: "Gemini 2.5 Pro", contextWindow: 1000000, maxOutputTokens: 65536, deepThinking: true, thinkingLevels: ["low", "medium", "high", "xhigh", "max"], input: ["text", "image", "audio"], output: ["text"]),
-            "gemini-3-flash": BuiltinModelInfo(displayName: "Gemini 3 Flash", contextWindow: 1000000, maxOutputTokens: 65536, deepThinking: true, thinkingLevels: ["low", "medium", "high", "xhigh", "max"], input: ["text", "image", "audio", "video"], output: ["text"]),
-            "gemini-3.1-flash-lite": BuiltinModelInfo(displayName: "Gemini 3.1 Flash-Lite", contextWindow: 1000000, maxOutputTokens: 65536, deepThinking: false, input: ["text", "image", "audio", "video"], output: ["text"]),
-            "gemini-3.1-pro": BuiltinModelInfo(displayName: "Gemini 3.1 Pro", contextWindow: 1000000, maxOutputTokens: 65536, deepThinking: true, thinkingLevels: ["low", "medium", "high", "xhigh", "max"], input: ["text", "image", "audio", "video"], output: ["text"]),
-            "gemini-3.5-flash": BuiltinModelInfo(displayName: "Gemini 3.5 Flash", contextWindow: 1000000, maxOutputTokens: 65536, deepThinking: true, thinkingLevels: ["low", "medium", "high", "xhigh", "max"], input: ["text", "image", "audio", "video"], output: ["text"]),
-        ]
-    }
-
-    class func modelCapabilities(for modelID: String) -> BuiltinModelInfo? {
-        builtinModels[modelID] ?? heuristicCapabilities(for: modelID)
-    }
-
     // MARK: - 请求
 
     func streamChat(request: LLMStreamRequest) -> LLMStreamHandle {

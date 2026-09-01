@@ -222,30 +222,6 @@ protocol LLMProviderAdapter: Sendable {
 
     /// HTTP 错误分类(状态码 + 响应体 → 语义化错误;无法识别返回 nil 由调用方兜底)。
     func classifyHTTPError(statusCode: Int, body: String) -> LLMError?
-
-    // MARK: 内置模型目录(模型维护并入厂商文件)
-
-    /// 该厂商的内置模型能力目录(按 modelId 精确索引)。
-    static var builtinModels: [String: BuiltinModelInfo] { get }
-
-    /// 模型能力查询:目录精确匹配 → 名称启发式兜底(推理/语音识别),再厂商级默认兜底。
-    /// 拉取到的模型列表经此查询填充能力字段。
-    static func modelCapabilities(for modelID: String) -> BuiltinModelInfo?
-}
-
-extension LLMProviderAdapter {
-    /// 名称启发式兜底:仅识别推理模型(目录未收录时的 deepThinking 兜底)。
-    /// 语音模型(TTS/ASR)的方向修正不在此处——由 BuiltinModelInfo.reconcile 的
-    /// applyVoiceModelHeuristic 负责(该处按输入/输出方向正确设置,避免双向全开污染槽位)。
-    static func heuristicCapabilities(for modelID: String) -> BuiltinModelInfo? {
-        let m = modelID.lowercased()
-        var info = BuiltinModelInfo()
-        if m.contains("reasoning") || m.contains("think") || m.contains("o1") || m.contains("o3")
-            || m.contains("o4") || m.contains("r1") || m.contains("qwq") {
-            info.deepThinking = true
-        }
-        return info.deepThinking == nil ? nil : info
-    }
 }
 
 extension LLMProviderAdapter {

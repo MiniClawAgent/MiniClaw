@@ -40,6 +40,16 @@ struct ModelPluginModelDecl: Codable {
     var outputText: Bool? = nil
     var outputImage: Bool? = nil
     var outputAudio: Bool? = nil
+    /// 以下资料字段自 2026-09-01 起由 model 插件包承载（原嵌在厂商适配器
+    /// builtinModels 中；适配器已瘦身仅保留请求行为）。
+    /// 支持的 API 格式（如 ["chat/completions", "responses", "anthropic"]）。
+    var apiFormats: [String]? = nil
+    /// 模型级是否支持 Responses API。
+    var responsesSupported: Bool? = nil
+    /// 特殊参数约束（思考模式禁用参数、回传要求等，文本说明）。
+    var specialConstraints: String? = nil
+    /// 定价说明（每百万 token，官网公布时填写）。
+    var pricing: String? = nil
 }
 
 extension ProviderType {

@@ -125,43 +125,12 @@ enum LLMProviderFactory {
         }
     }
 
-    /// 模型能力查询入口(模型维护并入厂商适配器文件后,拉取/路由统一走这里):
-    /// 按 providerType 找到对应适配器的内置目录,精确匹配 → 名称启发式兜底。
+    /// 模型能力查询入口(2026-09-01 唐唐拍板:模型数据完全由 model 插件包承载,
+    /// 适配器不再内嵌 builtinModels,也不做启发式猜测兜底):
+    /// 拉取到的模型 ID 在用户已安装插件的 providers.json 声明中精确匹配;
+    /// 匹配不到返回 nil,调用方按默认值处理(contextWindow=0 / deepThinking=false)。
     static func modelCapabilities(providerType: ProviderType, modelID: String) -> BuiltinModelInfo? {
-        if let compat = openAICompat(providerType: providerType) {
-            return compat.modelCapabilities(for: modelID)
-        }
-        switch providerType {
-        case .anthropic: return AnthropicProviderAdapter.modelCapabilities(for: modelID)
-        case .google: return GeminiProviderAdapter.modelCapabilities(for: modelID)
-        default: return nil
-        }
+        PluginModelCatalog.modelCapabilities(providerType: providerType, modelID: modelID)
     }
 
-    /// 全量内置目录(拉取失败时的回退模型列表用)。
-    static func builtinModels(providerType: ProviderType) -> [String: BuiltinModelInfo] {
-        switch providerType {
-        case .openai, .openRouter, .custom: return OpenAIProviderAdapter.builtinModels
-        case .grok: return GrokProviderAdapter.builtinModels
-        case .deepSeek: return DeepSeekProviderAdapter.builtinModels
-        case .qwen: return QwenProviderAdapter.builtinModels
-        case .xiaomi: return XiaomiProviderAdapter.builtinModels
-        case .zhipu: return ZhipuProviderAdapter.builtinModels
-        case .anthropic: return AnthropicProviderAdapter.builtinModels
-        case .google: return GeminiProviderAdapter.builtinModels
-        }
-    }
-
-    /// OpenAI 兼容族适配器类型(用于解析静态模型能力)。
-    private static func openAICompat(providerType: ProviderType) -> OpenAIProviderAdapter.Type? {
-        switch providerType {
-        case .openai, .openRouter, .custom: return OpenAIProviderAdapter.self
-        case .grok: return GrokProviderAdapter.self
-        case .deepSeek: return DeepSeekProviderAdapter.self
-        case .qwen: return QwenProviderAdapter.self
-        case .xiaomi: return XiaomiProviderAdapter.self
-        case .zhipu: return ZhipuProviderAdapter.self
-        default: return nil
-        }
-    }
 }

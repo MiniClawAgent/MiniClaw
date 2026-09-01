@@ -18,19 +18,6 @@ final class GrokProviderAdapter: OpenAIProviderAdapter, @unchecked Sendable {
 
     // MARK: 内置模型目录(xAI 官方模型)
 
-    override class var builtinModels: [String: BuiltinModelInfo] {
-        [
-
-            "grok-4.20": BuiltinModelInfo(displayName: "Grok 4.20", contextWindow: 1000000, deepThinking: true, input: ["text", "image"], output: ["text"]),
-            "grok-4.3": BuiltinModelInfo(displayName: "Grok 4.3", contextWindow: 1000000, deepThinking: true, input: ["text", "image"], output: ["text"]),
-            "grok-4.5": BuiltinModelInfo(displayName: "Grok 4.5", contextWindow: 500000, deepThinking: true, input: ["text", "image"], output: ["text"]),
-        ]
-    }
-
-    override class func modelCapabilities(for modelID: String) -> BuiltinModelInfo? {
-        builtinModels[modelID] ?? heuristicCapabilities(for: modelID)
-    }
-
     /// 官方默认在服务端存储对话 30 天;作为客户端必须显式关闭存储(隐私)。
     override func extraBodyFields(request: LLMStreamRequest) -> [String: Any]? {
         ["store": false]

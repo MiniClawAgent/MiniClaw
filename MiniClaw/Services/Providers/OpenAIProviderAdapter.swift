@@ -53,54 +53,6 @@ class OpenAIProviderAdapter: LLMProviderAdapter, @unchecked Sendable {
 
     // MARK: - 内置模型目录(模型维护并入厂商文件)
 
-    class var builtinModels: [String: BuiltinModelInfo] {
-        [
-
-            "anthropic/claude-fable-5": BuiltinModelInfo(displayName: "Claude Fable 5", contextWindow: 1000000, maxOutputTokens: 128000, deepThinking: true, thinkingLevels: ["low", "medium", "high", "xhigh", "max"], input: ["text", "image"], output: ["text"]),
-            "anthropic/claude-mythos-5": BuiltinModelInfo(displayName: "Claude Mythos 5", contextWindow: 1000000, maxOutputTokens: 128000, deepThinking: true, thinkingLevels: ["low", "medium", "high", "xhigh", "max"], input: ["text", "image"], output: ["text"]),
-            "anthropic/claude-opus-4.5": BuiltinModelInfo(displayName: "Claude Opus 4.5", contextWindow: 200000, maxOutputTokens: 64000, deepThinking: true, thinkingLevels: ["low", "medium", "high", "max"], input: ["text", "image"], output: ["text"]),
-            "anthropic/claude-opus-5": BuiltinModelInfo(displayName: "Claude Opus 5", contextWindow: 1000000, maxOutputTokens: 128000, deepThinking: true, thinkingLevels: ["low", "medium", "high", "xhigh", "max"], input: ["text", "image"], output: ["text"]),
-            "anthropic/claude-sonnet-4.5": BuiltinModelInfo(displayName: "Claude Sonnet 4.5", contextWindow: 200000, maxOutputTokens: 64000, deepThinking: true, thinkingLevels: ["low", "medium", "high", "max"], input: ["text", "image"], output: ["text"]),
-            "anthropic/claude-sonnet-5": BuiltinModelInfo(displayName: "Claude Sonnet 5", contextWindow: 1000000, maxOutputTokens: 128000, deepThinking: true, thinkingLevels: ["low", "medium", "high", "xhigh", "max"], input: ["text", "image"], output: ["text"]),
-            "deepseek/deepseek-v4-flash": BuiltinModelInfo(displayName: "DeepSeek V4 Flash", contextWindow: 1000000, maxOutputTokens: 128000, deepThinking: true, thinkingLevels: ["low", "medium", "high"], input: ["text"], output: ["text"]),
-            "deepseek/deepseek-v4-pro": BuiltinModelInfo(displayName: "DeepSeek V4 Pro", contextWindow: 1000000, maxOutputTokens: 128000, deepThinking: true, thinkingLevels: ["low", "medium", "high"], input: ["text"], output: ["text"]),
-            "google/gemini-2.5-pro": BuiltinModelInfo(displayName: "Gemini 2.5 Pro", contextWindow: 1000000, maxOutputTokens: 65536, deepThinking: true, thinkingLevels: ["low", "medium", "high", "xhigh", "max"], input: ["text", "image", "audio"], output: ["text"]),
-            "gpt-4.1": BuiltinModelInfo(displayName: "GPT-4.1", contextWindow: 1000000, maxOutputTokens: 32768, deepThinking: false, input: ["text", "image"], output: ["text"]),
-            "gpt-4.1-mini": BuiltinModelInfo(displayName: "GPT-4.1 mini", contextWindow: 1000000, maxOutputTokens: 32768, deepThinking: false, input: ["text", "image"], output: ["text"]),
-            "gpt-4o": BuiltinModelInfo(displayName: "GPT-4o", contextWindow: 128000, maxOutputTokens: 16384, deepThinking: false, input: ["text", "image", "audio"], output: ["text"]),
-            "gpt-4o-mini": BuiltinModelInfo(displayName: "GPT-4o mini", contextWindow: 128000, maxOutputTokens: 16384, deepThinking: false, input: ["text", "image"], output: ["text"]),
-            "gpt-5.1": BuiltinModelInfo(displayName: "GPT-5.1", contextWindow: 400000, maxOutputTokens: 128000, deepThinking: true, thinkingLevels: ["low", "medium", "high"], input: ["text", "image"], output: ["text"]),
-            "gpt-5.2": BuiltinModelInfo(displayName: "GPT-5.2", contextWindow: 400000, maxOutputTokens: 128000, deepThinking: true, thinkingLevels: ["low", "medium", "high", "xhigh"], input: ["text", "image"], output: ["text"]),
-            "gpt-5.5": BuiltinModelInfo(displayName: "GPT-5.5", contextWindow: 1050000, maxOutputTokens: 128000, deepThinking: true, thinkingLevels: ["low", "medium", "high", "xhigh"], input: ["text", "image"], output: ["text"]),
-            "gpt-5.6": BuiltinModelInfo(displayName: "GPT-5.6", contextWindow: 1050000, maxOutputTokens: 128000, deepThinking: true, thinkingLevels: ["low", "medium", "high", "xhigh", "max"], input: ["text", "image"], output: ["text"]),
-            "gpt-5.6-luna": BuiltinModelInfo(displayName: "GPT-5.6 Luna", contextWindow: 1050000, maxOutputTokens: 128000, deepThinking: true, thinkingLevels: ["low", "medium", "high", "xhigh", "max"], input: ["text", "image"], output: ["text"]),
-            "gpt-5.6-sol": BuiltinModelInfo(displayName: "GPT-5.6 Sol", contextWindow: 1050000, maxOutputTokens: 128000, deepThinking: true, thinkingLevels: ["low", "medium", "high", "xhigh", "max"], input: ["text", "image"], output: ["text"]),
-            "gpt-5.6-terra": BuiltinModelInfo(displayName: "GPT-5.6 Terra", contextWindow: 1050000, maxOutputTokens: 128000, deepThinking: true, thinkingLevels: ["low", "medium", "high", "xhigh", "max"], input: ["text", "image"], output: ["text"]),
-            "llama-3.3-70b": BuiltinModelInfo(displayName: "Llama 3.3 70B", contextWindow: 128000, maxOutputTokens: 4096, deepThinking: false, input: ["text"], output: ["text"]),
-            "llama-4-maverick": BuiltinModelInfo(displayName: "Llama 4 Maverick", contextWindow: 128000, maxOutputTokens: 4096, deepThinking: false, input: ["text", "image"], output: ["text"]),
-            "llama-4-scout": BuiltinModelInfo(displayName: "Llama 4 Scout", contextWindow: 128000, maxOutputTokens: 4096, deepThinking: false, input: ["text", "image"], output: ["text"]),
-            "meta-llama/llama-4-maverick": BuiltinModelInfo(displayName: "Llama 4 Maverick", contextWindow: 128000, maxOutputTokens: 4096, deepThinking: false, input: ["text", "image"], output: ["text"]),
-            "minimax-m2": BuiltinModelInfo(displayName: "MiniMax M2", contextWindow: 200000, deepThinking: true, thinkingLevels: ["low", "medium", "high", "xhigh", "max"], input: ["text"], output: ["text"]),
-            "minimax/minimax-m2": BuiltinModelInfo(displayName: "MiniMax M2", contextWindow: 200000, deepThinking: true, thinkingLevels: ["low", "medium", "high", "xhigh", "max"], input: ["text"], output: ["text"]),
-            "mistral-large-3": BuiltinModelInfo(displayName: "Mistral Large 3", deepThinking: false, input: ["text", "image"], output: ["text"]),
-            "mistral-large-latest": BuiltinModelInfo(displayName: "Mistral Large", contextWindow: 128000, maxOutputTokens: 4096, deepThinking: false, input: ["text"], output: ["text"]),
-            "mistral-small-latest": BuiltinModelInfo(displayName: "Mistral Small", contextWindow: 128000, maxOutputTokens: 4096, deepThinking: false, input: ["text"], output: ["text"]),
-            "openai/gpt-4.1": BuiltinModelInfo(displayName: "GPT-4.1", contextWindow: 1000000, maxOutputTokens: 32768, deepThinking: false, input: ["text", "image"], output: ["text"]),
-            "openai/gpt-4o": BuiltinModelInfo(displayName: "GPT-4o", contextWindow: 128000, maxOutputTokens: 16384, deepThinking: false, input: ["text", "image", "audio"], output: ["text"]),
-            "openai/gpt-5": BuiltinModelInfo(displayName: "GPT-5", contextWindow: 400000, maxOutputTokens: 128000, deepThinking: true, thinkingLevels: ["low", "medium", "high"], input: ["text", "image"], output: ["text"]),
-            "openai/gpt-5.2": BuiltinModelInfo(displayName: "GPT-5.2", contextWindow: 400000, maxOutputTokens: 128000, deepThinking: true, thinkingLevels: ["low", "medium", "high", "xhigh"], input: ["text", "image"], output: ["text"]),
-            "pixtral-12b": BuiltinModelInfo(displayName: "Pixtral 12B", contextWindow: 128000, maxOutputTokens: 4096, deepThinking: false, input: ["text", "image"], output: ["text"]),
-            "qwen/qwen3-235b-a22b": BuiltinModelInfo(displayName: "Qwen3-235B-A22B", contextWindow: 128000, deepThinking: true, thinkingLevels: ["low", "medium", "high", "xhigh", "max"], input: ["text"], output: ["text"]),
-            "z-ai/glm-4.6": BuiltinModelInfo(displayName: "GLM-4.6", contextWindow: 200000, maxOutputTokens: 128000, deepThinking: true, thinkingLevels: ["low", "medium", "high", "xhigh", "max"], input: ["text"], output: ["text"]),
-            "z-ai/glm-5": BuiltinModelInfo(displayName: "GLM-5", contextWindow: 198000, maxOutputTokens: 64000, deepThinking: true, thinkingLevels: ["low", "medium", "high", "xhigh", "max"], input: ["text"], output: ["text"]),
-            "z-ai/glm-5.1": BuiltinModelInfo(displayName: "GLM-5.1", contextWindow: 198000, maxOutputTokens: 128000, deepThinking: true, thinkingLevels: ["low", "medium", "high", "xhigh", "max"], input: ["text"], output: ["text"]),
-        ]
-    }
-
-    class func modelCapabilities(for modelID: String) -> BuiltinModelInfo? {
-        builtinModels[modelID] ?? heuristicCapabilities(for: modelID)
-    }
-
     // MARK: - 子类覆写点
 
     /// 是否在请求体中保留 assistant 消息的 reasoning_content。

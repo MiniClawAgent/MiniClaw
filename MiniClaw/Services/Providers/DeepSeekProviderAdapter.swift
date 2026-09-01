@@ -84,15 +84,4 @@ final class DeepSeekProviderAdapter: OpenAIProviderAdapter, @unchecked Sendable 
 
     // MARK: 内置模型目录(DeepSeek 官方模型)
 
-    override class var builtinModels: [String: BuiltinModelInfo] {
-        [
-
-            "deepseek-v4-flash": BuiltinModelInfo(displayName: "DeepSeek V4 Flash", contextWindow: 1000000, maxOutputTokens: 393216, deepThinking: true, thinkingLevels: ["low", "high", "max"], input: ["text"], output: ["text"], apiFormats: ["chat/completions", "responses", "anthropic"], responsesSupported: true, specialConstraints: "思考模式禁 temperature/top_p/penalty(不报错但不生效);带 tools 请求必须回传 reasoning_content 否则 400;effort medium/xhigh 映射 high", pricing: "缓存命中 0.02 元/M、未命中 1 元/M、输出 2 元/M(人民币);峰谷定价即将实行"),
-            "deepseek-v4-pro": BuiltinModelInfo(displayName: "DeepSeek V4 Pro", contextWindow: 1000000, maxOutputTokens: 393216, deepThinking: true, thinkingLevels: ["high", "max"], input: ["text"], output: ["text"], apiFormats: ["chat/completions", "anthropic"], responsesSupported: false, specialConstraints: "Responses 暂不支持(官方 8 月初加推);effort 目前仅 high/max 有效(low→high、xhigh→max);思考模式禁 temperature/top_p/penalty;带 tools 请求必须回传 reasoning_content 否则 400", pricing: "缓存命中 0.025 元/M、未命中 3 元/M、输出 6 元/M(人民币);峰谷定价即将实行"),
-        ]
-    }
-
-    override class func modelCapabilities(for modelID: String) -> BuiltinModelInfo? {
-        builtinModels[modelID] ?? heuristicCapabilities(for: modelID)
-    }
 }

@@ -515,19 +515,9 @@ struct ProviderDetailView: View {
                 else if let m = json["error"] as? String { serverMsg = m }
                 else if let m = json["message"] as? String { serverMsg = m }
             }
-            // 关键兜底：绝大多数「Anthropic 兼容」代理只代理 /v1/messages（聊天），
-            // 并未实现 /v1/models（模型列表），对其请求必 404/401/403。
-            // 此时回退到内置模型目录，按 base URL 推断的厂商给出已知模型，用户仍可立即选用。
-            let fb = fallbackModelsForCurrentProvider()
-            if !fb.isEmpty {
-                applyFetchedModels(fb, archive: false)
-                let note = String(format: L10n.l("live_model_list_unavailable_http_1_loaded_2_models_from_the_built_in_model_catalog_for_other_model_ids_use_add_custom_model_below"), String(status), String(fb.count))
-                modelFetchError = nil
-                modelFetchNotice = note
-                draft.modelFetchError = nil
-                draft.modelFetchNotice = note
-                return
-            }
+            // 2026-09-01 唐唐拍板：不再回退内置模型目录（已删除）。
+            // 「Anthropic 兼容」代理普遍只代理 /v1/messages 而未实现 /v1/models，
+            // 此处拉取失败属预期——用户可改用下方「添加自定义模型」手填模型 ID。
             let msg = String(format: L10n.l("failed_to_fetch_models_http_1_2"), String(status), serverMsg.isEmpty ? "" : "： \(serverMsg)")
             modelFetchError = msg
             draft.modelFetchError = msg
@@ -645,33 +635,6 @@ struct ProviderDetailView: View {
         }
     }
 
-    // MARK: - 内置目录兜底
-
-    /// 实时列表不可用时，从厂商适配器内置目录回退该厂商的已知模型。
-    /// openRouter/custom 无专属目录（继承 OpenAI 基类目录），直接回退全量目录
-    /// （这些模型在 OpenRouter 上均可用），按模型 ID 排序保证列表顺序稳定。
-    private func fallbackModelsForCurrentProvider() -> [ModelConfig] {
-        let builtin = LLMProviderFactory.builtinModels(providerType: draft.providerType)
-        return builtin.keys.sorted().map { configFromInfo(id: $0, info: builtin[$0]!) }
-    }
-
-    /// 由内置目录条目构造 ModelConfig（复用 parseModels 中的能力回填逻辑）。
-    private func configFromInfo(id: String, info: BuiltinModelInfo) -> ModelConfig {
-        var config = ModelConfig(
-            modelId: id,
-            displayName: info.displayName ?? ModelConfig.titleCasedModelId(id),
-            contextLimit: info.contextWindow ?? 0,
-            deepThinking: info.deepThinking ?? false,
-            maxOutputTokens: info.maxOutputTokens
-        )
-        if let inTok = info.input, !inTok.isEmpty {
-            BuiltinModelInfo.applyModalities(inTok, to: &config)
-        }
-        if let outTok = info.output, !outTok.isEmpty {
-            BuiltinModelInfo.applyOutputModalities(outTok, to: &config)
-        }
-        return config
-    }
 
     private func makeModelsRequest(forceBearer: Bool = false) -> URLRequest? {
         let customBase = draft.customBaseURL.trimmingCharacters(in: .whitespacesAndNewlines)

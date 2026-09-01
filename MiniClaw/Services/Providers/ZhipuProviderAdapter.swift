@@ -29,23 +29,6 @@ final class ZhipuProviderAdapter: OpenAIProviderAdapter, @unchecked Sendable {
 
     // MARK: 内置模型目录(智谱 GLM 官方模型)
 
-    override class var builtinModels: [String: BuiltinModelInfo] {
-        [
-
-            "glm-4.5": BuiltinModelInfo(displayName: "GLM-4.5", contextWindow: 128000, maxOutputTokens: 98304, deepThinking: true, input: ["text"], output: ["text"]),
-            "glm-4.5-air": BuiltinModelInfo(displayName: "GLM-4.5 Air", contextWindow: 128000, maxOutputTokens: 16384, deepThinking: false, input: ["text"], output: ["text"]),
-            "glm-4.6": BuiltinModelInfo(displayName: "GLM-4.6", contextWindow: 200000, maxOutputTokens: 128000, deepThinking: true, thinkingLevels: ["low", "medium", "high", "xhigh", "max"], input: ["text"], output: ["text"]),
-            "glm-4.7": BuiltinModelInfo(displayName: "GLM-4.7", contextWindow: 200000, maxOutputTokens: 32768, deepThinking: true, input: ["text"], output: ["text"]),
-            "glm-5": BuiltinModelInfo(displayName: "GLM-5", contextWindow: 198000, maxOutputTokens: 64000, deepThinking: true, thinkingLevels: ["low", "medium", "high", "xhigh", "max"], input: ["text"], output: ["text"]),
-            "glm-5.1": BuiltinModelInfo(displayName: "GLM-5.1", contextWindow: 198000, maxOutputTokens: 128000, deepThinking: true, thinkingLevels: ["low", "medium", "high", "xhigh", "max"], input: ["text"], output: ["text"]),
-            "glm-5.2": BuiltinModelInfo(displayName: "GLM-5.2", contextWindow: 1000000, maxOutputTokens: 128000, deepThinking: true, input: ["text"], output: ["text"]),
-        ]
-    }
-
-    override class func modelCapabilities(for modelID: String) -> BuiltinModelInfo? {
-        builtinModels[modelID] ?? heuristicCapabilities(for: modelID)
-    }
-
     /// 思考开关:官方非标准对象 `thinking`。GLM-4.6+ 默认思考开启,
     /// 显式「off」必须发 `{"type":"disabled"}` 才能真正关闭(省略=默认开启,关闭无效)。
     override func extraBodyFields(request: LLMStreamRequest) -> [String: Any]? {

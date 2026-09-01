@@ -25,21 +25,4 @@ final class XiaomiProviderAdapter: OpenAIProviderAdapter, @unchecked Sendable {
 
     // MARK: 内置模型目录(小米 MiMo 官方模型)
 
-    override class var builtinModels: [String: BuiltinModelInfo] {
-        [
-
-            "mimo-v2.5": BuiltinModelInfo(displayName: "MiMo-V2.5", contextWindow: 1000000, maxOutputTokens: 128000, deepThinking: true, thinkingLevels: ["low", "medium", "high", "xhigh", "max"], input: ["text", "image", "audio", "video"], output: ["text"]),
-            "mimo-v2.5-asr": BuiltinModelInfo(displayName: "MiMo-V2.5-ASR", contextWindow: 8192, maxOutputTokens: 2048, deepThinking: false, input: ["audio"], output: ["text"]),
-            "mimo-v2.5-pro": BuiltinModelInfo(displayName: "MiMo-V2.5-Pro", contextWindow: 1000000, maxOutputTokens: 128000, deepThinking: true, thinkingLevels: ["low", "medium", "high", "xhigh", "max"], input: ["text"], output: ["text"]),
-            "mimo-v2.5-pro[1m]": BuiltinModelInfo(displayName: "MiMo v2.5 Pro 1M", contextWindow: 1048576, maxOutputTokens: 16384, deepThinking: true, input: ["text"], output: ["text"]),
-            "mimo-v2.5-tts": BuiltinModelInfo(displayName: "MiMo-V2.5-TTS", contextWindow: 8192, maxOutputTokens: 8192, deepThinking: false, input: ["text"], output: ["audio"]),
-            "mimo-v2.5-tts-voiceclone": BuiltinModelInfo(displayName: "MiMo-V2.5-TTS VoiceClone", contextWindow: 8000, maxOutputTokens: 8000, deepThinking: false, input: ["text", "audio"], output: ["audio"]),
-            "mimo-v2.5-tts-voicedesign": BuiltinModelInfo(displayName: "MiMo-V2.5-TTS VoiceDesign", contextWindow: 8000, maxOutputTokens: 8000, deepThinking: false, input: ["text"], output: ["audio"]),
-            "mimo-v2.5[1m]": BuiltinModelInfo(displayName: "MiMo v2.5 1M", contextWindow: 1048576, maxOutputTokens: 16384, deepThinking: true, input: ["text"], output: ["text"]),
-        ]
-    }
-
-    override class func modelCapabilities(for modelID: String) -> BuiltinModelInfo? {
-        builtinModels[modelID] ?? heuristicCapabilities(for: modelID)
-    }
 }

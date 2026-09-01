@@ -23,26 +23,6 @@ final class QwenProviderAdapter: OpenAIProviderAdapter, @unchecked Sendable {
 
     // MARK: 内置模型目录(阿里云百炼官方模型,OpenAI 兼容模式 ID)
 
-    override class var builtinModels: [String: BuiltinModelInfo] {
-        [
-
-            "qwen-max": BuiltinModelInfo(displayName: "Qwen Max", contextWindow: 32768, maxOutputTokens: 8192, deepThinking: false, input: ["text"], output: ["text"]),
-            "qwen-plus": BuiltinModelInfo(displayName: "Qwen Plus", contextWindow: 1000000, maxOutputTokens: 32768, deepThinking: true, input: ["text"], output: ["text"]),
-            "qwen-turbo": BuiltinModelInfo(displayName: "Qwen Turbo", contextWindow: 131072, maxOutputTokens: 16384, deepThinking: true, input: ["text"], output: ["text"]),
-            "qwen-vl-max": BuiltinModelInfo(displayName: "Qwen VL Max", contextWindow: 32768, maxOutputTokens: 8192, deepThinking: false, input: ["text", "image"], output: ["text"]),
-            "qwen-vl-plus": BuiltinModelInfo(displayName: "Qwen VL Plus", contextWindow: 32768, maxOutputTokens: 4096, deepThinking: false, input: ["text"], output: ["text"]),
-            "qwen3-235b-a22b": BuiltinModelInfo(displayName: "Qwen3-235B-A22B", contextWindow: 128000, maxOutputTokens: 16384, deepThinking: true, thinkingLevels: ["low", "medium", "high", "xhigh", "max"], input: ["text"], output: ["text"]),
-            "qwen3-32b": BuiltinModelInfo(displayName: "Qwen3 32B", contextWindow: 131072, maxOutputTokens: 8192, deepThinking: true, input: ["text"], output: ["text"]),
-            "qwen3-coder": BuiltinModelInfo(displayName: "Qwen3 Coder", contextWindow: 262144, deepThinking: false, input: ["text"], output: ["text"]),
-            "qwen3-coder-plus": BuiltinModelInfo(displayName: "Qwen3 Coder Plus", contextWindow: 1000000, maxOutputTokens: 65536, deepThinking: true, input: ["text"], output: ["text"]),
-            "qwen3-max": BuiltinModelInfo(displayName: "Qwen3 Max", contextWindow: 262144, maxOutputTokens: 65536, deepThinking: true, input: ["text"], output: ["text"]),
-        ]
-    }
-
-    override class func modelCapabilities(for modelID: String) -> BuiltinModelInfo? {
-        builtinModels[modelID] ?? heuristicCapabilities(for: modelID)
-    }
-
     /// 思考开关:官方参数 `enable_thinking`(仅混合思考模型可开关)。
     override func extraBodyFields(request: LLMStreamRequest) -> [String: Any]? {
         guard let level = request.thinkingLevel, level != "off" else { return nil }

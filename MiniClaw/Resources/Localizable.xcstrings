@@ -26777,35 +26777,6 @@
         }
       }
     },
-    "live_model_list_unavailable_http_1_loaded_2_models_from_the_built_in_model_catalog_for_other_model_ids_use_add_custom_model_below": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Live model list unavailable (HTTP %1$@); loaded %2$@ models from the built-in model catalog. For other model IDs, use “Add Custom Model” below."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "リアルタイムのモデル一覧は利用できません（HTTP %1$@）。内蔵のモデルカタログから %2$@ 件のモデルを読み込みました。その他のモデル ID が必要な場合は、下部の「カスタムモデルの追加」から手動で入力してください。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "실시간 모델 목록을 사용할 수 없습니다(HTTP %1$@). 내장 모델 디렉터리에서 %2$@개의 모델을 불러왔습니다. 다른 모델 ID가 필요하면 아래 「사용자 지정 모델 추가」에서 직접 입력하세요."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "实时模型列表不可用（HTTP %1$@），已为你加载内置模型目录中的 %2$@ 个模型。如需要其他模型 ID，可用下方「添加自定义模型」手动填写。"
-          }
-        }
-      }
-    },
     "llm_decoding_failed": {
       "extractionState": "manual",
       "localizations": {
