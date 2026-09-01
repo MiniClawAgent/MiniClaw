@@ -55,7 +55,7 @@ struct ToolCardOverlay: View {
                                 hidesSwitchRow: true,
                                 cardSurface: true
                             )
-                            .padding(.horizontal, 16)
+                            .padding(.horizontal, 24)
                             .tag(i)
                         }
                     }

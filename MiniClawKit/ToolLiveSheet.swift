@@ -527,7 +527,9 @@ struct ToolLiveSheet: View {
         }
         .padding(.horizontal,16)
         .padding(.vertical,10)
-        .background(Color(UIColor.systemBackground))
+        // nav 行背景与卡片主体（cardSurface）一致——纯黑/纯白会与 systemGray5
+        // 主体割裂（唐唐反馈：顶部关闭按钮行的颜色改成下面内容的那种颜色）。
+        .background(cardSurface ? Color(UIColor.systemGray5) : Color(UIColor.systemBackground))
         .fullScreenCover(isPresented: $showTerminal) {
             NavigationStack {
                 // Pre-fill the shell command the tool is currently running,
