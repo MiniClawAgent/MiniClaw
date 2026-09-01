@@ -45,6 +45,10 @@ struct ToolCardOverlay: View {
                 VStack(spacing: 14) {
                     TabView(selection: $pageIdx) {
                         ForEach(toolBlocks.indices, id: \.self) { i in
+                            // 2026-09-01 唐唐拍板：每个工具快照 = **独立卡片**——
+                            // 卡宽 < 页宽（页内左右 24 边距），页间自然形成卡间隔；
+                            // 圆角/描边/投影/底色挂在**卡片级**（不是 TabView 级），
+                            // 滑动即「一张卡片切换到另一张卡片」，而非连体内容。
                             ToolLiveSheet(
                                 toolBlocks: toolBlocks,
                                 initialIdx: i,
@@ -55,18 +59,20 @@ struct ToolCardOverlay: View {
                                 hidesSwitchRow: true,
                                 cardSurface: true
                             )
+                            .frame(height: cardHeight)
+                            .clipShape(RoundedRectangle(cornerRadius: 20))
+                            .background(Color(UIColor.systemGray5))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 20)
+                                    .stroke(Color(.separator).opacity(0.8), lineWidth: 1)
+                            )
+                            .shadow(color: .black.opacity(0.45), radius: 28, y: 10)
                             .padding(.horizontal, 24)
                             .tag(i)
                         }
                     }
                     .tabViewStyle(.page(indexDisplayMode: .never))
                     .frame(height: cardHeight)
-                    .clipShape(RoundedRectangle(cornerRadius: 20))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 20)
-                            .stroke(Color(.separator).opacity(0.8), lineWidth: 1)
-                    )
-                    .shadow(color: .black.opacity(0.45), radius: 28, y: 10)
 
                     pageDots
                 }

@@ -263,7 +263,10 @@ struct ToolLiveSheet: View {
             // distribute space between the fixed chrome and the flexible content.
             // On iPhone `.infinity` just fills the sheet detent as before.
             .frame(maxWidth: .infinity,maxHeight: .infinity)
-            .background(cardSurface ? Color(UIColor.systemGray5) : Color(UIColor.systemGroupedBackground))
+            // 卡片模式（cardSurface）不自画整页背景——由 ToolCardOverlay 外层容器
+            // 统一画 systemGray5 底并裁圆角/描边，保证背景与描边边界完全一致
+            //（唐唐反馈：背景比描边框大、圆角看不出来）。L1/L2/L3 内容卡自带 systemGray6。
+            .background(cardSurface ? Color.clear : Color(UIColor.systemGroupedBackground))
     }
 
     private func lifecycleModifiers(_ root: some View) -> some View {
