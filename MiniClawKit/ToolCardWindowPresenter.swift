@@ -27,6 +27,7 @@ final class ToolCardWindowPresenter {
         toolBlocks: [AssistantBlock],
         initialBlockID: UUID,
         toolSnapshots: [ToolSnapshotItem] = [],
+        snapshotBridge: CellStateBridgeV2? = nil,
         browserPool: MiniClawTabPool? = nil,
         browserContentProvider: ((URL?) -> AnyView)? = nil,
         onDismiss: (() -> Void)? = nil
@@ -43,6 +44,7 @@ final class ToolCardWindowPresenter {
             toolBlocks: toolBlocks,
             initialBlockID: initialBlockID,
             toolSnapshots: toolSnapshots,
+            snapshotBridge: snapshotBridge,
             browserPool: browserPool,
             browserContentProvider: browserContentProvider,
             onClose: { [weak self] in self?.closeAndHide() }

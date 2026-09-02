@@ -595,6 +595,7 @@ extension CollectionViewMessageListV3 {
                             toolBlocks: toolBlocks,
                             initialBlockID: block.id,
                             toolSnapshots: bridge.toolSnapshots,
+            snapshotBridge: bridge,
                             browserPool: bridge.browserPool,
                             browserContentProvider: self.vm?.browserContentProvider,
                             onDismiss: { [weak self] in
@@ -3801,6 +3802,7 @@ private struct BridgedAssistantBlockV3: View {
             onSpeakText: bridge.onSpeakText,
             browserPool: bridge.browserPool,
             toolSnapshots: bridge.toolSnapshots,
+            snapshotBridge: bridge,
             highlightedBlockId: .constant(nil),
             detailBlock: $bridge.detailBlock
         )

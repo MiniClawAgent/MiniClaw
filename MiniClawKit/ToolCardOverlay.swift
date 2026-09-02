@@ -18,6 +18,7 @@ struct ToolCardOverlay: View {
     /// 初始定位的工具块 id（对应消息流中被点按的那个指示器）。
     let initialBlockID: UUID
     var toolSnapshots: [ToolSnapshotItem] = []
+    var snapshotBridge: CellStateBridgeV2? = nil
     var browserPool: MiniClawTabPool?
     var browserContentProvider: ((URL?) -> AnyView)?
     /// 关闭卡片（由宿主置空呈现状态）。
@@ -53,6 +54,7 @@ struct ToolCardOverlay: View {
                                 toolBlocks: toolBlocks,
                                 initialIdx: i,
                                 toolSnapshots: toolSnapshots,
+                                snapshotBridge: snapshotBridge,
                                 browserPool: browserPool,
                                 browserContentProvider: browserContentProvider,
                                 // 关闭按钮与卡外点按走同一动画路径（close() 先播

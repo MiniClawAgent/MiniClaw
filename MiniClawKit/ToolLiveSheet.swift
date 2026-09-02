@@ -130,7 +130,11 @@ struct ToolLiveSheet: View {
     /// few very long lines (< 200 lines but > 10KB) still load incrementally.
     private static let lazyRenderInitialByteCap = 10*1024
 
-    init(toolBlocks: [AssistantBlock],initialIdx: Int,toolSnapshots: [ToolSnapshotItem] = [],browserPool: MiniClawTabPool?,
+    /// 快照桥（主会话 cell 传入）：观察其 objectWillChange，结果快照更新时浮层实时重绘
+    /// （2026-09-02 修复「执行中打开浮层看不到结果」——原实现为 init 值拷贝，不随更新）。
+    var snapshotBridge: CellStateBridgeV2? = nil
+    @State private var snapshotTick = 0
+    init(toolBlocks: [AssistantBlock],initialIdx: Int,toolSnapshots: [ToolSnapshotItem] = [],snapshotBridge: CellStateBridgeV2? = nil,browserPool: MiniClawTabPool?,
          onBrowserTakeover: (() -> Void)? = nil,onTakeoverDone: (() -> Void)? = nil,
          browserContentProvider: ((URL?) -> AnyView)? = nil,
          onClose: (() -> Void)? = nil, hidesSwitchRow: Bool = false,
@@ -138,6 +142,7 @@ struct ToolLiveSheet: View {
         self.toolBlocks = toolBlocks
         self._currentIdx = State(initialValue: initialIdx)
         self.toolSnapshots = toolSnapshots
+        self.snapshotBridge = snapshotBridge
         self.browserPool = browserPool
         self.onBrowserTakeover = onBrowserTakeover
         self.onTakeoverDone = onTakeoverDone
@@ -147,9 +152,20 @@ struct ToolLiveSheet: View {
         self.cardSurface = cardSurface
     }
 
+    /// 快照桥的更新信号（optional publisher 的类型显式化包装）。
+    private var snapshotBridgePublisher: AnyPublisher<Void, Never> {
+        snapshotBridge?.objectWillChange.eraseToAnyPublisher()
+            ?? Empty<Void, Never>().eraseToAnyPublisher()
+    }
+
     /// Get snapshot for the current block (matched by toolUseId).
+    /// 优先读 bridge 的实时快照（响应 objectWillChange）；无桥时回退 init 拷贝。
     private var currentSnapshot: ToolSnapshotItem? {
+        let _ = snapshotTick
         guard let blockId = block.toolUseId else { return nil }
+        if let live = snapshotBridge?.toolSnapshots.first(where: { $0.id == blockId }) {
+            return live
+        }
         return toolSnapshots.first(where: { $0.id == blockId })
     }
 
@@ -307,6 +323,10 @@ struct ToolLiveSheet: View {
             }
             .onReceive(block.objectWillChange) { _ in
                 blockUpdateTick += 1
+            }
+            // 快照桥更新 → 驱动浮层重绘（结果到达实时显示，2026-09-02）。
+            .onReceive(snapshotBridgePublisher) { _ in
+                snapshotTick += 1
             }
             .presentationDragIndicator(.hidden)
     }

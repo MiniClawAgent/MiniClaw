@@ -109,6 +109,8 @@ struct ToolCapsuleView: View {
     var onStop: (() -> Void)?
     var browserPool: MiniClawTabPool?
     var toolSnapshots: [ToolSnapshotItem] = []
+    /// 快照桥：透传给浮层（结果快照更新实时刷新）。
+    var snapshotBridge: CellStateBridgeV2? = nil
     @Binding var detailBlock: AssistantBlock?
     @State private var dotsOn = false
     /// [T-tool-bg-suspended-hint] Drives the background-suspension info alert.
@@ -820,6 +822,8 @@ struct AssistantBlockView: View {
     var onSpeakText: ((String) -> Void)?
     var browserPool: MiniClawTabPool?
     var toolSnapshots: [ToolSnapshotItem] = []
+    /// 快照桥（主会话 cell 传入）：透传给浮层，结果快照更新时浮层实时刷新。
+    var snapshotBridge: CellStateBridgeV2? = nil
     @Binding var highlightedBlockId: UUID?
     @Binding var detailBlock: AssistantBlock?
     private var isHighlighted: Bool { highlightedBlockId == block.id }
@@ -847,31 +851,31 @@ struct AssistantBlockView: View {
         case .shellTool:
             ToolCapsuleView(block: block, icon: "terminal", accentColor: .green,
                             commandStartTime: commandStartTime,onStop: onStop,browserPool: browserPool,
-                            toolSnapshots: toolSnapshots,detailBlock: $detailBlock)
+                            toolSnapshots: toolSnapshots,snapshotBridge: snapshotBridge,detailBlock: $detailBlock)
         case .fileReadTool:
             ToolCapsuleView(block: block, icon: "doc.text", accentColor: .cyan,
                             commandStartTime: commandStartTime,onStop: onStop,
-                            toolSnapshots: toolSnapshots,detailBlock: $detailBlock)
+                            toolSnapshots: toolSnapshots,snapshotBridge: snapshotBridge,detailBlock: $detailBlock)
         case .fileWriteTool:
             ToolCapsuleView(block: block, icon: "doc.text.fill", accentColor: .blue,
                             commandStartTime: commandStartTime,onStop: onStop,
-                            toolSnapshots: toolSnapshots,detailBlock: $detailBlock)
+                            toolSnapshots: toolSnapshots,snapshotBridge: snapshotBridge,detailBlock: $detailBlock)
         case .fileEditTool:
             ToolCapsuleView(block: block, icon: "square.and.pencil", accentColor: .orange,
                             commandStartTime: commandStartTime,onStop: onStop,
-                            toolSnapshots: toolSnapshots,detailBlock: $detailBlock)
+                            toolSnapshots: toolSnapshots,snapshotBridge: snapshotBridge,detailBlock: $detailBlock)
         case .browserTool:
             ToolCapsuleView(block: block, icon: "globe", accentColor: .blue,
                             commandStartTime: commandStartTime,onStop: onStop,browserPool: browserPool,
-                            toolSnapshots: toolSnapshots,detailBlock: $detailBlock)
+                            toolSnapshots: toolSnapshots,snapshotBridge: snapshotBridge,detailBlock: $detailBlock)
         case .readImageTool:
             ToolCapsuleView(block: block, icon: "photo", accentColor: .purple,
                             commandStartTime: commandStartTime,onStop: onStop,
-                            toolSnapshots: toolSnapshots,detailBlock: $detailBlock)
+                            toolSnapshots: toolSnapshots,snapshotBridge: snapshotBridge,detailBlock: $detailBlock)
         case .memoryTool:
             ToolCapsuleView(block: block, icon: "brain.head.profile", accentColor: .pink,
                             commandStartTime: commandStartTime,onStop: onStop,
-                            toolSnapshots: toolSnapshots,detailBlock: $detailBlock)
+                            toolSnapshots: toolSnapshots,snapshotBridge: snapshotBridge,detailBlock: $detailBlock)
         case .info:
             let allLines = block.content.components(separatedBy: "\n").filter { !$0.isEmpty }
             // Separate reason lines (⚠️) from the final switched line (✅)
