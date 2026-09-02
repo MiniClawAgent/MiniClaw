@@ -139,9 +139,12 @@ final class SkillManager {
                     soulDir = dir
                     // 内置判定走 Bundle manifest（目录名=插件 id），不做 name 字符串耦合。
                     soulIsBuiltin = builtinIds.contains(dir.lastPathComponent)
-                } else {
-                    let fallback = builtinIds.contains(dir.lastPathComponent) ? m.enabledByDefault : false
-                    if states[key] ?? fallback { states[key] = false }
+                } else if !builtinIds.contains(dir.lastPathComponent) {
+                    // 排他仅停用其他第三方 soul。内置人格是恒可用底座（唐唐 2026-09-02：
+                    // 默认人格开关已移除），不写 false——旧逻辑写 false 会残留
+                    // 「未装第三方却显示默认人格已停用」的假象（soul 实际生效由
+                    // activePlugin + SOUL.md 文件决定，states 不参与）。
+                    if states[key] ?? false { states[key] = false }
                 }
             }
         }
@@ -167,9 +170,33 @@ final class SkillManager {
             if SettingsStore.shared.settings.soul.activePlugin == name {
                 fs.restoreBuiltinSoul()
                 SettingsStore.shared.settings.soul.activePlugin = nil
+                clearBuiltinSoulDisabledState()
             }
         }
         SettingsStore.shared.save()
+    }
+
+    /// 清除内置人格的显式停用记录（回落缺省启用）——旧排他逻辑会把内置写成 false，
+    /// 残留「未装第三方人格却显示默认人格已停用」的假象（2026-09-02 唐唐报告）。
+    private func clearBuiltinSoulDisabledState() {
+        let builtinIds = fs.bundledPluginIds()
+        var states = SettingsStore.shared.settings.skillEnabledStates
+        var changed = false
+        for dir in fs.allPluginDirectories() {
+            guard builtinIds.contains(dir.lastPathComponent),
+                  let data = try? Data(contentsOf: dir.appendingPathComponent("plugin.json")),
+                  let m = try? JSONDecoder().decode(PluginManifest.self, from: data),
+                  m.type == "soul" else { continue }
+            let key = m.name.isEmpty ? dir.lastPathComponent : m.name
+            if states[key] == false {
+                states[key] = nil
+                changed = true
+            }
+        }
+        if changed {
+            SettingsStore.shared.settings.skillEnabledStates = states
+            SettingsStore.shared.save()
+        }
     }
 
     /// 主线程快照启用状态与内置集合后，刷新子代理角色注册表
@@ -392,6 +419,7 @@ final class SkillManager {
             if SettingsStore.shared.settings.soul.activePlugin == soulKey {
                 fs.restoreBuiltinSoul()
                 SettingsStore.shared.settings.soul.activePlugin = nil
+                clearBuiltinSoulDisabledState()
                 SettingsStore.shared.save()
             }
         }
@@ -607,8 +635,16 @@ final class SkillManager {
                     continue
                 }
                 result.imported.append(dirName)
-                // soul 类型导入后默认停用（与导入规则一致），用户在列表/详情页启用开关时
-                // 才应用人格并自动停用其他 soul 插件（排他单选，见 setEnabled）。
+                // soul 类型：导入即默认应用（唐唐 2026-09-02：装了第三方人格就默认用它）——
+                // 走 setEnabled 排他停用其他 soul，内置 SOUL.md 自动备份为草稿；
+                // 切回内置 = 灵魂设置页重置或删除该插件。
+                if parsed.type == "soul" {
+                    // 排他 key 用 manifest.name（与 setEnabled 扫描口径一致），缺省回落目录名。
+                    let manifest = (try? Data(contentsOf: dest.appendingPathComponent("plugin.json")))
+                        .flatMap { try? JSONDecoder().decode(PluginManifest.self, from: $0) }
+                    let soulName = (manifest?.name.isEmpty == false) ? manifest!.name : dirName
+                    setEnabled(soulName, true)
+                }
                 // model 类型：拷入存档后，解析包内 providers.json（服务商连接模板）
                 // 并幂等合并进供应商列表（新增默认停用，密钥用户自填）。
                 // mcp 类型：拷入存档后，解析包内 servers.json（业界通用 mcpServers 格式）
