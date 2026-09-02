@@ -177,9 +177,14 @@ final class MCPOAuthManager: ObservableObject {
     /// redirect 捕获 → 授权码回传给 startAuthorization 的等待方。
     private var codeContinuation: CheckedContinuation<URL, Error>?
 
-    static let redirectScheme = "miniclaw"
-    static let redirectHost = "mcp-oauth"
-    static let redirectURI = "\(redirectScheme)://\(redirectHost)"
+    // loopback 回调（OAuth 2.1 for Native Apps 推荐）：App 内 WebKit 授权后
+    // redirect 到 127.0.0.1，由 WebView 导航拦截捕获（导航先被取消，请求不出
+    // WKWebView，因此无需真实端口监听）。自定义 scheme 会被部分企业授权服务器
+    // 400（ARDOT 实测），故改用 loopback。
+    static let redirectScheme = "http"
+    static let redirectHost = "127.0.0.1"
+    static let redirectPort = 18231
+    static let redirectURI = "http://127.0.0.1:\(redirectPort)/callback"
 
     private init() {}
 
@@ -228,17 +233,24 @@ final class MCPOAuthManager: ObservableObject {
         guard let meta = serverMeta else { throw MCPOAuthError.missingMetadata }
         AppLogger.shared.info("[MCP-OAuth] authorize=\(meta.authorizationEndpoint) token=\(meta.tokenEndpoint) register=\(meta.registrationEndpoint ?? "无")")
 
-        // 2. 动态客户端注册（服务器支持时；否则假定预注册的公共客户端）。
-        var clientID = "miniclaw"
+        // 2. 动态客户端注册（RFC 7591）。唐唐 2026-09-02：注册失败不再静默回落
+        // 硬编码 client_id——未知客户端会在授权确认时被服务器 400（ARDOT 实测）。
+        var clientID: String
         var clientSecret: String?
         if let regEndpoint = meta.registrationEndpoint {
             AppLogger.shared.info("[MCP-OAuth] 动态客户端注册: \(regEndpoint)")
-            let registration = await registerClient(
+            guard let registration = await registerClient(
                 registrationEndpoint: regEndpoint,
                 serverName: server.name
-            )
-            clientID = registration?.clientId ?? clientID
-            clientSecret = registration?.clientSecret
+            ) else {
+                AppLogger.shared.error("[MCP-OAuth] 动态客户端注册失败")
+                throw MCPOAuthError.missingMetadata
+            }
+            clientID = registration.clientId
+            clientSecret = registration.clientSecret
+        } else {
+            AppLogger.shared.error("[MCP-OAuth] 服务器未提供动态注册端点，无法获得合法 client_id")
+            throw MCPOAuthError.missingMetadata
         }
 
         // 3. PKCE + 授权 URL。
@@ -259,7 +271,7 @@ final class MCPOAuthManager: ObservableObject {
             URLQueryItem(name: "code_challenge_method", value: "S256"),
         ]
         if let scope, !scope.isEmpty { query.append(URLQueryItem(name: "scope", value: scope)) }
-        if let secret = clientSecret { query.append(URLQueryItem(name: "client_secret", value: secret)) }
+        // OAuth 2.1：authorize 请求不得携带 client_secret（secret 只用于 token 端点）。
         comps.queryItems = query
         guard let authorizeURL = comps.url else { throw MCPOAuthError.missingMetadata }
         AppLogger.shared.info("[MCP-OAuth] 授权页 URL: \(authorizeURL.absoluteString)")

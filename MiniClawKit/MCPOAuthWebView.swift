@@ -42,8 +42,11 @@ public struct MCPOAuthWebView: UIViewRepresentable {
     // iOS 26 SDK：WKNavigationDelegate 方法为 @MainActor 隔离，Coordinator 需同隔离。
     @MainActor
     public final class Coordinator: NSObject, WKNavigationDelegate {
-        let redirectScheme = "miniclaw"
-        let redirectHost = "mcp-oauth"
+        // loopback 回调（与 MCPOAuthManager.redirectURI 一致）：授权完成时
+        // WebKit 导航到 127.0.0.1，此处拦截取码并取消导航（请求不出 WebKit）。
+        let redirectScheme = "http"
+        let redirectHost = "127.0.0.1"
+        let redirectPort = 18231
         let onRedirect: (URL) -> Void
         let onFinishedLoading: () -> Void
         private var redirectHandled = false
@@ -60,7 +63,9 @@ public struct MCPOAuthWebView: UIViewRepresentable {
         ) {
             if let url = navigationAction.request.url,
                url.scheme?.lowercased() == redirectScheme,
-               url.host?.lowercased() == redirectHost {
+               url.host == redirectHost,
+               url.port == redirectPort,
+               url.path == "/callback" {
                 guard !redirectHandled else { decisionHandler(.cancel); return }
                 redirectHandled = true
                 onRedirect(url)
