@@ -37,10 +37,7 @@ struct HomeView: View {
     /// 模拟器 UI 实证专用：自动造会话只跑一次（验证后删除）。
     @State private var didSeedDebugSessions: Bool = false
 #endif
-#if targetEnvironment(simulator) && DEBUG
-    /// 模拟器 UI 实证专用：自动造会话只跑一次（验证后删除）。
-    @State private var didSeedDebugSessions: Bool = false
-#endif
+
     @State private var searchText: String = ""
     @State private var showBrowserSheet: Bool = false
     /// 顶部标题区点击入口：智能体名 → 灵魂设置；模型名 → 模型管理（与会话页完全一致）。
@@ -213,20 +210,6 @@ struct HomeView: View {
                 }
             }
         }
-#if targetEnvironment(simulator) && DEBUG
-        .onAppear {
-            // 模拟器 UI 实证专用（验证后删除）：空列表自动造 3 条会话，留在首页不跳转。
-            if sessions.isEmpty && !didSeedDebugSessions {
-                didSeedDebugSessions = true
-                for _ in 0..<3 {
-                    _ = SessionManager.shared.createSession(
-                        model: appState.currentModelDisplayName,
-                        agentName: appState.agentName
-                    )
-                }
-            }
-        }
-#endif
 #if targetEnvironment(simulator) && DEBUG
         .onAppear {
             // 模拟器 UI 实证专用（验证后删除）：空列表自动造 3 条会话，留在首页不跳转。
@@ -871,23 +854,26 @@ struct HomeView: View {
     }
 }
 
-/// 会话行卡片化（唐唐 2026-09-02：主题背景下通栏白条太生硬）——
-    /// 材质圆角底 + 行外边距 + 去分隔线；行间空隙由上下 inset 叠加形成。
-    fileprivate extension View {
-        // ⚠️ List 的 listRowBackground 会把背景拉伸铺满**通栏**（listRowInsets 只缩进
-        // 内容、管不到背景），所以卡片底必须直接长在行内容上（2026-09-02 实测翻车记录）：
-        // 行自包 padding + 材质圆角底，listRowBackground/insets 全部清零。
-        func sessionCardListRow() -> some View {
-            self
-                // 左右 16 = 与会话页输入框水平边距一致；上下 5.5 → 相邻行间隙 11pt。
-                .padding(.horizontal, 16)
-                .padding(.vertical, 5.5)
-                .background(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .fill(.regularMaterial)
-                )
-                .listRowInsets(EdgeInsets())
-                .listRowSeparator(.hidden)
-                .listRowBackground(Color.clear)
-        }
+/// 会话行卡片化（唐唐 2026-09-02：主题背景下通栏白条太生硬）。
+/// ⚠️ 修饰顺序铁律（2026-09-02 模拟器截图实测）：材质/描边**紧贴内容**，
+/// 透明边距在 background **之后**——顺序反了材质会铺满 padding 区，
+/// 相邻卡片直接贴合（第一版翻车根因）。参数已模拟器截图验证。
+fileprivate extension View {
+    func sessionCardListRow() -> some View {
+        self
+            .background(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(.regularMaterial)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .stroke(Color.primary.opacity(0.08), lineWidth: 0.5)
+            )
+            // 左右 16 = 与会话页输入框水平边距一致；上下 10 → 相邻行间隙 20pt。
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .listRowInsets(EdgeInsets())
+            .listRowSeparator(.hidden)
+            .listRowBackground(Color.clear)
     }
+}
