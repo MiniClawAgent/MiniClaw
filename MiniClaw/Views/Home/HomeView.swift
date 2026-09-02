@@ -33,6 +33,14 @@ struct HomeView: View {
     @State private var draftRefreshToken = 0
 
     @State private var isSearching: Bool = false
+#if targetEnvironment(simulator) && DEBUG
+    /// 模拟器 UI 实证专用：自动造会话只跑一次（验证后删除）。
+    @State private var didSeedDebugSessions: Bool = false
+#endif
+#if targetEnvironment(simulator) && DEBUG
+    /// 模拟器 UI 实证专用：自动造会话只跑一次（验证后删除）。
+    @State private var didSeedDebugSessions: Bool = false
+#endif
     @State private var searchText: String = ""
     @State private var showBrowserSheet: Bool = false
     /// 顶部标题区点击入口：智能体名 → 灵魂设置；模型名 → 模型管理（与会话页完全一致）。
@@ -205,6 +213,34 @@ struct HomeView: View {
                 }
             }
         }
+#if targetEnvironment(simulator) && DEBUG
+        .onAppear {
+            // 模拟器 UI 实证专用（验证后删除）：空列表自动造 3 条会话，留在首页不跳转。
+            if sessions.isEmpty && !didSeedDebugSessions {
+                didSeedDebugSessions = true
+                for _ in 0..<3 {
+                    _ = SessionManager.shared.createSession(
+                        model: appState.currentModelDisplayName,
+                        agentName: appState.agentName
+                    )
+                }
+            }
+        }
+#endif
+#if targetEnvironment(simulator) && DEBUG
+        .onAppear {
+            // 模拟器 UI 实证专用（验证后删除）：空列表自动造 3 条会话，留在首页不跳转。
+            if sessions.isEmpty && !didSeedDebugSessions {
+                didSeedDebugSessions = true
+                for _ in 0..<3 {
+                    _ = SessionManager.shared.createSession(
+                        model: appState.currentModelDisplayName,
+                        agentName: appState.agentName
+                    )
+                }
+            }
+        }
+#endif
         .onChange(of: isSearching) { searching in
             // 进入搜索：自动聚焦内联输入框；退出：失焦
             searchFocused = searching
