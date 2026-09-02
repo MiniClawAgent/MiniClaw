@@ -20,6 +20,27 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
     private var activeRequestTask: URLSessionDataTask?
     /// 当前正在执行的工具 Task 集合（供 cancel/pause 中断挂起的工具调用）。
     /// [Fix 2026-08-11 并发工具崩溃·参考实现] 原 `toolExecutionTask: Any?` 是
+    // ── 工具执行过程流的缓冲与节流（callID → 累计文本）──
+    static let progressBufferLock = NSLock()
+    nonisolated(unsafe) static var progressBuffers: [String: String] = [:]
+    nonisolated(unsafe) static var progressLastFlush: [String: Date] = [:]
+    static let progressMaxChars = 30_000
+    /// 分层节流（借鉴 OpenMinis 思考流 flush tier 表的方法）：短内容响应优先，长内容降频。
+    static func progressFlushInterval(forLength length: Int) -> TimeInterval {
+        switch length {
+        case ..<1_000: return 0.3
+        case ..<3_000: return 0.6
+        default: return 1.0
+        }
+    }
+    /// 结果落定/引擎结束时清理该 callID 的过程缓冲。
+    static func clearProgressBuffer(callID: String) {
+        progressBufferLock.lock()
+        progressBuffers.removeValue(forKey: callID)
+        progressLastFlush.removeValue(forKey: callID)
+        progressBufferLock.unlock()
+    }
+
     /// 单一共享可变属性——并发工具(executeToolsConcurrently 的 withTaskGroup)同时写
     /// 1925/1927 行,主线程 pause/cancel 同时读写,ARC 引用计数竞争 → swift_release_dealloc
     /// 崩溃(用户实证:两个 shell 并发执行时偶发)。改为 NSLock 保护的按 callID 集合
@@ -98,6 +119,9 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
     var onToolCall: ((String, String, [String: Any], Date) -> Void)?
     /// 工具执行完成（name / 模型调用 id / 结果 / 耗时）。
     var onToolResult: ((String, String, ToolResult, TimeInterval) -> Void)?
+    /// 工具执行过程流（callID / 节流后的累计过程文本）：由工具体经 ToolProgressScope
+    /// 上报（如 shell 的 stdout 逐行流），bridge 写进工具块 content 实时渲染。
+    var onToolProgress: ((String, String) -> Void)?
     var onComplete: (() -> Void)?
     /// 整轮正常完成时最后一段模型答复（最终轮 streamedText，见 emitComplete）。
     /// 工具循环的中间过程叙述不在此列；未正常完成时为空字符串。
@@ -1151,6 +1175,12 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
         nonisolated(unsafe) let args = args
         deliverOnMain { onToolCall(name, callID, args, startedAt) }
     }
+    /// 上抛工具执行过程流（deliverOnMain 统一回主线程，与 onToolCall/onToolResult 同约定）。
+    private func emitToolProgress(callID: String, text: String) {
+        guard let onToolProgress else { return }
+        deliverOnMain { onToolProgress(callID, text) }
+    }
+
 
     private func emitToolResult(_ name: String, callID: String, result: ToolResult, duration: TimeInterval) {
         guard let onToolResult else { return }
@@ -1821,8 +1851,38 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
                     do {
                         // 浏览器作用域：子代理引擎用自身 subID（独立浏览器上下文），主引擎回落父会话。
                         let browserScope = self.isSubagentEngine ? self.sessionID : nil
-                        return try await EngineBrowserScope.$sessionID.withValue(browserScope) {
-                            try await self.toolRouter.execute(name: rawName, parameters: innerArgs)
+                        // 过程流上报通道（借鉴 OpenMinis 的执行中写 block 思路）：
+                        // reporter 做行缓冲 + 分层节流（0.3/0.6/1.0s）+ 30K 截尾，
+                        // 工具体（如 shell 的 stdout onLine）往里塞行。
+                        let callID = tc.id
+                        let reporter: @Sendable (String) -> Void = { [weak self] line in
+                            guard let self else { return }
+                            // 缓冲更新：NSLock 保护，任意线程安全。
+                            Self.progressBufferLock.lock()
+                            var buf = Self.progressBuffers[callID] ?? ""
+                            buf += line + "\n"
+                            if buf.count > Self.progressMaxChars {
+                                buf = "…[output truncated]…\n" + String(buf.suffix(Self.progressMaxChars))
+                            }
+                            Self.progressBuffers[callID] = buf
+                            let now = Date()
+                            let last = Self.progressLastFlush[callID] ?? .distantPast
+                            let interval = Self.progressFlushInterval(forLength: buf.count)
+                            let shouldFlush = now.timeIntervalSince(last) >= interval
+                            if shouldFlush { Self.progressLastFlush[callID] = now }
+                            let text = buf
+                            Self.progressBufferLock.unlock()
+                            // flush hop 回主线程（emitToolProgress 在 MainActor）。
+                            if shouldFlush {
+                                Task { @MainActor [weak self] in
+                                    self?.emitToolProgress(callID: callID, text: text)
+                                }
+                            }
+                        }
+                        return try await ToolProgressScope.$reporter.withValue(reporter) {
+                            try await EngineBrowserScope.$sessionID.withValue(browserScope) {
+                                try await self.toolRouter.execute(name: rawName, parameters: innerArgs)
+                            }
                         }
                     } catch {
                         return ToolResult(success: false, text: "Error: \(error.localizedDescription)")
@@ -1857,8 +1917,10 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
         toolExecutionTasks.insert(tc.id, task: execTask)
         let result = await execTask.value
         toolExecutionTasks.remove(tc.id)
+        Self.clearProgressBuffer(callID: tc.id)
 
         let duration = Date().timeIntervalSince(startedAt)
+        emitToolProgress(callID: tc.id, text: result.text)
         emitToolResult(rawName, callID: tc.id, result: result, duration: duration)
         AppLogger.shared.crisisMark("TOOL DONE: \(rawName) (\(Int(duration * 1000))ms)")
         return result

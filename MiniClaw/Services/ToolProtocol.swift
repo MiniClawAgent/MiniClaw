@@ -142,6 +142,15 @@ struct ToolResult: @unchecked Sendable {
     var attachments: [URL]?
 }
 
+// MARK: - Tool Progress Scope
+
+/// 工具执行过程流上报通道（借鉴 OpenMinis「执行中直接写 block.content」的方法）：
+/// 引擎在调用 toolRouter.execute 时用 TaskLocal 注入 reporter，
+/// 工具体内部（如 shell 的 stdout 逐行回调）读取并上报——TaskLocal 沿异步调用链自动继承。
+enum ToolProgressScope {
+    @TaskLocal static var reporter: (@Sendable (String) -> Void)? = nil
+}
+
 // MARK: - Tool Router
 
 final class ToolRouter {

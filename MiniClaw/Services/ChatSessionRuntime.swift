@@ -85,6 +85,9 @@ final class ChatSessionRuntime: ObservableObject, @MainActor Identifiable {
     private var flushScheduled = false
     /// 流式过程中的工具调用事件缓冲区
     @Published var streamingToolCalls: [ToolCallEvent] = []
+    /// 工具执行过程流（callID → 已节流的累计过程文本）：engine 过程事件写入，
+    /// bridge 据此把执行中实时输出渲染进工具块 content；结果落定时清除。
+    @Published var streamingToolProgress: [String: String] = [:]
     /// 流式过程中的分段思考过程（reasoning）缓冲区（引用类型，跨 `ChatView` 重建存活）。
     /// 按引擎迭代轮次（iterations）切片，每段独立展示、穿插在正文/工具之间。
     /// 仅用于实时展示，不写入磁盘、不回灌上下文。

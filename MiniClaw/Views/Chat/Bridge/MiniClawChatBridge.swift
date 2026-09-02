@@ -190,7 +190,15 @@ final class MiniClawChatBridge: ObservableObject {
             for evt in runtime.streamingToolCalls {
                 let key = evt.callID ?? evt.id.uuidString
                 if let existing = lastAI.blocks.first(where: { $0.toolUseId == key }) {
-                    existing.content = evt.arguments
+                    // content 取值优先级（2026-09-02 实时过程流）：
+                    // 过程流(执行中实时输出) > 结果文本(落定,与终态 Adapter 口径一致) > 参数。
+                    if let prog = runtime.streamingToolProgress[key], !prog.isEmpty {
+                        existing.content = prog
+                    } else if !evt.resultText.isEmpty {
+                        existing.content = evt.resultText
+                    } else {
+                        existing.content = evt.arguments
+                    }
                     existing.toolStatus = self.toolStatus(for: evt)
                     // [Fix 2026-08-11] 同步 toolInputArgs:胶囊显示名走
                     // toolDescription→activity 分支,缺它流式中只显示兜底文案,

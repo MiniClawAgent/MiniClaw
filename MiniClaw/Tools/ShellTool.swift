@@ -69,7 +69,8 @@ struct ShellExecuteTool: AgentTool {
                 environment: environment,
                 workingDirectory: nil,
                 timeout: TimeInterval(timeout),
-                onLine: nil,
+                // 过程流：stdout/stderr 逐行上报 → 引擎节流缓冲 → 工具块 content 实时渲染。
+        onLine: { line, _ in ToolProgressScope.reporter?(line) },
                 sessionID: currentSessionID
             )
             let output = result.stdout + (result.stderr.isEmpty ? "" : "\n[stderr]\n\(result.stderr)")

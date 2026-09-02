@@ -348,6 +348,12 @@ final class AgentRunService {
                 )
             }
         }
+        engine.onToolProgress = { [weak runtime] callID, text in
+            MainActor.assumeIsolated {
+                guard let runtime, runtime.streamingMessageID == responseMessageID else { return }
+                runtime.streamingToolProgress[callID] = text
+            }
+        }
         engine.onToolResult = { [weak runtime] name, callID, result, duration in
             MainActor.assumeIsolated {
                 guard let runtime, runtime.streamingMessageID == responseMessageID else { return }
@@ -358,6 +364,8 @@ final class AgentRunService {
                     runtime.streamingToolCalls[idx].success = result.success
                     runtime.streamingToolCalls[idx].duration = duration
                 }
+                // 过程流使命完成（结果落定后 content=resultText），清掉避免残留。
+                runtime.streamingToolProgress.removeValue(forKey: callID)
             }
         }
         engine.onComplete = { [weak engine, session, assistantMessage, weak runtime] in
