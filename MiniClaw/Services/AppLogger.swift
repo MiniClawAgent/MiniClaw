@@ -109,7 +109,10 @@ final class AppLogger: @unchecked Sendable {
     /// inset 变化每次操作都打,刷屏价值低;文件日志仍完整保留。
     private static let consoleMirrorCategories: Set<String> = [
         "ScrollDiag", "ScrollStall", "Settle", "SettleJitter",
-        "ChatInputInject"  // 2026-08-13:「添加到输入框」链路打点,排查期镜像控制台
+        "ChatInputInject",  // 2026-08-13:「添加到输入框」链路打点,排查期镜像控制台
+        // 2026-09-02:MCP OAuth 排障期镜像——授权/回调/token 链路与 MCP 刷新链路
+        // 需要在 Xcode 实时观察(ARDOT loopback 收码定位)
+        "MCP-OAuth", "MCP"
     ]
 
     func log(category: String, subsystem: String? = nil, level: LogLevel, message: String) {
