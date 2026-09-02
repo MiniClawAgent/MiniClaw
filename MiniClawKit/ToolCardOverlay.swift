@@ -70,7 +70,9 @@ struct ToolCardOverlay: View {
                                 RoundedRectangle(cornerRadius: 20)
                                     .stroke(Color(.separator).opacity(0.8), lineWidth: 1)
                             )
-                            .shadow(color: .black.opacity(0.45), radius: 28, y: 10)
+                            // 不加卡片投影：TabView(.page) 页间隔仅 24pt，大半径阴影会
+                            // 渗进两卡缝隙形成阴影带（2026-09-02 唐唐截图）；层次由
+                            // 底层 0.35 黑遮罩提供。
                             .padding(.horizontal, 24)
                             .tag(i)
                         }
