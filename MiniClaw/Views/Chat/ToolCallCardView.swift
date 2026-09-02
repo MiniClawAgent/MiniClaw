@@ -251,10 +251,11 @@ struct ToolCallCardView: View {
             }
         }
         .background(pillBackground)
-        // 开源参考实现对齐(2026-08-09):折叠态 Capsule(高36)、展开态圆角 18
-        .clipShape(isExpanded ? AnyShape(RoundedRectangle(cornerRadius: 18)) : AnyShape(Capsule()))
+        // 2026-09-02 唐唐拍板：与主会话工具指示器统一——固定矩形圆角 12
+        // （主会话 AssistantBlockView 同款；原折叠态 Capsule 半圆废弃）。
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         .overlay(
-            (isExpanded ? AnyShape(RoundedRectangle(cornerRadius: 18)) : AnyShape(Capsule()))
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .stroke(Color(.separator), lineWidth: 0.5)
         )
         .fixedSize(horizontal: !isExpanded, vertical: true)

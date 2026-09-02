@@ -26,25 +26,26 @@ struct ReasoningBlockView: View {
                 onUserToggle?()
                 onToggle?()
             } label: {
+                // 2026-09-02 唐唐拍板：与主会话 ThinkingBlockView 同款——
+                // 图标 wand.and.stars(13 semibold)；去掉 Spacer，折叠态宽度随内容
+                // 自适应（不再通栏长条）；字段顺序 图标/标题/字数/菊花/chevron 对齐主会话。
                 HStack(spacing: 6) {
-                    Image(systemName: "lightbulb.fill")
-                        .resizable()
-                        .frame(width: 14, height: 14)
+                    Image(systemName: "wand.and.stars")
+                        .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(.blue)
                     Text(L10n.l("deep_thinking_label"))
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(.blue)
-                    if isStreaming {
-                        ProgressView()
-                            .controlSize(.mini)
-                            .tint(.blue)
-                    }
                     if !text.isEmpty {
                         Text(charCountText)
                             .font(.system(size: 11, weight: .medium, design: .monospaced))
                             .foregroundStyle(.blue.opacity(0.6))
                     }
-                    Spacer()
+                    if isStreaming {
+                        ProgressView()
+                            .controlSize(.mini)
+                            .tint(.blue)
+                    }
                     Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
                         .font(.system(size: 11, weight: .medium))
                         .foregroundStyle(.blue.opacity(0.5))
