@@ -348,6 +348,32 @@ final class AgentRunService {
                 )
             }
         }
+        engine.onToolCallStreaming = { [weak runtime] callID, name, partialArgs, bytes in
+            MainActor.assumeIsolated {
+                guard let runtime, runtime.streamingMessageID == responseMessageID else { return }
+                // 占位事件 upsert：参数还在流式生成时就先创建工具块（streaming 态），
+                // 卡片实时显示 AI 正在写的内容；定稿 onToolCall 到达后走正常执行链。
+                let primary = ToolStreamingParser.primaryPartialValue(name: name, partialJSON: partialArgs)
+                if let idx = runtime.streamingToolCalls.firstIndex(where: { $0.callID == callID }) {
+                    runtime.streamingToolCalls[idx].arguments = partialArgs
+                } else {
+                    let pos = runtime.streamingContent.count
+                    let order = runtime.nextTimelineOrder
+                    runtime.nextTimelineOrder += 1
+                    runtime.streamingToolCalls.append(
+                        ToolCallEvent(
+                            name: name,
+                            callID: callID,
+                            arguments: partialArgs,
+                            timestamp: Date(),
+                            position: pos,
+                            timelineOrder: order
+                        )
+                    )
+                }
+                runtime.streamingToolProgress[callID] = primary ?? String(bytes) + "B"
+            }
+        }
         engine.onToolProgress = { [weak runtime] callID, text in
             MainActor.assumeIsolated {
                 guard let runtime, runtime.streamingMessageID == responseMessageID else { return }

@@ -9,6 +9,8 @@ final class AnthropicStreamDelegate: NSObject, URLSessionDataDelegate, @unchecke
     weak var session: URLSession?
 
     var onEvent: ((LLMStreamEvent) -> Void)?
+    /// 工具参数流式增量上抛的节流（idx → 上次上抛时间）。
+    private var streamingEmitTimes: [Int: Date] = [:]
     var onFinish: ((Result<Void, Error>) -> Void)?
 
     private var dataBuffer = Data()
@@ -144,6 +146,17 @@ final class AnthropicStreamDelegate: NSObject, URLSessionDataDelegate, @unchecke
                     meaningfulOutput = true
                     let idx = obj.index ?? 0
                     accumulatedToolCalls[idx, default: ("", "", "")].arguments += json
+                    // 参数流式增量上抛（0.15s 节流）：卡片实时显示 AI 正在生成的内容。
+                    let acc = accumulatedToolCalls[idx]!
+                    let now = Date()
+                    let last = streamingEmitTimes[idx] ?? .distantPast
+                    if now.timeIntervalSince(last) >= 0.15, !acc.name.isEmpty {
+                        streamingEmitTimes[idx] = now
+                        onEvent?(.toolCallStreaming(id: acc.id.isEmpty ? String(idx) : acc.id,
+                                                    name: acc.name,
+                                                    partialArgs: acc.arguments,
+                                                    bytes: acc.arguments.utf8.count))
+                    }
                 }
             default:
                 break

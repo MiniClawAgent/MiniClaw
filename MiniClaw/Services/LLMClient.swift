@@ -6,6 +6,8 @@ import Foundation
 final class AdapterCallbackBox: @unchecked Sendable {
     let onToken: (String) -> Void
     let onToolCall: (ToolCall) -> Void
+    /// 工具参数流式增量（id/name/累计部分 JSON/字节数）。
+    let onToolCallStreaming: (String, String, String, Int) -> Void
     let onReasoning: (String) -> Void
     let onUsage: (Int, Int, Int, Int) -> Void
     let onFinishReason: (String?) -> Void
@@ -14,6 +16,7 @@ final class AdapterCallbackBox: @unchecked Sendable {
     init(
         onToken: @escaping (String) -> Void,
         onToolCall: @escaping (ToolCall) -> Void,
+        onToolCallStreaming: @escaping (String, String, String, Int) -> Void = { _, _, _, _ in },
         onReasoning: @escaping (String) -> Void,
         onUsage: @escaping (Int, Int, Int, Int) -> Void,
         onFinishReason: @escaping (String?) -> Void,
@@ -21,6 +24,7 @@ final class AdapterCallbackBox: @unchecked Sendable {
     ) {
         self.onToken = onToken
         self.onToolCall = onToolCall
+        self.onToolCallStreaming = onToolCallStreaming
         self.onReasoning = onReasoning
         self.onUsage = onUsage
         self.onFinishReason = onFinishReason
@@ -98,6 +102,7 @@ final class LLMClient: @unchecked Sendable {
         parallelToolCalls: Bool? = nil,
         onToken: @escaping (String) -> Void,
         onToolCall: @escaping (ToolCall) -> Void,
+        onToolCallStreaming: ((String, String, String, Int) -> Void)? = nil,
         onReasoning: @escaping (String) -> Void = { _ in },
         onUsage: @escaping (Int, Int, Int, Int) -> Void,
         onFinishReason: @escaping (String?) -> Void,
@@ -132,6 +137,7 @@ final class LLMClient: @unchecked Sendable {
                 parallelToolCalls: parallelToolCalls,
                 onToken: onToken,
                 onToolCall: onToolCall,
+                onToolCallStreaming: onToolCallStreaming ?? { _, _, _, _ in },
                 onReasoning: onReasoning,
                 onUsage: onUsage,
                 onFinishReason: onFinishReason,
@@ -304,6 +310,7 @@ final class LLMClient: @unchecked Sendable {
         parallelToolCalls: Bool?,
         onToken: @escaping (String) -> Void,
         onToolCall: @escaping (ToolCall) -> Void,
+        onToolCallStreaming: @escaping (String, String, String, Int) -> Void,
         onReasoning: @escaping (String) -> Void,
         onUsage: @escaping (Int, Int, Int, Int) -> Void,
         onFinishReason: @escaping (String?) -> Void,
@@ -328,9 +335,11 @@ final class LLMClient: @unchecked Sendable {
         let handle = adapter.streamChat(request: request)
         // 回调经 @unchecked Sendable 盒子跨 Task 传递——与适配器 delegate 在
         // URLSession 私有队列回调这些闭包的行为一致(闭包本身由引擎持有非 Sendable 状态)。
+        let streamingHandler = onToolCallStreaming ?? { _, _, _, _ in }
         let box = AdapterCallbackBox(
             onToken: onToken,
             onToolCall: onToolCall,
+            onToolCallStreaming: streamingHandler,
             onReasoning: onReasoning,
             onUsage: onUsage,
             onFinishReason: onFinishReason,
@@ -343,6 +352,7 @@ final class LLMClient: @unchecked Sendable {
                     case .token(let t): box.onToken(t)
                     case .reasoning(let r): box.onReasoning(r)
                     case .toolCall(let tc): box.onToolCall(tc)
+                    case .toolCallStreaming(let id, let name, let args, let bytes): box.onToolCallStreaming(id, name, args, bytes)
                     case .usage(let p, let c, let cr, let cw): box.onUsage(p, c, cr, cw)
                     case .finishReason(let fr): box.onFinishReason(fr)
                     }

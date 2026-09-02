@@ -26,6 +26,8 @@ final class OpenAIStreamDelegate: NSObject, URLSessionDataDelegate, @unchecked S
     private var capturedFinishReason: String?
     private var capturedUsage: (input: Int, output: Int, cachedRead: Int, cachedWrite: Int)?
     private var parsedEventCount = 0
+    /// 工具参数流式增量上抛的节流（key → 上次上抛时间）。
+    private var streamingEmitTimes: [String: Date] = [:]
     /// chatCompletions 工具调用累积(index → 片段)。
     private var accumulatedToolCalls: [String: (id: String, name: String, arguments: String)] = [:]
     /// responses 工具调用累积(item_id → 片段)。
@@ -185,6 +187,17 @@ final class OpenAIStreamDelegate: NSObject, URLSessionDataDelegate, @unchecked S
                     }
                     if let args = tc.function?.arguments ?? tc.arguments {
                         accumulatedToolCalls[key]?.arguments += args
+                        // 参数流式增量上抛（0.15s 节流）：卡片实时显示 AI 正在生成的内容。
+                        let acc = accumulatedToolCalls[key]!
+                        let now = Date()
+                        let last = streamingEmitTimes[key] ?? .distantPast
+                        if now.timeIntervalSince(last) >= 0.15, !acc.name.isEmpty {
+                            streamingEmitTimes[key] = now
+                            onEvent?(.toolCallStreaming(id: acc.id.isEmpty ? key : acc.id,
+                                                        name: acc.name,
+                                                        partialArgs: acc.arguments,
+                                                        bytes: acc.arguments.utf8.count))
+                        }
                     }
                 }
             }
@@ -200,6 +213,16 @@ final class OpenAIStreamDelegate: NSObject, URLSessionDataDelegate, @unchecked S
                 }
                 if let args = legacy.arguments {
                     accumulatedToolCalls[key]?.arguments += args
+                    let acc = accumulatedToolCalls[key]!
+                    let now = Date()
+                    let last = streamingEmitTimes[key] ?? .distantPast
+                    if now.timeIntervalSince(last) >= 0.15, !acc.name.isEmpty {
+                        streamingEmitTimes[key] = now
+                        onEvent?(.toolCallStreaming(id: acc.id.isEmpty ? key : acc.id,
+                                                    name: acc.name,
+                                                    partialArgs: acc.arguments,
+                                                    bytes: acc.arguments.utf8.count))
+                    }
                 }
             }
         }

@@ -122,6 +122,9 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
     /// 工具执行过程流（callID / 节流后的累计过程文本）：由工具体经 ToolProgressScope
     /// 上报（如 shell 的 stdout 逐行流），bridge 写进工具块 content 实时渲染。
     var onToolProgress: ((String, String) -> Void)?
+    /// 工具参数流式增量（callID / name / 累计部分 JSON / 字节数）：模型正在生成
+    /// tool_use 参数时由 LLMClient SSE 层节流上抛，供卡片实时显示「AI 正在写的内容」。
+    var onToolCallStreaming: ((String, String, String, Int) -> Void)?
     var onComplete: (() -> Void)?
     /// 整轮正常完成时最后一段模型答复（最终轮 streamedText，见 emitComplete）。
     /// 工具循环的中间过程叙述不在此列；未正常完成时为空字符串。
@@ -631,6 +634,9 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
                             },
                             onToolCall: { toolCall in
                                 collectedToolCalls.append(toolCall)
+                            },
+                            onToolCallStreaming: { [weak self] callID, name, partialArgs, bytes in
+                                self?.emitToolCallStreaming(callID: callID, name: name, partialArgs: partialArgs, bytes: bytes)
                             },
                             onReasoning: { [weak self] piece in
                                 streamedReasoning += piece
@@ -1179,6 +1185,12 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
     private func emitToolProgress(callID: String, text: String) {
         guard let onToolProgress else { return }
         deliverOnMain { onToolProgress(callID, text) }
+    }
+
+    /// 上抛工具参数流式增量（同上约定，节流在 LLMClient SSE 层完成）。
+    private func emitToolCallStreaming(callID: String, name: String, partialArgs: String, bytes: Int) {
+        guard let onToolCallStreaming else { return }
+        deliverOnMain { onToolCallStreaming(callID, name, partialArgs, bytes) }
     }
 
 

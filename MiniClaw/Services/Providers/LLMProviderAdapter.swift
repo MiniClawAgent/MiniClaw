@@ -32,6 +32,8 @@ enum LLMStreamEvent: Sendable {
     case token(String)
     case reasoning(String)
     case toolCall(ToolCall)
+    /// 工具参数流式增量（模型正在生成 tool_use 参数）：partialArgs 为累计的部分 JSON。
+    case toolCallStreaming(id: String, name: String, partialArgs: String, bytes: Int)
     case usage(prompt: Int, completion: Int, cachedRead: Int, cachedWrite: Int)
     case finishReason(String?)
 }
