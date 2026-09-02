@@ -869,9 +869,10 @@ fileprivate extension View {
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
                     .stroke(Color.primary.opacity(0.08), lineWidth: 0.5)
             )
-            // 左右 16 = 与会话页输入框水平边距一致；上下 10 → 相邻行间隙 20pt。
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
+            // 唐唐 2026-09-02 微调：左右 16→12（往屏幕边框靠），上下 10→6
+            // （相邻行间隙 20→12pt，紧凑但仍清晰分离）。
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
             .listRowInsets(EdgeInsets())
             .listRowSeparator(.hidden)
             .listRowBackground(Color.clear)
