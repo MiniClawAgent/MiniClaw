@@ -254,31 +254,36 @@ struct MCPSettingsView: View {
         }
     }
 
+    /// 唐唐 2026-09-02 排版定稿：名称 + 连接状态图标（icon-only），下行 = 工具数 + 检查时间；
+    /// 服务器地址行移除（地址在编辑页可见），行内仅保留错误详情。列表更紧凑。
     private func serverRow(_ server: MCPServerConfig) -> some View {
         HStack(alignment: .center, spacing: 12) {
             Button {
                 editorItem = MCPServerEditorItem(server: server)
             } label: {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text(server.name)
-                        .font(.headline)
-                        .foregroundStyle(.primary)
-
-                    Text(server.endpointURL)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(2)
-                        .multilineTextAlignment(.leading)
+                    HStack(spacing: 6) {
+                        Text(server.name)
+                            .font(.headline)
+                            .foregroundStyle(.primary)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                        statusIcon(for: server)
+                    }
 
                     HStack(spacing: 6) {
-                        statusLabel(for: server)
-
-                        Text("·")
-                            .foregroundStyle(.tertiary)
-
                         Text("\(server.lastToolCount) " + L10n.l("tool_count_suffix"))
                             .font(.caption)
                             .foregroundStyle(.secondary)
+
+                        if let checkedAt = server.lastCheckedAt {
+                            Text("·")
+                                .foregroundStyle(.tertiary)
+                            Text(L10n.l("last_checked_label") + checkedAt.formatted(date: .numeric, time: .shortened))
+                                .font(.caption)
+                                .foregroundStyle(.tertiary)
+                                .lineLimit(1)
+                        }
 
                         if server.hasBearerToken {
                             Image(systemName: "lock.fill")
@@ -292,14 +297,8 @@ struct MCPSettingsView: View {
                         Text(error)
                             .font(.caption)
                             .foregroundStyle(.red)
-                            .lineLimit(3)
+                            .lineLimit(2)
                             .multilineTextAlignment(.leading)
-                    }
-
-                    if let checkedAt = server.lastCheckedAt {
-                        Text(L10n.l("last_checked_label") + checkedAt.formatted(date: .abbreviated, time: .shortened))
-                            .font(.caption2)
-                            .foregroundStyle(.tertiary)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -307,36 +306,42 @@ struct MCPSettingsView: View {
             }
             .buttonStyle(.plain)
 
-            VStack(spacing: 12) {
-                Toggle(
-                    L10n.l("enable_label") + server.name,
-                    isOn: Binding(
-                        get: { server.isEnabled },
-                        set: { store.setEnabled($0, id: server.id) }
-                    )
+            Toggle(
+                L10n.l("enable_label") + server.name,
+                isOn: Binding(
+                    get: { server.isEnabled },
+                    set: { store.setEnabled($0, id: server.id) }
                 )
-                .labelsHidden()
-                // 2026-09-01 唐唐拍板：行内刷新钮移除——刷新统一收进列表标题行最右。
-            }
+            )
+            .labelsHidden()
+            // 2026-09-01 唐唐拍板：行内刷新钮移除——刷新统一收进列表标题行最右。
         }
         .padding(.vertical, 5)
     }
 
+    /// 连接状态 icon-only（文字语义保留在 accessibilityLabel）。
     @ViewBuilder
-    private func statusLabel(for server: MCPServerConfig) -> some View {
+    private func statusIcon(for server: MCPServerConfig) -> some View {
         switch server.lastStatus {
         case .unknown:
-            Label(L10n.l("not_checked"), systemImage: "circle.dashed")
-                .foregroundStyle(.secondary)
+            Image(systemName: "circle.dashed")
+                .font(.footnote)
+                .foregroundStyle(.tertiary)
+                .accessibilityLabel(L10n.l("not_checked"))
         case .connecting:
-            Label(L10n.l("connecting"), systemImage: "arrow.clockwise")
-                .foregroundStyle(.blue)
+            ProgressView()
+                .controlSize(.small)
+                .accessibilityLabel(L10n.l("connecting"))
         case .connected:
-            Label(L10n.l("connected"), systemImage: "checkmark.circle.fill")
+            Image(systemName: "checkmark.circle.fill")
+                .font(.footnote)
                 .foregroundStyle(.green)
+                .accessibilityLabel(L10n.l("connected"))
         case .failed:
-            Label(L10n.l("connection_failed"), systemImage: "exclamationmark.circle.fill")
+            Image(systemName: "exclamationmark.circle.fill")
+                .font(.footnote)
                 .foregroundStyle(.red)
+                .accessibilityLabel(L10n.l("connection_failed"))
         }
     }
 
