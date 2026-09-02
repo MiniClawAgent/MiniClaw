@@ -83,6 +83,8 @@ struct ToolLiveSheet: View {
     @State private var navCopyDone = false
     /// Incremented when the current block publishes changes, forcing SwiftUI to re-render.
     @State private var blockUpdateTick = 0
+    /// 用户点击结果区后暂停自动跟随（安心上滑看历史）；切换工具块时重置。
+    @State private var tailFollowPaused = false
     /// Unified secondary-sheet state. A single `.sheet(item:)` routes both the
     /// browser takeover and the tapped-URL link preview through one modifier,
     /// sidestepping SwiftUI's "only one .sheet per view" limitation when
@@ -1587,14 +1589,18 @@ struct ToolLiveSheet: View {
                     .padding(.bottom,16)
                 }
             }
+            // 点击结果区 = 暂停自动跟随（用户上滑看历史时输出不再拉回底部）；
+            // 切换工具块或重开浮层时恢复。
+            .onTapGesture { tailFollowPaused = true }
             .onChange(of: block.content.count) { _ in
-                if isLive {
+                if isLive && !tailFollowPaused {
                     proxy.scrollTo("end", anchor: .bottom)
                 }
             }
             // [T-ios-tool-result-lazy-render] Switching to another tool block
             // (next/prev) re-collapses the lazy window to its initial batch.
             .onChange(of: block.id) { _ in
+                tailFollowPaused = false // 切换工具块恢复跟随
                 guard !isLive else { return }
                 let chunks = Self.chunkedLines(block.content.isEmpty ? " " : block.content)
                 revealedForBlockId = block.id

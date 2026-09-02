@@ -200,6 +200,10 @@ final class MiniClawChatBridge: ObservableObject {
                         existing.content = evt.arguments
                     }
                     existing.toolStatus = self.toolStatus(for: evt)
+                    // 执行时长即时透传（2026-09-02 唐唐反馈：会话页耗时需重进才显示）。
+                    existing.toolDuration = evt.duration
+                    // 执行时长即时透传（2026-09-02 唐唐反馈：会话页耗时需重进才显示）。
+                    existing.toolDuration = evt.duration
                     // [Fix 2026-08-11] 同步 toolInputArgs:胶囊显示名走
                     // toolDescription→activity 分支,缺它流式中只显示兜底文案,
                     // 终态重建后才显示具体操作名(用户反馈「完成才显示名称」)。
@@ -215,6 +219,8 @@ final class MiniClawChatBridge: ObservableObject {
                         toolUseId: key
                     )
                     tb.toolInputArgs = evt.arguments
+                    tb.toolDuration = evt.duration
+                    tb.toolDuration = evt.duration
                     insertBlock(tb, order: Double(evt.timelineOrder), into: &lastAI.blocks)
                 }
             }
