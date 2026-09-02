@@ -576,8 +576,8 @@ struct ThinkingBlockView: View {
             ThinkingHitchMonitor.shared.stop(owner: block.id)
         }
         // 2026-09-02 唐唐反馈：结束态 0.15 在浅背景上几乎不可见（思考中灰底→结束"背景消失"的断裂感）。
-        // 当前临时改纯绿不透明供唐唐看效果（看完再定透明度档位）。
-        .background(isStreaming ? Color(UIColor.systemGray6) : Color.green)
+        // 当前试半透明 0.5 档位（唐唐逐档对比中：0.15→0.22→不透明→0.5）。
+        .background(isStreaming ? Color(UIColor.systemGray6) : Color.green.opacity(0.5))
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .overlay(
             RoundedRectangle(cornerRadius: 12)
