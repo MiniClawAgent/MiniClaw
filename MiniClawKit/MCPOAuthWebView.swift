@@ -128,7 +128,19 @@ public struct MCPOAuthWebView: UIViewRepresentable {
     }
 
     public func makeUIView(context: Context) -> WKWebView {
-        let web = WKWebView()
+        // 授权页是 SPA——登录后的授权确认走 fetch/XHR（不触发 WKNavigationDelegate），
+        // 注入 JS 钩子把页面内的 API 调用（URL/状态码/响应体）桥接给原生日志，
+        // 否则 400 等服务器错误是盲区（唐唐 2026-09-02）。
+        let userContent = WKUserContentController()
+        userContent.addUserScript(
+            WKUserScript(source: Self.xhrHookJS, injectionTime: .atDocumentStart, forMainFrameOnly: false)
+        )
+        userContent.add(context.coordinator, name: "mcpOAuthLog")
+
+        let config = WKWebViewConfiguration()
+        config.userContentController = userContent
+
+        let web = WKWebView(frame: .zero, configuration: config)
         web.navigationDelegate = context.coordinator
         AppLogger(category: "MCP-OAuth-Web").info("[MCP-OAuth-Web] 认证页加载: \(url.absoluteString)")
         web.load(URLRequest(url: url))
@@ -136,6 +148,56 @@ public struct MCPOAuthWebView: UIViewRepresentable {
     }
 
     public func updateUIView(_ uiView: WKWebView, context: Context) {}
+}
+
+// MARK: - 页面内 fetch/XHR 抓包（注入 JS + message handler 桥接）
+
+extension MCPOAuthWebView.Coordinator: WKScriptMessageHandler {
+    /// 接收页面 JS 上报的 fetch/XHR 非 2xx 调用（400 等服务器错误的直接证据）。
+    public func userContentController(
+        _ userContentController: WKUserContentController,
+        didReceive message: WKScriptMessage
+    ) {
+        guard message.name == "mcpOAuthLog",
+              let payload = message.body as? String
+        else { return }
+        logger.error("[MCP-OAuth-Web] 页面API: \(payload)")
+    }
+}
+
+extension MCPOAuthWebView {
+    /// 页面内 fetch/XHR 拦截：非 2xx 的 API 调用全部上报（URL/状态码/响应体前 600 字符）。
+    static let xhrHookJS = """
+    (function() {
+      function report(url, status, body) {
+        try {
+          window.webkit.messageHandlers.mcpOAuthLog.postMessage({
+            url: String(url || ''), status: Number(status || 0),
+            body: String(body || '').slice(0, 600)
+          });
+        } catch (e) {}
+      }
+      if (window.__mcpOAuthHooked) return; window.__mcpOAuthHooked = true;
+      const origFetch = window.fetch;
+      if (origFetch) {
+        window.fetch = async function() {
+          const resp = await origFetch.apply(this, arguments);
+          if (resp.status >= 300) {
+            try { const c = resp.clone(); c.text().then(t => report(resp.url, resp.status, t)).catch(() => report(resp.url, resp.status, '')); } catch (e) {}
+          }
+          return resp;
+        };
+      }
+      const origOpen = XMLHttpRequest.prototype.open;
+      const origSend = XMLHttpRequest.prototype.send;
+      XMLHttpRequest.prototype.open = function(m, u) { this.__mcpUrl = u; return origOpen.apply(this, arguments); };
+      XMLHttpRequest.prototype.send = function() {
+        this.addEventListener('load', function() { if (this.status >= 300) report(this.__mcpUrl, this.status, this.responseText); });
+        this.addEventListener('error', function() { report(this.__mcpUrl, 0, 'network error'); });
+        return origSend.apply(this, arguments);
+      };
+    })();
+    """
 }
 
 // MARK: - 认证页 sheet（设置页挂载）
