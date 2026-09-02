@@ -453,17 +453,17 @@ struct ThinkingBlockView: View {
                 // 魔法棒图标(思考指示器文字前,2026-08-10 用户要求)。
                 Image(systemName: "wand.and.stars")
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(.blue)
+                    .foregroundStyle(ChatColors.primaryText)
                 // 2026-08-12 本地化:经主 App xcstrings 查表(LocalizedStringKey 走 main bundle),
                 // 跟随 App 语言设置而非仅系统语言。
                 Text("deep_thinking")
                     .font(.system(size: 13,weight: .semibold))
-                    .foregroundStyle(.blue)
+                    .foregroundStyle(ChatColors.primaryText)
                 if block.content.count>0 || block.thinkingContentBuffer.count>0 {
                     let charCnt = max(block.content.count,block.thinkingContentBuffer.count)
                     Text(charCnt>1000 ? "\(charCnt / 1000)K" : "\(charCnt)")
                         .font(.system(size: 11,weight: .medium,design: .monospaced))
-                        .foregroundStyle(.blue.opacity(0.6))
+                        .foregroundStyle(ChatColors.tertiaryText)
                 }
                 if isStreaming {
                     ProgressView()
@@ -472,7 +472,7 @@ struct ThinkingBlockView: View {
                 }
                 Image(systemName: expandedBinding.wrappedValue ? "chevron.up" : "chevron.down")
                     .font(.system(size: 11,weight: .medium))
-                    .foregroundStyle(.blue.opacity(0.5))
+                    .foregroundStyle(ChatColors.tertiaryText)
             }
             .padding(.horizontal,12)
             .padding(.vertical,10)
@@ -576,12 +576,14 @@ struct ThinkingBlockView: View {
             ThinkingHitchMonitor.shared.stop(owner: block.id)
         }
         // 2026-09-02 唐唐反馈：结束态 0.15 在浅背景上几乎不可见（思考中灰底→结束"背景消失"的断裂感）。
-        // 当前试半透明 0.5 档位（唐唐逐档对比中：0.15→0.22→不透明→0.5）。
-        .background(isStreaming ? Color(UIColor.systemGray6) : Color.green.opacity(0.5))
+        // 2026-09-02 唐唐定稿：恒定不透明灰（与工具指示器底一致，思考中/结束不切换）；
+        // 完成态仅由最外层边框变绿表达。
+        .background(Color(UIColor.systemGray6))
         .clipShape(RoundedRectangle(cornerRadius: 12))
+        // 2026-09-02 唐唐定稿：思考中边框不变（蓝），完成后边框改绿。
         .overlay(
             RoundedRectangle(cornerRadius: 12)
-                .stroke(isStreaming ? Color.blue.opacity(0.15) : Color.green.opacity(0.4),lineWidth: 0.5)
+                .stroke(isStreaming ? Color.blue.opacity(0.15) : Color.green, lineWidth: 0.5)
         )
         .task(id: block.id) {
             // 2026-08-10 用户要求:思考块默认折叠,永不自动展开。
@@ -1034,7 +1036,7 @@ struct ThinkingLevelSheetView: View {
                 Spacer()
                 if isSelected {
                     Image(systemName: "checkmark")
-                        .foregroundStyle(.blue)
+                        .foregroundStyle(ChatColors.primaryText)
                         .fontWeight(.semibold)
                 }
             }
