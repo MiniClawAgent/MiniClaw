@@ -70,9 +70,10 @@ struct ToolCardOverlay: View {
                                 RoundedRectangle(cornerRadius: 20)
                                     .stroke(Color(.separator).opacity(0.8), lineWidth: 1)
                             )
-                            // 不加卡片投影：TabView(.page) 页间隔仅 24pt，大半径阴影会
-                            // 渗进两卡缝隙形成阴影带（2026-09-02 唐唐截图）；层次由
-                            // 底层 0.35 黑遮罩提供。
+                            // 唐唐 2026-09-02：加居中环绕型投影（y 偏移 0，与首页浮动
+                            // 按钮同款风格）。半径 10 < 页间隔 24，只会形成柔和光晕、
+                            // 不会像旧 28pt 向下投影那样在两卡缝隙里积成死黑带。
+                            .shadow(color: .black.opacity(0.3), radius: 10, y: 0)
                             .padding(.horizontal, 24)
                             .tag(i)
                         }
