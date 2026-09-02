@@ -74,17 +74,18 @@ struct ToolCardOverlay: View {
                             // 按钮同款风格）。半径 10 < 页间隔 24，只会形成柔和光晕、
                             // 不会像旧 28pt 向下投影那样在两卡缝隙里积成死黑带。
                             .shadow(color: .black.opacity(0.3), radius: 10, y: 0)
-                            // 上下各留 10pt：TabView(.page) 的分页滚动视图会裁剪页内容，
-                            // 卡片贴满页高时上下阴影会被裁掉（2026-09-02 唐唐截图：
-                            // 左右有阴影上下没有）；留出空间后四周阴影完整。
-                            .padding(.vertical, 10)
+                            // TabView(.page) 的分页滚动视图会裁剪页内容——四周留空必须
+                            // 足够让阴影**自然衰减到不可见**（高斯衰减在 1×radius 处仍有
+                            // ~13% 可见强度，等于半径就裁会切出硬边界，2026-09-02 唐唐
+                            // 截图）。上下 24 与左右对齐，衰减在边界前已归零。
+                            .padding(.vertical, 24)
                             .padding(.horizontal, 24)
                             .tag(i)
                         }
                     }
                     .tabViewStyle(.page(indexDisplayMode: .never))
-                    // 高度 = 卡高 + 上下阴影区（与卡片 padding.vertical 10 配套）。
-                    .frame(height: cardHeight + 20)
+                    // 高度 = 卡高 + 上下阴影区（与卡片 padding.vertical 24 配套）。
+                    .frame(height: cardHeight + 48)
 
                     pageDots
                 }
