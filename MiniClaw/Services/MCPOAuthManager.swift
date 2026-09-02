@@ -200,14 +200,16 @@ final class MCPOAuthManager: NSObject, ObservableObject, SFSafariViewControllerD
     /// redirect 捕获 → 授权码回传给 startAuthorization 的等待方。
     private var codeContinuation: CheckedContinuation<URL, Error>?
 
-    // loopback 回调（RFC 8252）：redirect 到 127.0.0.1，由本地监听捕获（请求被监听
+    // loopback 回调（RFC 8252）：redirect 到 localhost，由本地监听捕获（请求被监听
     // 应答后浏览器停在本地完成页，流程收尾时主动关闭 Safari 视图）。
-    // 自定义 scheme 会被部分企业授权服务器 400（ARDOT 实测）；localhost 变体一并
-    // 注册进 DCR——ARDOT 的授权页 SPA 实测会把 127.0.0.1 改写为 localhost。
+    // ⚠️ 必须用主机名 localhost、不能用数字 IP 127.0.0.1：iOS 26 的 Safari 视图服务
+    // （SFSafariViewController/ASWebAuthenticationSession 同源）强制 HTTPS-only，
+    // 但对 localhost 主机名有本地豁免——127.0.0.1 实测被拦（2026-09-02 真机），
+    // OpenMinis 全线用 localhost 在架可用。自定义 scheme 也被 ARDOT 400（实测）。
     static let redirectScheme = "http"
-    static let redirectHost = "127.0.0.1"
+    static let redirectHost = "localhost"
     static let redirectPort = 18231
-    static let redirectURI = "http://127.0.0.1:\(redirectPort)/callback"
+    static let redirectURI = "http://localhost:\(redirectPort)/callback"
 
     override private init() {}
 
@@ -467,7 +469,7 @@ final class MCPOAuthManager: NSObject, ObservableObject, SFSafariViewControllerD
         guard target.hasPrefix("/callback?") else { return } // 非回调请求（如探活）忽略，继续监听
         loopbackListener?.cancel()
         loopbackListener = nil
-        if let url = URL(string: "http://127.0.0.1:\(Self.redirectPort)\(target)") {
+        if let url = URL(string: "http://\(Self.redirectHost):\(Self.redirectPort)\(target)") {
             handleRedirect(url)
         } else {
             finishFlow(.failure(MCPOAuthError.noAuthorizationCode))
@@ -601,11 +603,9 @@ final class MCPOAuthManager: NSObject, ObservableObject, SFSafariViewControllerD
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try? JSONSerialization.data(withJSONObject: [
             "client_name": "MiniClaw (\(serverName))",
-            // 同时注册 127.0.0.1 与 localhost 两个 loopback 变体：ARDOT 的授权页 SPA
-            // 实测会把 redirect_uri 从 127.0.0.1 改写为 localhost（2026-09-02 真机日志），
-            // authorize 用哪个就按哪个校验——两个都注册才不会 invalid_redirect_uri。
-            // authorize 请求仍固定用 127.0.0.1。
-            "redirect_uris": [Self.redirectURI, "http://localhost:\(Self.redirectPort)/callback"],
+            // 同时注册 localhost（authorize 实际使用）与 127.0.0.1 变体：
+            // ARDOT 的授权页 SPA 实测会把 127.0.0.1 改写为 localhost（2026-09-02 真机日志）。
+            "redirect_uris": [Self.redirectURI, "http://127.0.0.1:\(Self.redirectPort)/callback"],
             "grant_types": ["authorization_code", "refresh_token"],
             "response_types": ["code"],
             "token_endpoint_auth_method": "none",
