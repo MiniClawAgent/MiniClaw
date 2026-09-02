@@ -63,9 +63,9 @@ struct SessionRowView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        // 唐唐 2026-09-02：垂直 4（文字不贴卡片底），水平 8（内容离卡片左右边缘 8pt）。
-        .padding(.vertical, 4)
-        .padding(.horizontal, 8)
+        // 唐唐 2026-09-02：垂直 8（文字不贴卡片底），水平 10（内容离卡片左右边缘 10pt）。
+        .padding(.vertical, 8)
+        .padding(.horizontal, 10)
         .background(
             RoundedRectangle(cornerRadius: 10)
                 .fill(isSelected ? Color.accentColor.opacity(0.08) : Color.clear)
