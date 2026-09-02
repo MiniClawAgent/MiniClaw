@@ -21,59 +21,52 @@ struct SettingsView: View {
         List {
             // 主页仅显示组入口行（唐唐 2026-08-30 定稿）：点入二级页才显示组内内容。
             // 每行独立 Section = 独立卡片，行间留隙不贴连（唐唐要求）。
-            Section {
-                NavigationLink {
-                    AgentSettingsGroupView()
-                } label: {
-                    SettingsRow(icon: "cat.fill", color: .orange, title: L10n.l("agent"), subtitle: L10n.l("settings_group_agent_sub"))
+            Section(footer: Text(L10n.l("settings_group_agent_sub"))) {
+                NavigationLink(destination: { AgentSettingsGroupView() }) {
+                    // 副标题移到分组脚注（唐唐 2026-09-02）。
+                    SettingsRow(icon: "cat.fill", color: .orange, title: L10n.l("agent"))
                 }
             }
 
-            Section {
-                NavigationLink {
-                    PluginsSettingsView()
-                } label: {
-                    SettingsRow(icon: "puzzlepiece.extension.fill", color: .blue, title: L10n.l("plugins"), subtitle: L10n.l("manage_extensible_plugin_packages"))
+            Section(footer: Text(L10n.l("manage_extensible_plugin_packages"))) {
+                NavigationLink(destination: { PluginsSettingsView() }) {
+                    // 副标题移到分组脚注（唐唐 2026-09-02）。
+                    SettingsRow(icon: "puzzlepiece.extension.fill", color: .blue, title: L10n.l("plugins"))
                 }
             }
 
-            Section {
-                NavigationLink {
-                    StorageSettingsGroupView()
-                } label: {
-                    SettingsRow(icon: "externaldrive.fill", color: .green, title: L10n.l("storage"), subtitle: L10n.l("settings_group_storage_sub"))
+            Section(footer: Text(L10n.l("settings_group_storage_sub"))) {
+                NavigationLink(destination: { StorageSettingsGroupView() }) {
+                    // 副标题移到分组脚注（唐唐 2026-09-02）。
+                    SettingsRow(icon: "externaldrive.fill", color: .green, title: L10n.l("storage"))
                 }
             }
 
-            Section {
-                NavigationLink {
-                    AppearanceSettingsView()
-                } label: {
-                    SettingsRow(icon: "circle.lefthalf.filled", color: .indigo, title: L10n.l("appearance"), subtitle: L10n.l("system_dark_light"))
+            Section(footer: Text(L10n.l("system_dark_light"))) {
+                NavigationLink(destination: { AppearanceSettingsView() }) {
+                    // 副标题移到分组脚注（唐唐 2026-09-02）。
+                    SettingsRow(icon: "circle.lefthalf.filled", color: .indigo, title: L10n.l("appearance"))
                 }
             }
 
-            Section {
-                NavigationLink {
-                    GeneralSettingsGroupView()
-                } label: {
-                    SettingsRow(icon: "gearshape.2.fill", color: .gray, title: L10n.l("general_section"), subtitle: L10n.l("settings_group_general_sub"))
+            Section(footer: Text(L10n.l("settings_group_general_sub"))) {
+                NavigationLink(destination: { GeneralSettingsGroupView() }) {
+                    // 副标题移到分组脚注（唐唐 2026-09-02）。
+                    SettingsRow(icon: "gearshape.2.fill", color: .gray, title: L10n.l("general_section"))
                 }
             }
 
-            Section {
-                NavigationLink {
-                    LogsView()
-                } label: {
-                    SettingsRow(icon: "doc.text.below.ecg", color: .blue, title: L10n.l("logs"), subtitle: L10n.l("runtime_logs_and_audit_logs"))
+            Section(footer: Text(L10n.l("runtime_logs_and_audit_logs"))) {
+                NavigationLink(destination: { LogsView() }) {
+                    // 副标题移到分组脚注（唐唐 2026-09-02）。
+                    SettingsRow(icon: "doc.text.below.ecg", color: .blue, title: L10n.l("logs"))
                 }
             }
 
-            Section {
-                NavigationLink {
-                    AboutView()
-                } label: {
-                    SettingsRow(icon: "info.circle.fill", color: .teal, title: L10n.l("about_miniclaw_app"), subtitle: L10n.l("version_info_and_license"))
+            Section(footer: Text(L10n.l("version_info_and_license"))) {
+                NavigationLink(destination: { AboutView() }) {
+                    // 副标题移到分组脚注（唐唐 2026-09-02）。
+                    SettingsRow(icon: "info.circle.fill", color: .teal, title: L10n.l("about_miniclaw_app"))
                 }
             }
 
@@ -148,7 +141,8 @@ struct SettingsRow: View {
     let icon: String
     let color: Color
     let title: String
-    let subtitle: String
+    /// 副标题（可省略）：设置主页 2026-09-02 起副标题移到分组脚注，行内仅剩图标+标题。
+    var subtitle: String = ""
 
     var body: some View {
         HStack(spacing: 12) {
@@ -162,9 +156,11 @@ struct SettingsRow: View {
                 Text(title)
                     .font(.body)
                     .foregroundStyle(.primary)
-                Text(subtitle)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                if !subtitle.isEmpty {
+                    Text(subtitle)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
         }
         .padding(.vertical, 2)
