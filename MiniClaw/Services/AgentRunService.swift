@@ -85,7 +85,7 @@ final class AgentRunService {
         var snapshots: [(server: MCPServerConfig, token: String?)] = []
         for server in servers {
             store.markConnecting(id: server.id)
-            snapshots.append((server, store.bearerToken(for: server.id)))
+            snapshots.append((server, store.effectiveBearerToken(for: server.id)))
         }
         var results: [UUID: Result<[RemoteMCPTool], Error>] = [:]
         await withTaskGroup(of: (UUID, Result<[RemoteMCPTool], Error>).self) { group in

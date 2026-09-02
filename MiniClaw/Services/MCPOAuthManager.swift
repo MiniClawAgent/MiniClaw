@@ -306,6 +306,9 @@ final class MCPOAuthManager: ObservableObject {
         MCPOAuthTokenStore.save(tokens, for: server.id)
         authorizedServerIDs.insert(server.id)
         pendingServerID = nil
+        // token 变化即失效该 server 的客户端缓存：MCPClientManager 按 serverId 缓存
+        // 且 bearerToken 创建时固化，不清缓存则后续请求仍用空/旧 token（401 复发）。
+        Task { await MCPClientManager.shared.invalidate(serverId: server.id) }
         AppLogger.shared.info("[MCP-OAuth] \(server.name): 授权完成, token 已入 Keychain")
     }
 
@@ -401,6 +404,8 @@ final class MCPOAuthManager: ObservableObject {
         if let rt = refreshed.refreshToken { merged.refreshToken = rt }
         merged.expiresAt = refreshed.expiresAt
         MCPOAuthTokenStore.save(merged, for: serverID)
+        // token 轮换 → 同步失效客户端缓存（同 startAuthorization，防旧 client 带旧 token）。
+        Task { await MCPClientManager.shared.invalidate(serverId: serverID) }
         return merged.accessToken
     }
 

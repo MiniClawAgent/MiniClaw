@@ -73,6 +73,15 @@ final class MCPConfigStore: ObservableObject {
         MCPBearerTokenStore.getToken(for: id)
     }
 
+    /// 发请求用的实际令牌：静态 Bearer 优先，其次 OAuth access token
+    /// （MCP OAuth 2.1 流程存入 MCPOAuthTokenStore——此前消费方只读静态库导致
+    /// 授权成功后仍 401，2026-09-02 ARDOT 实测）。导出等只展示静态凭据的
+    /// 场景继续用 bearerToken(for:)，短期 OAuth token 不外导。
+    func effectiveBearerToken(for id: UUID) -> String? {
+        if let staticToken = bearerToken(for: id), !staticToken.isEmpty { return staticToken }
+        return MCPOAuthTokenStore.load(for: id)?.accessToken
+    }
+
     func updateDiscovery(id: UUID, toolCount: Int, error: Error?) {
         guard let index = servers.firstIndex(where: { $0.id == id }) else { return }
         servers[index].lastCheckedAt = Date()
@@ -92,7 +101,7 @@ final class MCPConfigStore: ObservableObject {
         guard var server = server(id: id), server.isEnabled else { return }
         AppLogger.shared.info("[MCP] 刷新开始: \(server.name) → \(server.endpointURL)")
         markConnecting(id: id)
-        var token = bearerToken(for: id)
+        var token = effectiveBearerToken(for: id)
         do {
             let tools = try await MCPToolDiscoveryCache.shared.definitions(
                 for: server,
