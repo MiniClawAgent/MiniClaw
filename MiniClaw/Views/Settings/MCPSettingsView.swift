@@ -62,7 +62,7 @@ struct MCPSettingsView: View {
                 }
 
                 // 2026-09-01 唐唐拍板：需要 OAuth 授权的 server 在列表下方
-                // 显示「认证」按钮，点击直接进入对应认证流程（App 内 WebKit 授权页）。
+                // 显示「认证」按钮，点击进入系统 ASWebAuthenticationSession 授权流程。
                 if let pending = store.servers.first(where: { needsAuthorization($0) }) {
                     Button {
                         startAuthorization(for: pending)
@@ -73,12 +73,12 @@ struct MCPSettingsView: View {
                                 systemImage: "checkmark.shield"
                             )
                             Spacer()
-                            if oauth.activeFlow?.serverID == pending.id {
+                            if oauth.isAuthorizing, oauth.pendingServerID == pending.id {
                                 ProgressView().controlSize(.small)
                             }
                         }
                     }
-                    .disabled(oauth.activeFlow != nil)
+                    .disabled(oauth.isAuthorizing)
                 }
             } header: {
                 HStack {
@@ -144,11 +144,8 @@ struct MCPSettingsView: View {
                 }
             }
         }
-        // MCP OAuth 授权页（App 内 WebKit；redirect 由 WebView 拦截回调）。
-        .sheet(item: $oauth.activeFlow) { context in
-            MCPOAuthFlowSheet(context: context, title: L10n.l("mcp_oauth_authorize_title"))
-                .interactiveDismissDisabled()
-        }
+        // MCP OAuth 授权改走系统 ASWebAuthenticationSession（2026-09-02 唐唐拍板：
+        // 审核不允许 OAuth 走 WebView；授权由 MCPOAuthManager 直接触发，无需 sheet）。
         .confirmationDialog(
             L10n.l("delete_mcp_server_confirm"),
             isPresented: Binding(

@@ -24,7 +24,6 @@
 		0AFBFABFE1458EC868049C31070FD8A1 /* LLMProviderFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = B31DD8E59F84C1F51D8A74AB891F9466 /* LLMProviderFactory.swift */; };
 		0C06159FC0866067C8B9B57BB110B0D5 /* UnifiedFileBrowser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C0AA66465763A6D91141445E0F17DFB /* UnifiedFileBrowser.swift */; };
 		0CE133D8BCC6C16A9AC95A2129CD8C34 /* EnvVarsSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6029D723E634E468D128AC8EA192F333 /* EnvVarsSettingsView.swift */; };
-		0E257E1550AC2A7E4B574F23718E148F /* MCPOAuthWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 67BCBF70531FDD21D37B123EE035AF42 /* MCPOAuthWebView.swift */; };
 		0EF85CE4B1E700E57AA0DADE9C2CE400 /* ToolCardWindowPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4BEE88F57DCCF05CF8C30F3BDFF7147 /* ToolCardWindowPresenter.swift */; };
 		0F18455C96C213BFC7FABCF42E2BB2F9 /* CloseSubagentTool.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23C95B8BDCEDE7D7F4C399C232512B8E /* CloseSubagentTool.swift */; };
 		0FF49465308C9E3A2BD44603AE17666F /* 用户隐私政策.md in Resources */ = {isa = PBXBuildFile; fileRef = 35251459BCF4180292EA1EA08A8AC961 /* 用户隐私政策.md */; };
@@ -585,7 +584,6 @@
 		669E97D64A74F2BEE378FA70B74E1FA8 /* MetricKitCollector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricKitCollector.swift; sourceTree = "<group>"; };
 		67A9EDDECF5D2491737CFB1A2F100C50 /* BrowserTool.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserTool.swift; sourceTree = "<group>"; };
 		67B9C8B8FAC53D6CF87F6D30E71401B3 /* html.c */ = {isa = PBXFileReference; path = html.c; sourceTree = "<group>"; };
-		67BCBF70531FDD21D37B123EE035AF42 /* MCPOAuthWebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MCPOAuthWebView.swift; sourceTree = "<group>"; };
 		6B4B1E425C1BA41CC2D9DA8F2D83734A /* MTFontManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MTFontManager.swift; sourceTree = "<group>"; };
 		6B6BE2B494055ECB6493BA7D13ECAA57 /* AppleFrameworkTools.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleFrameworkTools.swift; sourceTree = "<group>"; };
 		6B92C0E9DF0CC89A63E4D9C66A59572B /* EnvVarModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnvVarModels.swift; sourceTree = "<group>"; };
@@ -1482,7 +1480,6 @@
 				B7C1DF3E89AE43D3FC187352C8856832 /* KaTeXRenderer.swift */,
 				F5251B578A483D30D7C656695192FB57 /* MarkdownPrepRegex.swift */,
 				112D81A4C474030294FC27507E498A2C /* MathRenderScheduler.swift */,
-				67BCBF70531FDD21D37B123EE035AF42 /* MCPOAuthWebView.swift */,
 				D3B856892C53609701658F7722C77318 /* MessageListInfrastructure.swift */,
 				992152DF6E17CEF21C517498C4786435 /* MessageListLayout.swift */,
 				71ED55A2D5385FABE3D7B0FCE7169F44 /* MiniClawBrowserActions.swift */,
@@ -1761,7 +1758,6 @@
 				919DE7DA6FC57AF892AC99A65A98DF31 /* EquatableContextMenu.swift in Sources */,
 				240C59042D6458CCE364A81D29116A1B /* FontSettings.swift in Sources */,
 				F8CFFEB1F589768C3102F40FFA53F94E /* KaTeXRenderer.swift in Sources */,
-				0E257E1550AC2A7E4B574F23718E148F /* MCPOAuthWebView.swift in Sources */,
 				6A04F3548240A1AD01E53925778FFCBC /* MTBezierPath.swift in Sources */,
 				7A85EA96B2D7A41615D3A27BC94D2EFC /* MTColor.swift in Sources */,
 				B50B4E8C1B969C68AEA3FC01A0AAAEB9 /* MTConfig.swift in Sources */,

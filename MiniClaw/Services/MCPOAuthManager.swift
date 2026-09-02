@@ -1,18 +1,20 @@
-import CryptoKit
+import AuthenticationServices
 import CryptoKit
 import Foundation
 import MiniClawKit
+import Network
 import SwiftUI
-import WebKit
 
-// MARK: - MCP OAuth 2.1（RFC 6749 授权码流 + PKCE 7636 + 动态客户端注册 7591 + 受保护资源发现 9728）
+// MARK: - MCP OAuth 2.1（RFC 6749 授权码流 + PKCE 7636 + 动态客户端注册 7591 + 受保护资源发现 9728 + resource indicator 8707）
 //
-// 唐唐 2026-09-01 拍板：需要 OAuth 的 remote MCP 必须支持完整授权流程，
-// 授权页使用 **App 内 WebKit**（不切系统浏览器、无需注册 URL scheme——
-// redirect 在 WKWebView 导航拦截中捕获）。
+// 授权页用 **ASWebAuthenticationSession**（系统 Safari 会话，App 内 WebKit 方案已废弃——
+// 2026-09-02 唐唐拍板：iOS 审核不允许 OAuth 走 WebView）。redirect 保持 loopback
+// http://127.0.0.1:18231/callback（ARDOT 实测自定义 scheme 会被授权服务器 400）：
+// ASWebAuthenticationSession 不拦截 http 回调，由 **本地 NWListener 监听**接收授权码，
+// 收到后主动 cancel 会话。DCR/PKCE/resource/token 交换与 WebView 时代完全一致。
 //
 // 流程：连接/刷新收到 401 → 标记 requiresAuthorization → 列表显示「认证」按钮 →
-// 发现授权服务器（/.well-known）→ 动态注册客户端 → PKCE 授权码流（App 内 WebKit）→
+// 发现授权服务器 → 动态注册客户端 → PKCE 授权码流（系统 Safari 会话）→
 // code 换 token → Keychain 存储 → 重新刷新工具。
 
 // MARK: - 数据结构
@@ -76,6 +78,8 @@ enum MCPOAuthError: LocalizedError {
     case http(Int, String)
     case noAuthorizationCode
     case stateMismatch
+    case loopbackFailure
+    case sessionStartFailed
 
     var errorDescription: String? {
         switch self {
@@ -84,6 +88,8 @@ enum MCPOAuthError: LocalizedError {
         case .http(let code, let body): L10n.l("mcp_oauth_http_error") + " (\(code)) \(body.prefix(160))"
         case .noAuthorizationCode: L10n.l("mcp_oauth_no_code")
         case .stateMismatch: L10n.l("mcp_oauth_state_mismatch")
+        case .loopbackFailure: L10n.l("mcp_oauth_loopback_failure")
+        case .sessionStartFailed: L10n.l("mcp_oauth_session_start_failed")
         }
     }
 }
@@ -165,17 +171,25 @@ enum MCPOAuthPKCE {
 // MARK: - 管理器
 
 @MainActor
-final class MCPOAuthManager: ObservableObject {
+final class MCPOAuthManager: NSObject, ObservableObject, ASWebAuthenticationPresentationContextProviding {
     static let shared = MCPOAuthManager()
 
-    /// 进行中的授权流程（驱动设置页 sheet 呈现 App 内 WebKit 认证页）。
-    @Published var activeFlow: MCPOAuthFlowContext?
+    /// 授权会话进行中（设置页据此显示加载态并禁用「认证」按钮）。
+    @Published var isAuthorizing = false
+    /// 进行中授权的 server（加载态显示在该 server 行）。
+    @Published private(set) var pendingServerID: UUID?
     /// 已完成授权的 server（便于 UI 即时刷新状态）。
     @Published var authorizedServerIDs: Set<UUID> = []
 
+    /// ASWebAuthenticationSession 必须被强持有——局部变量会被 ARC 释放导致
+    /// 授权弹窗一闪即逝（ASWebAuthenticationSession 经典坑）。
+    private var authSession: ASWebAuthenticationSession?
+    /// loopback 回调监听（OAuth redirect 是 http://127.0.0.1:18231/callback，
+    /// 系统会话不拦截 http 回调，由本地监听接收授权码）。
+    private var loopbackListener: NWListener?
+
     private var stateValue = ""
     private var codeVerifier = ""
-    private var pendingServerID: UUID?
     /// redirect 捕获 → 授权码回传给 startAuthorization 的等待方。
     private var codeContinuation: CheckedContinuation<URL, Error>?
 
@@ -188,7 +202,7 @@ final class MCPOAuthManager: ObservableObject {
     static let redirectPort = 18231
     static let redirectURI = "http://127.0.0.1:\(redirectPort)/callback"
 
-    private init() {}
+    override private init() {}
 
     // MARK: 状态查询
 
@@ -286,11 +300,9 @@ final class MCPOAuthManager: ObservableObject {
         guard let authorizeURL = comps.url else { throw MCPOAuthError.missingMetadata }
         AppLogger.shared.info("[MCP-OAuth] 授权页 URL: \(authorizeURL.absoluteString)")
 
-        // 4. App 内 WebKit 认证页（sheet），等待 redirect 捕获授权码。
-        pendingServerID = server.id
+        // 4. 系统 Safari 授权会话（ASWebAuthenticationSession），等待 loopback 监听捕获授权码。
         let code = try await waitForAuthorizationCode(
             serverID: server.id,
-            serverName: server.name,
             authorizeURL: authorizeURL
         )
 
@@ -305,73 +317,192 @@ final class MCPOAuthManager: ObservableObject {
         )
         MCPOAuthTokenStore.save(tokens, for: server.id)
         authorizedServerIDs.insert(server.id)
-        pendingServerID = nil
         // token 变化即失效该 server 的客户端缓存：MCPClientManager 按 serverId 缓存
         // 且 bearerToken 创建时固化，不清缓存则后续请求仍用空/旧 token（401 复发）。
         Task { await MCPClientManager.shared.invalidate(serverId: server.id) }
         AppLogger.shared.info("[MCP-OAuth] \(server.name): 授权完成, token 已入 Keychain")
     }
 
-    // MARK: 等待授权码（continuation）
+    // MARK: 授权会话（ASWebAuthenticationSession + loopback 监听）
 
+    /// 拉起系统授权会话并等待授权码。两条捕获路径：
+    /// ① 主路径——本地 NWListener 收到 http://127.0.0.1:18231/callback 请求；
+    /// ② 兜底——系统会话 completion 返回匹配 loopback 的回调 URL。
     private func waitForAuthorizationCode(
         serverID: UUID,
-        serverName: String,
         authorizeURL: URL
     ) async throws -> URL {
         try await withCheckedThrowingContinuation { cont in
             codeContinuation = cont
-            activeFlow = MCPOAuthFlowContext(
-                serverID: serverID,
-                serverName: serverName,
-                authorizeURL: authorizeURL,
-                onCode: { [weak self] url in
-                    self?.codeContinuation?.resume(returning: url)
-                    self?.codeContinuation = nil
-                    self?.activeFlow = nil
-                },
-                onCancel: { [weak self] in
-                    self?.codeContinuation?.resume(throwing: MCPOAuthError.userCancelled)
-                    self?.codeContinuation = nil
-                    self?.activeFlow = nil
-                }
-            )
+            pendingServerID = serverID
+            isAuthorizing = true
+            do {
+                try startLoopbackListener()
+            } catch {
+                codeContinuation = nil
+                pendingServerID = nil
+                isAuthorizing = false
+                cont.resume(throwing: MCPOAuthError.loopbackFailure)
+                return
+            }
+            startAuthSession(url: authorizeURL)
         }
     }
 
-    /// WebView 捕获到 redirect 回调时由认证页调用。
-    func handleRedirect(_ url: URL) {
+    private func startAuthSession(url: URL) {
+        // callbackURLScheme 传 "http"：系统若支持按 scheme 拦截则作兜底路径；
+        // 正常路径是浏览器真实导航到 loopback → 本地监听收码 → 这里主动 cancel。
+        let session = ASWebAuthenticationSession(
+            url: url,
+            callbackURLScheme: Self.redirectScheme
+        ) { [weak self] callbackURL, error in
+            Task { @MainActor in self?.sessionDidFinish(callbackURL: callbackURL, error: error) }
+        }
+        session.presentationContextProvider = self
+        // 共享 Safari 登录态：服务商侧已登录时再次授权免重复验证（非无痕）。
+        session.prefersEphemeralWebBrowserSession = false
+        authSession = session
+        if !session.start() {
+            finishFlow(.failure(MCPOAuthError.sessionStartFailed))
+        }
+    }
+
+    private func sessionDidFinish(callbackURL: URL?, error: Error?) {
+        // loopback 命中（系统拦截兜底路径）。
+        if let url = callbackURL,
+           url.host == Self.redirectHost, url.port == Self.redirectPort, url.path == "/callback" {
+            AppLogger.shared.info("[MCP-OAuth] 会话回调命中 loopback: \(url.absoluteString)")
+            handleRedirect(url)
+            return
+        }
+        if let asError = error as? ASWebAuthenticationSessionError, asError.code == .canceledLogin {
+            finishFlow(.failure(MCPOAuthError.userCancelled))
+            return
+        }
+        if let error {
+            finishFlow(.failure(MCPOAuthError.http(0, error.localizedDescription)))
+            return
+        }
+        // 其它情况（监听路径已完成收尾）——幂等忽略。
+    }
+
+    /// 收尾：回传/抛出结果并释放会话与监听（幂等，continuation 只 resume 一次）。
+    private func finishFlow(_ result: Result<URL, Error>) {
+        isAuthorizing = false
+        pendingServerID = nil
+        if let cont = codeContinuation {
+            codeContinuation = nil
+            cont.resume(with: result)
+        }
+        authSession?.cancel()
+        authSession = nil
+        loopbackListener?.cancel()
+        loopbackListener = nil
+    }
+
+    /// 本地 loopback 监听：绑定 127.0.0.1:18231，接收浏览器授权完成后的真实导航。
+    private func startLoopbackListener() throws {
+        let params = NWParameters.tcp
+        params.allowLocalEndpointReuse = true
+        guard let port = NWEndpoint.Port(rawValue: UInt16(Self.redirectPort)) else {
+            throw MCPOAuthError.loopbackFailure
+        }
+        params.requiredLocalEndpoint = .hostPort(host: "127.0.0.1", port: port)
+        let listener = try NWListener(using: params)
+        listener.newConnectionHandler = { [weak self] connection in
+            Task { @MainActor in self?.handleLoopbackConnection(connection) }
+        }
+        listener.stateUpdateHandler = { [weak self] state in
+            if case .failed = state {
+                Task { @MainActor in self?.finishFlow(.failure(MCPOAuthError.loopbackFailure)) }
+            }
+        }
+        listener.start(queue: DispatchQueue(label: "mcp-oauth-loopback", qos: .userInitiated))
+        loopbackListener = listener
+        AppLogger.shared.info("[MCP-OAuth] loopback 监听就绪: \(Self.redirectURI)")
+    }
+
+    private func handleLoopbackConnection(_ connection: NWConnection) {
+        // 已取到码（监听已停）后到达的残留连接直接关闭。
+        guard loopbackListener != nil else { connection.cancel(); return }
+        receiveLoopbackRequest(connection, accumulated: Data())
+    }
+
+    /// 累积接收直到 HTTP 头结束（\r\n\r\n），再解析请求行。
+    private func receiveLoopbackRequest(_ connection: NWConnection, accumulated: Data) {
+        connection.receive(minimumIncompleteLength: 1, maximumLength: 16384) { [weak self] data, _, isComplete, error in
+            Task { @MainActor in
+                guard let self else { connection.cancel(); return }
+                var buffer = accumulated
+                if let data { buffer.append(data) }
+                if let headerEnd = buffer.firstRange(of: Data("\r\n\r\n".utf8)),
+                   let requestLine = String(decoding: buffer[..<headerEnd.lowerBound], as: UTF8.self)
+                       .split(separator: "\r\n", omittingEmptySubsequences: true).first {
+                    self.completeLoopbackRequest(connection, requestLine: String(requestLine))
+                } else if error != nil || isComplete || buffer.count > 65536 {
+                    connection.cancel()
+                } else {
+                    self.receiveLoopbackRequest(connection, accumulated: buffer)
+                }
+            }
+        }
+    }
+
+    /// 解析 "GET /callback?code=... HTTP/1.1"，回一个本地完成页并交给 handleRedirect 校验。
+    private func completeLoopbackRequest(_ connection: NWConnection, requestLine: String) {
+        let target = requestLine.split(separator: " ").dropFirst().first.map(String.init) ?? ""
+        AppLogger.shared.info("[MCP-OAuth] loopback 请求: \(requestLine.prefix(120))")
+        let html = """
+        <!doctype html><html><head><meta charset="utf-8">\
+        <meta name="viewport" content="width=device-width,initial-scale=1"></head>\
+        <body style="font-family:-apple-system,sans-serif;text-align:center;padding-top:80px">\
+        <h2>\(L10n.l("mcp_oauth_loopback_done"))</h2></body></html>
+        """
+        let response = "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nConnection: close\r\nContent-Length: \(html.utf8.count)\r\n\r\n\(html)"
+        connection.send(content: Data(response.utf8), completion: .contentProcessed { _ in
+            connection.cancel()
+        })
+        guard target.hasPrefix("/callback?") else { return } // 非回调请求（如探活）忽略，继续监听
+        loopbackListener?.cancel()
+        loopbackListener = nil
+        if let url = URL(string: "http://127.0.0.1:\(Self.redirectPort)\(target)") {
+            handleRedirect(url)
+        } else {
+            finishFlow(.failure(MCPOAuthError.noAuthorizationCode))
+        }
+    }
+
+    /// loopback/系统回调捕获到 redirect 后调用：校验 state/error/code 并回传授权码。
+    private func handleRedirect(_ url: URL) {
         AppLogger.shared.info("[MCP-OAuth] redirect 捕获: \(url.absoluteString)")
-        guard let comps = URLComponents(url: url, resolvingAgainstBaseURL: false) else { return }
+        guard let comps = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
+            finishFlow(.failure(MCPOAuthError.noAuthorizationCode))
+            return
+        }
         let state = comps.queryItems?.first(where: { $0.name == "state" })?.value
         guard state == stateValue else {
-            codeContinuation?.resume(throwing: MCPOAuthError.stateMismatch)
-            codeContinuation = nil
-            activeFlow = nil
+            finishFlow(.failure(MCPOAuthError.stateMismatch))
             return
         }
         if let error = comps.queryItems?.first(where: { $0.name == "error" })?.value {
-            codeContinuation?.resume(throwing: MCPOAuthError.http(0, error))
-            codeContinuation = nil
-            activeFlow = nil
+            finishFlow(.failure(MCPOAuthError.http(0, error)))
             return
         }
         guard comps.queryItems?.first(where: { $0.name == "code" })?.value != nil else {
-            codeContinuation?.resume(throwing: MCPOAuthError.noAuthorizationCode)
-            codeContinuation = nil
-            activeFlow = nil
+            finishFlow(.failure(MCPOAuthError.noAuthorizationCode))
             return
         }
         // 完整 URL 交给等待方（内含 code/state）。
-        codeContinuation?.resume(returning: url)
-        codeContinuation = nil
-        activeFlow = nil
+        finishFlow(.success(url))
     }
 
-    func cancelAuthorization() {
-        codeContinuation?.resume(throwing: MCPOAuthError.userCancelled)
-        codeContinuation = nil
-        activeFlow = nil
+    // MARK: ASWebAuthenticationPresentationContextProviding
+
+    func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
+        UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .flatMap { $0.windows }
+            .first { $0.isKeyWindow } ?? ASPresentationAnchor()
     }
 
     // MARK: Token 刷新
