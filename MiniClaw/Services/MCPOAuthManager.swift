@@ -444,6 +444,15 @@ final class MCPOAuthManager: NSObject, ObservableObject, SFSafariViewControllerD
         // 已取到码（监听已停）后到达的残留连接直接关闭。
         AppLogger.shared.info("[MCP-OAuth] loopback 已接受连接(浏览器发起)")
         guard loopbackListener != nil else { connection.cancel(); return }
+        // ⚠️ NWConnection 必须显式 start 才会产生 receive 回调——漏掉则连接被接受
+        // 但永远读不到请求数据（2026-09-02 ARDOT 实测卡「授权已完成」页的根因；
+        // OpenMinis 的 POSIX socket 版 accept 后可直接 read，无此要求）。
+        connection.stateUpdateHandler = { state in
+            if case .failed(let error) = state {
+                AppLogger.shared.error("[MCP-OAuth] loopback 连接失败: \(error.localizedDescription)")
+            }
+        }
+        connection.start(queue: DispatchQueue(label: "mcp-oauth-loopback-conn"))
         receiveLoopbackRequest(connection, accumulated: Data())
     }
 
@@ -459,6 +468,7 @@ final class MCPOAuthManager: NSObject, ObservableObject, SFSafariViewControllerD
                        .split(separator: "\r\n", omittingEmptySubsequences: true).first {
                     self.completeLoopbackRequest(connection, requestLine: String(requestLine))
                 } else if error != nil || isComplete || buffer.count > 65536 {
+                    if let error { AppLogger.shared.error("[MCP-OAuth] loopback 接收错误: \(error)") }
                     connection.cancel()
                 } else {
                     self.receiveLoopbackRequest(connection, accumulated: buffer)
