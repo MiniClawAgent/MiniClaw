@@ -81,7 +81,7 @@ struct ReasoningBlockView: View {
                 .frame(maxHeight: 300)
             }
         }
-        .background(Color.blue.opacity(0.06))
+        .background(Color.blue.opacity(0.12))
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .overlay(
             RoundedRectangle(cornerRadius: 12)

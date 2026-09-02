@@ -575,7 +575,9 @@ struct ThinkingBlockView: View {
         .onDisappear {
             ThinkingHitchMonitor.shared.stop(owner: block.id)
         }
-        .background(isStreaming ? Color(UIColor.systemGray6) : Color.green.opacity(0.15))
+        // 2026-09-02 唐唐反馈：结束态 0.15 在浅背景上几乎不可见（思考中灰底→结束"背景消失"的断裂感），
+        // 提升到 0.22 保持"完成=绿"语义且可见。
+        .background(isStreaming ? Color(UIColor.systemGray6) : Color.green.opacity(0.22))
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .overlay(
             RoundedRectangle(cornerRadius: 12)
