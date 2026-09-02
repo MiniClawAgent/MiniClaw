@@ -841,7 +841,9 @@ struct HomeView: View {
         func sessionCardListRow() -> some View {
             self
                 .listRowSeparator(.hidden)
-                .listRowInsets(EdgeInsets(top: 3, leading: 8, bottom: 3, trailing: 8))
+                // 左右 16 = 与会话页输入框水平边距一致（唐唐 2026-09-02）；
+                // 上下 5.5 → 相邻行间隙 11pt（原 6pt，拉开 5pt 避免贴在一起）。
+                .listRowInsets(EdgeInsets(top: 5.5, leading: 16, bottom: 5.5, trailing: 16))
                 .listRowBackground(
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
                         .fill(.regularMaterial)
