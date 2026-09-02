@@ -141,8 +141,10 @@ private struct SkillRowView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             Spacer()
-            // theme 插件无启停语义（启用 = 外观页选用），列表行不显示开关。
-            if skill.type != "theme" {
+            // theme 插件无启停语义（启用 = 外观页选用）；mcp 插件默认启用、无启停语义
+            // （唐唐 2026-09-02：关闭去 MCP 列表里按 server 关，插件级开关对 servers 无消费点）。
+            // 两者列表行均不显示开关。
+            if skill.type != "theme" && skill.type != "mcp" {
                 Toggle("", isOn: enabledBinding)
                     .labelsHidden()
             }

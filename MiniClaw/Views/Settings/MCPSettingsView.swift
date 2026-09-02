@@ -352,12 +352,14 @@ struct MCPSettingsView: View {
             && !oauth.isAuthorized(serverID: server.id)
     }
 
-    /// 启动 MCP OAuth 2.1 授权（发现 → 注册 → App 内 WebKit 授权 → Token 入 Keychain），
-    /// 完成后自动刷新该 server 的工具列表。
+    /// 启动 MCP OAuth 2.1 授权（发现 → DCR → 系统 Safari 视图授权 → Token 入 Keychain）。
+    /// 唐唐 2026-09-02：认证成功后**自动启用并连接**该 MCP 服务（工具列表刷新 = 建立连接），
+    /// 即使 server 此前被停用也恢复启用——认证的语义就是"我要用这个服务"。
     private func startAuthorization(for server: MCPServerConfig) {
         Task {
             do {
                 try await MCPOAuthManager.shared.startAuthorization(server: server)
+                store.setEnabled(true, id: server.id)
                 await store.refresh(id: server.id)
             } catch is CancellationError {
                 // 用户取消，静默。

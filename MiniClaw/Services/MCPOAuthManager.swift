@@ -388,10 +388,7 @@ final class MCPOAuthManager: NSObject, ObservableObject, SFSafariViewControllerD
 
     /// 收尾：回传/抛出结果并释放 Safari 视图与监听（幂等，continuation 只 resume 一次）。
     private func finishFlow(_ result: Result<URL, Error>) {
-        switch result {
-        case .success(let url):
-            AppLogger.shared.info("[MCP-OAuth] 流程收尾: 成功捕获 \(url.absoluteString.prefix(120))")
-        case .failure(let error):
+        if case .failure(let error) = result {
             AppLogger.shared.error("[MCP-OAuth] 流程收尾: 失败 \(error.localizedDescription)")
         }
         flowTimeoutTask?.cancel()
@@ -426,7 +423,7 @@ final class MCPOAuthManager: NSObject, ObservableObject, SFSafariViewControllerD
             Task { @MainActor in
                 switch state {
                 case .ready:
-                    AppLogger.shared.info("[MCP-OAuth] loopback 监听 ready(端口绑定成功)")
+                    AppLogger.shared.info("[MCP-OAuth] loopback 监听就绪: \(Self.redirectURI)")
                 case .failed(let error):
                     AppLogger.shared.error("[MCP-OAuth] loopback 监听失败: \(error.localizedDescription)")
                     self?.finishFlow(.failure(MCPOAuthError.loopbackFailure))
@@ -437,12 +434,10 @@ final class MCPOAuthManager: NSObject, ObservableObject, SFSafariViewControllerD
         }
         listener.start(queue: DispatchQueue(label: "mcp-oauth-loopback", qos: .userInitiated))
         loopbackListener = listener
-        AppLogger.shared.info("[MCP-OAuth] loopback 监听启动中: \(Self.redirectURI)")
     }
 
     private func handleLoopbackConnection(_ connection: NWConnection) {
         // 已取到码（监听已停）后到达的残留连接直接关闭。
-        AppLogger.shared.info("[MCP-OAuth] loopback 已接受连接(浏览器发起)")
         guard loopbackListener != nil else { connection.cancel(); return }
         // ⚠️ NWConnection 必须显式 start 才会产生 receive 回调——漏掉则连接被接受
         // 但永远读不到请求数据（2026-09-02 ARDOT 实测卡「授权已完成」页的根因；
