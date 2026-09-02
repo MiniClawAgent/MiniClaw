@@ -31560,6 +31560,62 @@
         }
       }
     },
+    "mcp_oauth_loopback_done" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Authorization complete — you can return to MiniClaw"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "認証が完了しました。MiniClaw に戻ってください"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "인증이 완료되었습니다. MiniClaw으로 돌아가 주세요"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "授权完成，请返回 MiniClaw"
+          }
+        }
+      }
+    },
+    "mcp_oauth_loopback_failure" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Local callback listener failed"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ローカルコールバックの待受に失敗しました"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "로컬 콜백 리스너에 실패했습니다"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "本地回调监听失败"
+          }
+        }
+      }
+    },
     "mcp_oauth_missing_metadata" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -31618,34 +31674,6 @@
         }
       }
     },
-    "mcp_oauth_requires_ios_17_4" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "MCP OAuth requires iOS 17.4 or later"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "MCP OAuth には iOS 17.4 以降が必要です"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "MCP OAuth에는 iOS 17.4 이상이 필요합니다"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "MCP OAuth 需要 iOS 17.4 或更高版本"
-          }
-        }
-      }
-    },
     "mcp_oauth_session_start_failed" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -31700,6 +31728,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "授权状态校验失败"
+          }
+        }
+      }
+    },
+    "mcp_oauth_timeout" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Authorization timed out. Please try again."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "認証がタイムアウトしました。もう一度お試しください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "인증 시간이 초과되었습니다. 다시 시도해 주세요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "授权超时，请重试。"
           }
         }
       }
