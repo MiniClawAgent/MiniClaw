@@ -50,6 +50,7 @@ public struct MCPOAuthWebView: UIViewRepresentable {
         let onRedirect: (URL) -> Void
         let onFinishedLoading: () -> Void
         private var redirectHandled = false
+        private let logger = AppLogger(category: "MCP-OAuth-Web")
 
         init(onRedirect: @escaping (URL) -> Void, onFinishedLoading: @escaping () -> Void) {
             self.onRedirect = onRedirect
@@ -61,18 +62,50 @@ public struct MCPOAuthWebView: UIViewRepresentable {
             decidePolicyFor navigationAction: WKNavigationAction,
             decisionHandler: @escaping (WKNavigationActionPolicy) -> Void
         ) {
-            if let url = navigationAction.request.url,
+            let url = navigationAction.request.url
+            let navType: String
+            switch navigationAction.navigationType {
+            case .linkActivated: navType = "link"
+            case .formSubmitted: navType = "form"
+            case .backForward: navType = "backForward"
+            case .reload: navType = "reload"
+            @unknown default: navType = "other"
+            }
+            logger.info("[MCP-OAuth-Web] 请求(\(navType)): \(url?.absoluteString ?? "nil")")
+
+            if let url,
                url.scheme?.lowercased() == redirectScheme,
                url.host == redirectHost,
                url.port == redirectPort,
                url.path == "/callback" {
                 guard !redirectHandled else { decisionHandler(.cancel); return }
+                logger.info("[MCP-OAuth-Web] loopback redirect 命中, 捕获授权码")
                 redirectHandled = true
                 onRedirect(url)
                 decisionHandler(.cancel)
                 return
             }
             decisionHandler(.allow)
+        }
+
+        /// 响应阶段：400/500 等服务器错误在这里可见（授权页报错的直接证据）。
+        public func webView(
+            _ webView: WKWebView,
+            decidePolicyFor navigationResponse: WKNavigationResponse,
+            decisionHandler: @escaping (WKNavigationResponsePolicy) -> Void
+        ) {
+            if let http = navigationResponse.response as? HTTPURLResponse, http.statusCode >= 400 {
+                logger.error("[MCP-OAuth-Web] HTTP \(http.statusCode) ← \(http.url?.absoluteString ?? "")")
+            }
+            decisionHandler(.allow)
+        }
+
+        public func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+            logger.error("[MCP-OAuth-Web] 导航失败: \(error.localizedDescription)")
+        }
+
+        public func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+            logger.error("[MCP-OAuth-Web] 初始导航失败: \(error.localizedDescription)")
         }
 
         public func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
@@ -97,6 +130,7 @@ public struct MCPOAuthWebView: UIViewRepresentable {
     public func makeUIView(context: Context) -> WKWebView {
         let web = WKWebView()
         web.navigationDelegate = context.coordinator
+        AppLogger(category: "MCP-OAuth-Web").info("[MCP-OAuth-Web] 认证页加载: \(url.absoluteString)")
         web.load(URLRequest(url: url))
         return web
     }
