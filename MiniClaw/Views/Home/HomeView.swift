@@ -569,7 +569,8 @@ struct HomeView: View {
                     .fontWeight(.semibold)
                     .foregroundStyle(foreground)
             }
-            .shadow(color: shadow, radius: 8, y: 4)
+            // 唐唐 2026-09-02：阴影不做 y 轴偏移（下坠感别扭），居中环绕。
+            .shadow(color: shadow, radius: 8, y: 0)
     }
 
     /// 统一圆形悬浮按钮（带点击行为）。
