@@ -24,7 +24,7 @@ struct SessionRowView: View {
         HStack(spacing: 12) {
             leadingView
 
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: 4) {
                 HStack {
                     (highlight.isEmpty
                         ? Text(displayTitle)
@@ -63,7 +63,9 @@ struct SessionRowView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(.vertical, 2)
+        // 唐唐 2026-09-02：垂直 4（文字不贴卡片底），水平 8（内容离卡片左右边缘 8pt）。
+        .padding(.vertical, 4)
+        .padding(.horizontal, 8)
         .background(
             RoundedRectangle(cornerRadius: 10)
                 .fill(isSelected ? Color.accentColor.opacity(0.08) : Color.clear)
