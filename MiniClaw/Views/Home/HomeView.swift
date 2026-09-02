@@ -838,15 +838,20 @@ struct HomeView: View {
 /// 会话行卡片化（唐唐 2026-09-02：主题背景下通栏白条太生硬）——
     /// 材质圆角底 + 行外边距 + 去分隔线；行间空隙由上下 inset 叠加形成。
     fileprivate extension View {
+        // ⚠️ List 的 listRowBackground 会把背景拉伸铺满**通栏**（listRowInsets 只缩进
+        // 内容、管不到背景），所以卡片底必须直接长在行内容上（2026-09-02 实测翻车记录）：
+        // 行自包 padding + 材质圆角底，listRowBackground/insets 全部清零。
         func sessionCardListRow() -> some View {
             self
-                .listRowSeparator(.hidden)
-                // 左右 16 = 与会话页输入框水平边距一致（唐唐 2026-09-02）；
-                // 上下 5.5 → 相邻行间隙 11pt（原 6pt，拉开 5pt 避免贴在一起）。
-                .listRowInsets(EdgeInsets(top: 5.5, leading: 16, bottom: 5.5, trailing: 16))
-                .listRowBackground(
+                // 左右 16 = 与会话页输入框水平边距一致；上下 5.5 → 相邻行间隙 11pt。
+                .padding(.horizontal, 16)
+                .padding(.vertical, 5.5)
+                .background(
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
                         .fill(.regularMaterial)
                 )
+                .listRowInsets(EdgeInsets())
+                .listRowSeparator(.hidden)
+                .listRowBackground(Color.clear)
         }
     }
