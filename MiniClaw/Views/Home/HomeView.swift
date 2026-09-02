@@ -869,10 +869,10 @@ fileprivate extension View {
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
                     .stroke(Color.primary.opacity(0.08), lineWidth: 0.5)
             )
-            // 唐唐 2026-09-02 微调：左右 16→12（往屏幕边框靠），上下 10→6
-            // （相邻行间隙 20→12pt，紧凑但仍清晰分离）。
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
+            // 唐唐 2026-09-02 微调：左右 12→8，上下 6→4
+            // （相邻行间隙 12→8pt，紧凑但不贴连）。
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
             .listRowInsets(EdgeInsets())
             .listRowSeparator(.hidden)
             .listRowBackground(Color.clear)
