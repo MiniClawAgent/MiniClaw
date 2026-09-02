@@ -63,7 +63,7 @@ struct SessionRowView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, 2)
         .background(
             RoundedRectangle(cornerRadius: 10)
                 .fill(isSelected ? Color.accentColor.opacity(0.08) : Color.clear)
@@ -77,7 +77,7 @@ struct SessionRowView: View {
             ZStack {
                 Circle()
                     .fill(isSelected ? Color(red: 0.098, green: 0.549, blue: 0.996) : Color.clear)
-                    .frame(width: 42, height: 42)
+                    .frame(width: 38, height: 38)
                     .overlay(
                         Circle()
                             .stroke(isSelected ? Color.clear : Color.secondary.opacity(0.5), lineWidth: 1.5)
@@ -104,24 +104,24 @@ struct SessionRowView: View {
         let symbol = SessionRowView.validSymbol(session.iconName)
         return Circle()
             .fill(accent.opacity(0.2))
-            .frame(width: 42, height: 42)
+            .frame(width: 38, height: 38)
             .overlay {
                 Image(systemName: symbol)
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(accent)
             }
             .overlay {
-                // 转圈只负责绘制，不参与布局尺寸计算；运行/空闲时头像占位始终为 42×42，
-                // 避免 48×48 外圈把运行中的整排内容向右推 3pt。
+                // 转圈只负责绘制，不参与布局尺寸计算；运行/空闲时头像占位始终为 38×38，
+                // 避免 44×44 外圈把运行中的整排内容向右推 3pt。
                 // 优先级：未完成（暂停/中断、可续跑）> 进行中。两者互斥显示。
-                // 橙色静态环与 RotatingRing 同尺寸（48×48、lineWidth 2.5），仅颜色/动效不同，
+                // 橙色静态环与 RotatingRing 同尺寸（44×44、lineWidth 2.5），仅颜色/动效不同，
                 // 表示该会话「上次回复未跑完、可继续」。
                 // 2026-08-12 治本:session.status == .paused 直接显示橙环,与检查点双保险
                 // (重启后检查点存在但 reload 未触发时,首页也能正确显示暂停态而非转圈)。
                 if isIncomplete || session.status == .paused {
                     Circle()
                         .stroke(Color.orange, lineWidth: 2.5)
-                        .frame(width: 48, height: 48)
+                        .frame(width: 44, height: 44)
                 } else if isActive {
                     RotatingRing(color: accent)
                 }
@@ -271,7 +271,7 @@ struct SessionRowView: View {
             Circle()
                 .trim(from: 0, to: 0.28)
                 .stroke(color, style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
-                .frame(width: 48, height: 48)
+                .frame(width: 44, height: 44)
                 .rotationEffect(.degrees(rotation))
                 .onAppear {
                     withAnimation(.linear(duration: 1.1).repeatForever(autoreverses: false)) {

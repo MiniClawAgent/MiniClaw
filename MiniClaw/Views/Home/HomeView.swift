@@ -386,10 +386,25 @@ struct HomeView: View {
 
     // MARK: - Session List
 
+    /// 会话行卡片化（唐唐 2026-09-02：主题背景下通栏白条太生硬）——
+    /// 材质圆角底 + 行外边距 + 去分隔线；行间空隙由上下 inset 叠加形成。
+    fileprivate extension View {
+        func sessionCardListRow() -> some View {
+            self
+                .listRowSeparator(.hidden)
+                .listRowInsets(EdgeInsets(top: 3, leading: 8, bottom: 3, trailing: 8))
+                .listRowBackground(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(.regularMaterial)
+                )
+        }
+    }
+
     private func sessionList(_ list: [ChatSession]) -> some View {
         List {
             ForEach(list) { session in
                 sessionRow(session)
+                    .sessionCardListRow()
             }
         }
         .listStyle(.plain)
@@ -402,6 +417,7 @@ struct HomeView: View {
                 Section {
                     ForEach(item.sessions) { session in
                         sessionRow(session)
+                            .sessionCardListRow()
                     }
                 } header: {
                     Text(L10n.l(item.group.label))
