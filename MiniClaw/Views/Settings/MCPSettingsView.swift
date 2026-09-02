@@ -62,7 +62,7 @@ struct MCPSettingsView: View {
                 }
 
                 // 2026-09-01 唐唐拍板：需要 OAuth 授权的 server 在列表下方
-                // 显示「认证」按钮，点击进入系统 ASWebAuthenticationSession 授权流程。
+                // 显示「认证」按钮，点击进入授权流程（SFSafariViewController + loopback）。
                 if let pending = store.servers.first(where: { needsAuthorization($0) }) {
                     Button {
                         startAuthorization(for: pending)
@@ -144,8 +144,8 @@ struct MCPSettingsView: View {
                 }
             }
         }
-        // MCP OAuth 授权改走系统 ASWebAuthenticationSession（2026-09-02 唐唐拍板：
-        // 审核不允许 OAuth 走 WebView；授权由 MCPOAuthManager 直接触发，无需 sheet）。
+        // MCP OAuth 授权页已移除 sheet 挂载（2026-09-02 唐唐拍板：审核不允许 OAuth 走
+        // WebView，现为 SFSafariViewController + loopback；授权由 MCPOAuthManager 直接触发）。
         .confirmationDialog(
             L10n.l("delete_mcp_server_confirm"),
             isPresented: Binding(

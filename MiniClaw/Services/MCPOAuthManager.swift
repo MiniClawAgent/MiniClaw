@@ -332,11 +332,10 @@ final class MCPOAuthManager: NSObject, ObservableObject, SFSafariViewControllerD
         AppLogger.shared.info("[MCP-OAuth] \(server.name): 授权完成, token 已入 Keychain")
     }
 
-    // MARK: 授权会话（ASWebAuthenticationSession，https 回调客户端拦截）
+    // MARK: 授权会话（SFSafariViewController + loopback 本地监听）
 
-    /// 拉起系统授权会话并等待授权码。授权完成时授权服务器 redirect 到 https 同源
-    /// 回调，系统按 Callback.https 的 host+path 客户端拦截（不真实加载），URL 从
-    /// completion 直接返回。
+    /// 拉起 App 内系统 Safari 视图并等待授权码。授权完成时授权服务器 redirect 到
+    /// http://localhost:18231/callback，本地 NWListener 收码取码后自动关闭视图。
     private func waitForAuthorizationCode(
         serverID: UUID,
         authorizeURL: URL
