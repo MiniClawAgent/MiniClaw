@@ -153,47 +153,80 @@ public struct MCPOAuthWebView: UIViewRepresentable {
 // MARK: - 页面内 fetch/XHR 抓包（注入 JS + message handler 桥接）
 
 extension MCPOAuthWebView.Coordinator: WKScriptMessageHandler {
-    /// 接收页面 JS 上报的 fetch/XHR 非 2xx 调用（400 等服务器错误的直接证据）。
+    /// 接收页面 JS 上报的 fetch/XHR 调用（全部上报；≥300/网络异常标红）。
     public func userContentController(
         _ userContentController: WKUserContentController,
         didReceive message: WKScriptMessage
     ) {
-        guard message.name == "mcpOAuthLog",
-              let payload = message.body as? String
-        else { return }
-        logger.error("[MCP-OAuth-Web] 页面API: \(payload)")
+        guard message.name == "mcpOAuthLog" else { return }
+        // 注入确认信号（documentStart 立即上报），证明钩子在当前 build 真实生效。
+        if message.body as? String == "HOOK_OK" {
+            logger.info("[MCP-OAuth-Web] 页面API抓包钩子已生效")
+            return
+        }
+        // JS 端发 JSON 字符串 {u,s,b}（曾发对象被 as? String 丢弃 → 盲区，2026-09-02 修复）。
+        guard let payload = message.body as? String,
+              let data = payload.data(using: .utf8),
+              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+        else {
+            logger.info("[MCP-OAuth-Web] 页面消息: \(String(describing: message.body))")
+            return
+        }
+        let status = obj["s"] as? Int ?? 0
+        let url = obj["u"] as? String ?? ""
+        let body = obj["b"] as? String ?? ""
+        if status >= 300 || status == 0 {
+            logger.error("[MCP-OAuth-Web] 页面API(\(status)): \(url) ← \(body)")
+        } else {
+            logger.info("[MCP-OAuth-Web] 页面API(\(status)): \(url)")
+        }
     }
 }
 
 extension MCPOAuthWebView {
-    /// 页面内 fetch/XHR 拦截：非 2xx 的 API 调用全部上报（URL/状态码/响应体前 600 字符）。
+    /// 页面内 fetch/XHR 全量抓包：每次调用都上报（URL/状态码/响应体前 600 字符），
+    /// ≥300 与网络异常走 error 通道。postMessage 只发 JSON **字符串**（对象会被
+    /// Swift 端 as? String 丢弃——2026-09-02 ARDOT 实测盲区根因）。
     static let xhrHookJS = """
     (function() {
       function report(url, status, body) {
         try {
-          window.webkit.messageHandlers.mcpOAuthLog.postMessage({
-            url: String(url || ''), status: Number(status || 0),
-            body: String(body || '').slice(0, 600)
-          });
+          window.webkit.messageHandlers.mcpOAuthLog.postMessage(
+            JSON.stringify({ u: String(url || ''), s: Number(status || 0), b: String(body || '').slice(0, 600) })
+          );
         } catch (e) {}
       }
-      if (window.__mcpOAuthHooked) return; window.__mcpOAuthHooked = true;
-      const origFetch = window.fetch;
+      if (window.__mcpOAuthHooked) return;
+      window.__mcpOAuthHooked = true;
+      try { window.webkit.messageHandlers.mcpOAuthLog.postMessage('HOOK_OK'); } catch (e) {}
+      var origFetch = window.fetch;
       if (origFetch) {
         window.fetch = async function() {
-          const resp = await origFetch.apply(this, arguments);
-          if (resp.status >= 300) {
-            try { const c = resp.clone(); c.text().then(t => report(resp.url, resp.status, t)).catch(() => report(resp.url, resp.status, '')); } catch (e) {}
+          var inUrl = '';
+          try { var a0 = arguments[0]; inUrl = String((a0 && (a0.url || a0)) || ''); } catch (e) {}
+          try {
+            var resp = await origFetch.apply(this, arguments);
+            var body = '';
+            if (resp.status >= 300) { try { body = await (await resp.clone()).text(); } catch (e) {} }
+            report(resp.url || inUrl, resp.status, body);
+            return resp;
+          } catch (e) {
+            report(inUrl, 0, 'fetch 网络异常: ' + e);
+            throw e;
           }
-          return resp;
         };
       }
-      const origOpen = XMLHttpRequest.prototype.open;
-      const origSend = XMLHttpRequest.prototype.send;
+      var origOpen = XMLHttpRequest.prototype.open;
+      var origSend = XMLHttpRequest.prototype.send;
       XMLHttpRequest.prototype.open = function(m, u) { this.__mcpUrl = u; return origOpen.apply(this, arguments); };
       XMLHttpRequest.prototype.send = function() {
-        this.addEventListener('load', function() { if (this.status >= 300) report(this.__mcpUrl, this.status, this.responseText); });
-        this.addEventListener('error', function() { report(this.__mcpUrl, 0, 'network error'); });
+        var xhr = this;
+        xhr.addEventListener('load', function() {
+          var body = '';
+          if (xhr.status >= 300) { try { body = xhr.responseText; } catch (e) {} }
+          report(xhr.__mcpUrl, xhr.status, body);
+        });
+        xhr.addEventListener('error', function() { report(xhr.__mcpUrl, 0, 'XHR 网络错误'); });
         return origSend.apply(this, arguments);
       };
     })();

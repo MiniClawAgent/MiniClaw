@@ -455,7 +455,11 @@ final class MCPOAuthManager: ObservableObject {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try? JSONSerialization.data(withJSONObject: [
             "client_name": "MiniClaw (\(serverName))",
-            "redirect_uris": [Self.redirectURI],
+            // 同时注册 127.0.0.1 与 localhost 两个 loopback 变体：ARDOT 的授权页 SPA
+            // 实测会把 redirect_uri 从 127.0.0.1 改写为 localhost（2026-09-02 真机日志
+            // 的 backForward 历史项），authorize 用哪个就按哪个校验——两个都注册才
+            // 不会 invalid_redirect_uri。authorize 请求仍固定用 127.0.0.1。
+            "redirect_uris": [Self.redirectURI, "http://localhost:\(Self.redirectPort)/callback"],
             "grant_types": ["authorization_code", "refresh_token"],
             "response_types": ["code"],
             "token_endpoint_auth_method": "none",
