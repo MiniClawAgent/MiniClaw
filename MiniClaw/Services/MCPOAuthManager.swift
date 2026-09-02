@@ -26,6 +26,8 @@ struct MCPOAuthTokenSet: Codable {
     var tokenEndpoint: String?
     /// 授权作用域。
     var scope: String?
+    /// RFC 8707 resource indicator（refresh 时须携带与 authorize 相同的值）。
+    var resource: String?
 }
 
 struct MCPOAuthProtectedResourceMetadata: Codable {
@@ -209,10 +211,14 @@ final class MCPOAuthManager: ObservableObject {
 
         // 1. 受保护资源发现（RFC 9728）：优先 server 域的 well-known，
         //    失败则以 server URL 本身作为授权服务器再试。
+        //    元数据里的 resource 字段（RFC 8707 resource indicator）须保留——
+        //    authorize/token 必带（ARDOT 实测缺失时 authorize 400 {"error":"invalid_target"}）。
         var serverMeta: MCPOAuthAuthorizationServerMetadata?
-        if let resourceMeta = await discoverProtectedResource(base) {
-            AppLogger.shared.info("[MCP-OAuth] 受保护资源发现成功, 授权服务器: \(resourceMeta.authorizationServers ?? [])")
-            for asURL in resourceMeta.authorizationServers ?? [] {
+        var resourceMeta: MCPOAuthProtectedResourceMetadata?
+        if let meta = await discoverProtectedResource(base) {
+            resourceMeta = meta
+            AppLogger.shared.info("[MCP-OAuth] 受保护资源发现成功, resource=\(meta.resource ?? "无"), 授权服务器: \(meta.authorizationServers ?? [])")
+            for asURL in meta.authorizationServers ?? [] {
                 if let meta = await fetchAuthorizationServerMetadata(asURL) {
                     serverMeta = meta
                     break
@@ -258,6 +264,9 @@ final class MCPOAuthManager: ObservableObject {
         codeVerifier = pkce.verifier
         stateValue = UUID().uuidString
         let scope = meta.scopesSupported?.joined(separator: " ")
+        // RFC 8707 resource indicator（MCP 规范要求）：优先用受保护资源元数据声明的
+        // resource，缺省用 MCP server URL（去 query/fragment）。authorize/token 均须携带。
+        let resource = resourceIndicator(resourceMeta?.resource ?? base)
 
         guard var comps = URLComponents(string: meta.authorizationEndpoint) else {
             throw MCPOAuthError.missingMetadata
@@ -269,6 +278,7 @@ final class MCPOAuthManager: ObservableObject {
             URLQueryItem(name: "state", value: stateValue),
             URLQueryItem(name: "code_challenge", value: pkce.challenge),
             URLQueryItem(name: "code_challenge_method", value: "S256"),
+            URLQueryItem(name: "resource", value: resource),
         ]
         if let scope, !scope.isEmpty { query.append(URLQueryItem(name: "scope", value: scope)) }
         // OAuth 2.1：authorize 请求不得携带 client_secret（secret 只用于 token 端点）。
@@ -284,13 +294,14 @@ final class MCPOAuthManager: ObservableObject {
             authorizeURL: authorizeURL
         )
 
-        // 5. code 换 token。
+        // 5. code 换 token（resource 参数与 authorize 一致，RFC 8707）。
         let tokens = try await exchangeCode(
             code: code,
             meta: meta,
             clientID: clientID,
             clientSecret: clientSecret,
-            codeVerifier: pkce.verifier
+            codeVerifier: pkce.verifier,
+            resource: resource
         )
         MCPOAuthTokenStore.save(tokens, for: server.id)
         authorizedServerIDs.insert(server.id)
@@ -378,7 +389,7 @@ final class MCPOAuthManager: ObservableObject {
         request.httpBody = urlEncode([
             ("grant_type", "refresh_token"),
             ("refresh_token", refreshToken),
-        ]).data(using: .utf8)
+        ] + (tokens.resource.map { [("resource", $0)] } ?? [])).data(using: .utf8)
         let (data, response) = try await URLSession.shared.data(for: request)
         guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
             let code = (response as? HTTPURLResponse)?.statusCode ?? -1
@@ -475,7 +486,8 @@ final class MCPOAuthManager: ObservableObject {
         meta: MCPOAuthAuthorizationServerMetadata,
         clientID: String,
         clientSecret: String?,
-        codeVerifier: String
+        codeVerifier: String,
+        resource: String
     ) async throws -> MCPOAuthTokenSet {
         guard let codeParam = URLComponents(url: code, resolvingAgainstBaseURL: false)?
             .queryItems?.first(where: { $0.name == "code" })?.value
@@ -490,6 +502,7 @@ final class MCPOAuthManager: ObservableObject {
             "redirect_uri": Self.redirectURI,
             "client_id": clientID,
             "code_verifier": codeVerifier,
+            "resource": resource,
         ] + (clientSecret.map { [("client_secret", $0)] } ?? [])).data(using: .utf8)
 
         let (data, response) = try await URLSession.shared.data(for: request)
@@ -521,9 +534,18 @@ final class MCPOAuthManager: ObservableObject {
             expiresAt: decoded.expiresIn.map { Date().addingTimeInterval(TimeInterval($0)) },
             tokenType: decoded.tokenType ?? "Bearer",
             tokenEndpoint: meta.tokenEndpoint,
-            scope: decoded.scope
+            scope: decoded.scope,
+            resource: resource
         )
         return tokens
+    }
+
+    /// RFC 8707：resource indicator 为绝对 URI，去除 query/fragment。
+    private func resourceIndicator(_ url: String) -> String {
+        guard var comps = URLComponents(string: url) else { return url }
+        comps.query = nil
+        comps.fragment = nil
+        return comps.string ?? url
     }
 
     private func urlEncode(_ pairs: [(String, String)]) -> String {
