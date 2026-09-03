@@ -1371,9 +1371,7 @@ struct ChatView: View {
             // 任务总耗时：用户停止即终态，结算耗时（暂停态停止同样覆盖；断点恢复任务不显示）。
             if !runtime.taskTimingInvalid, msg.taskElapsedSeconds == nil { msg.taskElapsedSeconds = runtime.taskSettle() }
             if !runtime.streamingToolExecutions.isEmpty {
-                msg.toolCalls = runtime.streamingToolExecutions.map { exec in
-                    exec.toEvent(position: exec.position, timelineOrder: Int(runtime.order(for: exec.callID)))
-                }
+                msg.toolCalls = runtime.streamingToolEvents
             }
         }
         runtime.isResponding = false

@@ -359,9 +359,7 @@ final class AgentRunService {
                 assistantMessage.reasoningSegments = runtime.streamingReasoningSegments
                 assistantMessage.reasoning = runtime.streamingReasoningSegments.map { $0.text }.joined(separator: "\n\n")
                 assistantMessage.isStreaming = false
-                let toolEvents = runtime.streamingToolExecutions.map { exec in
-                    exec.toEvent(position: exec.position, timelineOrder: Int(runtime.order(for: exec.callID)))
-                }
+                let toolEvents = runtime.streamingToolEvents
                 if !toolEvents.isEmpty {
                     assistantMessage.toolCalls = toolEvents
                 }
@@ -433,9 +431,7 @@ final class AgentRunService {
                 for exec in runtime.streamingToolExecutions where exec.result == nil {
                     exec.markInterrupted(text: L10n.l("interrupted"), at: Date())
                 }
-                let toolEvents = runtime.streamingToolExecutions.map { exec in
-                    exec.toEvent(position: exec.position, timelineOrder: Int(runtime.order(for: exec.callID)))
-                }
+                let toolEvents = runtime.streamingToolEvents
                 if !toolEvents.isEmpty {
                     assistantMessage.toolCalls = toolEvents
                 }
@@ -467,9 +463,7 @@ final class AgentRunService {
                     assistantMessage.reasoning = rt.streamingReasoningSegments.map { $0.text }.joined(separator: "\n\n")
                     // 2026-08-12 治本:暂停必须与终态一样补全消息——工具调用一并落盘,
                     // 否则重启后"暂停前的工具使用"全部丢失。
-                    assistantMessage.toolCalls = rt.streamingToolExecutions.map { exec in
-                        exec.toEvent(position: exec.position, timelineOrder: Int(rt.order(for: exec.callID)))
-                    }
+                    assistantMessage.toolCalls = rt.streamingToolEvents
                 }
                 assistantMessage.isStreaming = false
                 // 2026-08-12 治本:消息级暂停标志落盘,重启后指示器据此恢复。
@@ -540,9 +534,7 @@ final class AgentRunService {
                 for exec in runtime.streamingToolExecutions where exec.result == nil {
                     exec.markInterrupted(text: L10n.l("interrupted"), at: Date())
                 }
-                let toolEvents = runtime.streamingToolExecutions.map { exec in
-                    exec.toEvent(position: exec.position, timelineOrder: Int(runtime.order(for: exec.callID)))
-                }
+                let toolEvents = runtime.streamingToolEvents
                 if !toolEvents.isEmpty {
                     assistantMessage.toolCalls = toolEvents
                 }

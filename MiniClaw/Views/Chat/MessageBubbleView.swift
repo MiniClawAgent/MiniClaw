@@ -116,9 +116,7 @@ struct MessageBubbleView: View {
     private var effectiveToolCalls: [ToolCallEvent] {
         if let live = liveToolCalls, !live.isEmpty { return live }
         if let runtime, runtime.streamingMessageID == message.id {
-            return runtime.streamingToolExecutions.map { exec in
-                exec.toEvent(position: exec.position, timelineOrder: Int(runtime.order(for: exec.callID)))
-            }
+            return runtime.streamingToolEvents
         }
         return message.toolCalls
     }

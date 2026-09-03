@@ -99,6 +99,14 @@ final class ChatSessionRuntime: ObservableObject, @MainActor Identifiable {
     func order(for callID: String) -> Double {
         streamingToolOrders[callID] ?? 0
     }
+
+    /// 流式执行转持久化事件（position/timelineOrder 取挂载时分配的值）。
+    /// 落盘与渲染的唯一转换入口——各处不得自行 map，避免漏改或顺序口径不一致。
+    var streamingToolEvents: [ToolCallEvent] {
+        streamingToolExecutions.map { exec in
+            exec.toEvent(position: exec.position, timelineOrder: Int(order(for: exec.callID)))
+        }
+    }
     /// 流式过程中的分段思考过程（reasoning）缓冲区（引用类型，跨 `ChatView` 重建存活）。
     /// 按引擎迭代轮次（iterations）切片，每段独立展示、穿插在正文/工具之间。
     /// 仅用于实时展示，不写入磁盘、不回灌上下文。
