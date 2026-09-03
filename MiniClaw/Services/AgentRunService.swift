@@ -428,6 +428,11 @@ final class AgentRunService {
                 assistantMessage.reasoning = runtime.streamingReasoningSegments.map { $0.text }.joined(separator: "\n\n")
                 assistantMessage.isStreaming = false
                 assistantMessage.wasInterrupted = true
+                // 终态落盘前把仍在执行的工具标记「已中断」：否则落空结果文本且 wasInterrupted=false，
+                // 恢复后显示红色「失败」，与主动停止（黄色「已取消」）语义不一致。
+                for exec in runtime.streamingToolExecutions where exec.result == nil {
+                    exec.markInterrupted(text: L10n.l("interrupted"), at: Date())
+                }
                 let toolEvents = runtime.streamingToolExecutions.map { exec in
                     exec.toEvent(position: exec.position, timelineOrder: Int(runtime.order(for: exec.callID)))
                 }
@@ -530,6 +535,11 @@ final class AgentRunService {
                 assistantMessage.reasoning = runtime.streamingReasoningSegments.map { $0.text }.joined(separator: "\n\n")
                 assistantMessage.isStreaming = false
                 assistantMessage.wasInterrupted = true
+                // 终态落盘前把仍在执行的工具标记「已中断」：否则落空结果文本且 wasInterrupted=false，
+                // 恢复后显示红色「失败」，与主动停止（黄色「已取消」）语义不一致。
+                for exec in runtime.streamingToolExecutions where exec.result == nil {
+                    exec.markInterrupted(text: L10n.l("interrupted"), at: Date())
+                }
                 let toolEvents = runtime.streamingToolExecutions.map { exec in
                     exec.toEvent(position: exec.position, timelineOrder: Int(runtime.order(for: exec.callID)))
                 }
