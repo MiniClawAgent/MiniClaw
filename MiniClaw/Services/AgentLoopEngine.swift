@@ -20,29 +20,9 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
     private var activeRequestTask: URLSessionDataTask?
     /// 当前正在执行的工具 Task 集合（供 cancel/pause 中断挂起的工具调用）。
     /// [Fix 2026-08-11 并发工具崩溃·参考实现] 原 `toolExecutionTask: Any?` 是
-    // ── 工具执行过程流的缓冲与节流（callID → 累计文本）──
-    static let progressBufferLock = NSLock()
-    nonisolated(unsafe) static var progressBuffers: [String: String] = [:]
-    nonisolated(unsafe) static var progressLastFlush: [String: Date] = [:]
-    static let progressMaxChars = 30_000
     /// 单批并发执行的工具上限（批内并发、批间串行）：模型一次返回大量调用时，
     /// 全量 fan-out 会同时 fork 等量 iSH 进程并推高峰值内存。
     static let maxConcurrentTools = 10
-    /// 分层节流：短内容响应优先，长内容降频。
-    static func progressFlushInterval(forLength length: Int) -> TimeInterval {
-        switch length {
-        case ..<1_000: return 0.3
-        case ..<3_000: return 0.6
-        default: return 1.0
-        }
-    }
-    /// 结果落定/引擎结束时清理该 callID 的过程缓冲。
-    static func clearProgressBuffer(callID: String) {
-        progressBufferLock.lock()
-        progressBuffers.removeValue(forKey: callID)
-        progressLastFlush.removeValue(forKey: callID)
-        progressBufferLock.unlock()
-    }
 
     /// 单一共享可变属性——并发工具(executeToolsConcurrently 的 withTaskGroup)同时写
     /// 1925/1927 行,主线程 pause/cancel 同时读写,ARC 引用计数竞争 → swift_release_dealloc
@@ -1920,7 +1900,6 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
         toolExecutionTasks.insert(tc.id, task: execTask)
         let result = await execTask.value
         toolExecutionTasks.remove(tc.id)
-        Self.clearProgressBuffer(callID: tc.id)
 
         let duration = Date().timeIntervalSince(startedAt)
         exec.finish(result, duration: duration)
