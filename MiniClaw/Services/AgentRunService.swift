@@ -318,101 +318,18 @@ final class AgentRunService {
                 session.modelName = modelName
             }
         }
-        engine.onToolCall = { [weak runtime] name, callID, args, startedAt in
+        // 直接引用架构：挂载执行上下文（分配位置与顺序），落盘收集也在 runtime。
+        engine.onToolExecutionBegin = { [weak runtime] exec in
             MainActor.assumeIsolated {
                 guard let runtime, runtime.streamingMessageID == responseMessageID else { return }
-                // 重试成功后首个输出是工具调用（无文本 词元）→ 同样视为已恢复,清除指示器。
                 if runtime.retryState != nil {
                     runtime.retryState = nil
                     runtime.taskStartOrResume()
                 }
-                let argsStr: String
-                if let data = try? JSONSerialization.data(withJSONObject: args, options: .prettyPrinted),
-                   let str = String(data: data, encoding: .utf8) {
-                    argsStr = str
-                } else {
-                    argsStr = "\(args)"
-                }
-                // ⚠️ upsert 而非 append（2026-09-03 实锤）：参数流式期间
-                // onToolCallStreaming 已创建占位事件（同 callID）——定稿无条件 append
-                // 会造成「占位永停 running + 定稿重复标 failed 红 X + 重进多出完成态」。
-                if let idx = runtime.streamingToolCalls.firstIndex(where: { $0.callID == callID }) {
-                    runtime.streamingToolCalls[idx].arguments = argsStr
-                    return
-                }
-                // ⚠️ upsert 而非 append（2026-09-03 实锤）：参数流式期间
-                // onToolCallStreaming 已创建占位事件（同 callID）——定稿无条件 append
-                // 会造成「占位永停 running + 定稿重复标 failed 红 X + 重进多出完成态」。
-                if let idx = runtime.streamingToolCalls.firstIndex(where: { $0.callID == callID }) {
-                    runtime.streamingToolCalls[idx].arguments = argsStr
-                    return
-                }
-                let pos = runtime.streamingContent.count
+                exec.position = Int(runtime.streamingContent.count)
                 let order = runtime.nextTimelineOrder
                 runtime.nextTimelineOrder += 1
-                runtime.streamingToolCalls.append(
-                    ToolCallEvent(
-                        name: name,
-                        callID: callID,
-                        arguments: argsStr,
-                        timestamp: startedAt,
-                        position: pos,
-                        timelineOrder: order
-                    )
-                )
-            }
-        }
-        engine.onToolCallStreaming = { [weak runtime] callID, name, partialArgs, bytes in
-            MainActor.assumeIsolated {
-                guard let runtime, runtime.streamingMessageID == responseMessageID else { return }
-                // 占位事件 upsert：参数还在流式生成时就先创建工具块（streaming 态），
-                // 卡片实时显示 AI 正在写的内容；定稿 onToolCall 到达后走正常执行链。
-                let primary = ToolStreamingParser.primaryPartialValue(name: name, partialJSON: partialArgs)
-                if let idx = runtime.streamingToolCalls.firstIndex(where: { $0.callID == callID }) {
-                    runtime.streamingToolCalls[idx].arguments = partialArgs
-                } else {
-                    let pos = runtime.streamingContent.count
-                    let order = runtime.nextTimelineOrder
-                    runtime.nextTimelineOrder += 1
-                    runtime.streamingToolCalls.append(
-                        ToolCallEvent(
-                            name: name,
-                            callID: callID,
-                            arguments: partialArgs,
-                            timestamp: Date(),
-                            position: pos,
-                            timelineOrder: order
-                        )
-                    )
-                }
-                runtime.streamingToolProgress[callID] = primary ?? String(bytes) + "B"
-            }
-        }
-        engine.onToolProgress = { [weak runtime] callID, text in
-            MainActor.assumeIsolated {
-                guard let runtime, runtime.streamingMessageID == responseMessageID else { return }
-                runtime.streamingToolProgress[callID] = text
-            }
-        }
-        engine.onToolResult = { [weak runtime] name, callID, result, duration in
-            MainActor.assumeIsolated {
-                guard let runtime, runtime.streamingMessageID == responseMessageID else { return }
-                // 按模型调用 id 精确配对（源头修复 2026-08-08）：并发同名工具（如多个 browser）
-                // 若按 name+空槽匹配，先完成的结果会填进「最后一个空槽」导致结果串台。
-                // 回退链（2026-09-03）：callID 未命中 → 同名且结果为空的占位（防御第三方端点
-                // streaming/定稿 id 不一致——占位永停 running+定稿重复 append 的双保险）。
-                let matchedIdx = runtime.streamingToolCalls.firstIndex(where: { $0.callID == callID })
-                    ?? runtime.streamingToolCalls.firstIndex(where: {
-                        $0.name == name && $0.callID == callID && $0.resultText.isEmpty
-                    })
-                    ?? runtime.streamingToolCalls.firstIndex(where: { $0.name == name && $0.resultText.isEmpty })
-                if let idx = matchedIdx {
-                    runtime.streamingToolCalls[idx].resultText = result.text
-                    runtime.streamingToolCalls[idx].success = result.success
-                    runtime.streamingToolCalls[idx].duration = duration
-                }
-                // 过程流使命完成（结果落定后 content=resultText），清掉避免残留。
-                runtime.streamingToolProgress.removeValue(forKey: callID)
+                runtime.registerStreamingToolExecution(exec, order: Double(order))
             }
         }
         engine.onComplete = { [weak engine, session, assistantMessage, weak runtime] in
@@ -442,8 +359,11 @@ final class AgentRunService {
                 assistantMessage.reasoningSegments = runtime.streamingReasoningSegments
                 assistantMessage.reasoning = runtime.streamingReasoningSegments.map { $0.text }.joined(separator: "\n\n")
                 assistantMessage.isStreaming = false
-                if !runtime.streamingToolCalls.isEmpty {
-                    assistantMessage.toolCalls = runtime.streamingToolCalls
+                let toolEvents = runtime.streamingToolExecutions.map { exec in
+                    exec.toEvent(position: exec.position, timelineOrder: Int(runtime.order(for: exec.callID)))
+                }
+                if !toolEvents.isEmpty {
+                    assistantMessage.toolCalls = toolEvents
                 }
                 session.status = .completed
                 session.updatedAt = Date()
@@ -508,8 +428,11 @@ final class AgentRunService {
                 assistantMessage.reasoning = runtime.streamingReasoningSegments.map { $0.text }.joined(separator: "\n\n")
                 assistantMessage.isStreaming = false
                 assistantMessage.wasInterrupted = true
-                if !runtime.streamingToolCalls.isEmpty {
-                    assistantMessage.toolCalls = runtime.streamingToolCalls
+                let toolEvents = runtime.streamingToolExecutions.map { exec in
+                    exec.toEvent(position: exec.position, timelineOrder: Int(runtime.order(for: exec.callID)))
+                }
+                if !toolEvents.isEmpty {
+                    assistantMessage.toolCalls = toolEvents
                 }
                 session.status = .error
                 session.updatedAt = Date()
@@ -605,8 +528,11 @@ final class AgentRunService {
                 assistantMessage.reasoning = runtime.streamingReasoningSegments.map { $0.text }.joined(separator: "\n\n")
                 assistantMessage.isStreaming = false
                 assistantMessage.wasInterrupted = true
-                if !runtime.streamingToolCalls.isEmpty {
-                    assistantMessage.toolCalls = runtime.streamingToolCalls
+                let toolEvents = runtime.streamingToolExecutions.map { exec in
+                    exec.toEvent(position: exec.position, timelineOrder: Int(runtime.order(for: exec.callID)))
+                }
+                if !toolEvents.isEmpty {
+                    assistantMessage.toolCalls = toolEvents
                 }
                 session.status = .error
                 session.updatedAt = Date()
