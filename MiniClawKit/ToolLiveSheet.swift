@@ -214,8 +214,11 @@ struct ToolLiveSheet: View {
         let divider = Divider().foregroundStyle(Color(white: 0.2))
         // [2026-08-14 快照三级布局] L3 结果内容：限高为快照页一半，
         // 超出在工具框架内滚动，不撑破整体布局（各内容分支自带 ScrollView）。
+        // ⚠️ 读依赖必须用 `let _ = tick`（触发 body 重算且 identity 不变，滚动位置保留）；
+        // 不能用 `.id(tick)`——tick 每 0.15s 递增会把整棵内容子树（含 ScrollView）
+        // 销毁重建，滚动位置反复重置到顶部（2026-09-03 唐唐实测：流式期间无法下滑）。
+        let _ = blockUpdateTick
         let content = liveContent
-            .id(blockUpdateTick)
             .frame(maxWidth: .infinity)
         // 链式修饰拆分:2026-08-10 编译器 failed-diagnostic
         // [2026-08-14 快照三级布局] 由「单内容+底部导航」改为：
