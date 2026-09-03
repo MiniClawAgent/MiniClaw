@@ -184,11 +184,13 @@ struct SessionTokenUsageView: View {
     let session: ChatSession
     @State private var data: SessionTokenUsageData?
     @Environment(\.dismiss) private var dismiss
+    /// 订阅快照仓库：裸读单例不建立依赖，引擎写入后 UI 不会刷新。
+    @ObservedObject private var contextStore = ContextUsageStore.shared
 
     /// 当前上下文占用快照（引擎实时写入）：这里展示的是「下一次请求会占多少窗口」，
     /// 与右上角圆环、以及引擎的压缩判定同一份数据。
     private var contextSnapshot: ContextUsageSnapshot? {
-        ContextUsageStore.shared.snapshot(for: session.id)
+        contextStore.snapshot(for: session.id)
     }
 
     var body: some View {
