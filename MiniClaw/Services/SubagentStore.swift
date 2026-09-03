@@ -229,7 +229,6 @@ final class SubagentStore: ObservableObject {
             convMap[info.id] = conv
         }
         conversations[sessionID] = convMap
-        objectWillChange.send()
 
         var list = cards[sessionID] ?? []
         if let idx = list.firstIndex(where: { $0.id == info.id }) {
@@ -380,7 +379,6 @@ final class SubagentStore: ObservableObject {
         var convMap = conversations[sessionID] ?? [:]
         convMap[subagentID] = nil
         conversations[sessionID] = convMap
-        objectWillChange.send()
 
         if var list = cards[sessionID] {
             list.removeAll { $0.id == subagentID }
@@ -393,7 +391,6 @@ final class SubagentStore: ObservableObject {
     /// 会话被删除时整体清理：清内存 + 删除该会话的 SQLite blob(会话级联清除)。
     func clearSession(_ sessionID: UUID) {
         conversations[sessionID] = nil
-        objectWillChange.send()
         cards[sessionID] = nil
         objectWillChange.send()
         dirtySessions.remove(sessionID)
