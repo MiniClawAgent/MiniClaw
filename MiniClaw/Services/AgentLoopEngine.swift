@@ -634,7 +634,7 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
                                 collectedToolCalls.append(toolCall)
                             },
                             onToolCallStreaming: { [weak self] callID, name, partialArgs, bytes in
-                                self?.emitToolCallStreaming(callID: callID, name: name, partialArgs: partialArgs, bytes: bytes)
+                                self?.upsertStreamingToolExecution(callID: callID, name: name, partialArgs: partialArgs, bytes: bytes)
                             },
                             onReasoning: { [weak self] piece in
                                 streamedReasoning += piece
@@ -1810,18 +1810,20 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
             return ToolResult(success: false, text: L10n.l("err_user_paused"))
         }
 
-        let args: [String: Any]
-        if let data = tc.function.arguments.data(using: .utf8),
-           let parsed = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-            args = parsed
-        } else {
-            args = [:]
-        }
-
         let startedAt = Date()
         // 危机定位标记：同步落盘（不依赖异步队列），卡死时日志里最后一条 ENTER 即指出卡在哪个工具。
         AppLogger.shared.crisisMark("TOOL ENTER: \(rawName)")
-        emitToolCall(rawName, callID: tc.id, args: args, startedAt: startedAt)
+        // 直接引用架构：取/建执行上下文并挂载。参数流式期已挂载的命中注册表直接复用；
+        // 非流式（无参数增量）场景在此首次创建。beginExecution 使参数定稿、状态转 running。
+        let exec: ToolExecution
+        if let pending = pendingToolExecutions[tc.id] {
+            exec = pending
+        } else {
+            exec = ToolExecution(name: rawName, callID: tc.id, startedAt: startedAt)
+            pendingToolExecutions[tc.id] = exec
+            emitToolExecutionBegin(exec)
+        }
+        exec.beginExecution(argsJSON: tc.function.arguments)
 
         // ── 带超时可取消的工具执行：单个工具最长 120 秒 ──
         // 工具与 120s 超时竞速 + 用户取消/暂停三方竞争，任一触发立即返回。
@@ -1861,7 +1863,7 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
                         // 过程流上报通道：TaskLocal 注入的 reporter 直达执行上下文，
                         // appendOutputLine 内部做行缓冲 + 节流 + 回主线程写 block。
                         let reporter: @Sendable (String) -> Void = { line in
-                            exec?.appendOutputLine(line)
+                            exec.appendOutputLine(line)
                         }
                         return try await ToolProgressScope.$reporter.withValue(reporter) {
                             try await EngineBrowserScope.$sessionID.withValue(browserScope) {
@@ -1904,8 +1906,7 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
         Self.clearProgressBuffer(callID: tc.id)
 
         let duration = Date().timeIntervalSince(startedAt)
-        emitToolProgress(callID: tc.id, text: result.text)
-        emitToolResult(rawName, callID: tc.id, result: result, duration: duration)
+        exec.finish(result, duration: duration)
         AppLogger.shared.crisisMark("TOOL DONE: \(rawName) (\(Int(duration * 1000))ms)")
         return result
     }
@@ -2085,26 +2086,33 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
         child.onError = { [weak self] err in
             self?.emitSubagentEvent(.error(info, err.localizedDescription))
         }
-        child.onToolCall = { [weak self] name, callID, args, startedAt in
+        // 直接引用架构：父引擎监听子引擎的单一挂载点转发工具事件（与主线同构）。
+        // 子引擎 isSubagentEngine=true 不走主会话 block 注册表，工具 exec 只在
+        // executeTool 首次创建并挂载 → 此处即「工具开始执行」时机（等价旧 onToolCall）。
+        child.onToolExecutionBegin = { [weak self] exec in
+            guard let self else { return }
             let argsStr: String
-            if let data = try? JSONSerialization.data(withJSONObject: args, options: .prettyPrinted),
-               let s = String(data: data, encoding: .utf8) {
+            if let data = exec.argsJSON.data(using: .utf8),
+               let obj = try? JSONSerialization.jsonObject(with: data),
+               let pretty = try? JSONSerialization.data(withJSONObject: obj, options: .prettyPrinted),
+               let s = String(data: pretty, encoding: .utf8) {
                 argsStr = s
             } else {
-                argsStr = "\(args)"
+                argsStr = exec.argsJSON
             }
             let event = ToolCallEvent(
-                name: name,
-                callID: callID,
+                name: exec.name,
+                callID: exec.callID,
                 arguments: argsStr,
-                timestamp: startedAt,
+                timestamp: exec.startedAt,
                 position: 0,
                 timelineOrder: order.next()
             )
-            self?.emitSubagentEvent(.toolCall(info, event))
-        }
-        child.onToolResult = { [weak self] name, callID, result, duration in
-            self?.emitSubagentEvent(.toolResult(info, name, callID, result.text, result.success, duration))
+            self.emitSubagentEvent(.toolCall(info, event))
+            // 结果落定：exec 内持 onFinish 同步回调（等价旧 onToolResult）。
+            exec.onFinish = { [weak self] result, duration in
+                self?.emitSubagentEvent(.toolResult(info, exec.name, exec.callID, result.text, result.success, duration))
+            }
         }
         child.onReasoning = { [weak self] text, index in
             self?.emitSubagentEvent(.reasoning(info, text, index, order.next()))

@@ -115,7 +115,11 @@ struct MessageBubbleView: View {
     /// 实际使用的 toolCalls：显式 liveToolCalls > runtime 流式 > 已落盘 message.toolCalls
     private var effectiveToolCalls: [ToolCallEvent] {
         if let live = liveToolCalls, !live.isEmpty { return live }
-        if let runtime, runtime.streamingMessageID == message.id { return runtime.streamingToolExecutions }
+        if let runtime, runtime.streamingMessageID == message.id {
+            return runtime.streamingToolExecutions.map { exec in
+                exec.toEvent(position: exec.position, timelineOrder: Int(runtime.order(for: exec.callID)))
+            }
+        }
         return message.toolCalls
     }
     /// 实际使用的分段思考：显式 live > runtime 流式 > 已落盘 reasoningSegments > 旧单串 reasoning。

@@ -13,6 +13,8 @@ final class ToolExecution: @unchecked Sendable {
     private(set) var argsJSON: String
     private(set) var result: ToolResult?
     private(set) var duration: TimeInterval = 0
+    /// 用户停止整条回复时该执行仍 in-flight 被中断（落盘语义，对应 ToolCallEvent.wasInterrupted）。
+    private(set) var wasInterrupted = false
     /// 挂载时由宿主填写（正文中的字符位置，用于卡片内联穿插）。
     var position: Int = 0
 
@@ -82,6 +84,33 @@ final class ToolExecution: @unchecked Sendable {
 
     // MARK: - 结果落定
 
+    /// 结果落定回调（直接引用架构：宿主按需挂载，如子代理事件转发）。
+    /// 在 finish() 调用点同步触发（引擎隔离域），与旧事件回调的投递时机一致。
+    var onFinish: ((ToolResult, TimeInterval) -> Void)?
+
+    /// 用户停止整条回复时标记中断（仅对尚未返回结果的执行生效，与旧 stopGeneration 语义一致）。
+    func markInterrupted(text: String, at stoppedAt: Date) {
+        guard result == nil else { return }
+        wasInterrupted = true
+        finish(ToolResult(success: false, text: text), duration: stoppedAt.timeIntervalSince(startedAt))
+    }
+
+    /// 断点恢复：从落盘事件重建执行上下文（round-trip 对应 toEvent）。
+    /// 恢复场景必须经 `registerStreamingToolExecution` 挂载以回填 order 字典。
+    convenience init(restoring event: ToolCallEvent) {
+        self.init(name: event.name, callID: event.callID ?? "", startedAt: event.timestamp)
+        argsJSON = event.arguments
+        result = ToolResult(success: event.success, text: event.resultText)
+        duration = event.duration ?? 0
+        wasInterrupted = event.wasInterrupted
+        position = event.position
+        block.toolInputArgs = event.arguments
+        block.kind = MiniClawChatAdapter.toolKind(event.name, arguments: event.arguments)
+        block.content = event.resultText
+        block.toolDuration = event.duration ?? 0
+        block.toolStatus = event.success ? .success : .failed(message: "")
+    }
+
     func finish(_ result: ToolResult, duration: TimeInterval) {
         self.result = result
         self.duration = duration
@@ -91,6 +120,7 @@ final class ToolExecution: @unchecked Sendable {
             block.toolStatus = result.success ? .success : .failed(message: "")
             block.streamingFileContent = nil
         }
+        onFinish?(result, duration)
     }
 
     private var isFileStreamingKind: Bool {
@@ -110,7 +140,7 @@ final class ToolExecution: @unchecked Sendable {
             arguments: argsJSON,
             resultText: result?.text ?? "",
             success: result?.success ?? false,
-            wasInterrupted: false,
+            wasInterrupted: wasInterrupted,
             timestamp: startedAt,
             position: position,
             duration: duration,

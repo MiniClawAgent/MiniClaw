@@ -995,7 +995,7 @@
 				4334FC2A34F36501CD9B6B51EDEF7DB0 /* MathRender */,
 			);
 			name = SwiftMath;
-			path = /Users/neartop/Kit/SwiftMath/Sources/SwiftMath;
+			path = /Users/neartop/MiniClowDevelopment/Kit/SwiftMath/Sources/SwiftMath;
 			sourceTree = "<group>";
 		};
 		3BEB697455A2CCDFF5B3C889E6BA32E8 /* Chat */ = {
@@ -1065,7 +1065,7 @@
 				A7573B9194B9F1B7EC718E072C86D322 /* RWLock.swift */,
 			);
 			name = MathRender;
-			path = /Users/neartop/Kit/SwiftMath/Sources/SwiftMath/MathRender;
+			path = /Users/neartop/MiniClowDevelopment/Kit/SwiftMath/Sources/SwiftMath/MathRender;
 			sourceTree = "<group>";
 		};
 		53A8F30779AAA4B97EEF7D7230E51572 /* Background */ = {
@@ -1098,7 +1098,7 @@
 				1D81C63C16CF198716F40F667A78D6F6 /* MTFontV2.swift */,
 			);
 			name = MathBundle;
-			path = /Users/neartop/Kit/SwiftMath/Sources/SwiftMath/MathBundle;
+			path = /Users/neartop/MiniClowDevelopment/Kit/SwiftMath/Sources/SwiftMath/MathBundle;
 			sourceTree = "<group>";
 		};
 		631CB49BA3172F393128A41DFC5A38BC /* Resources */ = {
@@ -1361,7 +1361,7 @@
 				5FF567BC53DFA24886146E9463531B53 /* xml.c */,
 			);
 			name = src;
-			path = "/Users/neartop/Kit/swift-cmark/src";
+			path = "/Users/neartop/MiniClowDevelopment/Kit/swift-cmark/src";
 			sourceTree = "<group>";
 		};
 		B5F8B8BBE015D43F91FEF89548C54CDB /* extensions */ = {
@@ -1382,7 +1382,7 @@
 				BFFEB106AA00A20F61A47507A16B5FB9 /* tasklist.h */,
 			);
 			name = extensions;
-			path = "/Users/neartop/Kit/swift-cmark/extensions";
+			path = "/Users/neartop/MiniClowDevelopment/Kit/swift-cmark/extensions";
 			sourceTree = "<group>";
 		};
 		BBFFC7EAB32F1C2279B8E0FD146262FD /* AppIntents */ = {
@@ -1537,7 +1537,7 @@
 				E514A587008FD64C5E8557C8568F8480 /* ISHShellExecutor.m */,
 			);
 			name = app;
-			path = "/Users/neartop/第三方源码/ish-arm64/app";
+			path = "/Users/neartop/MiniClowDevelopment/第三方源码/ish-arm64/app";
 			sourceTree = "<group>";
 		};
 		F85ACD40B6721D94D760A6ECF1C92D23 /* Storage */ = {

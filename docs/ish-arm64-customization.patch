@@ -1,0 +1,133 @@
+--- /tmp/ishom.881Stc/ish-arm64-master/app/ISHShellExecutor.h	2026-09-02 02:10:44
++++ /Users/neartop/MiniClowDevelopment/第三方源码/ish-arm64/app/ISHShellExecutor.h	2026-09-03 23:54:07
+@@ -59,6 +59,15 @@
+          lineCallback:(nullable ISHShellLineCallback)lineCallback
+            completion:(nullable ISHShellCompletionCallback)completion;
+ 
++/// 带环境变量与会话文件隔离根（MiniClaw 定制）。
++/// @param sessionFsContext 会话 fs 上下文（0 = 不隔离）；非零时新进程的工作目录
++///                         经 Swift 侧 SessionFileRouter 桥接还原为会话根并 chdir。
+++ (int)executeCommand:(NSString *)command
++          environment:(nullable NSDictionary<NSString *, NSString *> *)environment
++         lineCallback:(nullable ISHShellLineCallback)lineCallback
++           completion:(nullable ISHShellCompletionCallback)completion
++     sessionFsContext:(uint64_t)sessionFsContext;
++
+ /// Execute a shell command with array of arguments
+ /// @param executable Path to executable (e.g., "/bin/ls")
+ /// @param arguments Array of arguments (e.g., @[@"-la", @"/tmp"])
+@@ -72,6 +81,14 @@
+             lineCallback:(nullable ISHShellLineCallback)lineCallback
+               completion:(nullable ISHShellCompletionCallback)completion;
+ 
++/// 带 sessionFsContext 的执行（语义同 executeCommand 的 sessionFsContext 版本，MiniClaw 定制）。
+++ (int)executeExecutable:(NSString *)executable
++               arguments:(nullable NSArray<NSString *> *)arguments
++             environment:(nullable NSDictionary<NSString *, NSString *> *)environment
++            lineCallback:(nullable ISHShellLineCallback)lineCallback
++              completion:(nullable ISHShellCompletionCallback)completion
++        sessionFsContext:(uint64_t)sessionFsContext;
++
+ /// Execute a shell command and wait synchronously for completion
+ /// @param command Shell command to execute
+ /// @param timeout Maximum wait time in seconds (0 = no timeout)
+--- /tmp/ishom.881Stc/ish-arm64-master/app/ISHShellExecutor.m	2026-09-02 02:10:44
++++ /Users/neartop/MiniClowDevelopment/第三方源码/ish-arm64/app/ISHShellExecutor.m	2026-09-03 23:54:36
+@@ -12,9 +12,16 @@
+ #include "kernel/init.h"
+ #include "kernel/calls.h"
+ #include "kernel/task.h"
++#include "kernel/fs.h"
+ #include "fs/devices.h"
++#include "fs/path.h"
+ #include "fs/real.h"
++#include "misc.h"
+ 
++// MiniClaw 会话文件隔离桥接（Swift SessionFileRouter.swift @_cdecl 导出，链接期解析）。
++// fsContext -> 会话 guest 根路径 /var/MiniClaw/sessions/<uuid>（无映射返回 false）。
++extern bool miniclaw_session_guest_root(uint64_t fs_ctx, char *out_path, size_t out_size);
++
+ #pragma mark - Result Implementation
+ 
+ @interface ISHShellExecutionResult ()
+@@ -118,11 +125,24 @@
+ + (int)executeCommand:(NSString *)command
+          lineCallback:(ISHShellLineCallback)lineCallback
+            completion:(ISHShellCompletionCallback)completion {
++    return [self executeCommand:command
++                    environment:nil
++                   lineCallback:lineCallback
++                     completion:completion
++               sessionFsContext:0];
++}
++
+++ (int)executeCommand:(NSString *)command
++          environment:(NSDictionary<NSString *, NSString *> *)environment
++         lineCallback:(ISHShellLineCallback)lineCallback
++           completion:(ISHShellCompletionCallback)completion
++     sessionFsContext:(uint64_t)sessionFsContext {
+     return [self executeExecutable:@"/bin/sh"
+                          arguments:@[@"-c", command]
+-                       environment:nil
++                       environment:environment
+                       lineCallback:lineCallback
+-                        completion:completion];
++                        completion:completion
++                  sessionFsContext:sessionFsContext];
+ }
+ 
+ + (int)executeExecutable:(NSString *)executable
+@@ -130,7 +150,21 @@
+              environment:(NSDictionary<NSString *, NSString *> *)environment
+             lineCallback:(ISHShellLineCallback)lineCallback
+               completion:(ISHShellCompletionCallback)completion {
++    return [self executeExecutable:executable
++                         arguments:arguments
++                       environment:environment
++                      lineCallback:lineCallback
++                        completion:completion
++                  sessionFsContext:0];
++}
+ 
+++ (int)executeExecutable:(NSString *)executable
++               arguments:(NSArray<NSString *> *)arguments
++             environment:(NSDictionary<NSString *, NSString *> *)environment
++            lineCallback:(ISHShellLineCallback)lineCallback
++              completion:(ISHShellCompletionCallback)completion
++        sessionFsContext:(uint64_t)sessionFsContext {
++
+     ISHShellExecutionContext *ctx = [[ISHShellExecutionContext alloc] init];
+     ctx.lineCallback = lineCallback;
+     ctx.completion = completion;
+@@ -234,6 +268,31 @@
+ 
+     const char *envp = envp_str.UTF8String;
+ 
++    // 会话文件隔离（MiniClaw 定制）：fsContext 非零时把新进程 cwd 切到会话根
++    // /var/MiniClaw/sessions/<uuid>。路径经 Swift 侧 SessionFileRouter 桥接还原；
++    // 内联 open_dir 逻辑（fs.c 的 open_dir 为 static）：stat 确认目录 + O_RDONLY 打开，
++    // 再 fs_chdir。失败（无映射/目录缺失）回退默认 cwd，仅记日志不阻断执行。
++    if (sessionFsContext != 0) {
++        char guestRoot[MAX_PATH + 1];
++        if (miniclaw_session_guest_root(sessionFsContext, guestRoot, sizeof(guestRoot))) {
++            struct statbuf stat;
++            if (generic_statat(AT_PWD, guestRoot, &stat, true) < 0) {
++                NSLog(@"ISHShellExecutor: session root stat failed: %s", guestRoot);
++            } else if (!(stat.mode & S_IFDIR)) {
++                NSLog(@"ISHShellExecutor: session root is not a directory: %s", guestRoot);
++            } else {
++                struct fd *dir = generic_open(guestRoot, O_RDONLY_, 0);
++                if (IS_ERR(dir)) {
++                    NSLog(@"ISHShellExecutor: session root open failed: %s", guestRoot);
++                } else {
++                    fs_chdir(task->fs, dir);
++                }
++            }
++        } else {
++            NSLog(@"ISHShellExecutor: no session mapping for fsContext %llu", (unsigned long long) sessionFsContext);
++        }
++    }
++
+     // Execute
+     err = do_execve(executable.UTF8String, fullArgs.count, argv_buf, envp);
+     if (err < 0) {
