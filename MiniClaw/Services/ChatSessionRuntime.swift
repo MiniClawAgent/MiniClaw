@@ -83,11 +83,22 @@ final class ChatSessionRuntime: ObservableObject, @MainActor Identifiable {
     @Published var pendingText: String = ""
     /// 节流调度标志：避免每个 词元 都起一个 sleep 任务，仅在一个批次窗口内起一次。
     private var flushScheduled = false
-    /// 流式过程中的工具调用事件缓冲区
-    @Published var streamingToolCalls: [ToolCallEvent] = []
-    /// 工具执行过程流（callID → 已节流的累计过程文本）：engine 过程事件写入，
-    /// bridge 据此把执行中实时输出渲染进工具块 content；结果落定时清除。
-    @Published var streamingToolProgress: [String: String] = [:]
+    /// 直接引用架构的执行注册表（挂载顺序即展示顺序）；
+    /// ToolExecution 内持 AssistantBlock 引用，UI 经 @ObservedObject block 自驱动刷新。
+    @Published var streamingToolExecutions: [ToolExecution] = []
+    private var streamingToolOrders: [String: Double] = [:]
+
+    /// 挂载执行上下文（幂等：同 callID 只挂一次）。
+    func registerStreamingToolExecution(_ exec: ToolExecution, order: Double) {
+        guard streamingToolExecutions.first(where: { $0.callID == exec.callID }) == nil else { return }
+        streamingToolExecutions.append(exec)
+        streamingToolOrders[exec.callID] = order
+    }
+
+    /// 执行的展示顺序（挂载时分配）。
+    func order(for callID: String) -> Double {
+        streamingToolOrders[callID] ?? 0
+    }
     /// 流式过程中的分段思考过程（reasoning）缓冲区（引用类型，跨 `ChatView` 重建存活）。
     /// 按引擎迭代轮次（iterations）切片，每段独立展示、穿插在正文/工具之间。
     /// 仅用于实时展示，不写入磁盘、不回灌上下文。

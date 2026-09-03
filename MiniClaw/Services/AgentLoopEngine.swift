@@ -47,6 +47,11 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
     /// (照 SubagentEngineBag 范式),每个工具写自己的槽位,暂停/取消枚举全部取消——
     /// 与 iSH 执行协调器(actor 持有 in-flight 集合)同构。
     private let toolExecutionTasks = ToolTaskBag()
+    /// 直接引用架构的执行注册表：参数流式期（pending）→ 执行期（active）。
+    /// ToolExecution 内持 AssistantBlock 引用，执行逻辑直接写 block，
+    /// 经 @Published 驱动指示器与浮层实时刷新——无事件转换层、无 id 配对。
+    private var pendingToolExecutions: [String: ToolExecution] = [:]
+    private var activeToolExecutions: [String: ToolExecution] = [:]
     private let state = EngineState()
 
     /// 循环权威上下文（system + 历史 + 已完成回合 + 本轮已收文本）。
@@ -115,16 +120,9 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
     /// 引擎同时写入 `ContextUsageStore`，UI 可直接读取，不依赖回调时序。
     var onContextUsage: ((ContextUsageSnapshot) -> Void)?
     var onRouteChange: ((String) -> Void)?
-    /// 工具开始执行（name / 模型调用 id / 参数 / 开始时间）。callID 用于并发同名工具的结果配对。
-    var onToolCall: ((String, String, [String: Any], Date) -> Void)?
-    /// 工具执行完成（name / 模型调用 id / 结果 / 耗时）。
-    var onToolResult: ((String, String, ToolResult, TimeInterval) -> Void)?
-    /// 工具执行过程流（callID / 节流后的累计过程文本）：由工具体经 ToolProgressScope
-    /// 上报（如 shell 的 stdout 逐行流），bridge 写进工具块 content 实时渲染。
-    var onToolProgress: ((String, String) -> Void)?
-    /// 工具参数流式增量（callID / name / 累计部分 JSON / 字节数）：模型正在生成
-    /// tool_use 参数时由 LLMClient SSE 层节流上抛，供卡片实时显示「AI 正在写的内容」。
-    var onToolCallStreaming: ((String, String, String, Int) -> Void)?
+    /// 工具执行开始（直接引用架构）：上抛执行上下文（内持 AssistantBlock 引用），
+    /// 宿主负责把 block 挂进消息流并分配位置/顺序；此后一切更新由执行逻辑直写 block。
+    var onToolExecutionBegin: ((ToolExecution) -> Void)?
     var onComplete: (() -> Void)?
     /// 整轮正常完成时最后一段模型答复（最终轮 streamedText，见 emitComplete）。
     /// 工具循环的中间过程叙述不在此列；未正常完成时为空字符串。
@@ -1176,27 +1174,24 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
         deliverOnMain { onRouteChange(modelName) }
     }
 
-    private func emitToolCall(_ name: String, callID: String, args: [String: Any], startedAt: Date) {
-        guard let onToolCall else { return }
-        nonisolated(unsafe) let args = args
-        deliverOnMain { onToolCall(name, callID, args, startedAt) }
-    }
-    /// 上抛工具执行过程流（deliverOnMain 统一回主线程，与 onToolCall/onToolResult 同约定）。
-    private func emitToolProgress(callID: String, text: String) {
-        guard let onToolProgress else { return }
-        deliverOnMain { onToolProgress(callID, text) }
-    }
-
-    /// 上抛工具参数流式增量（同上约定，节流在 LLMClient SSE 层完成）。
-    private func emitToolCallStreaming(callID: String, name: String, partialArgs: String, bytes: Int) {
-        guard let onToolCallStreaming else { return }
-        deliverOnMain { onToolCallStreaming(callID, name, partialArgs, bytes) }
+    /// 参数流式增量：占位执行上下文 upsert（首个增量创建并挂载，后续增量追加）。
+    private func upsertStreamingToolExecution(callID: String, name: String, partialArgs: String, bytes: Int) {
+        guard !isSubagentEngine else { return } // 子代理详情页走 SubagentEvent 事件流，无主会话 block
+        let exec: ToolExecution
+        if let pending = pendingToolExecutions[callID] {
+            exec = pending
+        } else {
+            exec = ToolExecution(name: name, callID: callID)
+            pendingToolExecutions[callID] = exec
+            emitToolExecutionBegin(exec)
+        }
+        exec.appendArgsDelta(partialArgs)
     }
 
-
-    private func emitToolResult(_ name: String, callID: String, result: ToolResult, duration: TimeInterval) {
-        guard let onToolResult else { return }
-        deliverOnMain { onToolResult(name, callID, result, duration) }
+    /// 上抛执行上下文（直接引用架构的单一挂载点）。
+    private func emitToolExecutionBegin(_ exec: ToolExecution) {
+        guard let onToolExecutionBegin else { return }
+        deliverOnMain { onToolExecutionBegin(exec) }
     }
 
     private func emitComplete(replyText: String) {
@@ -1863,33 +1858,10 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
                     do {
                         // 浏览器作用域：子代理引擎用自身 subID（独立浏览器上下文），主引擎回落父会话。
                         let browserScope = self.isSubagentEngine ? self.sessionID : nil
-                        // 过程流上报通道（借鉴 OpenMinis 的执行中写 block 思路）：
-                        // reporter 做行缓冲 + 分层节流（0.3/0.6/1.0s）+ 30K 截尾，
-                        // 工具体（如 shell 的 stdout onLine）往里塞行。
-                        let callID = tc.id
-                        let reporter: @Sendable (String) -> Void = { [weak self] line in
-                            guard let self else { return }
-                            // 缓冲更新：NSLock 保护，任意线程安全。
-                            Self.progressBufferLock.lock()
-                            var buf = Self.progressBuffers[callID] ?? ""
-                            buf += line + "\n"
-                            if buf.count > Self.progressMaxChars {
-                                buf = "…[output truncated]…\n" + String(buf.suffix(Self.progressMaxChars))
-                            }
-                            Self.progressBuffers[callID] = buf
-                            let now = Date()
-                            let last = Self.progressLastFlush[callID] ?? .distantPast
-                            let interval = Self.progressFlushInterval(forLength: buf.count)
-                            let shouldFlush = now.timeIntervalSince(last) >= interval
-                            if shouldFlush { Self.progressLastFlush[callID] = now }
-                            let text = buf
-                            Self.progressBufferLock.unlock()
-                            // flush hop 回主线程（emitToolProgress 在 MainActor）。
-                            if shouldFlush {
-                                Task { @MainActor [weak self] in
-                                    self?.emitToolProgress(callID: callID, text: text)
-                                }
-                            }
+                        // 过程流上报通道：TaskLocal 注入的 reporter 直达执行上下文，
+                        // appendOutputLine 内部做行缓冲 + 节流 + 回主线程写 block。
+                        let reporter: @Sendable (String) -> Void = { line in
+                            exec?.appendOutputLine(line)
                         }
                         return try await ToolProgressScope.$reporter.withValue(reporter) {
                             try await EngineBrowserScope.$sessionID.withValue(browserScope) {

@@ -141,8 +141,8 @@ final class MiniClawChatBridge: ObservableObject {
                 for seg in runtime.streamingReasoningSegments {
                     events.append((Double(seg.timelineOrder), seg.position))
                 }
-                for evt in runtime.streamingToolCalls {
-                    events.append((Double(evt.timelineOrder), evt.position))
+                for exec in runtime.streamingToolExecutions {
+                    events.append((runtime.order(for: exec.callID), exec.position))
                 }
                 events.sort {
                     $0.order < $1.order || ($0.order == $1.order && $0.position < $1.position)
@@ -185,44 +185,15 @@ final class MiniClawChatBridge: ObservableObject {
                     insertBlock(tb, order: Double(seg.timelineOrder), into: &lastAI.blocks)
                 }
             }
-            // ③ 工具调用:按 timelineOrder 交错插入 tool block。
-            // 已存在的调用(同 callID)更新状态/内容;新调用追加。
-            for evt in runtime.streamingToolCalls {
-                let key = evt.callID ?? evt.id.uuidString
-                if let existing = lastAI.blocks.first(where: { $0.toolUseId == key }) {
-                    // content 取值优先级（2026-09-02 实时过程流）：
-                    // 过程流(执行中实时输出) > 结果文本(落定,与终态 Adapter 口径一致) > 参数。
-                    if let prog = runtime.streamingToolProgress[key], !prog.isEmpty {
-                        existing.content = prog
-                    } else if !evt.resultText.isEmpty {
-                        existing.content = evt.resultText
-                    } else {
-                        existing.content = evt.arguments
-                    }
-                    existing.toolStatus = self.toolStatus(for: evt)
-                    // 执行时长即时透传（2026-09-02 唐唐反馈：会话页耗时需重进才显示）。
-                    existing.toolDuration = evt.duration
-                    // 执行时长即时透传（2026-09-02 唐唐反馈：会话页耗时需重进才显示）。
-                    existing.toolDuration = evt.duration
-                    // [Fix 2026-08-11] 同步 toolInputArgs:胶囊显示名走
-                    // toolDescription→activity 分支,缺它流式中只显示兜底文案,
-                    // 终态重建后才显示具体操作名(用户反馈「完成才显示名称」)。
-                    existing.toolInputArgs = evt.arguments
-                } else {
-                    let kind = MiniClawChatAdapter.toolKind(evt.name, arguments: evt.arguments)
-                    // [Fix 重进会话跳屏·方案B] 传 evt.id 保持与终态 Adapter 重建一致。
-                    let tb = MiniClawKit.AssistantBlock(
-                        id: evt.id,
-                        kind: kind,
-                        content: evt.arguments,
-                        toolStatus: self.toolStatus(for: evt),
-                        toolUseId: key
-                    )
-                    tb.toolInputArgs = evt.arguments
-                    tb.toolDuration = evt.duration
-                    tb.toolDuration = evt.duration
-                    insertBlock(tb, order: Double(evt.timelineOrder), into: &lastAI.blocks)
+            // ③ 工具调用（直接引用架构）：ToolExecution 内持 AssistantBlock 引用，
+            // 执行逻辑直接写 block（@Published 自驱动 cell 刷新）——bridge 只负责
+            // 把新块挂进消息流（幂等：已挂载的引用跳过，不再做任何内容转换）。
+            for exec in runtime.streamingToolExecutions {
+                let key = exec.callID
+                if lastAI.blocks.first(where: { $0.toolUseId == key || $0.id == exec.block.id }) != nil {
+                    continue
                 }
+                insertBlock(exec.block, order: runtime.order(for: exec.callID), into: &lastAI.blocks)
             }
         }
 
@@ -288,7 +259,7 @@ final class MiniClawChatBridge: ObservableObject {
         streamingSubscriptions = [
             runtime.$streamingContent.map { _ in () }.eraseToAnyPublisher(),
             runtime.$streamingReasoningSegments.map { _ in () }.eraseToAnyPublisher(),
-            runtime.$streamingToolCalls.map { _ in () }.eraseToAnyPublisher(),
+            runtime.$streamingToolExecutions.map { _ in () }.eraseToAnyPublisher(),
             runtime.$isResponding.map { _ in () }.eraseToAnyPublisher(),
             runtime.$isPaused.map { _ in () }.eraseToAnyPublisher(),
         ]

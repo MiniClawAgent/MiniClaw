@@ -245,7 +245,8 @@ enum MiniClawChatAdapter {
 
     /// 工具名 + 参数 → Kit 块类型(10 种 kind 映射),关联值填入真实操作名/路径/命令,
     /// 让工具卡显示真实操作名称(而非笼统的 "Browser action"/"Shell command")。
-    static func toolKind(_ name: String, arguments: String = "") -> MiniClawKit.AssistantBlockKind {
+    /// 纯函数（无状态依赖）→ nonisolated：服务层（ToolExecution）也可调用。
+    nonisolated static func toolKind(_ name: String, arguments: String = "") -> MiniClawKit.AssistantBlockKind {
         // 从参数 JSON 提取关键字段(command/path/action/url 等),用于关联值展示。
         var argDict: [String: Any] = [:]
         if let data = arguments.data(using: .utf8),
