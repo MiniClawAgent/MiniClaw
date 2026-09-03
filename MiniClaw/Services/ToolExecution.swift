@@ -98,7 +98,16 @@ final class ToolExecution: @unchecked Sendable {
     /// 断点恢复：从落盘事件重建执行上下文（round-trip 对应 toEvent）。
     /// 恢复场景必须经 `registerStreamingToolExecution` 挂载以回填 order 字典。
     convenience init(restoring event: ToolCallEvent) {
-        self.init(name: event.name, callID: event.callID ?? "", startedAt: event.timestamp)
+        // 注册表按 callID 幂等去重；ToolCallEvent.callID 为 Optional（默认 nil），
+        // 旧落盘数据可能整批缺失。缺失时生成唯一值，避免多条工具卡被判定为同一条
+        // 而只挂载第一条、其余全部丢失。
+        let resolvedCallID: String
+        if let existing = event.callID, !existing.isEmpty {
+            resolvedCallID = existing
+        } else {
+            resolvedCallID = UUID().uuidString
+        }
+        self.init(name: event.name, callID: resolvedCallID, startedAt: event.timestamp)
         argsJSON = event.arguments
         result = ToolResult(success: event.success, text: event.resultText)
         duration = event.duration ?? 0
@@ -108,16 +117,19 @@ final class ToolExecution: @unchecked Sendable {
         block.kind = MiniClawChatAdapter.toolKind(event.name, arguments: event.arguments)
         block.content = event.resultText
         block.toolDuration = event.duration ?? 0
-        block.toolStatus = event.success ? .success : .failed(message: "")
+        // 还原中断态：wasInterrupted → .cancelled（黄色），与 .failed（红色）区分。
+        block.toolStatus = event.wasInterrupted ? .cancelled : (event.success ? .success : .failed(message: ""))
     }
 
     func finish(_ result: ToolResult, duration: TimeInterval) {
         self.result = result
         self.duration = duration
-        Task { @MainActor [block] in
+        // 被用户停止的执行走 .cancelled（黄色「已取消」），与 .failed（红色「失败」）区分。
+        let isCancelled = wasInterrupted
+        Task { @MainActor [block, isCancelled] in
             block.content = result.text
             block.toolDuration = duration
-            block.toolStatus = result.success ? .success : .failed(message: "")
+            block.toolStatus = isCancelled ? .cancelled : (result.success ? .success : .failed(message: ""))
             block.streamingFileContent = nil
         }
         onFinish?(result, duration)

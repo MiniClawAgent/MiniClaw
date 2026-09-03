@@ -1816,14 +1816,22 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
         // 直接引用架构：取/建执行上下文并挂载。参数流式期已挂载的命中注册表直接复用；
         // 非流式（无参数增量）场景在此首次创建。beginExecution 使参数定稿、状态转 running。
         let exec: ToolExecution
+        let isNewExecution: Bool
         if let pending = pendingToolExecutions[tc.id] {
             exec = pending
+            isNewExecution = false
         } else {
             exec = ToolExecution(name: rawName, callID: tc.id, startedAt: startedAt)
+            isNewExecution = true
+        }
+        // 参数定稿必须在挂载之前：子代理转发（child.onToolExecutionBegin）会读
+        // exec.argsJSON 构造 ToolCallEvent，挂载时参数为空会导致工具卡参数显示空白。
+        // 主线不受影响（参数流式期已挂载，挂载侧只读 position，参数由 block 实时刷新）。
+        exec.beginExecution(argsJSON: tc.function.arguments)
+        if isNewExecution {
             pendingToolExecutions[tc.id] = exec
             emitToolExecutionBegin(exec)
         }
-        exec.beginExecution(argsJSON: tc.function.arguments)
 
         // ── 带超时可取消的工具执行：单个工具最长 120 秒 ──
         // 工具与 120s 超时竞速 + 用户取消/暂停三方竞争，任一触发立即返回。
