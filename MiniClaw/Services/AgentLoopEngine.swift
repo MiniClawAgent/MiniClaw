@@ -1915,6 +1915,9 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
 
         let duration = Date().timeIntervalSince(startedAt)
         exec.finish(result, duration: duration)
+        // 执行已落定，出表：一个 callID 只执行一次，注册表仅用于「参数流式期 → 执行期」
+        // 的上下文传递，留着会让长会话多轮循环持续累积（引擎销毁前不释放）。
+        pendingToolExecutions.removeValue(forKey: tc.id)
         AppLogger.shared.crisisMark("TOOL DONE: \(rawName) (\(Int(duration * 1000))ms)")
         return result
     }
