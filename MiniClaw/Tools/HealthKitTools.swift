@@ -346,7 +346,9 @@ struct AppleHealthKitTool: AgentTool {
             let endDate = date.addingTimeInterval(Double(minutes) * 60)
             sample = HKCategorySample(type: categoryType, value: 0, start: date, end: endDate)
         } else {
-            let quantityType = sampleType as! HKQuantityType
+            guard let quantityType = sampleType as? HKQuantityType else {
+                return failure(L10n.l("health_type_not_writable_one"))
+            }
             sample = HKQuantitySample(type: quantityType, quantity: quantity, start: date, end: date)
         }
 
