@@ -392,7 +392,7 @@ final class AgentRunService {
                     // 丢弃半截输出，重新完整生成：清空已显示内容与上下文占位。
                     runtime.pendingText = ""
                     runtime.streamingContent = ""
-                    runtime.streamingToolCalls = []
+                    runtime.streamingToolExecutions = []
                     runtime.streamingReasoningSegments = []
                     runtime.nextTimelineOrder = 1
                     assistantMessage.content = ""
@@ -462,7 +462,9 @@ final class AgentRunService {
                     assistantMessage.reasoning = rt.streamingReasoningSegments.map { $0.text }.joined(separator: "\n\n")
                     // 2026-08-12 治本:暂停必须与终态一样补全消息——工具调用一并落盘,
                     // 否则重启后"暂停前的工具使用"全部丢失。
-                    assistantMessage.toolCalls = rt.streamingToolCalls
+                    assistantMessage.toolCalls = rt.streamingToolExecutions.map { exec in
+                        exec.toEvent(position: exec.position, timelineOrder: Int(rt.order(for: exec.callID)))
+                    }
                 }
                 assistantMessage.isStreaming = false
                 // 2026-08-12 治本:消息级暂停标志落盘,重启后指示器据此恢复。
