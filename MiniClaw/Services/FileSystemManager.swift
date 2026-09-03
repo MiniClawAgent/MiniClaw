@@ -124,7 +124,6 @@ final class FileSystemManager: @unchecked Sendable {
 
     /// 统一插件沙盒根：`plugins/<type>/<插件目录>/`。
     /// plugin.json 的 `type` 字段决定分发目的地；各类型消费方沿用各自 dir 计算属性，零感知。
-    /// 存量旧布局由 `migrateLegacyLayoutIfNeeded()` 一次性迁移（skills/、subagent-profiles/、rules/）。
     var pluginsRoot: URL { miniClawRoot.appendingPathComponent("plugins") }
     func pluginTypeDir(_ type: String) -> URL { pluginsRoot.appendingPathComponent(type) }
 

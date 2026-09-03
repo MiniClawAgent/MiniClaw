@@ -13,11 +13,6 @@ struct MiniClawApp: App {
         // 早期置位 AppState.shared，缩短 AppIntent（Siri/快捷指令）在冷启动后
         // 立刻派发任务时的竞态窗口（原先只在 WindowGroup 的 .task 里置位）。
         AppState.shared = appState
-        // iOS16 适配:持久层由 SwiftData 切换为 JSON 文件存储,首次启动迁移旧库数据。
-        LegacySwiftDataMigrator.migrateIfNeeded()
-        // SQLite 单库迁移(2026-08-12):JSON 会话文件 → miniclaw.db(会话主数据+会话附属),
-        // 已迁移 JSON 移入 migration-backup 冷备份。须在 SessionManager.load 之前执行。
-        SessionsSQLiteMigrator.migrateIfNeeded()
         // 提前加载会话持久层：快捷指令/深链冷启动拉起 App 进程时即可建会话/查会话，
         // 不再等 HomeView 出现（后台 intent 无 UI 时 HomeView 可能不出现，任务会静默丢失）。
         // HomeView 处仍保留 load 调用（幂等，仅重读磁盘）。

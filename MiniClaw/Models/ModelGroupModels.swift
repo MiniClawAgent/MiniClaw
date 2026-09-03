@@ -158,8 +158,6 @@ struct SessionSettings: Codable, Equatable {
     private enum CodingKeys: String, CodingKey {
         case autoGenerateTitle, defaultModelId, maxContextMessages, streamResponses
         case mainModel, secondaryModel, speechInputModel, speechOutputModel
-        // 旧版字段（仅解码迁移用）
-        case mainModelGroupId, secondaryModelGroupId, speechInputGroupId, speechOutputGroupId
         case topP, frequencyPenalty, presencePenalty, seed, parallelToolCalls, responseFormat
     }
 
@@ -171,22 +169,11 @@ struct SessionSettings: Codable, Equatable {
         defaultModelId = try c.decodeIfPresent(String.self, forKey: .defaultModelId) ?? ""
         maxContextMessages = try c.decodeIfPresent(Int.self, forKey: .maxContextMessages) ?? 400
         streamResponses = try c.decodeIfPresent(Bool.self, forKey: .streamResponses) ?? true
-
-        /// 新字段优先；缺失时回读旧版 UUID 字段并迁移为 .group。
-        func migrate(_ newKey: CodingKeys, _ legacyKey: CodingKeys) -> ModelSelection {
-            if let sel = try? c.decodeIfPresent(ModelSelection.self, forKey: newKey) {
-                return sel
-            }
-            if let legacyId = try? c.decodeIfPresent(UUID.self, forKey: legacyKey) {
-                return .group(id: legacyId)
-            }
-            return .none
-        }
-        mainModel = migrate(.mainModel, .mainModelGroupId)
-        secondaryModel = migrate(.secondaryModel, .secondaryModelGroupId)
-        speechInputModel = migrate(.speechInputModel, .speechInputGroupId)
-        speechOutputModel = migrate(.speechOutputModel, .speechOutputGroupId)
         // 无旧数据兼容：缺 key 直接解码失败（需删 App + 清 Derived Data 重装）。
+        mainModel = (try? c.decodeIfPresent(ModelSelection.self, forKey: .mainModel)) ?? .none
+        secondaryModel = (try? c.decodeIfPresent(ModelSelection.self, forKey: .secondaryModel)) ?? .none
+        speechInputModel = (try? c.decodeIfPresent(ModelSelection.self, forKey: .speechInputModel)) ?? .none
+        speechOutputModel = (try? c.decodeIfPresent(ModelSelection.self, forKey: .speechOutputModel)) ?? .none
 
         topP = try c.decodeIfPresent(Double.self, forKey: .topP)
         frequencyPenalty = try c.decodeIfPresent(Double.self, forKey: .frequencyPenalty)

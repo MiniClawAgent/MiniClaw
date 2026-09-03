@@ -57,50 +57,6 @@ final class SessionFileRouter: Sendable {
 
     private init() {}
 
-    // MARK: - 旧位置一次性迁移
-
-    /// 进程级幂等守卫：仅首次调用真正执行迁移。
-    private static let migrationLock = OSAllocatedUnfairLock<Bool>(initialState: false)
-
-    /// 一次性迁移：把旧位置 `Documents/MiniClaw/Sessions/<uuid>` 整体移动到新位置
-    /// `Documents/MiniClaw-Sessions/<uuid>`（仅当目标尚不存在时），避免本次
-    /// 「会话目录去嵌套」改动后历史会话文件变为孤儿、在 UI 中凭空消失。
-    /// 非破坏式、幂等：已在新位置的会话不动；移动失败仅记日志，不影响新数据。
-    /// 仅在 App 侧入口（fsContext / sessionHostDirectory）触发，绝不在 iSH 内核热路径调用。
-    private static func migrateLegacySessionsOnce() {
-        let shouldRun = migrationLock.withLock { (done: inout Bool) -> Bool in
-            if !done {
-                done = true
-                return true
-            }
-            return false
-        }
-        guard shouldRun else { return }
-
-        let fm = FileManager.default
-        let legacyBase = fm.urls(for: .documentDirectory, in: .userDomainMask).first!
-            .appendingPathComponent("MiniClaw/Sessions", isDirectory: true)
-        guard fm.fileExists(atPath: legacyBase.path) else { return }
-        let newBase = Self.sessionsHostBase
-        do {
-            try fm.createDirectory(at: newBase, withIntermediateDirectories: true)
-            let entries = try fm.contentsOfDirectory(at: legacyBase, includingPropertiesForKeys: nil)
-            for entry in entries {
-                let uuidStr = entry.lastPathComponent
-                // 仅迁移形如 UUID 的会话目录，跳过 shared / 其它非会话条目。
-                guard UUID(uuidString: uuidStr) != nil else { continue }
-                let dest = newBase.appendingPathComponent(uuidStr, isDirectory: true)
-                guard !fm.fileExists(atPath: dest.path) else { continue }
-                try fm.moveItem(at: entry, to: dest)
-                AppLogger.shared.info("迁移旧会话目录 \(uuidStr) → MiniClaw-Sessions",
-                                      category: "Session", subsystem: "FS")
-            }
-        } catch {
-            AppLogger.shared.error("旧会话目录迁移失败（可忽略，新数据不受影响）: \(error.localizedDescription)",
-                                   category: "Session", subsystem: "FS")
-        }
-    }
-
     /// 为指定会话分配（或复用）其 fs_context，并确保宿主目录树存在。
     /// 同一进程生命周期内对同一 UUID 返回稳定值；App 重启后重新分配。
     func fsContext(for sessionID: UUID) -> UInt64 {
@@ -117,8 +73,7 @@ final class SessionFileRouter: Sendable {
             state.uuidToContext[sessionID] = newCtx
             return newCtx
         }
-        // 迁移旧位置数据（若本次为进程首次触达会话目录），再确保新目录存在。
-        Self.migrateLegacySessionsOnce()
+        // 确保新目录存在。
         ensureHostDirs(for: sessionID)
         return ctx
     }
@@ -169,8 +124,6 @@ final class SessionFileRouter: Sendable {
     /// 会话宿主根目录（Swift 侧工具直接读写用，如 attachments / 产物下载）。
     /// 首次访问时若目录缺失会自动补齐。
     func sessionHostDirectory(for sessionID: UUID) -> URL {
-        // 迁移旧位置数据（若本次为进程首次触达会话目录），再解析新目录。
-        Self.migrateLegacySessionsOnce()
         let base = Self.sessionsHostBase.appendingPathComponent(sessionID.uuidString, isDirectory: true)
         if !FileManager.default.fileExists(atPath: base.path) {
             ensureHostDirs(for: sessionID)

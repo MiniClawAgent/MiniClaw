@@ -62,37 +62,12 @@ enum ProviderFileStore {
             .appendingPathComponent(fileName)
     }
 
-    /// 上一轮迁移旧路径（Documents/MiniClaw/models/providers.json）。
-    static var legacyModelsFileURL: URL {
-        FileSystemManager.shared.modelsDir
-            .appendingPathComponent(fileName)
-    }
-
-    /// 更早的迁移旧路径（Documents/MiniClaw/providers.json）。
-    static var legacyRootFileURL: URL {
-        FileSystemManager.shared.miniClawRoot
-            .appendingPathComponent(fileName)
-    }
-
-    /// 读取数据：优先 config 新路径；缺失时回退 models/ 与根层旧路径并迁移。
-    /// 明文 apiKey 在迁移时写入 Keychain，内存态回填供运行时使用。
+    /// 读取数据：从 config 路径解码；缺失时用种子初始化。
+    /// 明文 apiKey 在加载时写入 Keychain，内存态回填供运行时使用。
     static func load() -> ProvidersContainer {
-        let fileManager = FileManager.default
-
         let container: ProvidersContainer
         if let c = decode(from: fileURL) {
             container = migrateContainer(c)
-            cleanupLegacyIfMatches(container)
-        } else if let legacy = decode(from: legacyModelsFileURL) {
-            container = migrateContainer(legacy)
-            if persist(container, to: fileURL) {
-                try? fileManager.removeItem(at: legacyModelsFileURL)
-            }
-        } else if let legacy = decode(from: legacyRootFileURL) {
-            container = migrateContainer(legacy)
-            if persist(container, to: fileURL) {
-                try? fileManager.removeItem(at: legacyRootFileURL)
-            }
         } else {
             container = ProvidersContainer(
                 providers: seedProviders(),
@@ -236,17 +211,6 @@ enum ProviderFileStore {
             container.providers[i] = p
         }
         return container
-    }
-
-    /// 当 config 新文件已就位且与旧文件内容一致时，清理旧明文遗留（best-effort）。
-    private static func cleanupLegacyIfMatches(_ migrated: ProvidersContainer) {
-        let fileManager = FileManager.default
-        for legacyURL in [legacyModelsFileURL, legacyRootFileURL] {
-            guard fileManager.fileExists(atPath: legacyURL.path),
-                  let legacy = decode(from: legacyURL),
-                  legacy == migrated else { continue }
-            try? fileManager.removeItem(at: legacyURL)
-        }
     }
 
     private static func decode(from url: URL) -> ProvidersContainer? {

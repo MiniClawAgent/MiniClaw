@@ -103,7 +103,6 @@
 		43084BA37A32DE2CDC689E13C3CB034F /* AssistantSegment.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8F5F71E45D9943FA43E8AB2875D52F1 /* AssistantSegment.swift */; };
 		44BCAF059CE8C62B8218891B1A0AF215 /* ChatSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = C63E151D1E5F79070BC9DBD6FDF8A8D4 /* ChatSession.swift */; };
 		4584CC9AE3A3FD3272CBC6E1171F04C9 /* HomeScreenWidgets.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B7E201B3E19794C76B4F50DE33431CD /* HomeScreenWidgets.swift */; };
-		46F3909222F70412EC294A82686A23A1 /* SessionsSQLiteMigrator.swift in Sources */ = {isa = PBXBuildFile; fileRef = F499E6F988EBC5B4BCBFFDA3DBFB3346 /* SessionsSQLiteMigrator.swift */; };
 		482A1F8321784744C3781DBDC1F824F5 /* OAuthManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 779E8DF07AA1AC95351EF1EF4393ADF0 /* OAuthManager.swift */; };
 		48A5CA9EAAF1094356848DD2AA52D1A6 /* DocumentTool.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6707885FB2B9771A87A06BA8CC5F85E /* DocumentTool.swift */; };
 		497DE4996008C7BE55052CED8ACEA3AF /* AgentError.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2F7731B092F54B5EEF1B39677F35156 /* AgentError.swift */; };
@@ -140,7 +139,6 @@
 		5A451E9ED5A96A8BA0FD347193FBF713 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 1CDAA42698A74E8ACCDA3869541D8562 /* Localizable.xcstrings */; };
 		5B0B9C7BECEC23D3698A510A0710CA9E /* MTMathUILabel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D2481DDD3ED8AAF576DA8B06F5F7EE8 /* MTMathUILabel.swift */; };
 		5B4CD5C0666F323F2AB75AC1AB724846 /* 用户使用协议.md in Resources */ = {isa = PBXBuildFile; fileRef = 16142978646F1EAA382427EC5D2A0913 /* 用户使用协议.md */; };
-		5B9992FD3DE6BC49C09C27F79E3A2E9C /* LegacySwiftDataMigrator.swift in Sources */ = {isa = PBXBuildFile; fileRef = BFF4F3FB016E7D393EB0EE0C4199BAC6 /* LegacySwiftDataMigrator.swift */; };
 		5BA4A77CBEFA24BD873802FC68ABBC53 /* mathFonts.bundle in Resources */ = {isa = PBXBuildFile; fileRef = 09991F2E805D9EECC44DFEDD2BEF6A66 /* mathFonts.bundle */; };
 		5BD0F3C3E661273A60A99BB9AEC4D0D2 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F75B223CFCEA5912307F4BEBF7A58AE /* SettingsView.swift */; };
 		5D09B2B43300977A2854E966EBA80957 /* LocationTools.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33396DD8FDA227BF415FD19D6DE6B441 /* LocationTools.swift */; };
@@ -709,7 +707,6 @@
 		BF14C902B02C35EEB37AFB24353BE0B5 /* MCPSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MCPSettingsView.swift; sourceTree = "<group>"; };
 		BF1FE22DCCAB6D4274829097F8A05E14 /* BrowserSubviews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserSubviews.swift; sourceTree = "<group>"; };
 		BF595E2FD0AD6CDB246D2C858838E70D /* FileBrowserModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileBrowserModels.swift; sourceTree = "<group>"; };
-		BFF4F3FB016E7D393EB0EE0C4199BAC6 /* LegacySwiftDataMigrator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LegacySwiftDataMigrator.swift; sourceTree = "<group>"; };
 		BFFEB106AA00A20F61A47507A16B5FB9 /* tasklist.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = tasklist.h; sourceTree = "<group>"; };
 		C12A1DF6A1762E6477D3190BF7E5F0E3 /* ProviderImportHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProviderImportHelper.swift; sourceTree = "<group>"; };
 		C1430B08C0843C0CA182B05CE6098BF9 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
@@ -804,7 +801,6 @@
 		F2DBCCFFA5F5317A71E7F5F18F813E02 /* FileTools.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileTools.swift; sourceTree = "<group>"; };
 		F3CD1C0D7B63C9A53F8535768B86884E /* MiniClawResourceMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MiniClawResourceMonitor.swift; sourceTree = "<group>"; };
 		F4448CFFE03D1DD28B6B78F365739A73 /* ToolProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolProtocol.swift; sourceTree = "<group>"; };
-		F499E6F988EBC5B4BCBFFDA3DBFB3346 /* SessionsSQLiteMigrator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionsSQLiteMigrator.swift; sourceTree = "<group>"; };
 		F4BEE88F57DCCF05CF8C30F3BDFF7147 /* ToolCardWindowPresenter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolCardWindowPresenter.swift; sourceTree = "<group>"; };
 		F5251B578A483D30D7C656695192FB57 /* MarkdownPrepRegex.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownPrepRegex.swift; sourceTree = "<group>"; };
 		F5C76925A1A0B68200AF6C42668341A5 /* SubAgentProfile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubAgentProfile.swift; sourceTree = "<group>"; };
@@ -1226,7 +1222,6 @@
 				E30DB5ECF2F3BA83096FD25F2302FB7E /* FileSystemTypes.swift */,
 				C84EEE4831F59E6151BB01DE63195770 /* GeminiModels.swift */,
 				117628F90FD692DA8E78629996734C04 /* JSONSchema.swift */,
-				BFF4F3FB016E7D393EB0EE0C4199BAC6 /* LegacySwiftDataMigrator.swift */,
 				446FDEFFEE82F2F70BCDD2FC659415F3 /* LinuxShellRuntime.swift */,
 				D4DBAF92775F90C10EE09DC9C7C989AB /* LLMClient.swift */,
 				3CD3C48965814103DB76F73A215B9BA2 /* MarkdownCacheStore.swift */,
@@ -1543,7 +1538,6 @@
 		F85ACD40B6721D94D760A6ECF1C92D23 /* Storage */ = {
 			isa = PBXGroup;
 			children = (
-				F499E6F988EBC5B4BCBFFDA3DBFB3346 /* SessionsSQLiteMigrator.swift */,
 				09142C93CD35FCE44BDE9D03710B2A99 /* SQLiteStore.swift */,
 			);
 			path = Storage;
@@ -1969,7 +1963,6 @@
 				D8EB491CD32F454B4B3BA0DB5F8800FF /* LLMClient.swift in Sources */,
 				23C287CCD6045A6E8D734C199365B371 /* LLMProviderAdapter.swift in Sources */,
 				0AFBFABFE1458EC868049C31070FD8A1 /* LLMProviderFactory.swift in Sources */,
-				5B9992FD3DE6BC49C09C27F79E3A2E9C /* LegacySwiftDataMigrator.swift in Sources */,
 				ACC1D353C5AEBD3551374668361C4D1B /* LinuxShellRuntime.swift in Sources */,
 				145A767DF3C06F9B022C3D26054822CE /* Localization.swift in Sources */,
 				5D09B2B43300977A2854E966EBA80957 /* LocationTools.swift in Sources */,
@@ -2052,7 +2045,6 @@
 				C97A43BCE4B7989B4FE92767EDEE1CE9 /* SessionManager.swift in Sources */,
 				7874E993831F385CCCD2D1212473BD5A /* SessionReviewService.swift in Sources */,
 				8EA264CA56B0B98EDD6A3CDB16DE200B /* SessionRowView.swift in Sources */,
-				46F3909222F70412EC294A82686A23A1 /* SessionsSQLiteMigrator.swift in Sources */,
 				93FC6C980E26C4F30DAD7842C7218D0E /* SessionsTool.swift in Sources */,
 				F2427DF218B64D7D92B53513B388B4F4 /* SettingsGroupViews.swift in Sources */,
 				3F7B009A183184C8C4C6BDEA38BE62F4 /* SettingsMenuView.swift in Sources */,

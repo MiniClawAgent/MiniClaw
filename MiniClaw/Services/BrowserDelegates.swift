@@ -71,9 +71,7 @@ final class BrowserTab: NSObject {
         wv.isOpaque = false
         wv.backgroundColor = .systemBackground
         wv.scrollView.backgroundColor = .systemBackground
-        if #available(iOS 15.0, *) {
-            wv.underPageBackgroundColor = .systemBackground
-        }
+        wv.underPageBackgroundColor = .systemBackground
     }
 
     /// 新 init：接受外部 WKWebViewConfiguration（从 BrowserContext 传入，带隔离的 dataStore）

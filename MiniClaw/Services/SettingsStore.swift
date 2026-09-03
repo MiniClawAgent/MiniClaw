@@ -43,44 +43,12 @@ final class SettingsStore: ObservableObject {
     private var auditLog: [AuditEntry] = []
 
     private init() {
-        let base = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("MiniClaw", isDirectory: true)
-        let configDir = base.appendingPathComponent("config")
-        let legacyFileURL = base.appendingPathComponent("settings.json")
-        let legacyAuditURL = base.appendingPathComponent("settings_audit.json")
+        let configDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("MiniClaw/config", isDirectory: true)
         self.fileURL = configDir.appendingPathComponent("settings.json")
         self.auditURL = configDir.appendingPathComponent("settings_audit.json")
-        // 优先 config 新路径；缺失时回退根层旧文件（兼容迁移前布局）。
         self.settings = SettingsStore.loadSettings(from: fileURL)
         self.auditLog = SettingsStore.loadAudit(from: auditURL)
-        // 把根层旧文件搬到 config/（config 已存在则跳过，避免覆盖新数据）。
-        SettingsStore.migrateIfNeeded(from: legacyFileURL, to: fileURL)
-        SettingsStore.migrateIfNeeded(from: legacyAuditURL, to: auditURL)
-
-        // 迁移兜底：soul.name 旧默认值与种子文件保持一致(历史脏值兼容已移除,
-        // 旧设备上的历史脏名不再归正——按用户要求不再兼容旧数据)。
-
-        // 一次性迁移：记忆类功能（向量召回 / 跨对话近况摘要）改为「首次安装默认关闭，由用户自行开启」。
-        // 仅对沿用旧默认 true 的已安装设备归正为关闭；标记置位后不再重复执行，
-        // 不覆盖用户后续手动开关，也避免每次启动都重写配置。
-        let memoryDefaultsOffKey = "migratedMemoryDefaultsOffV1"
-        if !UserDefaults.standard.bool(forKey: memoryDefaultsOffKey) {
-            settings.memory.embeddingEnabled = false
-            UserDefaults.standard.set(true, forKey: memoryDefaultsOffKey)
-            save()
-        }
-    }
-
-    /// 当目标 config 文件不存在且旧根层文件存在时，把它移动到 config/。
-    private static func migrateIfNeeded(from legacy: URL, to config: URL) {
-        let fileManager = FileManager.default
-        guard !fileManager.fileExists(atPath: config.path),
-              fileManager.fileExists(atPath: legacy.path) else { return }
-        try? fileManager.createDirectory(
-            at: config.deletingLastPathComponent(),
-            withIntermediateDirectories: true
-        )
-        try? fileManager.moveItem(at: legacy, to: config)
     }
 
     // MARK: - 读写配置

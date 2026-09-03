@@ -208,12 +208,7 @@ final class PermissionManager: @unchecked Sendable {
     }
 
     private static func photosStatus() -> PermissionState {
-        let s: PHAuthorizationStatus
-        if #available(iOS 14, *) {
-            s = PHPhotoLibrary.authorizationStatus(for: .readWrite)
-        } else {
-            s = PHPhotoLibrary.authorizationStatus()
-        }
+        let s: PHAuthorizationStatus = PHPhotoLibrary.authorizationStatus(for: .readWrite)
         switch s {
         case .authorized, .limited: return .authorized
         case .denied, .restricted:  return .denied
