@@ -7,7 +7,7 @@ import UserNotifications
 // MARK: - 1. apple-alarm
 
 // 注：apple-alarm 已移除——iOS 没有第三方读写系统闹钟的公开 API
-// （OpenMinis 支持它是因为 macOS/快捷指令侧另有通路，iOS 照搬不了）。
+// （macOS/快捷指令侧另有通路，iOS 照搬不了）。
 // 定时提醒需求走 `apple-notification`（本地通知）或 `apple-reminders`。
 
 // MARK: - 2. apple-bluetooth (CoreBluetooth)

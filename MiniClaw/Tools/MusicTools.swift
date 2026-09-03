@@ -20,7 +20,7 @@ private struct MusicOutcome: Sendable {
 ///
 /// ## 读「正在播放」用 MPNowPlayingInfoCenter 而非 systemMusicPlayer.nowPlayingItem
 /// `nowPlayingItem` 的解档会触发一次媒体库 DSID 查询，在最坏情况下能把主线程拖到
-/// 看门狗超时（OpenMinis 就踩过 0x8BADF00D）。`MPNowPlayingInfoCenter` 给的是
+/// 看门狗超时（0x8BADF00D）。`MPNowPlayingInfoCenter` 给的是
 /// 系统当前播放信息字典——读起来轻，且**对任何正在播放的 App 都有效**，
 /// 而不是只认系统音乐播放器。播放状态仍取自 `systemMusicPlayer.playbackState`。
 ///

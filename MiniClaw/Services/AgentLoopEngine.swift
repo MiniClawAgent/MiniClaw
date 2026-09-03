@@ -25,7 +25,10 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
     nonisolated(unsafe) static var progressBuffers: [String: String] = [:]
     nonisolated(unsafe) static var progressLastFlush: [String: Date] = [:]
     static let progressMaxChars = 30_000
-    /// 分层节流（借鉴 OpenMinis 思考流 flush tier 表的方法）：短内容响应优先，长内容降频。
+    /// 单批并发执行的工具上限（批内并发、批间串行）：模型一次返回大量调用时，
+    /// 全量 fan-out 会同时 fork 等量 iSH 进程并推高峰值内存。
+    static let maxConcurrentTools = 10
+    /// 分层节流：短内容响应优先，长内容降频。
     static func progressFlushInterval(forLength length: Int) -> TimeInterval {
         switch length {
         case ..<1_000: return 0.3
@@ -1676,14 +1679,20 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
         for (offset, call) in calls.enumerated() {
             if order[call.id] == nil { order[call.id] = offset }
         }
-        return await withTaskGroup(of: (ToolCall, ToolResult).self) { group in
-            for tc in calls {
-                group.addTask { (tc, await self.executeTool(tc)) }
+        var collected: [(ToolCall, ToolResult)] = []
+        // 分批并发（批内并发、批间串行），上限 maxConcurrentTools。
+        for start in stride(from: 0, to: calls.count, by: Self.maxConcurrentTools) {
+            let batch = Array(calls[start..<min(start + Self.maxConcurrentTools, calls.count)])
+            collected += await withTaskGroup(of: (ToolCall, ToolResult).self) { group in
+                for tc in batch {
+                    group.addTask { (tc, await self.executeTool(tc)) }
+                }
+                var out: [(ToolCall, ToolResult)] = []
+                for await pair in group { out.append(pair) }
+                return out
             }
-            var collected: [(ToolCall, ToolResult)] = []
-            for await pair in group { collected.append(pair) }
-            return collected.sorted { (order[$0.0.id] ?? 0) < (order[$1.0.id] ?? 0) }
         }
+        return collected.sorted { (order[$0.0.id] ?? 0) < (order[$1.0.id] ?? 0) }
     }
 
     /// 把工具调用的原始参数 JSON 转成一句话人类可读的操作摘要，供确认框展示

@@ -4,7 +4,7 @@ import MiniClawKit
 /// 工具执行上下文（直接引用架构）：内持 AssistantBlock 引用，
 /// 参数流式/执行中输出/结果落定全部由执行逻辑直接写到 block 上，
 /// 经 @Published 驱动指示器与浮层实时刷新——不存在事件转换层与 id 配对。
-/// （方法借鉴 OpenMinis「执行中直接写 block」的思路，实现为 MiniClaw 自有代码。）
+/// 相比「事件广播 + id 配对」，直接持有 block 引用天然免疫索引失效与重复事件。
 final class ToolExecution: @unchecked Sendable {
     let block: MiniClawKit.AssistantBlock
     let name: String

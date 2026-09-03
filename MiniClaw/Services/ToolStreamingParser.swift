@@ -1,7 +1,7 @@
 import Foundation
 
 /// 工具参数流式解析：从未收完的部分 JSON 中提取「主参数」的部分字符串值。
-/// 方法借鉴 OpenMinis（SSE 增量上抛 + 部分值提取），实现为 MiniClaw 自有代码。
+/// 由 SSE 增量上抛 + 部分值提取驱动，无需等待参数完整。
 /// 用途：AI 正在生成 file_write 的 content / file_edit 的 old_string / shell 的 command
 /// 等长参数时，卡片实时显示已生成的部分，而不是等到参数完整才一次性出现。
 enum ToolStreamingParser {

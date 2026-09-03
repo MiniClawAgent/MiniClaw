@@ -16,7 +16,7 @@ import UIKit
 // 本地完成页。被否决的方案：ASWebAuthenticationSession（其 Safari 视图服务强制
 // HTTPS-only，真机实测 ATS 拒绝 loopback 导航；iOS 17.4 的 Callback.https 拦截未经验
 // 证且不覆盖 iOS 16）；自定义 scheme（ARDOT 实测 400）。
-// —— 借鉴 OpenMinis（App Store 在架验证：SFSafariVC + 本地 server 在 iOS 16+ 可过审）。
+// —— App Store 在架验证：SFSafariVC + 本地 server 在 iOS 16+ 可过审。
 //
 // 流程：连接/刷新收到 401 → 标记 requiresAuthorization → 列表显示「认证」按钮 →
 // 发现授权服务器 → 动态注册客户端 → PKCE 授权码流 → code 换 token →
@@ -192,7 +192,7 @@ final class MCPOAuthManager: NSObject, ObservableObject, SFSafariViewControllerD
     private var safariVC: SFSafariViewController?
     /// loopback 回调监听（授权完成时浏览器真实导航到 127.0.0.1:18231，本地收码）。
     private var loopbackListener: NWListener?
-    /// 授权流程 300s 超时兜底（借鉴 OpenMinis）：防止授权页被搁置后无限挂起/占用端口。
+    /// 授权流程 300s 超时兜底：防止授权页被搁置后无限挂起/占用端口。
     private var flowTimeoutTask: Task<Void, Never>?
 
     private var stateValue = ""
@@ -205,7 +205,7 @@ final class MCPOAuthManager: NSObject, ObservableObject, SFSafariViewControllerD
     // ⚠️ 必须用主机名 localhost、不能用数字 IP 127.0.0.1：iOS 26 的 Safari 视图服务
     // （SFSafariViewController/ASWebAuthenticationSession 同源）强制 HTTPS-only，
     // 但对 localhost 主机名有本地豁免——127.0.0.1 实测被拦（2026-09-02 真机），
-    // OpenMinis 全线用 localhost 在架可用。自定义 scheme 也被 ARDOT 400（实测）。
+    // 全线用 localhost 在架可用。自定义 scheme 也被 ARDOT 400（实测）。
     static let redirectScheme = "http"
     static let redirectHost = "localhost"
     static let redirectPort = 18231
@@ -375,7 +375,7 @@ final class MCPOAuthManager: NSObject, ObservableObject, SFSafariViewControllerD
         safariVC = vc
     }
 
-    /// 授权流程 300s 超时兜底（借鉴 OpenMinis）。
+    /// 授权流程 300s 超时兜底。
     private func startFlowTimeout() {
         flowTimeoutTask?.cancel()
         flowTimeoutTask = Task { [weak self] in
@@ -440,7 +440,7 @@ final class MCPOAuthManager: NSObject, ObservableObject, SFSafariViewControllerD
         guard loopbackListener != nil else { connection.cancel(); return }
         // ⚠️ NWConnection 必须显式 start 才会产生 receive 回调——漏掉则连接被接受
         // 但永远读不到请求数据（2026-09-02 ARDOT 实测卡「授权已完成」页的根因；
-        // OpenMinis 的 POSIX socket 版 accept 后可直接 read，无此要求）。
+        // POSIX socket 版 accept 后可直接 read，无此要求）。
         connection.stateUpdateHandler = { state in
             if case .failed(let error) = state {
                 AppLogger.shared.error("[MCP-OAuth] loopback 连接失败: \(error.localizedDescription)")

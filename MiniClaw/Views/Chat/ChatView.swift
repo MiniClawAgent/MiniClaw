@@ -12,6 +12,10 @@ struct ChatView: View {
     @EnvironmentObject private var appState: AppState
 
     @ObservedObject var session: ChatSession
+    /// 子代理仓库的订阅：头像条读的是它的 `cards`，必须建立观察关系，
+    /// 否则 `startSubagent` 发出的 objectWillChange 无人接收，头像要等下一次
+    /// 无关状态变化触发重绘才出现（表现为「唤起子代理后没有第一时间显示」）。
+    @ObservedObject private var subagentStore = SubagentStore.shared
 
     @State private var inputText: String = ""
     /// 外部向输入框注入文本的通道（斜杠命令插入/清空/草稿恢复）：
@@ -699,7 +703,7 @@ struct ChatView: View {
         // 子代理：在输入框上方悬浮显示圆形头像（常驻，任务完成后也不消失）。
         // 点按头像从底部弹出「智能体 ↔ 子代理」对话详情页（下滑返回）；
         // 长按头像可移除该子代理卡片。
-        let subs = SubagentStore.shared.avatars(for: session.id)
+        let subs = subagentStore.avatars(for: session.id)
         if !subs.isEmpty {
             subagentFloatingAvatars(subs)
         }
@@ -1210,7 +1214,7 @@ struct ChatView: View {
             HStack(spacing: 12) {
                 ForEach(subs) { sub in
                     Button {
-                        if let conv = SubagentStore.shared.conversation(for: session.id, subagentID: sub.id) {
+                        if let conv = subagentStore.conversation(for: session.id, subagentID: sub.id) {
                             activeSubagentConversation = conv
                         }
                     } label: {
