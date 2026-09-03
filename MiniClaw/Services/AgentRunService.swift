@@ -333,6 +333,20 @@ final class AgentRunService {
                 } else {
                     argsStr = "\(args)"
                 }
+                // ⚠️ upsert 而非 append（2026-09-03 实锤）：参数流式期间
+                // onToolCallStreaming 已创建占位事件（同 callID）——定稿无条件 append
+                // 会造成「占位永停 running + 定稿重复标 failed 红 X + 重进多出完成态」。
+                if let idx = runtime.streamingToolCalls.firstIndex(where: { $0.callID == callID }) {
+                    runtime.streamingToolCalls[idx].arguments = argsStr
+                    return
+                }
+                // ⚠️ upsert 而非 append（2026-09-03 实锤）：参数流式期间
+                // onToolCallStreaming 已创建占位事件（同 callID）——定稿无条件 append
+                // 会造成「占位永停 running + 定稿重复标 failed 红 X + 重进多出完成态」。
+                if let idx = runtime.streamingToolCalls.firstIndex(where: { $0.callID == callID }) {
+                    runtime.streamingToolCalls[idx].arguments = argsStr
+                    return
+                }
                 let pos = runtime.streamingContent.count
                 let order = runtime.nextTimelineOrder
                 runtime.nextTimelineOrder += 1
