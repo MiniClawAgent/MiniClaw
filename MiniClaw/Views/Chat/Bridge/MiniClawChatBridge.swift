@@ -118,7 +118,7 @@ final class MiniClawChatBridge: ObservableObject {
         let messages = sorted.map { bridgedMessage(for: $0) }
         // 流式实时合并(SwiftData 终态落盘,流式中 content 不更新):
         // 把 runtime 的实时缓冲(正文 streamingContent、思考段
-        // streamingReasoningSegments、工具调用 streamingToolCalls)合并进
+        // streamingReasoningSegments、工具调用 streamingToolExecutions)合并进
         // 最后一条 assistant 消息,按 timelineOrder 交错插入 blocks——
         // 实现「思考指示器 → 工具指示器 → 正文」流式中依次实时出现,
         // 不再等终态落盘一次性吐出(2026-08-10 修复)。

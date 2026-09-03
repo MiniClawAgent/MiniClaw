@@ -332,6 +332,20 @@ final class AgentRunService {
                 runtime.registerStreamingToolExecution(exec, order: Double(order))
             }
         }
+        // 直接引用架构：挂载执行上下文（分配位置与顺序），落盘收集也在 runtime。
+        engine.onToolExecutionBegin = { [weak runtime] exec in
+            MainActor.assumeIsolated {
+                guard let runtime, runtime.streamingMessageID == responseMessageID else { return }
+                if runtime.retryState != nil {
+                    runtime.retryState = nil
+                    runtime.taskStartOrResume()
+                }
+                exec.position = Int(runtime.streamingContent.count)
+                let order = runtime.nextTimelineOrder
+                runtime.nextTimelineOrder += 1
+                runtime.registerStreamingToolExecution(exec, order: Double(order))
+            }
+        }
         engine.onComplete = { [weak engine, session, assistantMessage, weak runtime] in
             MainActor.assumeIsolated {
                 guard let runtime, runtime.streamingMessageID == responseMessageID else {

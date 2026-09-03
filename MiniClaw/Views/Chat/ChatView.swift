@@ -1349,11 +1349,11 @@ struct ChatView: View {
 
         let stoppedAt = Date()
         // 只标记当前仍未返回结果的工具；此前已完成/失败的工具保留原状态。
-        for index in runtime.streamingToolCalls.indices where runtime.streamingToolCalls[index].resultText.isEmpty {
-            runtime.streamingToolCalls[index].wasInterrupted = true
-            runtime.streamingToolCalls[index].resultText = L10n.l("user_stopped")
-            runtime.streamingToolCalls[index].success = false
-            runtime.streamingToolCalls[index].duration = stoppedAt.timeIntervalSince(runtime.streamingToolCalls[index].timestamp)
+        for index in runtime.streamingToolExecutions.indices where runtime.streamingToolExecutions[index].resultText.isEmpty {
+            runtime.streamingToolExecutions[index].wasInterrupted = true
+            runtime.streamingToolExecutions[index].resultText = L10n.l("user_stopped")
+            runtime.streamingToolExecutions[index].success = false
+            runtime.streamingToolExecutions[index].duration = stoppedAt.timeIntervalSince(runtime.streamingToolExecutions[index].timestamp)
         }
 
         if let sid = runtime.streamingMessageID,
@@ -1369,8 +1369,8 @@ struct ChatView: View {
             }
             // 任务总耗时：用户停止即终态，结算耗时（暂停态停止同样覆盖；断点恢复任务不显示）。
             if !runtime.taskTimingInvalid, msg.taskElapsedSeconds == nil { msg.taskElapsedSeconds = runtime.taskSettle() }
-            if !runtime.streamingToolCalls.isEmpty {
-                msg.toolCalls = runtime.streamingToolCalls
+            if !runtime.streamingToolExecutions.isEmpty {
+                msg.toolCalls = runtime.streamingToolExecutions
             }
         }
         runtime.isResponding = false
@@ -1502,7 +1502,7 @@ struct ChatView: View {
         runtime.taskTimingInvalid = true
         // 重建完整性（2026-08-08 修复）：把已落盘的工具卡/思考段/时间线序号回填进新 runtime，
         // 否则渲染时 effectiveToolCalls 优先取 runtime 空数组 → 已完成的工具卡/思考块被遮蔽消失。
-        runtime.streamingToolCalls = bubble.toolCalls
+        runtime.streamingToolExecutions = bubble.toolCalls
         runtime.streamingReasoningSegments = bubble.reasoningSegments
         // 2026-08-12 修复:旧数据/停止时未落盘思考段的场景,bubble.reasoningSegments 为空时
         // 从检查点 task.messages 的最后一条 assistant 消息提取 reasoning_content 重建思考段,

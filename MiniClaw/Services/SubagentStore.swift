@@ -273,7 +273,7 @@ final class SubagentStore: ObservableObject {
         scheduleFlush()
     }
 
-    /// 子代理工具调用：挂到「当前回复」上（与主线 streamingToolCalls 同语义）。
+    /// 子代理工具调用：挂到「当前回复」上（与主线 streamingToolExecutions 同语义）。
     /// position 修正：与主会话一致 = 事件发生时「已输出正文长度」（主会话用
     /// streamingContent.count）。原实现硬编码 0 导致 MessageBubbleView 的
     /// 文本片段插入逻辑失效（entryPos > textCursor 恒 false）→ 思考/工具卡全部
