@@ -335,8 +335,12 @@ final class OpenAIStreamDelegate: NSObject, URLSessionDataDelegate, @unchecked S
         // 成功:按首次出现顺序统一发出累积的工具调用(旧路径 toolCallKeyOrder 语义)。
         for key in toolCallOrder {
             if let tc = accumulatedToolCalls[key] {
+                // id 兜底与 streaming emit 一致（兼容端点 delta 常不回传 id）：
+                // 否则 streaming 占位（callID=key）与定稿（callID=""）配对失败，
+                // 占位永远 running + 定稿重复 append（2026-09-03 实锤：browser 工具
+                // 「执行中不刷新 + 重进后多出三个完成态」的根因）。
                 onEvent?(.toolCall(ToolCall(
-                    id: tc.id,
+                    id: tc.id.isEmpty ? key : tc.id,
                     type: "function",
                     function: ToolCall.ToolCallFunction(name: tc.name, arguments: tc.arguments)
                 )))

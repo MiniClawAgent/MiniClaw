@@ -186,8 +186,9 @@ final class AnthropicStreamDelegate: NSObject, URLSessionDataDelegate, @unchecke
             // flush accumulated tool calls(与旧实现一致:message_stop 时统一发出)。
             for key in accumulatedToolCalls.keys.sorted() {
                 guard let tc = accumulatedToolCalls[key] else { continue }
+                // id 兜底与 streaming emit 一致（String(key)）——防配对断裂（同 OpenAI 侧注释）。
                 onEvent?(.toolCall(ToolCall(
-                    id: tc.id,
+                    id: tc.id.isEmpty ? String(key) : tc.id,
                     type: "function",
                     function: ToolCall.ToolCallFunction(name: tc.name, arguments: tc.arguments)
                 )))

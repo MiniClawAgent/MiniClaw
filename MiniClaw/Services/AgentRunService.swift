@@ -385,7 +385,14 @@ final class AgentRunService {
                 guard let runtime, runtime.streamingMessageID == responseMessageID else { return }
                 // 按模型调用 id 精确配对（源头修复 2026-08-08）：并发同名工具（如多个 browser）
                 // 若按 name+空槽匹配，先完成的结果会填进「最后一个空槽」导致结果串台。
-                if let idx = runtime.streamingToolCalls.firstIndex(where: { $0.callID == callID }) {
+                // 回退链（2026-09-03）：callID 未命中 → 同名且结果为空的占位（防御第三方端点
+                // streaming/定稿 id 不一致——占位永停 running+定稿重复 append 的双保险）。
+                let matchedIdx = runtime.streamingToolCalls.firstIndex(where: { $0.callID == callID })
+                    ?? runtime.streamingToolCalls.firstIndex(where: {
+                        $0.name == name && $0.callID == callID && $0.resultText.isEmpty
+                    })
+                    ?? runtime.streamingToolCalls.firstIndex(where: { $0.name == name && $0.resultText.isEmpty })
+                if let idx = matchedIdx {
                     runtime.streamingToolCalls[idx].resultText = result.text
                     runtime.streamingToolCalls[idx].success = result.success
                     runtime.streamingToolCalls[idx].duration = duration
