@@ -67,6 +67,14 @@ enum TokenUsageTracker {
         SettingsStore.shared.settings.sessionTokenUsage?[id.uuidString]
     }
 
+    /// 会话删除时清理其用量条目：与 SubagentStore/ContextUsageStore 等会话级数据
+    /// 的清理同批执行，防止 settings.json 里的按会话条目只增不减。
+    static func clearSession(sessionID: UUID) {
+        guard SettingsStore.shared.settings.sessionTokenUsage?[sessionID.uuidString] != nil else { return }
+        SettingsStore.shared.settings.sessionTokenUsage?[sessionID.uuidString] = nil
+        SettingsStore.shared.save()
+    }
+
     /// 清空全部用量统计（今日 / 本月 / 按模型）。
     static func reset() {
         SettingsStore.shared.settings.tokenUsage = TokenUsageStats()

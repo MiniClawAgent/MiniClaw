@@ -128,6 +128,7 @@ final class SessionManager: ObservableObject {
         }
         SubagentStore.shared.clearSession(sid)
         ContextUsageStore.shared.clear(sessionID: sid)
+        TokenUsageTracker.clearSession(sessionID: sid)
         ToolConfirmationBridge.shared.revokeSession(sessionID: sid)
         BackgroundTaskController.shared.endSessionActivity(sessionID: sid.uuidString)
     }
@@ -182,6 +183,7 @@ final class SessionManager: ObservableObject {
         }
         SubagentStore.shared.clearSession(id)
         ContextUsageStore.shared.clear(sessionID: id)
+        TokenUsageTracker.clearSession(sessionID: id)
         ToolConfirmationBridge.shared.revokeSession(sessionID: id)
         BackgroundTaskController.shared.endSessionActivity(sessionID: id.uuidString)
         return true
