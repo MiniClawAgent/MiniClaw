@@ -149,7 +149,7 @@ struct ChatInputBar: View {
             }
         }
         .padding(.horizontal, 16)
-        .padding(.bottom, 10)
+        .padding(.bottom, 8)
         // 自测高度（含 10pt 底距）：斜杠菜单覆盖层的底部偏移基准。
         .onGeometryChange(for: CGFloat.self) { proxy in
             proxy.size.height
@@ -163,6 +163,9 @@ struct ChatInputBar: View {
                 SlashCommandOverlay(filter: slashFilter, commands: allSlashCommands) { cmd in
                     selectSlashCommand(cmd)
                 }
+                // 宽度对齐输入框（同样 16pt 横向边距）；底距 = barHeight(含 8pt 外层底距)
+                // → 菜单底边与输入框顶边之间恰好 8pt。
+                .padding(.horizontal, 16)
                 .padding(.bottom, barHeight)
                 .transition(.move(edge: .bottom).combined(with: .opacity))
                 .animation(.spring(response: 0.3, dampingFraction: 0.85), value: slashMenuVisible)
