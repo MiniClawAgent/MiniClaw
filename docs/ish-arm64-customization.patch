@@ -1,5 +1,5 @@
---- /tmp/ishom.881Stc/ish-arm64-master/app/ISHShellExecutor.h	2026-09-02 02:10:44
-+++ /Users/neartop/MiniClowDevelopment/第三方源码/ish-arm64/app/ISHShellExecutor.h	2026-09-03 23:54:07
+--- a/app/ISHShellExecutor.h
++++ b/app/ISHShellExecutor.h
 @@ -59,6 +59,15 @@
           lineCallback:(nullable ISHShellLineCallback)lineCallback
             completion:(nullable ISHShellCompletionCallback)completion;
@@ -31,8 +31,8 @@
  /// Execute a shell command and wait synchronously for completion
  /// @param command Shell command to execute
  /// @param timeout Maximum wait time in seconds (0 = no timeout)
---- /tmp/ishom.881Stc/ish-arm64-master/app/ISHShellExecutor.m	2026-09-02 02:10:44
-+++ /Users/neartop/MiniClowDevelopment/第三方源码/ish-arm64/app/ISHShellExecutor.m	2026-09-03 23:54:36
+--- a/app/ISHShellExecutor.m
++++ b/app/ISHShellExecutor.m
 @@ -12,9 +12,16 @@
  #include "kernel/init.h"
  #include "kernel/calls.h"
