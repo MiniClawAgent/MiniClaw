@@ -822,8 +822,10 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
             var invalidToolCalls: [ToolCall] = []
             for tc in collectedToolCalls {
                 let n = tc.function.name.trimmingCharacters(in: .whitespacesAndNewlines)
-                // 保留工具名 dispatch_subagent 虽不注册于 toolRouter，但由引擎拦截并派发子代理，视为有效。
-                if !n.isEmpty && (registeredNames.contains(n) || n == Self.subagentToolName) {
+                // 引擎保留工具 dispatch_subagent / close_subagent 不注册于 toolRouter，
+                // 由引擎拦截执行（buildToolSchemas 注入 schema、executeTool 分发），视为有效。
+                // close_subagent 此前漏列 → 父引擎提供的该工具调用恒被判无效、两轮熔断，从未成功执行。
+                if !n.isEmpty && (registeredNames.contains(n) || n == Self.subagentToolName || n == Self.closeSubagentToolName) {
                     validToolCalls.append(tc)
                 } else {
                     invalidToolCalls.append(tc)

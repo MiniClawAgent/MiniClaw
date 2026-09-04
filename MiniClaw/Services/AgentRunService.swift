@@ -367,6 +367,9 @@ final class AgentRunService {
                 session.updatedAt = Date()
                 runtime.isResponding = false
                 runtime.isPaused = false
+                // 终态清除消息级暂停标志：曾被暂停、续跑完成的回复不再残留「已暂停」横幅
+                // （该标志由 onPaused 落盘，终态不清除会在 runtime 销毁后经持久化值复活横幅）。
+                assistantMessage.isPaused = false
                 AppLogger.shared.info(String(format: L10n.l("agent_persist_oncomplete"), assistantMessage.content.count, assistantMessage.toolCalls.count, assistantMessage.reasoningSegments.count, assistantMessage.taskElapsedSeconds ?? -1), category: "Agent", subsystem: "Persist")
                 AppState.shared?.chatRuntimes[sessionID] = nil
                 // P1-4 升级：整轮 Agent 跑完（成功）后才回跳 x-success，并把回复文本交给等待中的快捷指令。
@@ -439,6 +442,9 @@ final class AgentRunService {
                 session.updatedAt = Date()
                 runtime.isResponding = false
                 runtime.isPaused = false
+                // 终态清除消息级暂停标志：否则曾被暂停的回复在完成后横幅复活
+                // （MiniClawChatBridge 在 runtime 销毁后回落读持久化的 message.isPaused）。
+                assistantMessage.isPaused = false
                 AppState.shared?.chatRuntimes[sessionID] = nil
                 // P1-4 升级：整轮 Agent 出错后才回跳 x-error。
                 if let cb = deepLinkCallback { AppState.shared?.fireDeepLinkError(cb.xError) }
@@ -542,6 +548,8 @@ final class AgentRunService {
                 session.updatedAt = Date()
                 runtime.isResponding = false
                 runtime.isPaused = false
+                // 终态清除消息级暂停标志（同 onComplete/onError，防横幅经持久化脏值复活）。
+                assistantMessage.isPaused = false
                 AppState.shared?.chatRuntimes[sessionID] = nil
                 // P1-4 升级：整轮 Agent 被中断（无有效内容 / 工具熔断等）后回跳 x-error。
                 if let cb = deepLinkCallback { AppState.shared?.fireDeepLinkError(cb.xError) }

@@ -1362,6 +1362,9 @@ struct ChatView: View {
             msg.content = runtime.streamingContent
             msg.isStreaming = false
             msg.wasStopped = true
+            // 终态清除消息级暂停标志：曾被暂停（isPaused 落盘）的回复被手动停止后，
+            // 不再残留「已暂停」横幅（与 AgentRunService 三条终态路径同口径）。
+            msg.isPaused = false
             // 2026-08-12 修复:停止也是终态,补落盘思考段(此前漏写,思考永久丢失
             // 且被打断会话重进后思考指示器消失)。对齐 onInterrupted 的落盘逻辑。
             msg.reasoningSegments = runtime.streamingReasoningSegments
