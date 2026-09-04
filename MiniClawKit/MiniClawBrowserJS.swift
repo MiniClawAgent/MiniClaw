@@ -10,12 +10,12 @@ enum BrowserUseJS {
         for ch in s {
             switch ch {
             case "\\": result += "\\\\"
-            case "'":  result += "\\'"
+            case "'": result += "\\'"
             case "\"": result += "\\\""
             case "\n": result += "\\n"
             case "\r": result += "\\r"
             case "\t": result += "\\t"
-            default:   result.append(ch)
+            default: result.append(ch)
             }
         }
         return result

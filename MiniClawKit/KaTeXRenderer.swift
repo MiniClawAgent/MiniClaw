@@ -93,7 +93,7 @@ extension KaTeXRenderer: WKScriptMessageHandler {
                     let off2 = midY*bpr+(cg.width/2)*(cg.bitsPerPixel/8)
                     let bpp = cg.bitsPerPixel/8
                     if off1+bpp <= CFDataGetLength(data) && off2+bpp <= CFDataGetLength(data) {
-                        logger.info("pixel@(10,\(midY)): \(ptr[off1]),\(ptr[off1+1]),\(ptr[off1+2]),\(ptr[off1+3])  pixel@(\(cg.width/2),\(midY)): \(ptr[off2]),\(ptr[off2+1]),\(ptr[off2+2]),\(ptr[off2+3])")
+                        logger.info("pixel@(10,\(midY)): \(ptr[off1]),\(ptr[off1+1]),\(ptr[off1+2]),\(ptr[off1+3]) pixel@(\(cg.width/2),\(midY)): \(ptr[off2]),\(ptr[off2+1]),\(ptr[off2+2]),\(ptr[off2+3])")
                     }
                 }
                 let isDark = UITraitCollection.current.userInterfaceStyle == .dark
@@ -128,8 +128,8 @@ extension KaTeXRenderer: WKScriptMessageHandler {
             let lum = (Int(r)+Int(g)+Int(b))/3
             let alpha = UInt8(255-lum)
             // Premultiplied: store color * alpha / 255. Color is white (255).
-            let pm = alpha  // 255 * alpha / 255 = alpha
-            pixels[i]   = pm
+            let pm = alpha // 255 * alpha / 255 = alpha
+            pixels[i] = pm
             pixels[i+1] = pm
             pixels[i+2] = pm
             pixels[i+3] = alpha
@@ -153,7 +153,7 @@ extension KaTeXRenderer: WKScriptMessageHandler {
             // White → transparent, dark → opaque
             let alpha = UInt8(255-lum)
             // Premultiply: store color * alpha / 255
-            pixels[i]   = UInt8(Int(r)*Int(alpha)/255)
+            pixels[i] = UInt8(Int(r)*Int(alpha)/255)
             pixels[i+1] = UInt8(Int(g)*Int(alpha)/255)
             pixels[i+2] = UInt8(Int(b)*Int(alpha)/255)
             pixels[i+3] = alpha

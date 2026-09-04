@@ -193,7 +193,7 @@ enum SwiftMathRenderer {
             ("\\Gamma", "Γ"), ("\\Delta", "Δ"), ("\\Theta", "Θ"), ("\\Lambda", "Λ"),
             ("\\Xi", "Ξ"), ("\\Pi", "Π"), ("\\Sigma", "Σ"), ("\\Phi", "Φ"),
             ("\\Psi", "Ψ"), ("\\Omega", "Ω"),
-            ("\\quad", "  "), ("\\qquad", "    "), ("\\,", " "),
+            ("\\quad", " "), ("\\qquad", " "), ("\\,", " "),
             ("\\;", " "), ("\\!", ""),
             ("\\displaystyle", ""), ("\\left", ""), ("\\right", ""),
             ("\\big", ""), ("\\Big", ""), ("\\bigg", ""), ("\\Bigg", ""),
@@ -213,7 +213,7 @@ enum SwiftMathRenderer {
         s = s.replacingOccurrences(of: "_", with: "_")
 
         let multiSpace = try! NSRegularExpression(pattern: #" {3,}"#)
-        s = multiSpace.stringByReplacingMatches(in: s, range: NSRange(s.startIndex..., in: s), withTemplate: "  ")
+        s = multiSpace.stringByReplacingMatches(in: s, range: NSRange(s.startIndex..., in: s), withTemplate: " ")
 
         return s.trimmingCharacters(in: .whitespacesAndNewlines)
     }

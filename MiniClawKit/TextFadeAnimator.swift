@@ -1,24 +1,24 @@
-//  TextFadeAnimator.swift
-//  MiniClaw
+// TextFadeAnimator.swift
+// MiniClaw
 //
-//  Word-by-word fade-in animation for streaming Markdown output.
+// Word-by-word fade-in animation for streaming Markdown output.
 //
-//  When the renderer appends new tokens to a message's textStorage via the
-//  `[AttachHotPath]` append-only fast path in MarkdownView, instead
-//  of the new glyphs popping in instantly we fade each word from alpha 0 → 1
-//  with a small per-word stagger, producing a "ripple" reveal.
+// When the renderer appends new tokens to a message's textStorage via the
+// `[AttachHotPath]` append-only fast path in MarkdownView, instead
+// of the new glyphs popping in instantly we fade each word from alpha 0 → 1
+// with a small per-word stagger, producing a "ripple" reveal.
 //
-//  Design constraints (see /tmp/task_word_fade_animation.md):
-//   - Display-layer only. Does NOT touch MiniClawMarkdownParser / AST /
-//     MarkdownNSRenderer. We mutate the live NSTextStorage's `.foregroundColor`
-//     attribute and rely on TextKit 1's behaviour that a foregroundColor change
-//     does NOT invalidate layout (no `ensureLayout` reflow) — only a redraw.
-//   - O(new words), never O(full text). Only the appended NSRange is scanned.
-//   - A single CADisplayLink drives ALL in-flight words; it stops itself once
-//     every word has settled, so an idle (non-streaming) view costs nothing.
+// Design constraints (see /tmp/task_word_fade_animation.md):
+// - Display-layer only. Does NOT touch MiniClawMarkdownParser / AST /
+// MarkdownNSRenderer. We mutate the live NSTextStorage's `.foregroundColor`
+// attribute and rely on TextKit 1's behaviour that a foregroundColor change
+// does NOT invalidate layout (no `ensureLayout` reflow) — only a redraw.
+// - O(new words), never O(full text). Only the appended NSRange is scanned.
+// - A single CADisplayLink drives ALL in-flight words; it stops itself once
+// every word has settled, so an idle (non-streaming) view costs nothing.
 //
-//  This file deliberately owns no parsing or rendering logic; it is a pure
-//  per-word alpha scheduler over an existing NSTextStorage.
+// This file deliberately owns no parsing or rendering logic; it is a pure
+// per-word alpha scheduler over an existing NSTextStorage.
 
 import UIKit
 
@@ -81,7 +81,7 @@ final class TextFadeAnimator {
     // MARK: - Init
 
     /// - Parameter requestRedraw: invoked on the main thread after each frame's
-    ///   alpha mutation. The owner should call `textView.setNeedsDisplay()`.
+    /// alpha mutation. The owner should call `textView.setNeedsDisplay()`.
     init(requestRedraw: @escaping () -> Void) {
         self.requestRedraw = requestRedraw
     }

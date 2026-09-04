@@ -186,7 +186,7 @@ public final class MiniClawTabPool: ObservableObject {
     #endif
 
     /// How long an idle tab survives before its WKWebView is destroyed (seconds).
-    public static let idleTimeout: TimeInterval = 15*60  // 15 minutes
+    public static let idleTimeout: TimeInterval = 15*60 // 15 minutes
 
     /// How often to check for idle tabs (seconds).
     private static let idleCheckInterval: TimeInterval = 60
@@ -202,7 +202,7 @@ public final class MiniClawTabPool: ObservableObject {
         /// by every subsequent action against this same tab (typically via
         /// explicit tab_id), so the agent's own follow-up reads/scrolls stay
         /// on its tab while another agent's fresh `navigate` fans out.
-        /// [T-browser-implicit-tab-inuse-until-load-ios]
+        ///
         public var inUse: Bool = false
         /// Outstanding Task that will flip `inUse` back to false at the end of
         /// the current grace window. Each new completion cancels the previous
@@ -310,7 +310,7 @@ public final class MiniClawTabPool: ObservableObject {
 
     /// True when any tab is mid-navigation — used by the per-tool-call stop
     /// button to decide whether there's a browser load worth cancelling.
-    /// [T-ios-browser-tool-stop-button]
+    ///
     public var hasLoadingTab: Bool {
         tabs.contains { $0.manager.isLoading }
     }
@@ -321,7 +321,7 @@ public final class MiniClawTabPool: ObservableObject {
     /// `execute(action:)` returns and the tool call completes. Mirrors the
     /// "one stop tap cancels every in-flight shell" semantics for the browser
     /// side. Returns the number of tabs that were actually loading.
-    /// [T-ios-browser-tool-stop-button]
+    ///
     @discardableResult
     public func stopAllLoading() -> Int {
         var stopped = 0
@@ -437,7 +437,7 @@ public final class MiniClawTabPool: ObservableObject {
         // url was silently dropped (the tool said "Opened new tab 0" but the
         // tab was blank) — restoreSavedURL only fires for tabs that had a
         // persisted URL, which a brand-new tab never has.
-        // [T-ios-new-tab-url-dropped]
+        //
         let trimmedUrl = url?.trimmingCharacters(in: .whitespacesAndNewlines)
         if let loadUrl = trimmedUrl,!loadUrl.isEmpty {
             manager.loadURL(loadUrl)
@@ -535,7 +535,7 @@ public final class MiniClawTabPool: ObservableObject {
             let url = tab.manager.currentURL.isEmpty ? "(blank)" : tab.manager.currentURL
             let title = tab.manager.pageTitle.isEmpty ? "(untitled)" : tab.manager.pageTitle
             let marker = tab.id == selectedTabId ? " *" : ""
-            lines.append("  Tab \(tab.id): \(title) — \(url)\(marker)")
+            lines.append(" Tab \(tab.id): \(title) — \(url)\(marker)")
         }
         return MiniClawActionResult(text: lines.joined(separator: "\n"))
     }
@@ -561,7 +561,7 @@ public final class MiniClawTabPool: ObservableObject {
         // scheduled late, so `release()` would run before the IUO was assigned
         // and crash on `nil!` (P0 SIGTRAP — 7 hits on a single iPhone 14 PM in
         // 8 minutes, all paired with mach_vm_allocate_kernel failed kernel
-        // triage). [T-ios-browsertabpool-serialslot-nil-crash]
+        // triage).
         //
         // Fix: store the gate as a one-shot box that can hold EITHER a
         // resume closure OR a pre-arrived `release()` signal. The gate Task
@@ -728,7 +728,7 @@ public final class MiniClawTabPool: ObservableObject {
         case .newTab:
             // Pass input.url through so the new tab actually loads it — Android
             // already does this (MiniClawTabPool.kt NEW_TAB branch).
-            // [T-ios-new-tab-url-dropped]
+            //
             return newTab(url: input.url)
         case .closeTab:
             let tabId = input.tabId ?? selectedTabId
@@ -752,7 +752,7 @@ public final class MiniClawTabPool: ObservableObject {
         // (T-browser-use-per-tab-serial-ios — user's "should create two tabs, not
         // deadlock"). Only same explicit tab_id gets serialized below.
         let explicitTabId = input.tabId != nil
-        // [T-ios-browser-readaction-tabid-monotonic-leak] Only *open-page*
+        // Only *open-page*
         // actions (navigate) may fan out / create a fresh tab. Every other
         // action — read (get_readable, screenshot, get_text, get_page_info,
         // find_elements, get_backbone, get_cookies), exec (execute_js), and
@@ -766,7 +766,7 @@ public final class MiniClawTabPool: ObservableObject {
         let targetId: Int
         // Set when an implicit navigate REUSES an idle tab that held a different
         // page — surfaced in the result so the model isn't left thinking the tab
-        // still shows its old site. [T-browser-tab-reuse-silent-switch]
+        // still shows its old site.
         var reusedTabSwitch: (tabId: Int,oldURL: String)? = nil
         if let requestedId = input.tabId {
             if tabs.contains(where: { $0.id == requestedId }) {
@@ -797,15 +797,15 @@ public final class MiniClawTabPool: ObservableObject {
             if preemptedTabIds.remove(probe) != nil {
                 return .error("Browser tab \(probe) was reclaimed under memory pressure (another session needed the slot). Please retry — the page URL has been saved and will be restored.")
             }
-            // Implicit-tab content action: per spec [T-browser-implicit-tab-inuse-until-load-ios]
+            // Implicit-tab content action: per spec
             // NEVER dispatch onto a tab that's still inUse (action in flight OR
             // within the 15s post-action grace). Otherwise back-to-back
             // navigates land on tab 0 and stomp each other's URLs. Try:
-            //   1. Pick any existing tab whose `inUse=false` (prefers reuse).
-            //   2. Otherwise, if capacity remains, fan out to a fresh tab.
-            //   3. Otherwise, fall back to ensureDefaultTab() — at full
-            //      capacity with everything busy, the agent will hit the
-            //      serial-slot wait below or return a busy hint.
+            // 1. Pick any existing tab whose `inUse=false` (prefers reuse).
+            // 2. Otherwise, if capacity remains, fan out to a fresh tab.
+            // 3. Otherwise, fall back to ensureDefaultTab() — at full
+            // capacity with everything busy, the agent will hit the
+            // serial-slot wait below or return a busy hint.
             if singleTab {
                 // CLI single-tab mode: never fan out. Stick to the current /
                 // most-recently navigated tab so a serial navigate → read
@@ -818,7 +818,7 @@ public final class MiniClawTabPool: ObservableObject {
             } else if !explicitTabId {
                 if let freeTab = tabs.first(where: { !$0.inUse }) {
                     targetId = freeTab.id
-                    // [T-browser-tab-reuse-silent-switch] We're about to REUSE an
+                    // We're about to REUSE an
                     // idle tab that already holds a page (not a blank fresh tab)
                     // for a new navigate. Its id stays the same but its content is
                     // about to change out from under any earlier task that still
@@ -899,7 +899,7 @@ public final class MiniClawTabPool: ObservableObject {
             )
         }
 
-        // [T-browser-use-per-tab-serial-ios] Serialize per tab id. Acquire the
+        // Serialize per tab id. Acquire the
         // tab's serial slot, waiting at most serialWaitTimeout (60s) for any
         // in-flight op on this SAME tab. On timeout, tell the model to open a
         // fresh tab instead of contending. This wait is independent of the
@@ -931,7 +931,7 @@ public final class MiniClawTabPool: ObservableObject {
         logger.info("[PoolTiming] manager_execute_start elapsed=\(Int((managerStart - poolStart) * 1000))ms tab=\(targetId) action=\(input.action.rawValue)")
         let result: MiniClawActionResult
         do {
-            // [T-browser-bg-stuck-diag] Hard wall-clock ceiling on a single
+            // Hard wall-clock ceiling on a single
             // browser action. Beyond this the tab is considered DEAD, not slow:
             // on-device testing proved a WebContent process whose JS main thread
             // is pinned cannot be recovered by stopLoading / reload / loadBlank
@@ -965,8 +965,8 @@ public final class MiniClawTabPool: ObservableObject {
             // structured result and the human-readable text. Fan-out paths can
             // mutate selectedTabId mid-flight, so only `targetId` (computed at
             // dispatch time) is guaranteed to identify the tab this action
-            // actually ran on. [T-ios-browser-result-tab-id]
-            // [T-browser-tab-reuse-silent-switch] If this navigate repurposed an
+            // actually ran on.
+            // If this navigate repurposed an
             // idle tab that had a different page, prepend an explicit heads-up so
             // the model updates its mental model (tab N is now this URL, no longer
             // the old one) rather than operating on stale assumptions.
@@ -975,7 +975,7 @@ public final class MiniClawTabPool: ObservableObject {
             }
             result = Self.stampTabId(r,targetId: targetId)
         } catch is ActionDeadTimeout {
-            // [T-browser-bg-stuck-diag] The action blew past actionDeadTimeout.
+            // The action blew past actionDeadTimeout.
             // The tab is wedged and unrecoverable in place; drop it and open a
             // fresh one, then tell the model exactly what happened, on which new
             // tab it can continue, and (if known) the URL that hung — so it can
@@ -1008,7 +1008,7 @@ public final class MiniClawTabPool: ObservableObject {
     /// DEAD (WebContent wedged / navigation never completing / JS thread pinned),
     /// not merely slow, and is dropped-and-rebuilt. Chosen well above any
     /// legitimate action: navigation's own timeout is 30s and the serial wait is
-    /// 60s, so 300s only ever trips on a genuine wedge. [T-browser-bg-stuck-diag]
+    /// 60s, so 300s only ever trips on a genuine wedge.
     #if DEBUG
     /// Test override so device tests can trip the dead-tab path without waiting
     /// the full 300s. Set via debug.browser.setDeadTimeout; nil → the real value.
@@ -1035,7 +1035,7 @@ public final class MiniClawTabPool: ObservableObject {
 
         func attach(_ c: CheckedContinuation<MiniClawActionResult,Error>) {
             lock.lock()
-            if let p = pending {                 // result already arrived
+            if let p = pending { // result already arrived
                 lock.unlock(); c.resume(with: p); return
             }
             cont = c
@@ -1047,7 +1047,7 @@ public final class MiniClawTabPool: ObservableObject {
             if done { lock.unlock(); return }
             done = true
             let c = cont; cont = nil
-            if c == nil { pending = result }     // finished before attach
+            if c == nil { pending = result } // finished before attach
             let cleanup = onFinish; onFinish = nil
             lock.unlock()
             cleanup?()
@@ -1141,10 +1141,10 @@ public final class MiniClawTabPool: ObservableObject {
     /// Stamp `targetId` onto a tab-contextual result so the Agent can see
     /// exactly which tab it just operated on, with no need to guess for
     /// follow-up reads/scrolls. Sets the structured `tabId` field and appends
-    /// a `  tab_id: <N>` line to the human-readable text in the same indent
+    /// a ` tab_id: <N>` line to the human-readable text in the same indent
     /// style as the existing `Title:` / `Viewport:` lines. Idempotent — if
     /// the text already mentions `tab_id:` (e.g. `newTab` already embeds it
-    /// in its narrative), skip the append. [T-ios-browser-result-tab-id]
+    /// in its narrative), skip the append.
     private static func stampTabId(_ result: MiniClawActionResult,targetId: Int) -> MiniClawActionResult {
         var r = result
         r.tabId = targetId
@@ -1153,7 +1153,7 @@ public final class MiniClawTabPool: ObservableObject {
             // style. Adds a leading newline iff the text isn't empty and
             // doesn't already end with one.
             let needsNewline = !r.text.isEmpty && !r.text.hasSuffix("\n")
-            r.text = r.text + (needsNewline ? "\n" : "") + "  tab_id: \(targetId)"
+            r.text = r.text + (needsNewline ? "\n" : "") + " tab_id: \(targetId)"
         }
         return r
     }
@@ -1164,7 +1164,7 @@ public final class MiniClawTabPool: ObservableObject {
     /// further out — the agent's follow-up reads/scrolls keep the tab to
     /// themselves while another agent's parallel implicit-tab `navigate` will
     /// see `inUse=true` and fan out to a fresh tab.
-    /// [T-browser-implicit-tab-inuse-until-load-ios]
+    ///
     private func armPostActionGrace(tabId: Int) {
         guard let idx = tabs.firstIndex(where: { $0.id == tabId }) else { return }
         tabs[idx].graceExpiryTask?.cancel()
@@ -1394,7 +1394,7 @@ public final class MiniClawTabPool: ObservableObject {
 
     /// Switch user-agent profile for all existing tabs and future ones.
     /// - Parameter persist: When `true` (default), saves to UserDefaults as the new default.
-    ///   Pass `false` for temporary agent-driven switches that should not outlive the session.
+    /// Pass `false` for temporary agent-driven switches that should not outlive the session.
     public func setUserAgentProfile(_ profile: MiniClawUAProfile,persist: Bool = true) {
         userAgentProfile = profile
         if persist {
@@ -1439,7 +1439,7 @@ public final class MiniClawTabPool: ObservableObject {
 
     /// On-disk model for saved tab URLs.
     private struct PersistedTabs: Codable {
-        var tabURLs: [Int: String]    // tab ID → URL (live + evicted)
+        var tabURLs: [Int: String] // tab ID → URL (live + evicted)
         var selectedTabId: Int
         /// Session-scoped viewport override. nil = no override, fall back to global.
         var sessionViewportWidth: Int?

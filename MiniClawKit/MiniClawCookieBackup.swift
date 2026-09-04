@@ -14,12 +14,12 @@ private let logger = AppLogger(category: "CookieBackup")
 ///
 /// Mitigation: before every browser_use / miniclaw-browser-use action (throttled
 /// to once per 60s) we
-///   1. snapshot every cookie in `WKWebsiteDataStore.default()` with its FULL
-///      metadata (domain / path / expires / secure / HttpOnly), rendered as a
-///      per-domain Netscape cookies.txt file (`<registrable-domain>.txt`), and
-///   2. re-inject any backed-up cookie that is no longer present in the live
-///      store (the ITP-wipe recovery path). Live cookies always win over the
-///      backup; expired entries are pruned.
+/// 1. snapshot every cookie in `WKWebsiteDataStore.default()` with its FULL
+/// metadata (domain / path / expires / secure / HttpOnly), rendered as a
+/// per-domain Netscape cookies.txt file (`<registrable-domain>.txt`), and
+/// 2. re-inject any backed-up cookie that is no longer present in the live
+/// store (the ITP-wipe recovery path). Live cookies always win over the
+/// backup; expired entries are pruned.
 ///
 /// Storage is a **local file per domain**, deliberately not the Keychain: this
 /// is a purely local anti-ITP cache, and we do NOT want the login state synced
@@ -238,7 +238,7 @@ final class MiniClawCookieBackup {
         if survivors.count>Self.maxDomains {
             let evictable = survivors
                 .filter { !liveDomains.contains($0) }
-                .sorted { (visits[$0] ?? 0)<(visits[$1] ?? 0) }  // oldest first
+                .sorted { (visits[$0] ?? 0)<(visits[$1] ?? 0) } // oldest first
             let overflow = survivors.count-Self.maxDomains
             for domain in evictable.prefix(overflow) {
                 droppedDomains.insert(domain)
@@ -315,7 +315,7 @@ final class MiniClawCookieBackup {
         let byDomain = Dictionary(grouping: merged.values,by: \.domain)
         for (domain,entries) in byDomain.sorted(by: { $0.key<$1.key }) {
             let labels = entries.sorted { $0.name<$1.name }.map(\.logLabel)
-            logger.info("  backup \(domain): \(labels.joined(separator: ", "))")
+            logger.info(" backup \(domain): \(labels.joined(separator: ", "))")
         }
     }
 
@@ -397,8 +397,8 @@ final class MiniClawCookieBackup {
     /// Render cookies in Netscape cookies.txt format — the line-based
     /// industry standard consumed by curl/wget/yt-dlp and already accepted
     /// by our own `set_cookies` import. Fields are TAB-separated:
-    ///   domain, includeSubdomains(TRUE/FALSE), path, secure(TRUE/FALSE),
-    ///   expiry(unix seconds; 0 = session cookie), name, value
+    /// domain, includeSubdomains(TRUE/FALSE), path, secure(TRUE/FALSE),
+    /// expiry(unix seconds; 0 = session cookie), name, value
     /// HttpOnly uses curl's convention: the domain field is prefixed with
     /// `#HttpOnly_`.
     private static func renderNetscape(_ cookies: [BackupCookie]) -> String {
@@ -423,7 +423,7 @@ final class MiniClawCookieBackup {
                 httpOnly = true
                 line = String(line.dropFirst("#HttpOnly_".count))
             } else if line.hasPrefix("#") {
-                continue  // comment
+                continue // comment
             }
             let fields = line.components(separatedBy: "\t")
             guard fields.count == 7 else { continue }

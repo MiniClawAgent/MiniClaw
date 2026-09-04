@@ -126,7 +126,7 @@ final class MarkdownTextView: UITextView,UIGestureRecognizerDelegate {
     /// `invalidateLayout()` it triggers can synchronously re-enter
     /// `preferredLayoutAttributesFitting` → `sizeThatFits` → `invalidateCellSizeIfChanged`.
     private var isInvalidatingCellSize = false
-    /// [T-ios-lastcell-clip-defer-lost] Armed when a REAL height change was
+    /// Armed when a REAL height change was
     /// detected during a deferSelfSizing window and the correction had to be
     /// skipped. Guarantees one post-settle retry of invalidateCellSizeIfChanged
     /// even if no further UAV/measure call arrives after the glide ends.
@@ -197,7 +197,7 @@ final class MarkdownTextView: UITextView,UIGestureRecognizerDelegate {
         addGestureRecognizer(codeTap)
         inlineCodeTapGesture = codeTap
 
-        // [T-ios-text-selection-autoscroll-followthrough] A non-cancelling,
+        // A non-cancelling,
         // zero-duration long-press that simply TRACKS the live touch during a
         // selection-handle drag. It never consumes the touch (cancelsTouchesInView
         // = false, recognizes simultaneously with everything) so UIKit's own
@@ -216,7 +216,7 @@ final class MarkdownTextView: UITextView,UIGestureRecognizerDelegate {
         selectionDragTracker = tracker
     }
 
-    // [T-ios-table-cell-image-menu] iOS 16 ONLY: UITextView attaches a built-in
+    // iOS 16 ONLY: UITextView attaches a built-in
     // UIContextMenuInteraction that, when an inline NSTextAttachment carries an
     // image (our TableAttachment / CodeBlockAttachment / MathAttachment all use a
     // transparent placeholder image for layout), long-press pops the system
@@ -248,7 +248,7 @@ final class MarkdownTextView: UITextView,UIGestureRecognizerDelegate {
     private var hadSelection = false
     /// Offsets (from beginningOfDocument) of the previous selection's start/end,
     /// so we can tell which handle is the one being dragged this change.
-    /// [T-ios-text-selection-collectionview-autoscroll]
+    ///
     private var prevSelStartOffset: Int?
     private var prevSelEndOffset: Int?
 
@@ -259,7 +259,7 @@ final class MarkdownTextView: UITextView,UIGestureRecognizerDelegate {
             hadSelection = hasSelection
             cv?.hasActiveTextSelection = hasSelection
         }
-        // [T-ios-text-selection-collectionview-autoscroll] On every selection
+        // On every selection
         // change while a selection is active (the user is dragging a handle),
         // report the MOVING handle's caret to the collection view so it can
         // auto-scroll when that handle nears an edge. UITextView's own
@@ -285,7 +285,7 @@ final class MarkdownTextView: UITextView,UIGestureRecognizerDelegate {
         }
         prevSelStartOffset = startOff
         prevSelEndOffset = endOff
-        // [T-ios-text-selection-autoscroll-followthrough] Remember which handle
+        // Remember which handle
         // (start vs end) is the one being dragged so the auto-scroll step can
         // extend THAT end to the content scrolled under the finger.
         draggingHandleIsEnd = (draggingEnd === range.end)
@@ -296,7 +296,7 @@ final class MarkdownTextView: UITextView,UIGestureRecognizerDelegate {
     private var draggingHandleIsEnd = true
 
     /// Tracks the live selection-handle drag touch and drives the collection
-    /// view's edge auto-scroll off it. [T-ios-text-selection-autoscroll-followthrough]
+    /// view's edge auto-scroll off it.
     @objc private func handleSelectionDragTrack(_ g: UILongPressGestureRecognizer) {
         guard let cv = findCollectionView() else { return }
         switch g.state {
@@ -325,7 +325,7 @@ final class MarkdownTextView: UITextView,UIGestureRecognizerDelegate {
     /// document position now under the held touch, so the range follows the
     /// scrolled-in content (the iMessage-style behavior).
     private func extendSelectionToPoint(pointInCollectionView pt: CGPoint,cv: NoAnimationCollectionView) {
-        // [T-ios-selection-autoscroll-edge-flicker] Convert the REAL touch point
+        // Convert the REAL touch point
         // (both X and Y) into this text view's coordinates. The earlier version
         // used the text view's mid-X, so the caret it computed sat at a
         // different in-line position than UIKit's own native caret (driven by
@@ -345,7 +345,7 @@ final class MarkdownTextView: UITextView,UIGestureRecognizerDelegate {
             newRange = textRange(from: touchPos,to: current.end)
         }
         guard let r = newRange,!r.isEmpty else { return }
-        // [T-ios-selection-autoscroll-edge-flicker] Skip the write when the range
+        // Skip the write when the range
         // is unchanged — re-assigning the same selection still forces UITextView
         // to redraw its handles/highlight, adding to the per-frame churn.
         // UITextPosition is a reference type, so compare by document offset
@@ -381,7 +381,7 @@ final class MarkdownTextView: UITextView,UIGestureRecognizerDelegate {
             hadSelection = false
             cv?.hasActiveTextSelection = false
         }
-        // [T-ios-text-selection-collectionview-autoscroll] Losing focus ends any
+        // Losing focus ends any
         // selection drag — stop the edge auto-scroll ticker immediately.
         prevSelStartOffset = nil
         prevSelEndOffset = nil
@@ -565,7 +565,7 @@ final class MarkdownTextView: UITextView,UIGestureRecognizerDelegate {
     // Allow our tap gesture to coexist with other tap gestures (e.g. link taps),
     // but NOT with long-press or pan gestures used for text selection.
     func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer,shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
-        // [T-ios-text-selection-autoscroll-followthrough] The selection-drag
+        // The selection-drag
         // tracker is a pure observer — it must run alongside UIKit's selection
         // knobs and everything else, and never blocks another gesture.
         if gestureRecognizer === selectionDragTracker || otherGestureRecognizer === selectionDragTracker {
@@ -582,14 +582,14 @@ final class MarkdownTextView: UITextView,UIGestureRecognizerDelegate {
     func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer,shouldRequireFailureOf otherGestureRecognizer: UIGestureRecognizer) -> Bool {
         if gestureRecognizer === inlineCodeTapGesture,
            otherGestureRecognizer is UILongPressGestureRecognizer {
-            // [T-ios-inline-code-tap-blocked-by-selection-tracker] The
+            // The
             // selection-drag tracker is a `minimumPressDuration = 0` long-press,
             // so it SUCCEEDS on touch-down and never fails. Requiring it to fail
             // (the blanket `is UILongPressGestureRecognizer` rule) permanently
             // blocked codeTap, so tapping inline code did nothing. Only require a
             // *real* long-press (text selection) to fail; never the tracker.
             if otherGestureRecognizer === selectionDragTracker { return false }
-            return true  // a real long press must fail before our tap can begin
+            return true // a real long press must fail before our tap can begin
         }
         return false
     }
@@ -662,7 +662,7 @@ final class MarkdownTextView: UITextView,UIGestureRecognizerDelegate {
 
     /// Copies the raw Markdown source to the pasteboard.
     @objc func copyMarkdown(_ sender: Any?) {
-        // [T-ios-math-copy-latex-delimiters] Normalize LaTeX delimiters to the
+        // Normalize LaTeX delimiters to the
         // $...$ / $$...$$ form that most LaTeX editors expect. LLM output often
         // uses the \(...\) / \[...\] alternate delimiters which are valid LaTeX
         // but not recognized by many markdown renderers.
@@ -686,7 +686,7 @@ final class MarkdownTextView: UITextView,UIGestureRecognizerDelegate {
         onCopyScreenshot?()
     }
 
-    // MARK: - [T-selection-menu-tts] MiniClaw TTS menu actions
+    // MARK: - MiniClaw TTS menu actions
 
     /// Read the WHOLE reply from the start via the MiniClaw TTS stack
     /// (vm.readReplyFromStart). Plumbed from the cell bridge; nil while the
@@ -732,7 +732,7 @@ final class MarkdownTextView: UITextView,UIGestureRecognizerDelegate {
             if let table = value as? TableAttachment {
                 out += table.plainText()
             } else if let math = value as? MathAttachment {
-                // [T-ios-math-copy-latex-delimiters] Emit LaTeX with $...$ / $$...$$.
+                // Emit LaTeX with $...$ / $$...$$.
                 if math.isBlock {
                     out += "$$\(math.latex)$$"
                 } else {
@@ -742,7 +742,7 @@ final class MarkdownTextView: UITextView,UIGestureRecognizerDelegate {
                 out += (attr.string as NSString).substring(with: subRange)
             }
         }
-        // [T-md-cjk-emphasis-pairs] Strip the invisible spacers the markdown
+        // Strip the invisible spacers the markdown
         // pre-pass injects to fix CommonMark flanking around CJK punctuation
         // (ZWSP now; hair space from the pre-2026-05 fixers may survive in
         // cached attributed strings) — they must not leak into the clipboard
@@ -754,7 +754,7 @@ final class MarkdownTextView: UITextView,UIGestureRecognizerDelegate {
 
     override func buildMenu(with builder: UIMenuBuilder) {
         super.buildMenu(with: builder)
-        // [T-selection-menu-tts] Remove the SYSTEM speech menu ("Speak…"
+        // Remove the SYSTEM speech menu ("Speak…"
         // / "Spell") — it reads with the OS voice, bypassing the MiniClaw TTS
         // stack (provider voices, sanitizer, fail-over). Replaced below with
         // our own Read Selection / Read Reply entries.
@@ -770,7 +770,7 @@ final class MarkdownTextView: UITextView,UIGestureRecognizerDelegate {
             action: #selector(copyRichText(_:))
         )
         var extras: [UIMenuElement] = [copyMd,copyRtf]
-        // [T-selection-menu-tts] MiniClaw-owned read-aloud entries. "Read
+        // MiniClaw-owned read-aloud entries. "Read
         // Selection" speaks just the selected range; "Read from Start" replays
         // the whole reply — both through the in-app TTS stack.
         // Matching speaker glyph family so the two read-aloud entries read as
@@ -949,7 +949,7 @@ final class MarkdownTextView: UITextView,UIGestureRecognizerDelegate {
                 }
             }
             if allMapped && currentTableGenSum == lastUAVTableGenSum {
-                AppLogger(category: "AttachHotPath").info("[UAV][SKIP-DEDUPE] storageLen=\(storage.length) tcW=\(String(format: "%.0f", self.textContainer.size.width)) views=\(self.attachmentViewMap.count) tableGen=\(currentTableGenSum) — fingerprint match, nothing to do")
+                AppLogger(category: "ChatList.Attach").info("[UAV][SKIP-DEDUPE] storageLen=\(storage.length) tcW=\(String(format: "%.0f", self.textContainer.size.width)) views=\(self.attachmentViewMap.count) tableGen=\(currentTableGenSum) — fingerprint match, nothing to do")
                 return
             }
         }
@@ -964,7 +964,7 @@ final class MarkdownTextView: UITextView,UIGestureRecognizerDelegate {
             return n
         }()
         if imageAttachmentCount>0 {
-            AppLogger(category: "AttachHotPath").info("[UAV] enter imgAttach=\(imageAttachmentCount) prevViews=\(self.attachmentViews.count) tcW=\(String(format: "%.0f", self.textContainer.size.width))")
+            AppLogger(category: "ChatList.Attach").info("[UAV] enter imgAttach=\(imageAttachmentCount) prevViews=\(self.attachmentViews.count) tcW=\(String(format: "%.0f", self.textContainer.size.width))")
         }
         let previousViewMap = attachmentViewMap
         var newViews: [UIView] = []
@@ -1031,7 +1031,7 @@ final class MarkdownTextView: UITextView,UIGestureRecognizerDelegate {
                     // File was rewritten since last load — force a rebuild
                     // so the new bitmap reaches the UIImageView inside.
                     if imageAttach.needsViewRebuild {
-                        AppLogger(category: "AttachHotPath").info("[IMG][UAV] STALE-needsRebuild src=\(ImageAttachment.shortSrc(imageAttach.source)) ptr=\(attachId.hashValue & 0xFFFFFF)")
+                        AppLogger(category: "ChatList.Attach").info("[IMG][UAV] STALE-needsRebuild src=\(ImageAttachment.shortSrc(imageAttach.source)) ptr=\(attachId.hashValue & 0xFFFFFF)")
                         stale = true
                         imageAttach.needsViewRebuild = false
                     }
@@ -1054,7 +1054,7 @@ final class MarkdownTextView: UITextView,UIGestureRecognizerDelegate {
                     if !stale && imageAttach.loadedImage != nil {
                         let hasImageView = existingView.subviews.contains(where: { $0 is UIImageView || ($0.subviews.contains(where: { $0 is UIImageView })) })
                         if !hasImageView {
-                            AppLogger(category: "AttachHotPath").info("[IMG][UAV] STALE-placeholderToLoaded src=\(ImageAttachment.shortSrc(imageAttach.source)) ptr=\(attachId.hashValue & 0xFFFFFF) — replacing placeholder with image view")
+                            AppLogger(category: "ChatList.Attach").info("[IMG][UAV] STALE-placeholderToLoaded src=\(ImageAttachment.shortSrc(imageAttach.source)) ptr=\(attachId.hashValue & 0xFFFFFF) — replacing placeholder with image view")
                             stale = true
                         }
                     }
@@ -1084,7 +1084,7 @@ final class MarkdownTextView: UITextView,UIGestureRecognizerDelegate {
                     // rendered TableScrollView still holds the old rows.
                     // Force a rebuild so the user sees the new content.
                     //
-                    // [T-ios-table-hscroll-stream-interrupt] EXCEPT while the
+                    // EXCEPT while the
                     // user is actively scrolling THIS table horizontally.
                     // A rebuild removes the live TableScrollView from the
                     // hierarchy, which cancels the in-flight pan gesture —
@@ -1124,7 +1124,7 @@ final class MarkdownTextView: UITextView,UIGestureRecognizerDelegate {
                     // Content loaded since last render — recreate the view
                     existingView.removeFromSuperview()
                     if let imageAttach = attachment as? ImageAttachment {
-                        AppLogger(category: "AttachHotPath").info("[IMG][UAV] RECREATE src=\(ImageAttachment.shortSrc(imageAttach.source)) ptr=\(attachId.hashValue & 0xFFFFFF) — same attachment, but stale view → makeView")
+                        AppLogger(category: "ChatList.Attach").info("[IMG][UAV] RECREATE src=\(ImageAttachment.shortSrc(imageAttach.source)) ptr=\(attachId.hashValue & 0xFFFFFF) — same attachment, but stale view → makeView")
                         view = imageAttach.makeView(width: boundingRect.width)
                     } else if let videoAttach = attachment as? VideoAttachment {
                         view = videoAttach.makeView(width: boundingRect.width)
@@ -1156,7 +1156,7 @@ final class MarkdownTextView: UITextView,UIGestureRecognizerDelegate {
                 } else {
                     // Reuse: just update position and size
                     if let imageAttach = attachment as? ImageAttachment {
-                        AppLogger(category: "AttachHotPath").info("[IMG][UAV] REUSE src=\(ImageAttachment.shortSrc(imageAttach.source)) ptr=\(attachId.hashValue & 0xFFFFFF) — view kept, only frame updated")
+                        AppLogger(category: "ChatList.Attach").info("[IMG][UAV] REUSE src=\(ImageAttachment.shortSrc(imageAttach.source)) ptr=\(attachId.hashValue & 0xFFFFFF) — view kept, only frame updated")
                     }
                     view = existingView
                 }
@@ -1198,7 +1198,7 @@ final class MarkdownTextView: UITextView,UIGestureRecognizerDelegate {
             } else if let thematicBreak = attachment as? ThematicBreakAttachment {
                 view = thematicBreak.makeView(width: boundingRect.width)
             } else if let imageAttach = attachment as? ImageAttachment {
-                AppLogger(category: "AttachHotPath").info("[IMG][UAV] NEW src=\(ImageAttachment.shortSrc(imageAttach.source)) ptr=\(attachId.hashValue & 0xFFFFFF) — no previous view (first render OR ObjectIdentifier changed) → makeView")
+                AppLogger(category: "ChatList.Attach").info("[IMG][UAV] NEW src=\(ImageAttachment.shortSrc(imageAttach.source)) ptr=\(attachId.hashValue & 0xFFFFFF) — no previous view (first render OR ObjectIdentifier changed) → makeView")
                 // Same guard as the reused-attachment branch above: only arm
                 // onLoad when the image isn't already loaded, so a memory-cache
                 // hit during beginLoadingIfNeeded can't synchronously recurse
@@ -1296,7 +1296,7 @@ final class MarkdownTextView: UITextView,UIGestureRecognizerDelegate {
         // causing bars to overlap tables on initial layout.
         setNeedsDisplay()
         #if DEBUG
-        // [T-attachment-zero-origin] Capture immediately after attachment views
+        // Capture immediately after attachment views
         // have been rebuilt — async image/video load completes also lands here
         // (via rebuildAttachViews), so this is the most likely site where
         // table container frame gets reset to (0,0).
@@ -1310,7 +1310,7 @@ final class MarkdownTextView: UITextView,UIGestureRecognizerDelegate {
 
     /// Re-layout attachment views after an async image/video load completes.
     private func rebuildAttachViews() {
-        AppLogger(category: "AttachHotPath").info("[REFRESH] entry — async media-load callback fired (image/video/math finished loading); will run refreshAttachViews + invalidateCellSize")
+        AppLogger(category: "ChatList.Attach").info("[REFRESH] entry — async media-load callback fired (image/video/math finished loading); will run refreshAttachViews + invalidateCellSize")
         guard window != nil else {
             // Detached from window — defer the refresh until re-attach so an
             // async image load that completed mid-recycle still grows the
@@ -1510,7 +1510,7 @@ final class MarkdownTextView: UITextView,UIGestureRecognizerDelegate {
         }
 
         // Width unchanged — just re-position attachment views so their origins
-        // match the freshly computed glyph bounding rects.  This corrects the
+        // match the freshly computed glyph bounding rects. This corrects the
         // first-load case where refreshAttachViews() runs before sizeThatFits
         // has set the correct textContainer size.
         guard !attachmentViews.isEmpty,
@@ -1549,7 +1549,7 @@ final class MarkdownTextView: UITextView,UIGestureRecognizerDelegate {
             }
         }
         #if DEBUG
-        // [T-attachment-zero-origin] Capture render snapshot — disabled by default.
+        // Capture render snapshot — disabled by default.
         let msgId = (self.delegate as? MarkdownView.Coordinator)?.renderer.messageId?.uuidString.prefix(8)
         MarkdownSnapshotCollector.captureIfEnabled(
             textView: self,
@@ -1603,7 +1603,7 @@ final class MarkdownTextView: UITextView,UIGestureRecognizerDelegate {
         // window. [AttachHang defensive guard]
         if isInvalidatingCellSize {
             reentryGuardHits &+= 1
-            cellSizeLogger.warning("[AttachHang][CellSize] RE-ENTRY BLOCKED hits=\(self.reentryGuardHits) tcW=\(String(format: "%.0f", self.textContainer.size.width)) lastH=\(String(format: "%.1f", self.lastComputedHeight))")
+            cellSizeLogger.warning("[AttachHang][CellMetrics] RE-ENTRY BLOCKED hits=\(self.reentryGuardHits) tcW=\(String(format: "%.0f", self.textContainer.size.width)) lastH=\(String(format: "%.1f", self.lastComputedHeight))")
             return
         }
         // Fingerprint early-exit: when textStorage and width are unchanged
@@ -1652,7 +1652,7 @@ final class MarkdownTextView: UITextView,UIGestureRecognizerDelegate {
         }
         let delta = newHeight-previousHeight
 
-        // [T-ios-lastcell-clip-defer-lost] Height genuinely moved. Decide the
+        // Height genuinely moved. Decide the
         // defer-skip BEFORE consuming the measurement. The old order refreshed
         // the dedup fingerprint + lastComputedHeight first and THEN bailed on
         // deferSelfSizing / first-measure — after which every later call hit
@@ -1700,10 +1700,10 @@ final class MarkdownTextView: UITextView,UIGestureRecognizerDelegate {
             }()
             let isLargeGrowth = delta>30
             if cellHasImageAttachment && isLargeGrowth {
-                cellSizeLogger.info("[AttachHang][CellSize] ALLOW through defer — image attachment placeholder→loaded growth prev=\(String(format: "%.1f", previousHeight))→new=\(String(format: "%.1f", newHeight)) delta=\(String(format: "%+.1f", delta))")
+                cellSizeLogger.info("[AttachHang][CellMetrics] ALLOW through defer — image attachment placeholder→loaded growth prev=\(String(format: "%.1f", previousHeight))→new=\(String(format: "%.1f", newHeight)) delta=\(String(format: "%+.1f", delta))")
                 // Fall through to the normal invalidate path below.
             } else {
-                // [T-ios-lastcell-clip-defer-lost] Return WITHOUT touching the
+                // Return WITHOUT touching the
                 // fingerprint / lastComputedHeight / coord cache — the
                 // correction is NOT consumed, so the next call re-measures and
                 // retries. Streaming cost is unchanged: token growth mutates
@@ -1741,7 +1741,7 @@ final class MarkdownTextView: UITextView,UIGestureRecognizerDelegate {
             // SwiftUI sizeThatFits cache key. Using textContainer.size.width
             // here would insert under whichever stale probe width was last
             // committed, missing future render-width cache lookups.
-            // [T-ios-lastcell-clip-defer-lost] REPLACE the whole bucket dict
+            // REPLACE the whole bucket dict
             // instead of upserting one key: stale near-width buckets (±2pt
             // probe rounding) written by the CTFramesetter fast path would
             // otherwise be copied back over this authoritative TextKit height
@@ -1749,7 +1749,7 @@ final class MarkdownTextView: UITextView,UIGestureRecognizerDelegate {
             let widthKey = Int(measureWidth.rounded())
             coord.cachedSizes.removeAll(keepingCapacity: true)
             coord.cachedSizes[widthKey] = newHeight
-            // [T-ios-lastcell-clip-defer-lost] Key the cache generation by the
+            // Key the cache generation by the
             // RAW MARKDOWN length — sizeThatFits gates hits on
             // `bindingLen == cachedSizeMarkdownCount`, and bindingLen is the
             // raw `markdown` binding's NSString length. The old write used
@@ -1937,7 +1937,7 @@ final class MiniClawLayoutManager: NSLayoutManager {
             return
         }
 
-        // [T-inline-code-dark-bg-ios] Same dynamic color as the theme; resolve
+        // Same dynamic color as the theme; resolve
         // against the current traits explicitly so the CGColor is correct even
         // if UITraitCollection.current isn't the drawing view's during this
         // TextKit callback.
@@ -2004,7 +2004,7 @@ final class MiniClawLayoutManager: NSLayoutManager {
             // it within rawRect to avoid the "floats to top" misalignment.
             let codeFont = textStorage.attribute(.font,at: charRange.location,effectiveRange: nil) as? UIFont
             let fontLineHeight = codeFont?.lineHeight ?? rawRect.height
-            let bgPaddingV: CGFloat = 2   // top + bottom padding inside the pill
+            let bgPaddingV: CGFloat = 2 // top + bottom padding inside the pill
             let bgHeight = min(fontLineHeight+bgPaddingV*2,rawRect.height)
             let bgY = rawRect.midY-bgHeight/2-0.5
             let rect = CGRect(x: rawRect.minX-0.5,y: bgY,width: rawRect.width+1,height: bgHeight)

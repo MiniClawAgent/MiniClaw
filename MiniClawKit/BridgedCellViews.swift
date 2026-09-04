@@ -36,7 +36,7 @@ struct BridgedAssistantBlock: View {
                 toggleUsage()
             },
             onCopyScreenshot: { bridge.onCopyScreenshot?() },
-            // [T-selection-menu-tts] Selection-menu TTS: whole-reply
+            // Selection-menu TTS: whole-reply
             // replay is suppressed while this reply is still streaming (same
             // rule as the overlay context menu); Read Selection stays available.
             onReadAloud: bridge.isStreaming ? nil : bridge.onReadAloud,
@@ -107,7 +107,7 @@ struct BridgedAssistantBlock: View {
                         }
                     }
                 } preview: {
-                    // [T-ios-longpress-menu-preview-background] This .contextMenu
+                    // This .contextMenu
                     // is on a zero-size Color.clear overlay (kept zero-size to
                     // avoid inflating self-sizing), so without an explicit preview
                     // SwiftUI snapshots that transparent overlay → see-through
@@ -268,7 +268,7 @@ struct BridgedAssistantFooter: View {
                         }
                     }
                 } preview: {
-                    // [T-ios-longpress-menu-preview-background] Opaque preview
+                    // Opaque preview
                     // for the footer's zero-size Color.clear contextMenu overlay.
                     MessageContextMenuPreview(text: message.blocks
                         .filter { if case .text = $0.kind { return true }; return false }

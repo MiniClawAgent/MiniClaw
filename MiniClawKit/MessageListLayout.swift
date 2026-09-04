@@ -56,7 +56,7 @@ public final class MessageListLayout: UICollectionViewLayout {
     /// Used to skip contentOffsetAdjustment for this cell — its growth
     /// at the bottom edge should not push the user's scroll position.
     /// Item index spans of EVERY assistant message actively receiving content.
-    /// [T-stream-hover-earlier-streaming] Historically a single `Int?` for the
+    /// Historically a single `Int?` for the
     /// LAST assistant message with `index >= si` semantics. But with
     /// queued-turn interrupts more than one message streams at once (an
     /// earlier turn's tool blocks keep flushing output while the newest turn
@@ -67,7 +67,7 @@ public final class MessageListLayout: UICollectionViewLayout {
     /// hover on the earlier streaming message"). Ranges are sorted ascending;
     /// the LAST range keeps the historical open-ended tail semantics.
     ///
-    /// [T-streamingcellranges-async-render-race] THREAD SAFETY: this array is
+    /// THREAD SAFETY: this array is
     /// written on the main thread (applySnapshot) but read from `prepare()` /
     /// `invalidationContext(forPreferredLayoutAttributes:)`, which UIKit +
     /// SwiftUI can invoke on a SECONDARY async-render/layout thread (the
@@ -114,7 +114,7 @@ public final class MessageListLayout: UICollectionViewLayout {
     /// instead of the content snapping taller and an after-the-fact scroll
     /// chasing it ("grow-then-catch-up" jitter). In browse mode this stays
     /// false and streaming growth must NOT push the user's position.
-    /// [T-ios-stream-natural-transitions]
+    ///
     public var isAutoScrollPinning: Bool = false
 
     /// Vertical spacing between cells.
@@ -126,12 +126,12 @@ public final class MessageListLayout: UICollectionViewLayout {
     /// Indices where GeometryReader has reported a precise height.
     /// When set, UIKit self-sizing (`preferredLayoutAttributesFitting`)
     /// is completely ignored for that index — GeometryReader is the
-    /// single source of truth.  This breaks the oscillation loop where
+    /// single source of truth. This breaks the oscillation loop where
     /// GeometryReader and UIKit disagree (e.g. empty footer: GR=4pt,
     /// UIKit=157pt due to invisible .sheet/.contextMenu modifiers).
     private var geometryReaderConfirmed: Set<Int> = []
 
-    /// [T-ios-scroll-decel-height-drift] Real measured heights keyed by a
+    /// Real measured heights keyed by a
     /// stable content key (messageId+blockId), NOT by item index. The
     /// index-keyed `heightCache` is the live source of truth, but it is keyed
     /// by position: when the Coordinator rebuilds estimates for a fresh
@@ -179,7 +179,7 @@ public final class MessageListLayout: UICollectionViewLayout {
         let itemCount = sectionCount>0 ? cv.numberOfItems(inSection: 0) : 0
         let width = cv.bounds.width
         guard width>0 else {
-            AppLogger(category: "ScrollDiag").info("[ScrollDiag][prepare] SKIP width=0 bounds=\(cv.bounds) itemCount=\(itemCount)")
+            AppLogger(category: "ChatList.Scroll").info("[Scroll][prepare] SKIP width=0 bounds=\(cv.bounds) itemCount=\(itemCount)")
             return
         }
 
@@ -203,7 +203,7 @@ public final class MessageListLayout: UICollectionViewLayout {
             attrs.frame = CGRect(x: 0,y: y,width: width,height: h)
             itemAttributes.append(attrs)
             y += h
-            // [T-ios-footer-hug] Suppress the inter-cell spacing when the NEXT
+            // Suppress the inter-cell spacing when the NEXT
             // cell is this message's assistantFooter (content key prefix "f:").
             // The footer (meta-info row) should hug the last content block
             // rather than float 8pt below it. Only the block→footer gap is
@@ -226,24 +226,24 @@ public final class MessageListLayout: UICollectionViewLayout {
             // follows), (b) the next cell is this message's footer, or (c) this
             // cell is zero-height (an empty text block renders nothing — its
             // trailing gap would double the spacing between its neighbors).
-            // [T-ios-empty-textblock-gap]
+            //
             if !isLast,!nextIsFooter,h>0 { y += itemSpacing }
         }
         totalHeight = y
         lastItemCount = itemCount
-        // [ScrollStall] prepare() runs on every invalidateLayout; on long
+        // [Stall] prepare() runs on every invalidateLayout; on long
         // sessions iterating the full itemCount can show up as scroll hitches.
         let elapsed = (CACurrentMediaTime()-t0)*1000
         Self.prepareCallCount &+= 1
         #if DEBUG
-        // [T-ios-scroll-metrics-ring] Record every full re-flow.
+        // Record every full re-flow.
         ScrollMetricsRecorder.shared.record(
             kind: "prepare", a: Double(itemCount), b: totalHeight,
             offset: Double(collectionView?.contentOffset.y ?? 0),
             note: String(format: "%.1fms", elapsed))
         #endif
         if elapsed >= 5 {
-            AppLogger(category: "ScrollStall").debug("[prepare] #\(Self.prepareCallCount) \(String(format: "%.1f", elapsed))ms items=\(itemCount) totalH=\(String(format: "%.0f", totalHeight)) cacheHits=\(self.heightCache.count) precalc=\(self.precalcHeights.count) est=\(self.estimatedHeights.count)")
+            AppLogger(category: "ChatList.Stall").debug("[prepare] #\(Self.prepareCallCount) \(String(format: "%.1f", elapsed))ms items=\(itemCount) totalH=\(String(format: "%.0f", totalHeight)) cacheHits=\(self.heightCache.count) precalc=\(self.precalcHeights.count) est=\(self.estimatedHeights.count)")
         }
     }
     /// Counter for prepare() calls — useful to see invalidate frequency
@@ -275,7 +275,7 @@ public final class MessageListLayout: UICollectionViewLayout {
             result.append(attrs)
         }
 
-        // [ScrollStall] Sampled rate-limited log. Every 1s we emit one summary
+        // [Stall] Sampled rate-limited log. Every 1s we emit one summary
         // line giving fire count + slowest one. Helps see whether this fn's
         // O(itemCount) walk is the hitch source on 100+ item sessions.
         Self.lafeCallCount &+= 1
@@ -283,7 +283,7 @@ public final class MessageListLayout: UICollectionViewLayout {
         if elapsed>Self.lafeSlowest { Self.lafeSlowest = elapsed }
         let now = CACurrentMediaTime()
         if now-Self.lafeLastFlush>1.0 {
-            AppLogger(category: "ScrollStall").debug("[LAFE] last1s fires=\(Self.lafeCallCount - Self.lafeBaseCount) slowest=\(String(format: "%.2f", Self.lafeSlowest))ms items=\(self.itemAttributes.count) returned=\(result.count)")
+            AppLogger(category: "ChatList.Stall").debug("[LAFE] last1s fires=\(Self.lafeCallCount - Self.lafeBaseCount) slowest=\(String(format: "%.2f", Self.lafeSlowest))ms items=\(self.itemAttributes.count) returned=\(result.count)")
             Self.lafeBaseCount = Self.lafeCallCount
             Self.lafeSlowest = 0
             Self.lafeLastFlush = now
@@ -304,15 +304,15 @@ public final class MessageListLayout: UICollectionViewLayout {
     // MARK: - Self-Sizing Support
 
     /// Heights measured by preferredLayoutAttributesFitting while the user
-    /// was scrolling.  Stored here (not in heightCache) so prepare() keeps
-    /// using the old height → contentSize stays frozen.  Applied on thaw
+    /// was scrolling. Stored here (not in heightCache) so prepare() keeps
+    /// using the old height → contentSize stays frozen. Applied on thaw
     /// via `applyDeferredHeights()`.
     private var deferredHeights: [Int: CGFloat] = [:]
 
     /// Number of pending deferred heights (for diagnostics).
     public var deferredHeightCount: Int { deferredHeights.count }
 
-    /// Move deferred heights into the real cache.  Call after scrolling ends.
+    /// Move deferred heights into the real cache. Call after scrolling ends.
     /// Only writes if the cache doesn't already have a value (GeometryReader
     /// may have reported a more precise height while we were deferring).
     public func applyDeferredHeights() {
@@ -340,7 +340,7 @@ public final class MessageListLayout: UICollectionViewLayout {
                     detail.append("idx\(idx) \(pos) \(String(format: "%+.1f", delta)) (\(String(format: "%.0f", old))→\(String(format: "%.0f", h)))")
                 }
                 #if DEBUG
-                // [T-ios-scroll-metrics-ring]
+                //
                 ScrollMetricsRecorder.shared.record(
                     kind: "flush", idx: idx, a: old, b: h,
                     key: String(contentKeyByIndex[idx]?.prefix(2) ?? ""),
@@ -352,7 +352,7 @@ public final class MessageListLayout: UICollectionViewLayout {
             }
         }
         if !detail.isEmpty || dropped>0 {
-            AppLogger(category: "SettleJitter").info("[SettleJitter][flush] n=\(deferredHeights.count) dropped=\(dropped) aboveΣ=\(String(format: "%+.1f", aboveSum)) insideΣ=\(String(format: "%+.1f", insideSum)) :: \(detail.prefix(12).joined(separator: "|"))")
+            AppLogger(category: "ChatList.Settle").info("[SettleJitter][flush] n=\(deferredHeights.count) dropped=\(dropped) aboveΣ=\(String(format: "%+.1f", aboveSum)) insideΣ=\(String(format: "%+.1f", insideSum)) :: \(detail.prefix(12).joined(separator: "|"))")
         }
         deferredHeights.removeAll()
     }
@@ -392,7 +392,7 @@ public final class MessageListLayout: UICollectionViewLayout {
         }
 
         // If GeometryReader has confirmed this cell's height, completely
-        // ignore UIKit self-sizing.  GR is the source of truth — UIKit's
+        // ignore UIKit self-sizing. GR is the source of truth — UIKit's
         // systemLayoutSizeFitting often disagrees (e.g. invisible .sheet/
         // .contextMenu modifiers inflate the measured height), causing an
         // infinite oscillation loop.
@@ -412,9 +412,9 @@ public final class MessageListLayout: UICollectionViewLayout {
         // old "> 20" gate fired ~once per token. Restrict to genuinely large
         // height jumps (image attachment placeholder→loaded, etc.).
         if mustInvalidate && delta>100 {
-            AppLogger(category: "CellSizing").info("[CellSizing] INVALIDATE idx=\(index) delta=\(String(format: "%.0f", delta)) est=\(String(format: "%.0f", origH)) → pref=\(String(format: "%.0f", prefH)) cached=\(heightCache[index] != nil)")
+            AppLogger(category: "ChatList.CellMetrics").info("[CellSizing] INVALIDATE idx=\(index) delta=\(String(format: "%.0f", delta)) est=\(String(format: "%.0f", origH)) → pref=\(String(format: "%.0f", prefH)) cached=\(heightCache[index] != nil)")
         }
-        // [ScrollStall] Per-second invalidation summary keyed by idx —
+        // [Stall] Per-second invalidation summary keyed by idx —
         // identifies cells that flap (re-invalidate repeatedly during scroll).
         if mustInvalidate {
             Self.invIdxCounts[index,default: 0] += 1
@@ -424,7 +424,7 @@ public final class MessageListLayout: UICollectionViewLayout {
                 let top = Self.invIdxCounts.sorted { $0.value>$1.value }.prefix(5)
                 let topStr = top.map { "idx\($0.key)×\($0.value)" }.joined(separator: " ")
                 if total>0 {
-                    AppLogger(category: "ScrollStall").debug("[INV] last1s=\(total) cells top: \(topStr)")
+                    AppLogger(category: "ChatList.Stall").debug("[INV] last1s=\(total) cells top: \(topStr)")
                 }
                 Self.invIdxCounts.removeAll(keepingCapacity: true)
                 Self.invLastFlush = now
@@ -470,7 +470,7 @@ public final class MessageListLayout: UICollectionViewLayout {
                 : (cellTopY<vpTop+cv.bounds.height ? "inside" : "below")
             #if DEBUG
             let phase = cv.isDecelerating ? "decel" : (cv.isTracking ? "drag" : "idle")
-            // [T-ios-scroll-metrics-ring] Record EVERY correction (no threshold)
+            // Record EVERY correction (no threshold)
             // so the full delta distribution — including negatives and sub-2pt
             // values the log gate hides — is retrievable via debug.scrollMetrics.
             ScrollMetricsRecorder.shared.record(
@@ -480,7 +480,7 @@ public final class MessageListLayout: UICollectionViewLayout {
                 tag: metricsTagByIndex[index] ?? "")
             #endif
             if cv.isDecelerating,abs(delta)>2 {
-                AppLogger(category: "SettleJitter").info("[SettleJitter][decel-inv] idx=\(index) \(pos) Δ\(String(format: "%+.1f", delta)) (\(String(format: "%.0f", oldH))→\(String(format: "%.0f", newH))) key=\(contentKeyByIndex[index]?.prefix(2) ?? "??") src=\(estimateSrc) offset=\(String(format: "%.0f", vpTop))")
+                AppLogger(category: "ChatList.Settle").info("[SettleJitter][decel-inv] idx=\(index) \(pos) Δ\(String(format: "%+.1f", delta)) (\(String(format: "%.0f", oldH))→\(String(format: "%.0f", newH))) key=\(contentKeyByIndex[index]?.prefix(2) ?? "??") src=\(estimateSrc) offset=\(String(format: "%.0f", vpTop))")
             }
         }
 
@@ -489,7 +489,7 @@ public final class MessageListLayout: UICollectionViewLayout {
         // (SelfSizingCell.preferredLayoutAttributesFitting → recordMeasuredHeight),
         // NOT here. invalidationContext doesn't fire for stable cells during
         // browse/decel and has no streaming-exclusion context, so writing the
-        // memo here could capture a mid-stream height. See [T-ios-scroll-decel-height-drift].
+        // memo here could capture a mid-stream height. See.
 
         // If the resized cell is above the current viewport, shift the offset
         // so the visible content stays in place.
@@ -512,7 +512,7 @@ public final class MessageListLayout: UICollectionViewLayout {
                 // finished loading and changed the cell's height).
                 ctx.contentOffsetAdjustment = CGPoint(x: 0,y: delta)
             } else if isStreamingCell(index) && isAutoScrollPinning && delta>0 {
-                // [T-ios-stream-natural-transitions] Actively streaming cell
+                // Actively streaming cell
                 // growing at the bottom WHILE pinned to bottom: adjust the
                 // offset by the growth delta IN THIS SAME layout pass so the
                 // content's bottom edge stays glued to the viewport bottom.
@@ -525,7 +525,7 @@ public final class MessageListLayout: UICollectionViewLayout {
             }
         }
 
-        // [T-ios-footer-float-firstlayout] First-entry footer-float fix.
+        // First-entry footer-float fix.
         // When a cell measured TALLER than its estimate during the initial
         // snapshot layout (suppressContentOffsetAdjustment == true), UIKit
         // updates that cell but the cells BELOW it (notably the message footer)
@@ -536,15 +536,15 @@ public final class MessageListLayout: UICollectionViewLayout {
         // Fix: request one coalesced full re-layout so prepare() re-flows every
         // cell's y from the updated heightCache. Guarded to avoid an O(n²)
         // avalanche when N cells each correct during load:
-        //   • only while suppressing (first snapshot settle), not steady state
-        //   • only on a REAL height change (|delta| > 0.5) — both growth (footer
-        //     hangs inside the grown block) and shrink (a stale-tall seed, e.g.
-        //     a footer that once measured with transient content, leaves a
-        //     phantom gap; frames below must be pulled up) need the re-flow
-        //   • NOT for streaming cells (their position is owned by the pin logic)
-        //   • coalesced: at most one invalidate scheduled per runloop tick, and
-        //     re-armed only after it fires — so a burst of corrections collapses
-        //     into a single prepare(), not one per cell.
+        // • only while suppressing (first snapshot settle), not steady state
+        // • only on a REAL height change (|delta| > 0.5) — both growth (footer
+        // hangs inside the grown block) and shrink (a stale-tall seed, e.g.
+        // a footer that once measured with transient content, leaves a
+        // phantom gap; frames below must be pulled up) need the re-flow
+        // • NOT for streaming cells (their position is owned by the pin logic)
+        // • coalesced: at most one invalidate scheduled per runloop tick, and
+        // re-armed only after it fires — so a burst of corrections collapses
+        // into a single prepare(), not one per cell.
         if suppressContentOffsetAdjustment,abs(delta)>0.5,!isStreamingCell(index),
            !pendingFooterReflow {
             pendingFooterReflow = true
@@ -558,11 +558,11 @@ public final class MessageListLayout: UICollectionViewLayout {
         return ctx
     }
 
-    /// [T-ios-footer-float-firstlayout] Coalescing flag so a burst of first-
+    /// Coalescing flag so a burst of first-
     /// layout height corrections triggers a single prepare(), never one per cell.
     private var pendingFooterReflow = false
 
-    /// [T-ios-plaf-streaming-graph-reentry] True while any streaming cell
+    /// True while any streaming cell
     /// range is active. Locked snapshot (same lock as streamingCellRanges) so
     /// SelfSizingCell's PLAF guard can consult it on main while background
     /// layout threads read and the stream pipeline writes the ranges.
@@ -570,9 +570,9 @@ public final class MessageListLayout: UICollectionViewLayout {
 
     // Internal (not private): SelfSizingCell's interaction-window PLAF guard
     // consults it to exempt streaming cells from the cached-height
-    // short-circuit. [T-ios-plaf-interaction-graph-reentry]
+    // short-circuit.
     public func isStreamingCell(_ index: Int) -> Bool {
-        // [T-streamingcellranges-async-render-race] Take ONE locked snapshot of
+        // Take ONE locked snapshot of
         // the ranges and evaluate against the local copy — this can run on a
         // background layout thread while applySnapshot replaces the array on
         // main, so both a torn read AND a double-read seeing two different
@@ -584,7 +584,7 @@ public final class MessageListLayout: UICollectionViewLayout {
         if let last = ranges.last,index >= last.lowerBound { return true }
         // Earlier streaming messages (queued-interrupt turns still flushing
         // tool output) match by their exact item span.
-        // [T-stream-hover-earlier-streaming]
+        //
         return ranges.contains { $0.contains(index) }
     }
 
@@ -614,7 +614,7 @@ public final class MessageListLayout: UICollectionViewLayout {
         if UIApplication.shared.applicationState != .active { return false }
 
         if newBounds.width != cv.bounds.width && newBounds.width>0 {
-            // [T-ios-ipad-rotate-sidebar-scroll-jank] (issue #31) DO NOT clear
+            // (issue #31) DO NOT clear
             // the height caches on every frame here. The detail column width
             // ANIMATES during a sidebar collapse (and rotation), so this fires
             // once per animation frame; clearing all caches each time forced
@@ -707,7 +707,7 @@ public final class MessageListLayout: UICollectionViewLayout {
     public func invalidateHeight(at index: Int) {
         heightCache.removeValue(forKey: index)
         geometryReaderConfirmed.remove(index)
-        // [T-ios-scroll-decel-height-drift] Belt-and-suspenders: also drop the
+        // Belt-and-suspenders: also drop the
         // content-keyed memo for this index. The content-versioned key already
         // makes a height change miss the old entry, but an explicit invalidate
         // (thinking collapse, async image load, streaming re-measure) should not
@@ -740,7 +740,7 @@ public final class MessageListLayout: UICollectionViewLayout {
         precalcHeights[index] != nil
     }
 
-    // MARK: - [T-ios-scroll-decel-height-drift] Content-keyed real-height memo
+    // MARK: - Content-keyed real-height memo
 
     /// Register the stable content key for an item index in the current
     /// snapshot. Called by the Coordinator while building estimates so a later
@@ -749,7 +749,7 @@ public final class MessageListLayout: UICollectionViewLayout {
         contentKeyByIndex[index] = key
     }
 
-    /// [T-ios-footer-hug] Per-footer spacing policy, decided by the Coordinator
+    /// Per-footer spacing policy, decided by the Coordinator
     /// from the footer's CONTENT (it knows message/vm state; the layout does
     /// not): true → the footer hugs the block above (no itemSpacing) — the
     /// meta/usage row case; false → keep the full itemSpacing — prominent
@@ -763,7 +763,7 @@ public final class MessageListLayout: UICollectionViewLayout {
     }
 
     #if DEBUG
-    /// [T-ios-scroll-metrics-ring] index → stable content-hash tag, so layout-
+    /// index → stable content-hash tag, so layout-
     /// side events (inv/flush) can carry the same cell identity the cells and
     /// seed loop record. Diagnostic only.
     private var metricsTagByIndex: [Int: String] = [:]
@@ -781,7 +781,7 @@ public final class MessageListLayout: UICollectionViewLayout {
         return entry.height
     }
 
-    /// [T-ios-scroll-decel-height-drift] Record a real height a cell just
+    /// Record a real height a cell just
     /// measured, keyed by the cell's content key. Called from
     /// `SelfSizingCell.preferredLayoutAttributesFitting` on EVERY successful
     /// self-size — NOT from `invalidationContext`, because the latter only fires
@@ -793,7 +793,7 @@ public final class MessageListLayout: UICollectionViewLayout {
     /// already computed.
     public func recordMeasuredHeight(forKey key: String,height: CGFloat,boundsWidth: CGFloat) {
         guard height >= 4,boundsWidth>1 else { return }
-        // [T-ios-footer-stale-height] NEVER memoize footer heights. The footer's
+        // NEVER memoize footer heights. The footer's
         // content key is version-less ("f:<messageId>") because its content is
         // driven by transient runtime state (typing indicator, retry countdown,
         // error banner, usage row) rather than message content. A footer that
@@ -829,19 +829,19 @@ public final class MessageListLayout: UICollectionViewLayout {
     public var debugPrecalcHeightCount: Int { precalcHeights.count }
 }
 
-// MARK: - [T-ios-scroll-metrics-ring] In-memory scroll diagnostics ring buffer
+// MARK: - In-memory scroll diagnostics ring buffer
 
 #if DEBUG
 /// Records every layout-relevant event during scrolling into a fixed-size
 /// in-memory ring — no log I/O, no thresholds, negligible overhead — so the
 /// COMPLETE change history of a scroll session can be pulled at once through
 /// the debug server (`debug.scrollMetrics`). Event kinds:
-///   scroll  — per-frame contentOffset/contentSize sample (a=offset, b=csHeight)
-///   measure — every SelfSizingCell self-size (a=est, b=fit)
-///   inv     — every invalidationContext height correction (a=old, b=new)
-///   flush   — each deferred height applied at settle (a=old, b=new)
-///   settle  — settle anchor shift (a=screenDelta)
-///   prepare — full layout re-flow (a=itemCount, b=totalHeight)
+/// scroll — per-frame contentOffset/contentSize sample (a=offset, b=csHeight)
+/// measure — every SelfSizingCell self-size (a=est, b=fit)
+/// inv — every invalidationContext height correction (a=old, b=new)
+/// flush — each deferred height applied at settle (a=old, b=new)
+/// settle — settle anchor shift (a=screenDelta)
+/// prepare — full layout re-flow (a=itemCount, b=totalHeight)
 /// DEBUG-only (the whole class and every call site are compiled out in
 /// Release) and OFF by default — recording starts only after an explicit
 /// `debug.scrollMetrics {enabled:true}` through the debug server.
@@ -861,24 +861,24 @@ final class ScrollMetricsRecorder {
     }
 
     struct Event {
-        let t: Double        // CACurrentMediaTime
+        let t: Double // CACurrentMediaTime
         let kind: String
         let idx: Int
         let a: Double
         let b: Double
-        let key: String      // content key prefix ("b:", "w:", "f:", "h:") or ""
-        let src: String      // estimate source (pre/est/cache/def) or phase tag
-        let pos: String      // above/inside/below viewport, or scroll phase
-        let offset: Double   // contentOffset.y at event time
+        let key: String // content key prefix ("b:", "w:", "f:", "h:") or ""
+        let src: String // estimate source (pre/est/cache/def) or phase tag
+        let pos: String // above/inside/below viewport, or scroll phase
+        let offset: Double // contentOffset.y at event time
         let note: String
-        let tag: String      // stable content-hash cell identity — survives
+        let tag: String // stable content-hash cell identity — survives
                              // message-object regeneration (history paging), so
                              // one cell's height trajectory can be followed
                              // across seed → measure → inv → flush events
     }
 
     private var buf: [Event?]
-    private var head = 0          // next write slot
+    private var head = 0 // next write slot
     private var count = 0
     private let capacity = 20000
     private let lock = NSLock()

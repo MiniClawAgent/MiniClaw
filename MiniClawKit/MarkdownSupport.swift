@@ -139,7 +139,7 @@ final class TableCellLabel: UILabel,UIGestureRecognizerDelegate,UIContextMenuInt
     var selectableAttributedText: NSAttributedString?
     /// Closure that copies the entire parent table. Set during `makeView`.
     var copyTableAction: (() -> Void)?
-    /// [T-ios-copy-table-image] Closure that copies the full table as a PNG image.
+    /// Closure that copies the full table as a PNG image.
     var copyTableImageAction: (() -> Void)?
     /// Currently promoted UITextView (if any). Kept to clean up on dealloc/reuse.
     nonisolated(unsafe) private weak var activeTextView: TableCellTextView?
@@ -175,7 +175,7 @@ final class TableCellLabel: UILabel,UIGestureRecognizerDelegate,UIContextMenuInt
 
     // MARK: Rounded inline-code background
 
-    // [T-ios-table-inline-code-rounded] The label has no NSLayoutManager, so
+    // The label has no NSLayoutManager, so
     // the body painter (fillBackgroundRectArray) can't reach it. Setting the
     // standard `.backgroundColor` would paint SQUARE corners. Instead we strip
     // `.backgroundColor` from the displayed text (keeping `.inlineCodeBackground`
@@ -318,11 +318,11 @@ final class TableCellLabel: UILabel,UIGestureRecognizerDelegate,UIContextMenuInt
 
         // Register the custom menu items, then select all and show the menu.
         // Order matches buildMenu: Add to Chat Input → Copy Table → Copy Table
-        // Image. [T-ios-copy-table-menu-order]
+        // Image.
         UIMenuController.shared.menuItems = [
             UIMenuItem(title: String(localized: "Add to Chat Input"), action: #selector(TableCellTextView.addSelectionToChatInput(_:))),
             UIMenuItem(title: String(localized: "Copy Table"), action: #selector(TableCellTextView.copyTable)),
-            // [T-ios-copy-table-image]
+            //
             UIMenuItem(title: String(localized: "Copy Table Image"), action: #selector(TableCellTextView.copyTableImage)),
         ]
 
@@ -399,7 +399,7 @@ final class TableCellLabel: UILabel,UIGestureRecognizerDelegate,UIContextMenuInt
 
 // MARK: - MiniClawToast
 
-/// [T-toast-feedback] Lightweight, self-dismissing toast for one-shot action
+/// Lightweight, self-dismissing toast for one-shot action
 /// feedback ("Saved", "Table copied", …). Window-level so it works from both
 /// SwiftUI screens and UIKit views (e.g. the markdown table copy actions,
 /// which run in a UILabel subclass with no SwiftUI context). Mirrors the
@@ -620,7 +620,7 @@ final class MarkdownNSRenderer {
         // renders that touched tables (streaming table bug suspect).
         if elapsed >= 20 || tableIndex>0 {
             let level = elapsed >= 100 ? "🔥" : ""
-            // [T-ios-markdown-rerender-burst] Include messageId + rendererPtr so
+            // Include messageId + rendererPtr so
             // we can distinguish "1 textView rendering N times" from "N
             // different textViews rendering the same content" (cell reuse vs
             // SwiftUI re-invalidation of the same coordinator).
@@ -773,7 +773,7 @@ final class MarkdownNSRenderer {
     // MARK: Code Block (NSTextAttachment)
 
     private func renderCodeBlockAttachment(fenceInfo: String?,content: String,quoteDepth: Int = 0) -> RenderedBlock {
-        // [T-ios-codeblock-default-text-lang] A fence with no info string (a bare
+        // A fence with no info string (a bare
         // ``` block) has no language. Default it to "text" so every code block
         // shows a language label (and reserves the header space) uniformly —
         // an unlabeled block now reads as "text" instead of being blank.
@@ -883,14 +883,14 @@ final class MarkdownNSRenderer {
         // Unicode glyph at 1.25× baseFont with bold weight + a small
         // baseline offset so it reads as an emphasized punctuation mark.
         // Depth → glyph:
-        //   0  filled circle   "•"  U+2022
-        //   1  hollow circle   "◦"  U+25E6
-        //   2+ filled square   "▪"  U+25AA
+        // 0  filled circle "•" U+2022
+        // 1  hollow circle "◦" U+25E6
+        // 2+ filled square "▪" U+25AA
         let bulletGlyph: String
         switch listDepth {
-        case 0: bulletGlyph = "\u{2022}"   // •
-        case 1: bulletGlyph = "\u{25E6}"   // ◦
-        default: bulletGlyph = "\u{25AA}"  // ▪
+        case 0: bulletGlyph = "\u{2022}" // •
+        case 1: bulletGlyph = "\u{25E6}" // ◦
+        default: bulletGlyph = "\u{25AA}" // ▪
         }
         let bulletColor = quoteDepth>0 ? theme.secondaryLabelColor : theme.labelColor
         var bulletAttrs = baseAttributes(quoteDepth: quoteDepth)
@@ -905,7 +905,7 @@ final class MarkdownNSRenderer {
         for item in items {
             let itemResult = NSMutableAttributedString()
             itemResult.append(NSAttributedString(string: bulletGlyph,attributes: bulletAttrs))
-            itemResult.append(NSAttributedString(string: "  ", attributes: baseAttributes(quoteDepth: quoteDepth)))
+            itemResult.append(NSAttributedString(string: " ", attributes: baseAttributes(quoteDepth: quoteDepth)))
             let child = renderListItemsChildren(item.children,listDepth: listDepth+1,quoteDepth: quoteDepth,isTight: isTight)
             itemResult.append(child.attributed)
             applyListIndentWidth(
@@ -1054,8 +1054,8 @@ final class MarkdownNSRenderer {
         // below) keeps a TableAttachment's identity stable while its content GROWS
         // during streaming, so a still-arriving table updates in place instead of
         // rebuilding every token. It must therefore be keyed by something that:
-        //   (a) stays the SAME as one table streams in, but
-        //   (b) DIFFERS between two genuinely distinct tables in the same message.
+        // (a) stays the SAME as one table streams in, but
+        // (b) DIFFERS between two genuinely distinct tables in the same message.
         //
         // The old key was "messageId:tableIndex". `tableIndex` resets to 0 at the
         // top of every `render(blocks:)` call — and in the cell-per-block list
@@ -1215,7 +1215,7 @@ final class MarkdownNSRenderer {
     private func renderImageAttach(source: String) -> NSAttributedString {
         let attachment: ImageAttachment
         if let cached = imageAttachmentCache[source] {
-            AppLogger(category: "AttachHotPath").info("[IMG][RENDER] REUSE src=\(ImageAttachment.shortSrc(source)) ptr=\(ObjectIdentifier(cached).hashValue & 0xFFFFFF) loaded=\(cached.loadedImage != nil)")
+            AppLogger(category: "ChatList.Attach").info("[IMG][RENDER] REUSE src=\(ImageAttachment.shortSrc(source)) ptr=\(ObjectIdentifier(cached).hashValue & 0xFFFFFF) loaded=\(cached.loadedImage != nil)")
             imgLogger.info("[MiniClawImage][RenderAttach] REUSE cached attachment src=\(source) loaded=\(cached.loadedImage != nil) imgSize=\(cached.loadedImage.map { "\($0.size.width)x\($0.size.height)" } ?? "nil")")
             // Keep messageId fresh on reused attachments — the same renderer
             // instance may survive across different messages during cell reuse.
@@ -1225,13 +1225,13 @@ final class MarkdownNSRenderer {
             // cached bitmap so the next draw re-reads from disk.
             let currentFp = miniClawMediaCacheKey(for: source)
             if let loadedFp = cached.loadedFingerprint,loadedFp != currentFp {
-                AppLogger(category: "AttachHotPath").info("[IMG][RENDER] FINGERPRINT-DROP src=\(ImageAttachment.shortSrc(source)) old=\(loadedFp) new=\(currentFp) — bitmap invalidated, will reload")
+                AppLogger(category: "ChatList.Attach").info("[IMG][RENDER] FINGERPRINT-DROP src=\(ImageAttachment.shortSrc(source)) old=\(loadedFp) new=\(currentFp) — bitmap invalidated, will reload")
                 imgLogger.info("[MiniClawImage][RenderAttach] FINGERPRINT CHANGED src=\(source) old=\(loadedFp) new=\(currentFp) — invalidating cached image")
                 cached.invalidateLoadedImage()
             }
             attachment = cached
         } else {
-            AppLogger(category: "AttachHotPath").info("[IMG][RENDER] CREATE src=\(ImageAttachment.shortSrc(source)) cacheCount=\(self.imageAttachmentCache.count) — fresh ImageAttachment, ObjectIdentifier changed, view WILL be rebuilt")
+            AppLogger(category: "ChatList.Attach").info("[IMG][RENDER] CREATE src=\(ImageAttachment.shortSrc(source)) cacheCount=\(self.imageAttachmentCache.count) — fresh ImageAttachment, ObjectIdentifier changed, view WILL be rebuilt")
             imgLogger.info("[MiniClawImage][RenderAttach] CREATE new ImageAttachment src=\(source) cacheCount=\(self.imageAttachmentCache.count)")
             attachment = ImageAttachment(source: source,theme: theme,messageId: messageId)
             imageAttachmentCache[source] = attachment
@@ -1308,7 +1308,7 @@ final class MarkdownNSRenderer {
     /// Build the URL stored in a markdown link's `.link` attribute, undoing a
     /// double percent-encoding when present.
     ///
-    /// [T-ios-file-preview-stale-cache] file_write returns a singly-encoded
+    /// file_write returns a singly-encoded
     /// miniclaw_url (e.g. `miniclaw://workspace/GitHub%E7%83%AD….md`). When the model
     /// embeds it in `[text](url)` and it passes through the markdown render
     /// pipeline, the literal `%` can get re-encoded to `%25`, yielding a
@@ -1325,7 +1325,7 @@ final class MarkdownNSRenderer {
         guard destination.hasPrefix("miniclaw://") else {
             return fallback
         }
-        // [T-miniclaw-url-fullwidth-pipe-ios] URL(string:) returned nil — on iOS
+        // URL(string:) returned nil — on iOS
         // Foundation this happens when the destination carries raw non-ASCII in
         // the path (e.g. a filename with U+FF5C `｜`, CJK, emoji that the LLM
         // emitted unencoded inside a miniclaw:// link). The link would otherwise be
@@ -1517,7 +1517,7 @@ extension NSAttributedString.Key {
 
 let attachLogger = AppLogger(category: "AttachDebug")
 
-// MARK: - miniclaw:// URL encoding [T-miniclaw-url-fullwidth-pipe-ios]
+// MARK: - miniclaw:// URL encoding
 
 /// Percent-encode the path of a `miniclaw://` destination that contains raw,
 /// unencoded bytes (e.g. a filename with U+FF5C `｜`, CJK, emoji the LLM emitted

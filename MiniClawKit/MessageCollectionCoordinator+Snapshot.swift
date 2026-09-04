@@ -12,7 +12,7 @@ extension MessageCollectionView.Coordinator {
         func applySnapshot(messages rawMessages: [ChatMessage], caller: String = "?") {
             guard let vm,!vm.isLoadingSession else { return }
 
-            // [T-bridge-message-ui-leak] Single UI-collection sink for EVERY
+            // Single UI-collection sink for EVERY
             // path that pushes messages to the list (loadSession, live inject,
             // compact rebuild, snapshot reload, rebind…). Filter the internal
             // role-alternation bridge (#579) here so it can never surface as a
@@ -113,22 +113,22 @@ extension MessageCollectionView.Coordinator {
                 thinkingToggleSub = NotificationCenter.default.publisher(for: .thinkingBlockToggled)
                     .receive(on: DispatchQueue.main)
                     .sink { [weak self] notification in
-                        let tlog = AppLogger(category: "ThinkingCollapse")
+                        let tlog = AppLogger(category: "ChatList.Collapse")
                         guard let self else {
-                            tlog.warning("[ThinkingCollapse] sink fired but self gone")
+                            tlog.warning("[Collapse] sink fired but self gone")
                             return
                         }
                         guard let blockId = notification.object as? UUID else {
-                            tlog.warning("[ThinkingCollapse] notif object not UUID: \(String(describing: notification.object))")
+                            tlog.warning("[Collapse] notif object not UUID: \(String(describing: notification.object))")
                             return
                         }
                         guard let cv = self.viewController?.collectionView,
                               let layout = cv.collectionViewLayout as? MessageListLayout,
                               let snapshot = self.dataSource?.snapshot() else {
-                            tlog.warning("[ThinkingCollapse] block=\(blockId.uuidString.prefix(8)) infra missing: cv=\(self.viewController?.collectionView != nil) ds=\(self.dataSource != nil)")
+                            tlog.warning("[Collapse] block=\(blockId.uuidString.prefix(8)) infra missing: cv=\(self.viewController?.collectionView != nil) ds=\(self.dataSource != nil)")
                             return
                         }
-                        // [T-thinking-collapse-blank] The layout-side
+                        // The layout-side
                         // `invalidateHeight` only wipes the MessageListLayout
                         // `heightCache`, not the per-cell `lastComputedHeight`
                         // on SelfSizingCell. Without also clearing the
@@ -159,7 +159,7 @@ extension MessageCollectionView.Coordinator {
                                 snap.reconfigureItems([item])
                                 self.dataSource?.apply(snap,animatingDifferences: false)
                                 layout.invalidateLayout()
-                                tlog.info("[ThinkingCollapse] HIT block=\(blockId.uuidString.prefix(8)) idx=\(i) cellFound=\(cellOpt != nil) frameH=\(String(format: "%.1f", frameH)) beforeLayout=\(beforeLayout.map { String(format: "%.1f", $0) } ?? "nil") beforePrecalc=\(beforePrecalc.map { String(format: "%.1f", $0) } ?? "nil")")
+                                tlog.info("[Collapse] HIT block=\(blockId.uuidString.prefix(8)) idx=\(i) cellFound=\(cellOpt != nil) frameH=\(String(format: "%.1f", frameH)) beforeLayout=\(beforeLayout.map { String(format: "%.1f", $0) } ?? "nil") beforePrecalc=\(beforePrecalc.map { String(format: "%.1f", $0) } ?? "nil")")
                                 // Defer one runloop tick to capture the
                                 // post-reconfigure measurement and confirm
                                 // the cell actually shrank/grew. If the
@@ -170,13 +170,13 @@ extension MessageCollectionView.Coordinator {
                                     let layout = layout
                                     let after = cv?.cellForItem(at: ip)?.frame.size.height ?? -1
                                     let afterLayout = layout?.cachedHeight(at: i)
-                                    tlog.info("[ThinkingCollapse] POST block=\(blockId.uuidString.prefix(8)) idx=\(i) frameH=\(String(format: "%.1f", after)) layoutCache=\(afterLayout.map { String(format: "%.1f", $0) } ?? "nil") delta=\(String(format: "%.1f", after - frameH))")
+                                    tlog.info("[Collapse] POST block=\(blockId.uuidString.prefix(8)) idx=\(i) frameH=\(String(format: "%.1f", after)) layoutCache=\(afterLayout.map { String(format: "%.1f", $0) } ?? "nil") delta=\(String(format: "%.1f", after - frameH))")
                                 }
                                 break
                             }
                         }
                         if !matched {
-                            tlog.warning("[ThinkingCollapse] MISS block=\(blockId.uuidString.prefix(8)) not in snapshot (items=\(snapshot.itemIdentifiers.count))")
+                            tlog.warning("[Collapse] MISS block=\(blockId.uuidString.prefix(8)) not in snapshot (items=\(snapshot.itemIdentifiers.count))")
                         }
                     }
             }
@@ -236,7 +236,7 @@ extension MessageCollectionView.Coordinator {
 
                 let cvWidth = viewController?.collectionView.bounds.width ?? 390
                 for (i,item) in newRows.enumerated() {
-                    // [T-ios-scroll-decel-height-drift] Register the stable
+                    // Register the stable
                     // content key for this index so a later self-size writes the
                     // real height back under the key, and seed precalc from any
                     // previously-measured real height. This kills the estimate→
@@ -248,7 +248,7 @@ extension MessageCollectionView.Coordinator {
                     let contentKey = Self.contentKey(for: item,messages: messages,messageIndex: messageIndex)
                     layout.setContentKey(contentKey,at: i)
 
-                    // [T-ios-footer-hug] Content-aware spacing policy — must run
+                    // Content-aware spacing policy — must run
                     // BEFORE the cachedHeight guard below, or footers that
                     // already measured would skip it and fall back to the
                     // default hug, re-gluing a prominent banner on the next
@@ -320,7 +320,7 @@ extension MessageCollectionView.Coordinator {
                                 // debug.scrollMetrics traces = this 4pt + ceil).
                                 layout.setPrecalcHeight(height+4,at: i)
                                 #if DEBUG
-                                // [T-ios-scroll-metrics-ring] Record content
+                                // Record content
                                 // features at the seed site (the only place the
                                 // block object and its precalc height coexist) so
                                 // the pulled trace can attribute ct-precalc
@@ -348,7 +348,7 @@ extension MessageCollectionView.Coordinator {
                                 // Streaming text — no cachedAttributedString yet,
                                 // so use the char-count heuristic.
                                 //
-                                // [T-ios-stream-bubble-spacing] The measured path
+                                // The measured path
                                 // above adds +8 (the bubble's .padding(.vertical, 2)
                                 // plus the TextKit↔SwiftUI line-height delta). The
                                 // heuristic's estimateTextBlockHeight only seeds
@@ -387,7 +387,7 @@ extension MessageCollectionView.Coordinator {
                         }
 
                     case .wholeMessage(let msgId):
-                        // [T-ios-user-msg-estimate-tail-jitter] Accurate TextKit
+                        // Accurate TextKit
                         // precalc for USER message bubbles. The "stops then
                         // twitches" decel-tail jank traced to user (wholeMessage)
                         // cells whose coarse
@@ -415,7 +415,7 @@ extension MessageCollectionView.Coordinator {
                             if let h {
                                 layout.setPrecalcHeight(h,at: i)
                                 #if DEBUG
-                                // [T-ios-scroll-metrics-ring] Feature capture for
+                                // Feature capture for
                                 // the +7 user-bubble subset attribution.
                                 if ScrollMetricsRecorder.shared.isEnabled {
                                     let c = msg.content
@@ -449,7 +449,7 @@ extension MessageCollectionView.Coordinator {
             }
 
             // Track streaming cell ranges so layout doesn't adjust offset for
-            // them. [T-stream-hover-earlier-streaming] Not just the LAST
+            // them. Not just the LAST
             // assistant message: with queued-turn interrupts an EARLIER
             // assistant message can still be receiving content (running /
             // streaming tool blocks) while the newest turn streams text. Every
@@ -486,7 +486,7 @@ extension MessageCollectionView.Coordinator {
             }
             // Keep the layout's pin flag in sync here too — the scrollMode
             // didSet may have fired before the layout existed (initial value).
-            // [T-ios-stream-natural-transitions]
+            //
             viewController?.messageListLayout?.isAutoScrollPinning = (scrollMode == .autoScrolling)
             let oldCount = prevSnapshotIds.count
             // Lock the messages array the snapshot (and messageIndex, rebuilt
@@ -497,26 +497,26 @@ extension MessageCollectionView.Coordinator {
             // snapshot's block IDs then match nothing and the cell configures
             // EMPTY (silent `guard ... else return`). Updated BEFORE the
             // skip-return below so it stays in lockstep with messageIndex.
-            // [T-ios-blocks-lost-render]
+            //
             snapshotMessages = messages
             // Skip diffable-data-source apply when items haven't changed —
             // avoids expensive UIKit cell creation/layout on redundant snapshots.
             if newRows == prevSnapshotIds {
-                AppLogger(category: "SnapshotDiag").info("[SnapshotDiag] SKIP caller=\(caller) items unchanged (count=\(newRows.count)) — no re-apply")
+                AppLogger(category: "ChatList.Snapshot").info("[Snapshot] SKIP caller=\(caller) items unchanged (count=\(newRows.count)) — no re-apply")
                 return
             }
             let oldSet = Set(prevSnapshotIds)
             let inserted = newRows.filter { !oldSet.contains($0) }
             prevSnapshotIds = newRows
 
-            let snapLog = AppLogger(category: "SnapshotDiag")
+            let snapLog = AppLogger(category: "ChatList.Snapshot")
             let blockItems = newRows.filter { if case .assistantBlock = $0 { return true }; return false }
             if let lastAIMsg = messages.last(where: { $0.role == .assistant }) {
-                snapLog.info("[SnapshotDiag] caller=\(caller) totalItems=\(newRows.count) blockItems=\(blockItems.count) lastAssistantBlocks=\(lastAIMsg.blocks.count) msgCount=\(messages.count)")
+                snapLog.info("[Snapshot] caller=\(caller) totalItems=\(newRows.count) blockItems=\(blockItems.count) lastAssistantBlocks=\(lastAIMsg.blocks.count) msgCount=\(messages.count)")
                 for (i,block) in lastAIMsg.blocks.enumerated() {
                     let contentLen = block.content.count
                     let tail = String(block.content.suffix(20))
-                    snapLog.info("[SnapshotDiag]   block[\(i)] kind=\(block.kind) id=\(block.id.uuidString.prefix(8)) contentLen=\(contentLen) tail=\"\(tail)\"")
+                    snapLog.info("[Snapshot] block[\(i)] kind=\(block.kind) id=\(block.id.uuidString.prefix(8)) contentLen=\(contentLen) tail=\"\(tail)\"")
                 }
             }
 
@@ -557,7 +557,7 @@ extension MessageCollectionView.Coordinator {
                         case .memoryTool: "memory"
                         default: "unknown"
                         }
-                        AppLogger(category: "ToolLC").info("[ToolLifecycle] RENDERED_CHATUI toolId=\(block.toolUseId?.prefix(20) ?? "nil") tool=\(toolName) sid=\(sid) appState=\(appState) suspendedFlag=\(suspendedFlag) isProcessing=\(processing) caller=\(caller)")
+                        AppLogger(category: "ChatList.ToolLife").info("[ToolLifecycle] RENDERED_CHATUI toolId=\(block.toolUseId?.prefix(20) ?? "nil") tool=\(toolName) sid=\(sid) appState=\(appState) suspendedFlag=\(suspendedFlag) isProcessing=\(processing) caller=\(caller)")
                     }
                 }
             }

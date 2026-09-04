@@ -27,14 +27,14 @@ private let logger = AppLogger(category: "MiniClawResourceMonitor")
 /// you misread these logs:
 ///
 /// - Rendering runs in a separate process (`com.apple.WebKit.WebContent`). Its
-///   footprint is **not** counted in our `task_info`, and our app will not even
-///   reliably get a memory warning when WebContent is under pressure.
+/// footprint is **not** counted in our `task_info`, and our app will not even
+/// reliably get a memory warning when WebContent is under pressure.
 /// - Reading another process's footprint needs `task_for_pid()` (barred by the
-///   sandbox) or `proc_pid_rusage()` (won't cross to WebContent). And we can't
-///   get its pid anyway: the public WebKit headers expose no process identifier.
-///   `_webProcessIdentifier` is SPI — an App Store review risk, so not an option.
+/// sandbox) or `proc_pid_rusage()` (won't cross to WebContent). And we can't
+/// get its pid anyway: the public WebKit headers expose no process identifier.
+/// `_webProcessIdentifier` is SPI — an App Store review risk, so not an option.
 /// - Instruments/Activity Monitor *can* see it only because they are external
-///   debuggers outside our sandbox. That capability does not exist at runtime.
+/// debuggers outside our sandbox. That capability does not exist at runtime.
 ///
 /// So WebContent dies on its OWN jetsam budget (empirically ~300-450MB for a web
 /// page, no fixed limit — it varies with device RAM and system load), and iOS

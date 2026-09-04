@@ -6,7 +6,7 @@ import Combine
 @MainActor
 final class ThinkingHitchMonitor {
     static let shared = ThinkingHitchMonitor()
-    private let logger = AppLogger(category: "ThinkPerf")
+    private let logger = AppLogger(category: "ChatList.Think")
     private var cadLink: CADisplayLink?
     private var lastTick: CFTimeInterval = 0
     /// Body-eval counter since start (bumped by the view; sampled into hitch logs).
@@ -19,9 +19,9 @@ final class ThinkingHitchMonitor {
 
     func start(owner: UUID) {
         if cadLink != nil {
-            ownerId = owner  // live monitor adopted by the newest streaming block
+            ownerId = owner // live monitor adopted by the newest streaming block
             if collapseAt != nil {
-                collapseAt = nil  // re-expanded within the grace window
+                collapseAt = nil // re-expanded within the grace window
                 logger.info("[ThinkPerf] phase → EXPANDED (re-expand)")
             }
             return
@@ -113,7 +113,7 @@ struct ToolCapsuleView: View {
     var snapshotBridge: CellStateBridge? = nil
     @Binding var detailBlock: AssistantBlock?
     @State private var dotsOn = false
-    /// [T-tool-bg-suspended-hint] Drives the background-suspension info alert.
+    /// Drives the background-suspension info alert.
     @State private var bgHintAlert = false
     @ObservedObject private var keepAlive = BackgroundKeepAliveManager.shared
 
@@ -123,7 +123,7 @@ struct ToolCapsuleView: View {
     private var bgSuspendHint: Bool {
         block.wasBackgroundSuspended && !keepAlive.enhancedBackgroundEffective
     }
-    /// [T-ios-retry-hide-when-processing] Used to suppress the "Re-run From
+    /// Used to suppress the "Re-run From
     /// Here" long-press menu item while the agent loop is busy — tapping it
     /// mid-run would corrupt the in-flight processing state.
     @EnvironmentObject private var vm: MessageListModel
@@ -136,7 +136,7 @@ struct ToolCapsuleView: View {
         return block.toolDescription
     }
 
-    /// [T-ios-tool-bubble-longpress-menu] Human-readable, paste-back-able
+    /// Human-readable, paste-back-able
     /// dump of this tool call + its result for the "Copy Tool Details"
     /// menu action. Pulls tool name from the block kind, the input JSON
     /// from toolInputArgs (pretty-printed when it parses), and the result
@@ -146,13 +146,13 @@ struct ToolCapsuleView: View {
         // Tool name from the block kind.
         let toolName: String
         switch block.kind {
-        case .shellTool:     toolName = "shell_execute"
-        case .fileReadTool:  toolName = "file_read"
+        case .shellTool: toolName = "shell_execute"
+        case .fileReadTool: toolName = "file_read"
         case .fileWriteTool: toolName = "file_write"
-        case .fileEditTool:  toolName = "file_edit"
-        case .browserTool:   toolName = "browser_use"
+        case .fileEditTool: toolName = "file_edit"
+        case .browserTool: toolName = "browser_use"
         case .readImageTool: toolName = "read_image"
-        case .memoryTool:    toolName = "memory"
+        case .memoryTool: toolName = "memory"
         case .text, .thinking, .info: toolName = "unknown"
         case .file: toolName = "file"
         }
@@ -185,12 +185,12 @@ struct ToolCapsuleView: View {
         // Status string.
         let statusLabel: String
         switch block.toolStatus {
-        case .success:   statusLabel = "success"
-        case .failed:    statusLabel = "failed"
+        case .success: statusLabel = "success"
+        case .failed: statusLabel = "failed"
         case .cancelled: statusLabel = "cancelled"
-        case .running:   statusLabel = "running"
+        case .running: statusLabel = "running"
         case .streaming: statusLabel = "streaming"
-        case .none:      statusLabel = "unknown"
+        case .none: statusLabel = "unknown"
         }
 
         var resultMetaStr = "(\(resultText.count) chars, \(statusLabel)"
@@ -302,7 +302,7 @@ struct ToolCapsuleView: View {
                 detailBlock = block
             }
             .contextMenu {
-                // [T-ios-msg-contextmenu-recursion-crash] Gate the eager menu
+                // Gate the eager menu
                 // tree behind an Equatable key so this tool cell's body churn
                 // during `gh`/shell streaming doesn't rebuild + re-diff the menu
                 // subtree every frame (part of the deep ContextMenuModifier
@@ -313,13 +313,13 @@ struct ToolCapsuleView: View {
                     blockId: block.id,
                     processing: vm.isProcessing
                 )) {
-                    // [T-ios-tool-bubble-longpress-menu]
+                    //
                     Button {
                         UIPasteboard.general.string = toolClip
                     } label: {
                         Label(String(localized: "Copy Tool Details"), systemImage: "doc.on.doc")
                     }
-                    // [T-ios-retry-hide-when-processing] Only expose the
+                    // Only expose the
                     // destructive Re-run action when the agent loop is idle.
                     // Re-running mid-stream would tear down an in-flight turn
                     // and confuse downstream state — hide both the divider and
@@ -346,7 +346,7 @@ struct ToolCapsuleView: View {
                 }
                 .equatable()
             }
-            // [T-tool-bg-suspended-hint] Yellow ⓘ just outside the capsule's
+            // Yellow ⓘ just outside the capsule's
             // trailing edge when this tool was likely suspended by the OS in the
             // background. Tapping shows an alert offering to enable enhanced
             // background (deep-links to Settings → Permissions → Background).
@@ -486,7 +486,7 @@ struct ThinkingBlockView: View {
                 // The collection view's cached height is invalidated by the
                 // `onChange(of: isThinkingExpanded)` observer below — single
                 // source of truth so the auto-collapse path stays in sync.
-                AppLogger(category: "ThinkingCollapse").info("[ThinkingCollapse] tap block=\(block.id.uuidString.prefix(8)) wasExpanded=\(expandedBinding.wrappedValue) streaming=\(isStreaming) contentLen=\(block.content.count)")
+                AppLogger(category: "ChatList.Collapse").info("[Collapse] tap block=\(block.id.uuidString.prefix(8)) wasExpanded=\(expandedBinding.wrappedValue) streaming=\(isStreaming) contentLen=\(block.content.count)")
                 block.thinkingUserToggled = true
                 if !expandedBinding.wrappedValue {
                     block.flushThinkingBuffer()
@@ -501,7 +501,7 @@ struct ThinkingBlockView: View {
                 let total = block.content.count
                 let truncatedFlag = total>windowSz
                 let displayBody: String = {
-                    // [T-thinking-stream-jank] Time the tail-window slice and count
+                    // Time the tail-window slice and count
                     // body re-evals. This closure runs on EVERY body evaluation of
                     // an expanded thinking block — if body re-evals track the
                     // per-token contentUpdateSeq rather than the 0.3s flush, the
@@ -511,7 +511,7 @@ struct ThinkingBlockView: View {
                         let ms = (CFAbsoluteTimeGetCurrent()-t0)*1000
                         ThinkingHitchMonitor.shared.bodyEvalCount += 1
                         if ms>4 {
-                            AppLogger(category: "ThinkPerf").info("[ThinkPerf] slice SLOW total=\(total) took=\(String(format: "%.1f", ms))ms eval#\(ThinkingHitchMonitor.shared.bodyEvalCount)")
+                            AppLogger(category: "ChatList.Think").info("[ThinkPerf] slice SLOW total=\(total) took=\(String(format: "%.1f", ms))ms eval#\(ThinkingHitchMonitor.shared.bodyEvalCount)")
                         }
                     }
                     guard truncatedFlag else { return block.content }
@@ -543,7 +543,7 @@ struct ThinkingBlockView: View {
                         }
                     }
                     .frame(maxHeight: 300)
-                    // [T-thinking-stream-jank] Follow the tail at FLUSH pace
+                    // Follow the tail at FLUSH pace
                     // (content updates every 0.3s), not per token. The old
                     // trigger was the per-delta contentUpdateSeq — with it
                     // @Published, an expanded block re-ran body + an animated
@@ -551,7 +551,7 @@ struct ThinkingBlockView: View {
                     // pace is ~3-4/s for the same visual result.
                     .onChange(of: block.content.count) { len in
                         guard isStreaming else { return }
-                        AppLogger(category: "ThinkPerf").debug("[ThinkPerf] scrollTo(flush) contentLen=\(len) seq=\(block.contentUpdateSeq)")
+                        AppLogger(category: "ChatList.Think").debug("[ThinkPerf] scrollTo(flush) contentLen=\(len) seq=\(block.contentUpdateSeq)")
                         withAnimation(.linear(duration: 0.15)) {
                             proxy.scrollTo("thinkingBottom", anchor: .bottom)
                         }
@@ -559,7 +559,7 @@ struct ThinkingBlockView: View {
                 }
             }
         }
-        // [T-thinking-stream-jank] Hitch monitor runs while this block is
+        // Hitch monitor runs while this block is
         // EXPANDED — streaming or static. The refined report says the jank is
         // tied to the expanded state itself (collapse instantly recovers), so
         // the monitor must also capture expanded-static interactions (list
@@ -601,10 +601,10 @@ struct ThinkingBlockView: View {
             // gate, the streaming-end transition stomped a tap the user did
             // on an earlier thinking block while a later one was still live.
             if !streaming,!block.thinkingUserToggled {
-                AppLogger(category: "ThinkingCollapse").info("[ThinkingCollapse] auto-collapse block=\(block.id.uuidString.prefix(8)) streaming→false userToggled=false contentLen=\(block.content.count)")
+                AppLogger(category: "ChatList.Collapse").info("[Collapse] auto-collapse block=\(block.id.uuidString.prefix(8)) streaming→false userToggled=false contentLen=\(block.content.count)")
                 block.isThinkingExpanded = false
             } else if !streaming {
-                AppLogger(category: "ThinkingCollapse").info("[ThinkingCollapse] stream-end-skip block=\(block.id.uuidString.prefix(8)) userToggled=\(block.thinkingUserToggled) currentlyExpanded=\(block.isThinkingExpanded)")
+                AppLogger(category: "ChatList.Collapse").info("[Collapse] stream-end-skip block=\(block.id.uuidString.prefix(8)) userToggled=\(block.thinkingUserToggled) currentlyExpanded=\(block.isThinkingExpanded)")
             }
         }
         .onChange(of: block.isThinkingExpanded) { newValue in
@@ -615,7 +615,7 @@ struct ThinkingBlockView: View {
             // UICollectionView kept the expanded cell height (~300pt) and
             // rendered a tall empty gap below the pill — see 2026-05-17
             // screenshot bug.
-            AppLogger(category: "ThinkingCollapse").info("[ThinkingCollapse] post block=\(block.id.uuidString.prefix(8)) expanded=\(newValue) userToggled=\(block.thinkingUserToggled) streaming=\(isStreaming)")
+            AppLogger(category: "ChatList.Collapse").info("[Collapse] post block=\(block.id.uuidString.prefix(8)) expanded=\(newValue) userToggled=\(block.thinkingUserToggled) streaming=\(isStreaming)")
             NotificationCenter.default.post(name: .thinkingBlockToggled,
                                             object: block.id)
         }
@@ -698,7 +698,7 @@ struct ChatInputAppendListener: ViewModifier {
 
 // MARK: - Thinking Block View
 
-/// [T-thinking-stream-jank] Main-thread hitch monitor, active only while an
+/// Main-thread hitch monitor, active only while an
 /// expanded thinking block is streaming. Logs frame gaps > 100ms together with
 /// the current thinking length so hitches can be correlated with content size.
 /// One shared instance — at most one thinking block streams at a time.
@@ -741,13 +741,13 @@ extension Notification.Name {
     /// userInfo["blockId"] is the AssistantBlock.id (UUID) of the tapped
     /// tool_use. The active ChatView listens, maps the block to its
     /// owning assistant message, finds the preceding user message, and
-    /// re-runs the agent loop from there. [T-ios-tool-bubble-longpress-menu]
+    /// re-runs the agent loop from there.
     static let rerunFromToolBlock = Notification.Name("rerunFromToolBlock")
 }
 
 /// Listens for `.rerunFromToolBlock` and drives the re-run. Extracted into
 /// its own ViewModifier (like ChatInputAppendListener) to keep ChatView's
-/// body within the Swift type-checker budget. [T-ios-tool-bubble-longpress-menu]
+/// body within the Swift type-checker budget.
 ///
 /// "Re-run from here" semantics (block boundary —
 /// T-ios-rerun-from-tool-block-position): re-run from the exact point this
@@ -816,7 +816,7 @@ struct AssistantBlockView: View {
     var onStop: (() -> Void)?
     var onTapBlank: ((CGPoint) -> Void)?
     var onCopyScreenshot: (() -> Void)?
-    /// [T-selection-menu-tts] Selection-menu read-aloud hooks, plumbed
+    /// Selection-menu read-aloud hooks, plumbed
     /// down to MarkdownView (nil for non-text or streaming contexts).
     var onReadAloud: (() -> Void)?
     var onSpeakText: ((String) -> Void)?

@@ -1,12 +1,12 @@
 //
-//  ToolLiveSheet.swift
-//  MiniClawApp
+// ToolLiveSheet.swift
+// MiniClawApp
 //
-//  Expandable live tool preview — the floating toolbar above the input
-//  bar plus the full-screen sheet that shows tool arguments, streaming
-//  shell output, file edits/writes, browser snapshots, memory edits and
-//  image tools with full scrubbing and zoom. Extracted from
-//  ChatView.swift so the chat view can focus on message layout.
+// Expandable live tool preview — the floating toolbar above the input
+// bar plus the full-screen sheet that shows tool arguments, streaming
+// shell output, file edits/writes, browser snapshots, memory edits and
+// image tools with full scrubbing and zoom. Extracted from
+// ChatView.swift so the chat view can focus on message layout.
 //
 
 import Combine
@@ -107,7 +107,7 @@ struct ToolLiveSheet: View {
     }
     @StateObject private var resourceMonitor = SystemResourceMonitor()
 
-    /// [T-ios-tool-result-lazy-render] Number of 40-line chunks currently
+    /// Number of 40-line chunks currently
     /// revealed in the non-live (detail) text view. Large tool results
     /// (e.g. a big memory_get / file read) used to render every chunk eagerly
     /// inside a plain VStack+ForEach — a ScrollView does NOT virtualize a
@@ -189,9 +189,9 @@ struct ToolLiveSheet: View {
     /// tool has finished (set in runStreamProcessing on tool result),
     /// otherwise computes live elapsed from `started`. Format matches
     /// the cross-platform contract:
-    ///   < 60s        → "3s"
-    ///   60-3600s     → "2m30s"
-    ///   ≥ 3600s      → "1h12m"
+    /// < 60s → "3s"
+    /// 60-3600s → "2m30s"
+    /// ≥ 3600s → "1h12m"
     /// While still running the live value is suffixed "…".
     private func durationLabel(started: Date) -> String {
         let secs: TimeInterval
@@ -222,7 +222,7 @@ struct ToolLiveSheet: View {
             .frame(maxWidth: .infinity)
         // 链式修饰拆分:2026-08-10 编译器 failed-diagnostic
         // [2026-08-14 快照三级布局] 由「单内容+底部导航」改为：
-        //   L1 工具信息行（常显）→ L2 操作参数行（常显）→ L3 结果内容（限高滚动）→ 底部切换行。
+        // L1 工具信息行（常显）→ L2 操作参数行（常显）→ L3 结果内容（限高滚动）→ 底部切换行。
         // 切换行保留上/下一工具块切换（渲染方式与内容均保持原样）。
         return bodyModifiers(
             GeometryReader { geo in
@@ -1073,9 +1073,9 @@ struct ToolLiveSheet: View {
                                 // cancelled → "Cancelled".
                                 let (label,labelColor): (String,Color) = {
                                     switch block.toolStatus {
-                                    case .failed:    return (String(localized: "Failed to edit"), .red)
-                                    case .cancelled: return (String(localized: "Cancelled"),     .orange)
-                                    default:         return (String(localized: "Edited"),        Color(UIColor.label))
+                                    case .failed: return (String(localized: "Failed to edit"), .red)
+                                    case .cancelled: return (String(localized: "Cancelled"), .orange)
+                                    default: return (String(localized: "Edited"), Color(UIColor.label))
                                     }
                                 }()
                                 let isFailure: Bool = {
@@ -1421,7 +1421,7 @@ struct ToolLiveSheet: View {
         }
     }
 
-    /// [T-ios-tool-result-lazy-render] Initial number of chunks to reveal for a
+    /// Initial number of chunks to reveal for a
     /// given chunk list: min(lazyRenderInitialChunks, count), further clamped so
     /// the revealed text stays under `lazyRenderInitialByteCap` — covers the case
     /// of a few very long lines that fit in < 5 chunks but exceed 10KB.
@@ -1511,7 +1511,7 @@ struct ToolLiveSheet: View {
                     let allChunks = isLive
                         ? Self.liveChunkedLines(block.content.isEmpty ? " " : block.content)
                         : Self.chunkedLines(block.content.isEmpty ? " " : block.content)
-                    // [T-ios-tool-result-lazy-render] In the detail (non-live)
+                    // In the detail (non-live)
                     // view reveal only an initial window and grow on scroll.
                     let chunks = isLive ? allChunks : Array(allChunks.prefix(max(revealedChunkCount,1)))
                     VStack(alignment: .leading,spacing: 0) {
@@ -1565,7 +1565,7 @@ struct ToolLiveSheet: View {
                         let allChunks = isLive
                             ? Self.liveChunkedLines(block.content.isEmpty ? " " : block.content)
                             : Self.chunkedLines(block.content.isEmpty ? " " : block.content)
-                        // [T-ios-tool-result-lazy-render] Reveal an initial
+                        // Reveal an initial
                         // window in the detail view; grow on scroll / tap.
                         let chunks = isLive ? allChunks : Array(allChunks.prefix(max(revealedChunkCount,1)))
                         VStack(alignment: .leading,spacing: 0) {
@@ -1600,7 +1600,7 @@ struct ToolLiveSheet: View {
                     proxy.scrollTo("end", anchor: .bottom)
                 }
             }
-            // [T-ios-tool-result-lazy-render] Switching to another tool block
+            // Switching to another tool block
             // (next/prev) re-collapses the lazy window to its initial batch.
             .onChange(of: block.id) { _ in
                 tailFollowPaused = false // 切换工具块恢复跟随
@@ -2013,9 +2013,9 @@ enum MiniClawStepTimestampFormatter {
 
     /// [T-step-timestamp v2 aa8b1128] Short "elapsed-or-final duration"
     /// label for the tool detail header. Format:
-    ///   < 60s   → "3s"
-    ///   < 1h    → "2m30s" (drops the seconds suffix when seconds == 0)
-    ///   ≥ 1h    → "1h12m"
+    /// < 60s → "3s"
+    /// < 1h → "2m30s" (drops the seconds suffix when seconds == 0)
+    /// ≥ 1h → "1h12m"
     /// When `stillRunning` is true the result is suffixed "…" so the
     /// header reads "12s…" while the tool is in flight.
     /// Negative values clamp to 0; non-finite values render as "0s".

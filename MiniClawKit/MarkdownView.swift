@@ -77,7 +77,7 @@ func percentEncodePathSegmentIdempotent(_ seg: String) -> String {
 
 // MARK: - MarkdownTheme
 
-/// [T-inline-code-dark-bg-ios] Inline-code span background, shared by the
+/// Inline-code span background, shared by the
 /// theme and the layout manager's fillBackgroundRectArray (the actual paint
 /// site) so the two can never drift. Light stays EXACTLY .systemGray6
 /// (#F2F2F7); dark lifts to #3A3A3C (systemGray4's dark value) — systemGray6
@@ -106,9 +106,9 @@ struct MarkdownView: UIViewRepresentable {
     var onTapBlank: ((CGPoint) -> Void)?
     /// Called when the user picks "Copy Screenshot" from the text selection menu.
     var onCopyScreenshot: (() -> Void)?
-    /// [T-selection-menu-tts] "Read from Start" (whole reply) via MiniClaw TTS.
+    /// "Read from Start" (whole reply) via MiniClaw TTS.
     var onReadAloud: (() -> Void)?
-    /// [T-selection-menu-tts] "Read Selection" (selected text) via MiniClaw TTS.
+    /// "Read Selection" (selected text) via MiniClaw TTS.
     var onSpeakText: ((String) -> Void)?
     @Environment(\.openURL) private var openURL
 
@@ -154,7 +154,7 @@ struct MarkdownView: UIViewRepresentable {
         textView.onReadAloud = onReadAloud
         textView.onSpeakText = onSpeakText
         #if DEBUG
-        // [T-ios-markdown-rerender-burst] makeUIView creates a FRESH textView +
+        // makeUIView creates a FRESH textView +
         // resets lastMarkdown="", forcing the next updateUIView through a full
         // re-render (the markdown != lastMarkdown dedup can never hit on a brand
         // new view). Log rnd (coordinator's renderer id) so we can count
@@ -186,7 +186,7 @@ struct MarkdownView: UIViewRepresentable {
             let prevLen = context.coordinator.lastMarkdown.count
             let curLen = markdown.count
             let isAppend = curLen>prevLen && markdown.hasPrefix(context.coordinator.lastMarkdown)
-            AppLogger(category: "AttachHotPath").info("[UPD] entry imgCache=\(imgCacheN) prevLen=\(prevLen) curLen=\(curLen) Δ\(curLen - prevLen) appendOnly=\(isAppend ? 1 : 0) fontChanged=\(fontChanged ? 1 : 0)")
+            AppLogger(category: "ChatList.Attach").info("[UPD] entry imgCache=\(imgCacheN) prevLen=\(prevLen) curLen=\(curLen) Δ\(curLen - prevLen) appendOnly=\(isAppend ? 1 : 0) fontChanged=\(fontChanged ? 1 : 0)")
         }
 
         // [RotationTableFix] Detect (markdown unchanged + width changed) — the
@@ -249,25 +249,25 @@ struct MarkdownView: UIViewRepresentable {
             // set lastMarkdown but didn't actually render the text (e.g. was skipped
             // due to background state, or attributedText was empty/truncated).
             if !markdown.isEmpty && (textView.attributedText?.length ?? 0) == 0 {
-                AppLogger(category: "StreamDiag").info("[RENDER] ⚠️ EMPTY-DESPITE-MATCH markdown len=\(markdown.count) lastMarkdown len=\(context.coordinator.lastMarkdown.count) attrText len=\(textView.attributedText?.length ?? 0) window=\(textView.window != nil) — CELL APPEARS EMPTY")
+                AppLogger(category: "ChatList.Stream").info("[RENDER] ⚠️ EMPTY-DESPITE-MATCH markdown len=\(markdown.count) lastMarkdown len=\(context.coordinator.lastMarkdown.count) attrText len=\(textView.attributedText?.length ?? 0) window=\(textView.window != nil) — CELL APPEARS EMPTY")
             }
             return
         }
 
         // [DIAG-RENDER-2] Three paths based on application state:
-        //   .background                   → defer (always; final streaming
-        //                                   frame would otherwise be blank
-        //                                   until SwiftUI re-evaluates)
-        //   .inactive ≥ 30s               → defer (long-running .inactive is
-        //                                   indistinguishable from background
-        //                                   for watchdog purposes — commit
-        //                                   e6efac23 fixed crashes here)
-        //   .inactive < 30s               → render normally (control center
-        //                                   swipe, incoming call banner,
-        //                                   app-switcher peek — short enough
-        //                                   that the scene-transition
-        //                                   watchdog window has settled)
-        //   .active                       → render normally (falls through)
+        // .background → defer (always; final streaming
+        // frame would otherwise be blank
+        // until SwiftUI re-evaluates)
+        // .inactive ≥ 30s → defer (long-running .inactive is
+        // indistinguishable from background
+        // for watchdog purposes — commit
+        // e6efac23 fixed crashes here)
+        // .inactive < 30s → render normally (control center
+        // swipe, incoming call banner,
+        // app-switcher peek — short enough
+        // that the scene-transition
+        // watchdog window has settled)
+        // .active → render normally (falls through)
         //
         // Deferred frames are stashed on the coordinator and replayed by the
         // didBecomeActive observer once applicationState is genuinely
@@ -324,7 +324,7 @@ struct MarkdownView: UIViewRepresentable {
             let codeN = context.coordinator.renderer.codeBlockAttachmentCache.count
             let tailOld = String(oldMarkdown.suffix(40)).replacingOccurrences(of: "\n", with: "⏎")
             let headNew = String(markdown.prefix(40)).replacingOccurrences(of: "\n", with: "⏎")
-            AppLogger(category: "AttachHotPath").info("[CACHE-WIPE] isNewMessage=true — clearing img=\(imgN) vid=\(vidN) aud=\(audN) code=\(codeN) oldLen=\(oldMarkdown.count) newLen=\(markdown.count) oldTail=\"\(tailOld)\" newHead=\"\(headNew)\"")
+            AppLogger(category: "ChatList.Attach").info("[CACHE-WIPE] isNewMessage=true — clearing img=\(imgN) vid=\(vidN) aud=\(audN) code=\(codeN) oldLen=\(oldMarkdown.count) newLen=\(markdown.count) oldTail=\"\(tailOld)\" newHead=\"\(headNew)\"")
             let renderer = context.coordinator.renderer
             renderer.imageAttachmentCache.removeAll()
             renderer.videoAttachmentCache.removeAll()
@@ -392,7 +392,7 @@ struct MarkdownView: UIViewRepresentable {
             // If text was already set correctly, this is fine. But if
             // attributedText is empty despite matching hash, we have a bug.
             if !markdown.isEmpty && (textView.attributedText?.length ?? 0) == 0 {
-                AppLogger(category: "StreamDiag").info("[RENDER] ⚠️ HASH-MATCH-BUT-EMPTY markdown len=\(markdown.count) hash=\(contentHash) attrText len=0 — SKIPPING RENDER OF NON-EMPTY CONTENT")
+                AppLogger(category: "ChatList.Stream").info("[RENDER] ⚠️ HASH-MATCH-BUT-EMPTY markdown len=\(markdown.count) hash=\(contentHash) attrText len=0 — SKIPPING RENDER OF NON-EMPTY CONTENT")
             }
             if textView.textContainer.size.width>1 {
                 textView.refreshAttachViews()
@@ -400,7 +400,7 @@ struct MarkdownView: UIViewRepresentable {
             return
         }
         #if DEBUG
-        // [T-ios-markdown-rerender-burst] Hash MISS — log why so we can tell if
+        // Hash MISS — log why so we can tell if
         // the content hash is genuinely changing each updateUIView (unstable
         // hash input) vs lastRenderedContentHash being reset between calls.
         // Gated to non-streaming messages with prebuilt cache so it only fires
@@ -468,12 +468,12 @@ struct MarkdownView: UIViewRepresentable {
             usedCache = false
         }
         // Walk every inline image attachment so we can:
-        //   1. patch `messageId` (the cached path via renderMarkdownBlocks
-        //      creates attachments without one)
-        //   2. invalidate any stale bitmap if the underlying file was
-        //      rewritten since the attachment last loaded (size+mtime
-        //      fingerprint mismatch). Skips the on-disk stat for
-        //      non-miniclaw schemes.
+        // 1. patch `messageId` (the cached path via renderMarkdownBlocks
+        // creates attachments without one)
+        // 2. invalidate any stale bitmap if the underlying file was
+        // rewritten since the attachment last loaded (size+mtime
+        // fingerprint mismatch). Skips the on-disk stat for
+        // non-miniclaw schemes.
         attributed.enumerateAttribute(.attachment,
                                       in: NSRange(location: 0,length: attributed.length),
                                       options: []) { value,_,_ in
@@ -505,7 +505,7 @@ struct MarkdownView: UIViewRepresentable {
         // or not the attributed-string fast path is taken, and the renderer's
         // attribute churn (CJK NSFont fallback, NSOriginalFont, fresh paragraph
         // styles) must NOT gate it. We only require the OLD text to be a literal
-        // prefix of the NEW text — true for every streamed token. [T-ios-word-fade-animation]
+        // prefix of the NEW text — true for every streamed token.
         var fadeRevealRange: NSRange? = nil
         let oldStorage = textView.textStorage
         if oldStorage.length>0,
@@ -676,7 +676,7 @@ struct MarkdownView: UIViewRepresentable {
             textView.textContainer.size.height = CGFloat.greatestFiniteMagnitude
         }
         #if DEBUG
-        // [T-attachment-zero-origin] Snapshot at end of updateUIView (live uiView).
+        // Snapshot at end of updateUIView (live uiView).
         MarkdownSnapshotCollector.captureIfEnabled(
             textView: textView,
             phase: "afterUpdateUIView",
@@ -705,7 +705,7 @@ struct MarkdownView: UIViewRepresentable {
     /// attachment identity, …) match exactly AND the fonts are reconcilable:
     /// either the raw `NSFont`s are equal, or the new side's `NSFont` equals the
     /// old side's `NSOriginalFont` (i.e. old is just `new` after fallback).
-    /// A genuine font/size change still breaks the match. [T-ios-word-fade-animation]
+    /// A genuine font/size change still breaks the match.
     private static func prefixesEqualIgnoringFontSubstitution(
         _ newPrefix: NSAttributedString,
         _ oldPrefix: NSAttributedString
@@ -827,7 +827,7 @@ struct MarkdownView: UIViewRepresentable {
             return CGSize(width: width,height: cachedHeight)
         }
 
-        // [T-ios-markdown-table-double-render] Near-width cache hit for FULLY
+        // Near-width cache hit for FULLY
         // COMMITTED (non-streaming) content. During a deceleration glide UIKit
         // probes a cell's sizeThatFits several times at WIDTHS that differ by
         // 1–2pt of rounding (preferredLayoutAttributesFitting passes), so the
@@ -884,7 +884,7 @@ struct MarkdownView: UIViewRepresentable {
         // written back to cachedSizes so a later sizeThatFits at the same
         // length doesn't reuse it.
         let useMeasureTextView = bindingLen != storageLen
-        // [T-ios-streaming-est-attachment-clip] STREAM-EST disabled again.
+        // STREAM-EST disabled again.
         // It was restored in de4d3df6 to kill visible-streaming hangs, but the
         // linear pxPerChar extrapolation under-measures cells that contain
         // fixed-height attachments (tool capsules, code/shell blocks, images):
@@ -902,7 +902,7 @@ struct MarkdownView: UIViewRepresentable {
            coord.lastFullMeasureBindingLen >= 64,// anchor must represent enough characters
            prevHeight >= 30,// and a real laid-out block
            bindingLen>coord.lastFullMeasureBindingLen,
-           bindingLen-coord.lastFullMeasureBindingLen<128 {           // tighter delta window
+           bindingLen-coord.lastFullMeasureBindingLen<128 { // tighter delta window
             let prevLen = coord.lastFullMeasureBindingLen
             let pxPerChar = prevHeight/CGFloat(prevLen)
             let delta = CGFloat(bindingLen-prevLen)
@@ -1017,7 +1017,7 @@ struct MarkdownView: UIViewRepresentable {
                 if v != nil { hasAnyAttachment = true; stop.pointee = true }
             }
             if !hasAnyAttachment {
-                // [T-ios-decel-inv-estimate-calibration] FINALIZED content takes
+                // FINALIZED content takes
                 // the real-engine measure: CTFramesetter over-measures blocks
                 // with inline-code/bold spans by +2..+36pt vs the actual TextKit
                 // render (per-cell trajectory traces: first display grew the
@@ -1071,7 +1071,7 @@ struct MarkdownView: UIViewRepresentable {
             let mtv = coord.measureTextView as? MarkdownTextView ?? coord.measureTextView as! MarkdownTextView
             mtv.attributedText = pending
             #if DEBUG
-            // [T-attachment-zero-origin] Snapshot the moment after attributedText
+            // Snapshot the moment after attributedText
             // is assigned to the off-screen measureTextView. This is exactly when
             // TextKit runs setGlyphs:properties: — if textContainer.size.width is
             // still 0 here, attachment glyphs get classified as controlCharacter
@@ -1104,7 +1104,7 @@ struct MarkdownView: UIViewRepresentable {
                     if v != nil { hasAnyAttachment = true; stop.pointee = true }
                 }
                 if !hasAnyAttachment {
-                    // [T-ios-decel-inv-estimate-calibration] Same real-engine
+                    // Same real-engine
                     // routing as the pre-commit branch above: committed
                     // attachment-free content ≤8000 chars measures on the
                     // offscreen MarkdownTextView (matches the render
@@ -1247,11 +1247,11 @@ struct MarkdownView: UIViewRepresentable {
             if totalMs >= 200 { level = "🔥🔥" }
             else if totalMs >= 50 { level = "🔥" }
             else { level = "" }
-            Self.stfLogger.info("[STF] #\(callIdx) MISS\(level) w=\(widthKey) (Δ\(widthDelta)) len=\(bindingLen) wChg=\(widthChanged ? 1 : 0) stf=\(String(format: "%.1f", sizeMs))ms total=\(String(format: "%.1f", totalMs))ms buckets=\(coord.cachedSizes.count) cumulative=\(String(format: "%.0f", coord.sizeThatFitsTotalMs))ms hits=\(coord.sizeThatFitsCacheHitCount)/\(callIdx)")
+            Self.stfLogger.info("[SizeFit] #\(callIdx) MISS\(level) w=\(widthKey) (Δ\(widthDelta)) len=\(bindingLen) wChg=\(widthChanged ? 1 : 0) stf=\(String(format: "%.1f", sizeMs))ms total=\(String(format: "%.1f", totalMs))ms buckets=\(coord.cachedSizes.count) cumulative=\(String(format: "%.0f", coord.sizeThatFitsTotalMs))ms hits=\(coord.sizeThatFitsCacheHitCount)/\(callIdx)")
         }
 
         if bindingLen >= 10_000 && totalMs >= 100 {
-            Self.stfLogger.warning("[STF] ⚠️ LONG-TEXT SLOW len=\(bindingLen) totalMs=\(String(format: "%.1f", totalMs)) — repeated calls of this size can trigger 0x8BADF00D")
+            Self.stfLogger.warning("[SizeFit] ⚠️ LONG-TEXT SLOW len=\(bindingLen) totalMs=\(String(format: "%.1f", totalMs)) — repeated calls of this size can trigger 0x8BADF00D")
         }
 
         #if DEBUG
@@ -1264,7 +1264,7 @@ struct MarkdownView: UIViewRepresentable {
         #endif
 
         #if DEBUG
-        // [T-attachment-zero-origin] Snapshot the textView used for measurement.
+        // Snapshot the textView used for measurement.
         // For attachment-bearing markdown this is the off-screen measureTextView
         // (where the lineFrag.width=10M bug surfaces); for attachment-free
         // content it's the live uiView itself.
@@ -1284,7 +1284,7 @@ struct MarkdownView: UIViewRepresentable {
 
     private static let stfLogger = AppLogger(category: "MarkdownSTF")
     #if DEBUG
-    fileprivate static let watchdogProbe = AppLogger(category: "WatchdogProbe")
+    fileprivate static let watchdogProbe = AppLogger(category: "ChatList.Watchdog")
     #endif
 
     #if DEBUG

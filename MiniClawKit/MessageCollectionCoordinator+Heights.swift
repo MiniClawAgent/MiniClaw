@@ -11,7 +11,7 @@ extension MessageCollectionView.Coordinator {
         /// handles NSTextAttachment subclasses (tables, code blocks, images) by
         /// calling attachmentBounds() during layout, unlike boundingRect() which
         /// uses the attachment's 1×1px placeholder image.
-        /// [T-ios-decel-inv-estimate-calibration] Measure with the REAL render
+        /// Measure with the REAL render
         /// engine: an offscreen MarkdownTextView (MiniClawLayoutManager +
         /// 4/4 textContainerInset), exactly what the live cell hosts. The
         /// previous bare-NSLayoutManager measure drifted +4..+21pt on ~30% of
@@ -51,7 +51,7 @@ extension MessageCollectionView.Coordinator {
         /// Shared offscreen measurement text view (main-thread only).
         static let measureTextView = MarkdownTextView()
 
-        /// [T-ios-user-msg-estimate-tail-jitter] Accurate height for a USER
+        /// Accurate height for a USER
         /// message cell, measured with the SAME font / wrap width / paddings as
         /// `ChatMessageRow.userRow` renders, so the precalc lands the cell at its
         /// true height (the coarse char-count estimator was ~10pt short, which
@@ -60,10 +60,10 @@ extension MessageCollectionView.Coordinator {
         /// coarse estimate). Cached by content|width|fontsize.
         ///
         /// Layout constants mirror ChatView.userRow:
-        ///   - font: .system(size: scaledMessage(16.5))
-        ///   - bubble: .padding(.horizontal,14) .padding(.vertical,10)  → +20 height, -28 width
-        ///   - row:   HStack { Spacer(minLength: 60); VStack(spacing:6){ attachments?; bubble } }
-        ///   - cell:  .padding(.horizontal, 16) on the whole row
+        /// - font: .system(size: scaledMessage(16.5))
+        /// - bubble: .padding(.horizontal,14) .padding(.vertical,10) → +20 height, -28 width
+        /// - row: HStack { Spacer(minLength: 60); VStack(spacing:6){ attachments?; bubble } }
+        /// - cell: .padding(.horizontal, 16) on the whole row
         /// No on-screen view is touched; pure TextKit measurement (usedRect).
         static func measureUserBubbleHeight(for message: ChatMessage,cvWidth: CGFloat,
                                             cache: inout [String: CGFloat]) -> CGFloat? {
@@ -100,7 +100,7 @@ extension MessageCollectionView.Coordinator {
             let key = "\(text.count)|\(Int(usableTextWidth))|\(Int(fontSize))|\(attachCount)|\(text.hashValue)"
             if let cached = cache[key] { return cached }
 
-            // [T-ios-user-msg-estimate-tail-jitter] Measure with UILabel, NOT raw
+            // Measure with UILabel, NOT raw
             // NSLayoutManager.usedRect. SwiftUI `Text` lays each line at the
             // font's full line-height box (with default leading); a bare
             // NSLayoutManager usedRect is ~2-3pt/line TIGHTER, so it
@@ -124,7 +124,7 @@ extension MessageCollectionView.Coordinator {
                 context: nil
             )
             let textH = ceil(bounds.height)
-            // [T-ios-decel-inv-estimate-calibration] CJK bubble correction: all
+            // CJK bubble correction: all
             // five first-measure samples in the debug.scrollMetrics trace showed
             // CJK bubbles landing +6.3–7.0 taller than this boundingRect-based
             // estimate (SwiftUI Text gives PingFang-fallback lines a taller
@@ -143,7 +143,7 @@ extension MessageCollectionView.Coordinator {
 
         // MARK: - Height Estimation
 
-        /// [T-ios-scroll-decel-height-drift] The owning message id for a list
+        /// The owning message id for a list
         /// item (used to detect the actively streaming message so its cells are
         /// excluded from the height memo).
         static func messageId(of item: MessageListItem) -> UUID? {
@@ -155,7 +155,7 @@ extension MessageCollectionView.Coordinator {
             }
         }
 
-        /// [T-ios-scroll-decel-height-drift] Stable per-content key for the
+        /// Stable per-content key for the
         /// measured-height memo, keyed by item identity AND a cheap content
         /// fingerprint (content length / attachment count). The fingerprint makes
         /// the key CHANGE when the content changes height without changing
@@ -166,7 +166,7 @@ extension MessageCollectionView.Coordinator {
         /// memo's staleness paths. Font size is NOT in the key because a font
         /// change routes through clearHeightCache (wipes the whole memo).
         #if DEBUG
-        /// [T-ios-scroll-metrics-ring] Stable content-hash identity for a cell.
+        /// Stable content-hash identity for a cell.
         /// Unlike contentKey (built on runtime UUIDs, regenerated when history
         /// paging reloads message objects), this survives object regeneration:
         /// same rendered content → same tag. Used ONLY by the scroll-metrics
@@ -233,7 +233,7 @@ extension MessageCollectionView.Coordinator {
                 case .compactDivider: return 44
                 case .systemInfo: return 36
                 case .user:
-                    // [T-ios-user-msg-estimate-tail-jitter] Use the SAME accurate
+                    // Use the SAME accurate
                     // UILabel-based measurement as the precalc path, NOT the coarse
                     // char-count heuristic. The heuristic (cpl = tw/(scale*0.55))
                     // under-counts lines — a 3-line message estimated as 2 lines —
@@ -293,25 +293,25 @@ extension MessageCollectionView.Coordinator {
                 case .thinking:
                     // Header (icon 14pt or label 13pt) + vPad 10·2 + capsule border ≈ 36pt,
                     // + 4pt block-wrapper vertical padding = 40 (same calibration as tool
-                    // capsules, [T-ios-decel-inv-estimate-calibration]).
+                    // capsules,).
                     // When expanded, content area adds up to 300pt of inner text + 10pt bottom pad.
                     let headerH: CGFloat = 40
                     guard block.isThinkingExpanded,!block.content.isEmpty else {
                         return headerH
                     }
-                    let innerWidth = max(width-24,100)         // 12pt horizontal pad each side
-                    let innerLineHeight: CGFloat = 13*1.4+3   // .lineSpacing(3) on 13pt font
+                    let innerWidth = max(width-24,100) // 12pt horizontal pad each side
+                    let innerLineHeight: CGFloat = 13*1.4+3 // .lineSpacing(3) on 13pt font
                     let lines = block.content.split(separator: "\n", omittingEmptySubsequences: false)
                     var textH: CGFloat = 0
-                    let cpl = max(1,innerWidth/7)              // ~7pt per CJK/wide glyph at 13pt
+                    let cpl = max(1,innerWidth/7) // ~7pt per CJK/wide glyph at 13pt
                     for line in lines {
                         let wrapped = max(1,ceil(CGFloat(line.count)/cpl))
                         textH += wrapped*innerLineHeight
                     }
-                    let contentH = min(textH+10,300)            // ScrollView capped at 300pt
+                    let contentH = min(textH+10,300) // ScrollView capped at 300pt
                     let total = headerH+contentH
                     return total
-                // [T-ios-decel-inv-estimate-calibration] Tool capsules measure exactly
+                // Tool capsules measure exactly
                 // 36pt: ToolCapsuleView has NO vertical padding (unlike .text/.thinking,
                 // which add .padding(.vertical, 2) → +4). The debug.scrollMetrics ring
                 // proved the split: with 40 here, every real tool capsule corrected
@@ -322,7 +322,7 @@ extension MessageCollectionView.Coordinator {
                 case .info:
                     let lineCount = max(1, block.content.components(separatedBy: "\n").count)
                     return CGFloat(20+lineCount*16)
-                default: return 36  // Tool capsules (execute, browser, etc.): no wrapper pad
+                default: return 36 // Tool capsules (execute, browser, etc.): no wrapper pad
                 }
             case .assistantFooter:
                 return 4
@@ -411,7 +411,7 @@ extension MessageCollectionView.Coordinator {
                 i += 1
             }
 
-            // [T-ios-stream-bubble-spacing] +4 to match the measured-path baseline
+            // +4 to match the measured-path baseline
             // (cachedAttributedString branch returns usedRect + 8; this heuristic
             // seeds total = 4, so it ran 4pt short). Centralizing the compensation
             // HERE — rather than at one applySnapshot call site — means EVERY

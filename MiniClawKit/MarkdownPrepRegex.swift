@@ -188,7 +188,7 @@ private enum MarkdownPrepRegex {
 // that would pair up but for punctuation adjacency), context-safe (skips
 // fenced/inline code, escapes, link destinations — the old CJK fixer regexed
 // straight through code fences), and a single O(n) pass instead of six
-// NSRegularExpressions on the streaming hot path. [T-md-cjk-emphasis-pairs]
+// NSRegularExpressions on the streaming hot path.
 
 func insertBlankLineAfterTable(_ markdown: String) -> String {
     var lines = markdown.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
@@ -395,7 +395,7 @@ private func fixEmphasisPairsInLine(_ line: String) -> String {
     var openers: [Int] = []
     for (ri,r) in runs.enumerated() {
         if r.closeRelaxed,let oi = openers.last,
-           runs[oi].start+runs[oi].len<r.start {   // non-empty content
+           runs[oi].start+runs[oi].len<r.start { // non-empty content
             let o = runs[oi]
             openers.removeLast()
             if !(o.openStrict && r.closeStrict) {
@@ -422,7 +422,7 @@ private func fixEmphasisPairsInLine(_ line: String) -> String {
     return String(result)
 }
 
-/// [T-strikethrough-strict] Escape `~~` pairs that aren't flanked by
+/// Escape `~~` pairs that aren't flanked by
 /// whitespace / line boundaries so cmark-gfm doesn't treat them as
 /// strikethrough. The model occasionally emits `~~` inside dense text
 /// like number ranges or table-like prose where the opening pair
@@ -431,11 +431,11 @@ private func fixEmphasisPairsInLine(_ line: String) -> String {
 /// glitch.
 ///
 /// Rule (matches the spec contract):
-///   - `~~` is treated as a strikethrough delimiter ONLY when both
-///     sides see whitespace, start-of-string, end-of-string, or a
-///     newline.
-///   - Otherwise we escape it as `\~\~` so cmark renders the literal
-///     characters.
+/// - `~~` is treated as a strikethrough delimiter ONLY when both
+/// sides see whitespace, start-of-string, end-of-string, or a
+/// newline.
+/// - Otherwise we escape it as `\~\~` so cmark renders the literal
+/// characters.
 ///
 /// We deliberately leave `**bold**`, `*italic*`, and `` `code` ``
 /// alone — those are unambiguous and rarely false-positive.
@@ -445,7 +445,7 @@ func prepareMarkdownForRender(_ markdown: String) -> String {
     return strictifyStrikethrough(padInlineCode(fixEmphasisPairsForCJK(normalizeMarkdownListSyntax(insertBlankLineAfterTable(markdown)))))
 }
 
-// MARK: - CJK Emphasis Pair Fix  [T-md-cjk-emphasis-pairs]
+// MARK: - CJK Emphasis Pair Fix
 
 /// CommonMark's flanking rules make `**` fail to open when it is followed by
 /// punctuation and preceded by a letter, and fail to close when it is preceded
@@ -453,16 +453,16 @@ func prepareMarkdownForRender(_ markdown: String) -> String {
 /// configurations are rare; in CJK prose they are everywhere
 /// (`建一个**"标题"**提醒`, `**要点：**内容`), so model output constantly
 /// renders literal asterisks. This pass:
-///   1. Skips fenced code blocks, inline code spans, `\*` escapes, and link
-///      destinations — those regions are never touched.
-///   2. Simulates delimiter pairing per line with RELAXED flanking (only the
-///      whitespace conditions) and checks each matched pair against the
-///      STRICT CommonMark rules.
-///   3. Only when a pair would match relaxed but fails strict — i.e. the
-///      failure is attributable purely to punctuation adjacency — inserts a
-///      zero-width space (U+200B, letter-class for cmark, invisible in
-///      rendering) between the delimiter and the adjacent punctuation so the
-///      strict rule passes.
+/// 1. Skips fenced code blocks, inline code spans, `\*` escapes, and link
+/// destinations — those regions are never touched.
+/// 2. Simulates delimiter pairing per line with RELAXED flanking (only the
+/// whitespace conditions) and checks each matched pair against the
+/// STRICT CommonMark rules.
+/// 3. Only when a pair would match relaxed but fails strict — i.e. the
+/// failure is attributable purely to punctuation adjacency — inserts a
+/// zero-width space (U+200B, letter-class for cmark, invisible in
+/// rendering) between the delimiter and the adjacent punctuation so the
+/// strict rule passes.
 /// Pairs that already parse are left byte-identical; lone/unpairable runs
 /// (`2**8`, `a ** b`) are never rewritten. The pass is idempotent: after the
 /// ZWSP insert the pair passes strict flanking and re-runs are no-ops.

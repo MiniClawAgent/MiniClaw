@@ -1,14 +1,14 @@
 //
-//  MiniClawWebLoadError.swift
-//  MiniClaw
+// MiniClawWebLoadError.swift
+// MiniClaw
 //
-//  [T-ios-webview-error-ui] Shared Safari-style error model + overlay for the
-//  built-in WKWebViews. When a page fails to load (DNS not found, host
-//  unreachable, offline, timeout, TLS error, …) WKWebView is left showing a
-//  blank white/black page with no indication of what happened. This gives all
-//  three built-in web surfaces (chat link preview, markdown link preview, and
-//  the agent browser) a consistent icon + short message + Retry, mirroring what
-//  Safari shows.
+// Shared Safari-style error model + overlay for the
+// built-in WKWebViews. When a page fails to load (DNS not found, host
+// unreachable, offline, timeout, TLS error, …) WKWebView is left showing a
+// blank white/black page with no indication of what happened. This gives all
+// three built-in web surfaces (chat link preview, markdown link preview, and
+// the agent browser) a consistent icon + short message + Retry, mirroring what
+// Safari shows.
 //
 
 import Foundation

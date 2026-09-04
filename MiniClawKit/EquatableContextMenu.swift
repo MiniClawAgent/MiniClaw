@@ -2,7 +2,7 @@ import SwiftUI
 
 // MARK: - Equatable-gated context menu (message bubbles)
 
-/// [T-ios-msg-contextmenu-recursion-crash] Wraps heavy `.contextMenu` content in
+/// Wraps heavy `.contextMenu` content in
 /// an Equatable view keyed on a small value so SwiftUI skips rebuilding the whole
 /// menu subtree on every cell `body` re-evaluation.
 ///

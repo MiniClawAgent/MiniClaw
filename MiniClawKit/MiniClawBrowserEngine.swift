@@ -7,7 +7,7 @@ extension MiniClawBrowserEngine: WKNavigationDelegate {
     public nonisolated func webView(_ webView: WKWebView,didFinish navigation: WKNavigation!) {
         Task { @MainActor in
             self.isLoading = false
-            self.loadError = nil  // [T-ios-webview-error-ui]
+            self.loadError = nil //
             self.currentURL = webView.url?.absoluteString ?? self.currentURL
             self.pageTitle = webView.title ?? ""
             self.canGoBack = webView.canGoBack
@@ -26,7 +26,7 @@ extension MiniClawBrowserEngine: WKNavigationDelegate {
     public nonisolated func webView(_ webView: WKWebView,didFail navigation: WKNavigation!,withError error: Error) {
         Task { @MainActor in
             self.isLoading = false
-            // [T-ios-webview-error-ui] Show a Safari-style overlay in the
+            // Show a Safari-style overlay in the
             // browser sheet instead of a blank page. Still thrown to the agent.
             self.loadError = MiniClawWebLoadError(error: error,failedURL: self.lastRequestedURL)
             logger.error("Navigation failed: \(error.localizedDescription)")
@@ -41,7 +41,7 @@ extension MiniClawBrowserEngine: WKNavigationDelegate {
     public nonisolated func webView(_ webView: WKWebView,didFailProvisionalNavigation navigation: WKNavigation!,withError error: Error) {
         Task { @MainActor in
             self.isLoading = false
-            // [T-ios-webview-error-ui] see didFail above.
+            // see didFail above.
             self.loadError = MiniClawWebLoadError(error: error,failedURL: self.lastRequestedURL)
             logger.error("Provisional navigation failed: \(error.localizedDescription)")
 
@@ -205,7 +205,7 @@ public final class MiniClawBrowserEngine: NSObject,ObservableObject {
     @Published public var currentURL: String = ""
     @Published public var pageTitle: String = ""
     @Published public var isLoading: Bool = false
-    /// [T-ios-webview-error-ui] Non-nil when the last navigation failed
+    /// Non-nil when the last navigation failed
     /// (DNS/host/offline/timeout/TLS). Drives a Safari-style error overlay in
     /// BrowserSheetView so an agent-driven navigation failure isn't a blank
     /// page. The error is still thrown to the agent via navigate() as before.
@@ -234,7 +234,7 @@ public final class MiniClawBrowserEngine: NSObject,ObservableObject {
     // MARK: - Downloads
 
     /// BrowserDownloadCenter entry ids for this tab's in-flight WKDownloads.
-    /// [T-browser-download-ux] Download state now lives in the session-scoped
+    /// Download state now lives in the session-scoped
     /// center (drives the chat's floating banner + the agent-facing report),
     /// not in per-tab published state.
     private var downloadCenterIds: [ObjectIdentifier: UUID] = [:]
@@ -339,9 +339,9 @@ public final class MiniClawBrowserEngine: NSObject,ObservableObject {
         let vp = resolveViewport(profile: profile,width: viewportWidth,height: viewportHeight)
 
         // Force a fixed CSS viewport width when:
-        //   - the profile is desktop (original behavior), OR
-        //   - the caller supplied a custom viewport (so pages lay out at the
-        //     requested width instead of the container-derived size).
+        // - the profile is desktop (original behavior), OR
+        // - the caller supplied a custom viewport (so pages lay out at the
+        // requested width instead of the container-derived size).
         let hasCustom = (viewportWidth ?? 0)>0 && (viewportHeight ?? 0)>0
         let wantsDesktop = (profile == .desktopSafari) || (hasCustom && vp.width >= 1024)
         if profile == .desktopSafari || hasCustom {
@@ -520,9 +520,9 @@ public final class MiniClawBrowserEngine: NSObject,ObservableObject {
         logger.info("[SettleTiming] dom_summary elapsed=\(domMs)ms")
 
         // 2. Take snapshot for UI preview (DOM is now stable, better screenshot)
-        //    Match the frame-resize approach in `screenshot()` so custom
-        //    viewports render at their intended size even when the browser
-        //    sheet is stretching the WKWebView to fill a different container.
+        // Match the frame-resize approach in `screenshot()` so custom
+        // viewports render at their intended size even when the browser
+        // sheet is stretching the WKWebView to fill a different container.
         let snapStart = CFAbsoluteTimeGetCurrent()
         var snapshotPath: String? = nil
         let targetSize = CGSize(width: CGFloat(currentViewport.width),
@@ -752,7 +752,7 @@ public final class MiniClawBrowserEngine: NSObject,ObservableObject {
     /// awaiting Task hangs forever. This is a prime suspect for the backgrounded
     /// browser hang — the app itself stays alive (audio keep-alive), so nothing
     /// external unblocks it. Racing the eval against `Task.sleep` bounds it;
-    /// whichever finishes first wins. [T-browser-bg-stuck-diag]
+    /// whichever finishes first wins.
     ///
     /// The timer is a `DispatchSourceTimer`, NOT `Task.sleep`. This matters and
     /// was proven on device: with `Task.sleep` a 10s bound fired at ~42s while
@@ -810,7 +810,7 @@ public final class MiniClawBrowserEngine: NSObject,ObservableObject {
         let url = webView.url?.absoluteString ?? currentURL
         let title = webView.title ?? pageTitle
 
-        // [T-browser-bg-stuck-diag] Instrument + bound this JS eval. It runs at
+        // Instrument + bound this JS eval. It runs at
         // the tail of EVERY navigate, and an un-timed evaluateJavaScript here is
         // the concrete point where a navigate whose page pins the JS thread hangs
         // forever (the app is alive, so nothing else rescues it).
@@ -840,12 +840,12 @@ public final class MiniClawBrowserEngine: NSObject,ObservableObject {
 
         var lines: [String] = []
         lines.append("Navigated to \(url)")
-        if !title.isEmpty { lines.append("  Title: \(title)") }
-        lines.append("  Viewport: \(vp.width)x\(vp.height)")
+        if !title.isEmpty { lines.append(" Title: \(title)") }
+        lines.append(" Viewport: \(vp.width)x\(vp.height)")
         if pageW>0 || pageH>0 {
-            lines.append("  Page size: \(pageW)x\(pageH)")
+            lines.append(" Page size: \(pageW)x\(pageH)")
         }
-        lines.append("  Scroll position: (\(scrollX), \(scrollY))")
+        lines.append(" Scroll position: (\(scrollX), \(scrollY))")
         return lines.joined(separator: "\n")
     }
 
@@ -883,8 +883,8 @@ public final class MiniClawBrowserEngine: NSObject,ObservableObject {
         }
 
         let request = URLRequest(url: url,cachePolicy: .reloadIgnoringLocalCacheData,timeoutInterval: Self.navigationTimeout)
-        lastRequestedURL = url          // [T-ios-webview-error-ui]
-        loadError = nil                 // clear any prior failure overlay
+        lastRequestedURL = url //
+        loadError = nil // clear any prior failure overlay
         webView.load(request)
         isLoading = true
 
@@ -898,8 +898,8 @@ public final class MiniClawBrowserEngine: NSObject,ObservableObject {
                 if let cont = self.navigationContinuation {
                     self.navigationContinuation = nil
                     self.isLoading = false
-                    cont.resume()  // Don't fail on timeout, page may be partially loaded
-                    // [T-browser-bg-stuck-diag] Distinguish the two ways navigate
+                    cont.resume() // Don't fail on timeout, page may be partially loaded
+                    // Distinguish the two ways navigate
                     // leaves the wait: this WARN = timed out (didFinish/didFail
                     // never came — network stall or the load never completed);
                     // absence of it = the delegate fired normally.
@@ -1070,18 +1070,18 @@ public final class MiniClawBrowserEngine: NSObject,ObservableObject {
 
         var lines: [String] = []
         lines.append("Screenshot captured")
-        lines.append("  URL: \(url)")
-        if !title.isEmpty { lines.append("  Title: \(title)") }
-        lines.append("  Image: \(Int(imageSize.width))x\(Int(imageSize.height)) (\(fileSize / 1024)KB)")
-        lines.append("  Viewport: \(vp.width)x\(vp.height)")
+        lines.append(" URL: \(url)")
+        if !title.isEmpty { lines.append(" Title: \(title)") }
+        lines.append(" Image: \(Int(imageSize.width))x\(Int(imageSize.height)) (\(fileSize / 1024)KB)")
+        lines.append(" Viewport: \(vp.width)x\(vp.height)")
         if pageW > 0 || pageH > 0 {
-            lines.append("  Page size: \(pageW)x\(pageH)")
+            lines.append(" Page size: \(pageW)x\(pageH)")
         }
-        lines.append("  Scroll position: (\(scrollX), \(scrollY))")
+        lines.append(" Scroll position: (\(scrollX), \(scrollY))")
         if fullPage {
-            lines.append("  Full page: true")
+            lines.append(" Full page: true")
             if truncated && originalHeight > 0 {
-                lines.append("  Truncated: true (original height \(originalHeight)px capped at \(Int(Self.fullPageMaxHeight))px)")
+                lines.append(" Truncated: true (original height \(originalHeight)px capped at \(Int(Self.fullPageMaxHeight))px)")
             }
         }
         return lines.joined(separator: "\n")
@@ -1107,7 +1107,7 @@ public final class MiniClawBrowserEngine: NSObject,ObservableObject {
         guard let selector else { return .error("type requires 'selector'") }
         guard let text else { return .error("type requires 'text'") }
         let result = try await evaluateAndReturn(BrowserUseJS.type(selector: selector, text: text))
-        // [T-ios-webview-phantom-keyboard] The type just focused a web input,
+        // The type just focused a web input,
         // raising a remote keyboard on this offscreen webView. Release it so it
         // doesn't leave a window-wide phantom keyboard placeholder that SwiftUI's
         // avoidance reserves (black gap below the composer / home FAB on all
@@ -1250,8 +1250,8 @@ public final class MiniClawBrowserEngine: NSObject,ObservableObject {
 
         var lines: [String] = []
         lines.append("Collected \(collected) unique items (\(totalSeen) total seen) over \(steps) scroll steps")
-        lines.append("  Item selector: \(selector)")
-        lines.append("  Final scroll position: \(scrollPos)")
+        lines.append(" Item selector: \(selector)")
+        lines.append(" Final scroll position: \(scrollPos)")
         lines.append("")
 
         if let items = json["items"] as? [String] {
@@ -1376,20 +1376,20 @@ public final class MiniClawBrowserEngine: NSObject,ObservableObject {
         }
         lines.append("")
         lines.append("Stored env file:")
-        lines.append("  \(envGuestPath)")
+        lines.append(" \(envGuestPath)")
         lines.append("")
         lines.append("To use them in shell commands:")
-        lines.append("  . \(envGuestPath) && command")
+        lines.append(" . \(envGuestPath) && command")
         lines.append("")
         lines.append("Available cookie variables:")
         for entry in varEntries {
             lines.append("- cookie: \(entry.originalName)")
-            lines.append("  env: \(entry.envName)")
-            lines.append("  value_length: \(entry.valueLength)")
+            lines.append(" env: \(entry.envName)")
+            lines.append(" value_length: \(entry.valueLength)")
             lines.append("")
         }
         lines.append("You may define your own alias variables when needed for compatibility, for example:")
-        lines.append("  . \(envGuestPath) && MY_VAR=\"$\(varEntries.first?.envName ?? "COOKIE_NAME")\" && command")
+        lines.append(" . \(envGuestPath) && MY_VAR=\"$\(varEntries.first?.envName ?? "COOKIE_NAME")\" && command")
         lines.append("")
         lines.append("The raw cookie values are stored only in the env file and are not included in this tool response.")
 
@@ -1552,9 +1552,9 @@ public final class MiniClawBrowserEngine: NSObject,ObservableObject {
         }
         // Use callAsyncJavaScript so `await` and top-level `return` work natively.
         // Unlike evaluateJavaScript, callAsyncJavaScript:
-        //   1. Wraps the script body in an async function — `await` is valid
-        //   2. Automatically resolves returned Promises before delivering the result
-        //   3. Supports top-level `return` without an explicit IIFE wrapper
+        // 1. Wraps the script body in an async function — `await` is valid
+        // 2. Automatically resolves returned Promises before delivering the result
+        // 3. Supports top-level `return` without an explicit IIFE wrapper
         do {
             let result = try await webView.callAsyncJavaScript(script, arguments: [:], contentWorld: .page)
             return MiniClawActionResult(text: Self.stringifyJSReturn(result))
@@ -1728,7 +1728,7 @@ public final class MiniClawBrowserEngine: NSObject,ObservableObject {
     }
 
     private static func formatBackboneNode(_ node: [String: Any],indent: Int,lines: inout [String]) {
-        let pad = String(repeating: "  ", count: indent)
+        let pad = String(repeating: " ", count: indent)
         let tag = node["tag"] as? String ?? "?"
         let sel = node["sel"] as? String ?? ""
         let rect = node["rect"] as? String ?? ""
@@ -1743,16 +1743,16 @@ public final class MiniClawBrowserEngine: NSObject,ObservableObject {
 
         // Content details on indented lines, only if present
         if let text = node["text"] as? String, !text.isEmpty {
-            lines.append("\(pad)  \"\(text)\"")
+            lines.append("\(pad) \"\(text)\"")
         }
         if let href = node["href"] as? String, !href.isEmpty {
-            lines.append("\(pad)  → \(href)")
+            lines.append("\(pad) → \(href)")
         }
         if let img = node["img"] as? String, !img.isEmpty {
-            lines.append("\(pad)  img: \(img)")
+            lines.append("\(pad) img: \(img)")
         }
         if let input = node["input"] as? String, !input.isEmpty {
-            lines.append("\(pad)  input: \(input)")
+            lines.append("\(pad) input: \(input)")
         }
 
         if let children = node["children"] as? [[String: Any]] {
@@ -1839,10 +1839,10 @@ public final class MiniClawBrowserEngine: NSObject,ObservableObject {
 
         var lines: [String] = []
         lines.append("Fetched \(finalURL)")
-        lines.append("  Status: \(status)")
-        lines.append("  Content-Type: \(contentType)")
-        lines.append("  Size: \(Self.formatBytes(size))")
-        lines.append("  Filename: \(filename)")
+        lines.append(" Status: \(status)")
+        lines.append(" Content-Type: \(contentType)")
+        lines.append(" Size: \(Self.formatBytes(size))")
+        lines.append(" Filename: \(filename)")
 
         return MiniClawActionResult(
             text: lines.joined(separator: "\n"),
@@ -1972,7 +1972,7 @@ public final class MiniClawBrowserEngine: NSObject,ObservableObject {
     /// (T-ios-browser-sheet-viewport-pollution)
     @MainActor
     public func restoreViewportFrame() {
-        // [T-ios-webview-phantom-keyboard] This runs when the browser sheet
+        // This runs when the browser sheet
         // closes / before a screenshot — i.e. the webView is going back
         // offscreen. Release any focused input's remote keyboard here too, so a
         // focus left by a `click` on a field (not just `type`) can't strand a
@@ -1995,7 +1995,7 @@ public final class MiniClawBrowserEngine: NSObject,ObservableObject {
         logger.info("restoreViewportFrame: \(Int(current.width))x\(Int(current.height)) -> \(currentViewport.width)x\(currentViewport.height)")
     }
 
-    /// [T-ios-webview-phantom-keyboard] Release any keyboard the offscreen
+    /// Release any keyboard the offscreen
     /// agent webView is holding. When a browser action focuses a web input
     /// (`type`, or a `click` that lands on a field), WebKit raises a REMOTE
     /// keyboard for this webView. Because the webView is parked offscreen (and
@@ -2043,13 +2043,13 @@ public final class MiniClawBrowserEngine: NSObject,ObservableObject {
         }
         guard let url = URL(string: normalized) else { return }
         let request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: Self.navigationTimeout)
-        lastRequestedURL = url          // [T-ios-webview-error-ui]
+        lastRequestedURL = url //
         loadError = nil
         webView.load(request)
         isLoading = true
     }
 
-    /// [T-ios-webview-error-ui] Retry the last requested URL after a failure.
+    /// Retry the last requested URL after a failure.
     public func retryFailedLoad() {
         loadError = nil
         if let url = lastRequestedURL {
@@ -2096,25 +2096,25 @@ public final class MiniClawBrowserEngine: NSObject,ObservableObject {
     ///
     /// Previous behaviour (now deleted) tried to be clever: when the JS
     /// script returned a string that happened to parse as a JSON object, we
-    /// re-ran it through `formatJSONResult` and produced `"  key: value\n"`
+    /// re-ran it through `formatJSONResult` and produced `" key: value\n"`
     /// text; when the JS side returned a real object we used
     /// `String(describing:)` which produced NSDictionary's
-    /// `"{\n    key = value;\n}"` plist-ish description. Either way the
+    /// `"{\n key = value;\n}"` plist-ish description. Either way the
     /// caller couldn't `JSON.parse` / `json.loads` the result. That's wrong
     /// for a tool whose whole job is to run user code and return whatever
     /// it produced.
     ///
     /// New rules:
-    ///   - `String` → returned verbatim. A script that did
-    ///     `return JSON.stringify(obj)` gets its exact string back.
-    ///   - JSON-serialisable object/array (`NSDictionary` / `NSArray` /
-    ///     `NSNumber` / `NSNull`) → serialised with `JSONSerialization`
-    ///     (with `.fragmentsAllowed` so naked numbers/booleans round-trip
-    ///     to `"42"` / `"true"` / `"null"` rather than NSNumber's
-    ///     `String(describing:)` "1"/"0").
-    ///   - Anything else (extremely rare — `callAsyncJavaScript` only
-    ///     returns JSON-like types per WebKit's docs) → fall back to
-    ///     `String(describing:)` so at least something is printed.
+    /// - `String` → returned verbatim. A script that did
+    /// `return JSON.stringify(obj)` gets its exact string back.
+    /// - JSON-serialisable object/array (`NSDictionary` / `NSArray` /
+    /// `NSNumber` / `NSNull`) → serialised with `JSONSerialization`
+    /// (with `.fragmentsAllowed` so naked numbers/booleans round-trip
+    /// to `"42"` / `"true"` / `"null"` rather than NSNumber's
+    /// `String(describing:)` "1"/"0").
+    /// - Anything else (extremely rare — `callAsyncJavaScript` only
+    /// returns JSON-like types per WebKit's docs) → fall back to
+    /// `String(describing:)` so at least something is printed.
     ///
     /// Note: we no longer special-case `{"error": "..."}` as a tool-level
     /// failure. Users who want to signal a failure from their JS should
@@ -2185,10 +2185,10 @@ public final class MiniClawBrowserEngine: NSObject,ObservableObject {
             let tag = json["tag"] as? String ?? "?"
             lines.append("Clicked <\(tag)>")
             if let x = json["x"], let y = json["y"] {
-                lines.append("  Position: (\(x), \(y))")
+                lines.append(" Position: (\(x), \(y))")
             }
             if let text = json["text"] as? String, !text.isEmpty {
-                lines.append("  Text: \(text.prefix(200))")
+                lines.append(" Text: \(text.prefix(200))")
             }
         }
         // Type results
@@ -2202,9 +2202,9 @@ public final class MiniClawBrowserEngine: NSObject,ObservableObject {
             let dir = json["direction"] as? String ?? "?"
             let amt = json["amount"] as? Int ?? 0
             lines.append("Scrolled \(dir) \(amt)px")
-            if let y = json["scrollY"] { lines.append("  Scroll Y: \(y)") }
-            if let h = json["scrollHeight"] { lines.append("  Page height: \(h)") }
-            if let vh = json["viewportHeight"] { lines.append("  Viewport height: \(vh)") }
+            if let y = json["scrollY"] { lines.append(" Scroll Y: \(y)") }
+            if let h = json["scrollHeight"] { lines.append(" Page height: \(h)") }
+            if let vh = json["viewportHeight"] { lines.append(" Viewport height: \(vh)") }
         }
         // Scroll to element
         else if let sel = json["scrolledTo"] as? String {
@@ -2216,7 +2216,7 @@ public final class MiniClawBrowserEngine: NSObject,ObservableObject {
             let tag = json["tag"] as? String ?? "?"
             lines.append("Hovered <\(tag)>")
             if let text = json["text"] as? String, !text.isEmpty {
-                lines.append("  Text: \(text.prefix(200))")
+                lines.append(" Text: \(text.prefix(200))")
             }
         }
         // getText results
@@ -2236,7 +2236,7 @@ public final class MiniClawBrowserEngine: NSObject,ObservableObject {
                 let idx = el["index"] as? Int ?? 0
                 let tag = el["tag"] as? String ?? "?"
                 let text = (el["text"] as? String ?? "").prefix(80)
-                var desc = "  [\(idx)] <\(tag)>"
+                var desc = " [\(idx)] <\(tag)>"
                 if let id = el["id"] as? String, !id.isEmpty { desc += " #\(id)" }
                 if !text.isEmpty { desc += " \"\(text)\"" }
                 if let href = el["href"] as? String, !href.isEmpty { desc += " → \(href)" }
@@ -2247,7 +2247,7 @@ public final class MiniClawBrowserEngine: NSObject,ObservableObject {
         else {
             // Fallback: format each key-value pair
             for (key, value) in json.sorted(by: { $0.key < $1.key }) {
-                lines.append("  \(key): \(value)")
+                lines.append(" \(key): \(value)")
             }
         }
 
@@ -2338,7 +2338,7 @@ extension MiniClawBrowserEngine: WKDownloadDelegate {
 
             let key = ObjectIdentifier(download)
             self.downloadDestinations[key] = dest
-            // [T-browser-download-ux] Progress now surfaces via the floating
+            // Progress now surfaces via the floating
             // chat download button (BrowserDownloadCenter) — no "Downloading…"
             // chat row. The cancel closure lets the panel abort the WKDownload.
             self.downloadCenterIds[key] = BrowserDownloadCenter.shared.began(
@@ -2365,7 +2365,7 @@ extension MiniClawBrowserEngine: WKDownloadDelegate {
             }
             logger.info("✅ Download finished: \(name) (\(sizeText))")
             if let sid = self.sessionIdProvider?(), !sid.isEmpty {
-                // [T-browser-download-ux-v3] Name + size only — the full
+                // Name + size only — the full
                 // path/link made the bubble wrap badly, and path navigation
                 // is the downloads panel's "Show in Files" job now.
                 self.notifySessionChat(
@@ -2404,7 +2404,7 @@ extension MiniClawBrowserEngine: WKDownloadDelegate {
     /// tears down the tracking maps FIRST so a racing delegate callback for
     /// the same download finds nothing to double-report, then removes the
     /// partial file. WKDownload does not call delegate methods after
-    /// cancel(_:), so this is the only cleanup path. [T-browser-download-ux]
+    /// cancel(_:), so this is the only cleanup path.
     private func cancelDownload(_ download: WKDownload) {
         let key = ObjectIdentifier(download)
         inflightDownloads.removeValue(forKey: key)
@@ -2426,7 +2426,7 @@ public extension String {
     /// stays visible: "com.tigerbrokers.stock-9.5.8.1-APK4….8.1.apk".
     /// SwiftUI rows should keep using .truncationMode(.middle) (width-adaptive);
     /// this is for plain strings that render without a line limit.
-    /// [T-browser-download-ux-v3]
+    ///
     func middleTruncated(head: Int = 22, tail: Int = 10) -> String {
         guard count > head + tail + 1 else { return self }
         return "\(prefix(head))…\(suffix(tail))"
@@ -2534,7 +2534,7 @@ public final class BrowserDownloadCenter: ObservableObject {
     }
 
     /// Panel "Clear" action: removes every finished record (completed AND
-    /// failed); in-flight downloads are untouched. [T-browser-download-ux-v3]
+    /// failed); in-flight downloads are untouched.
     public func clearFinished(for sessionId: String) {
         entries.removeAll { $0.sessionId == sessionId && $0.state != .downloading }
     }
@@ -2617,28 +2617,28 @@ public final class MiniClawSchemeHandler: NSObject, WKURLSchemeHandler {
     private static func mimeType(for ext: String) -> String {
         switch ext.lowercased() {
         case "html", "htm": return "text/html"
-        case "css":         return "text/css"
-        case "js":          return "application/javascript"
-        case "json":        return "application/json"
-        case "xml":         return "application/xml"
-        case "svg":         return "image/svg+xml"
-        case "png":         return "image/png"
+        case "css": return "text/css"
+        case "js": return "application/javascript"
+        case "json": return "application/json"
+        case "xml": return "application/xml"
+        case "svg": return "image/svg+xml"
+        case "png": return "image/png"
         case "jpg", "jpeg": return "image/jpeg"
-        case "gif":         return "image/gif"
-        case "webp":        return "image/webp"
-        case "ico":         return "image/x-icon"
-        case "pdf":         return "application/pdf"
-        case "mp3":         return "audio/mpeg"
-        case "mp4":         return "video/mp4"
-        case "webm":        return "video/webm"
-        case "woff":        return "font/woff"
-        case "woff2":       return "font/woff2"
-        case "ttf":         return "font/ttf"
-        case "txt", "log":  return "text/plain"
-        case "md":          return "text/markdown"
-        case "csv":         return "text/csv"
-        case "wasm":        return "application/wasm"
-        default:            return "application/octet-stream"
+        case "gif": return "image/gif"
+        case "webp": return "image/webp"
+        case "ico": return "image/x-icon"
+        case "pdf": return "application/pdf"
+        case "mp3": return "audio/mpeg"
+        case "mp4": return "video/mp4"
+        case "webm": return "video/webm"
+        case "woff": return "font/woff"
+        case "woff2": return "font/woff2"
+        case "ttf": return "font/ttf"
+        case "txt", "log": return "text/plain"
+        case "md": return "text/markdown"
+        case "csv": return "text/csv"
+        case "wasm": return "application/wasm"
+        default: return "application/octet-stream"
         }
     }
 }
@@ -2646,16 +2646,16 @@ public final class MiniClawSchemeHandler: NSObject, WKURLSchemeHandler {
 // MARK: - BrowserDownloadCenter
 
 /// Session-scoped registry of native browser (WKDownload) file downloads.
-/// [T-browser-download-ux] Two consumers:
+/// Two consumers:
 ///
-///  1. **Chat UI** — `ChatView` overlays a floating download card (icon +
-///     live progress + tap-to-preview) driven by `entries`, replacing the old
-///     "Downloading xxx…" systemInfo row in the message list.
-///  2. **Agent loop** — browser_use tool results append `agentReport(for:)`
-///     so the LLM knows a page interaction triggered a native download and
-///     must NOT re-download the same file via shell curl/wget (observed
-///     failure mode: browser downloads moomoo.apk natively, model curls it
-///     again because nothing in the tool result mentioned the download).
+/// 1. **Chat UI** — `ChatView` overlays a floating download card (icon +
+/// live progress + tap-to-preview) driven by `entries`, replacing the old
+/// "Downloading xxx…" systemInfo row in the message list.
+/// 2. **Agent loop** — browser_use tool results append `agentReport(for:)`
+/// so the LLM knows a page interaction triggered a native download and
+/// must NOT re-download the same file via shell curl/wget (observed
+/// failure mode: browser downloads moomoo.apk natively, model curls it
+/// again because nothing in the tool result mentioned the download).
 ///
 /// Entries are keyed by session (a session may spread downloads across
 /// multiple browser tabs); completed/failed cards linger briefly for the

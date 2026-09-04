@@ -285,7 +285,7 @@ enum MarkdownMathExtractor {
                 if let end = findSingleDollar(chars: chars,from: i+1) {
                     let latex = String(chars[(i+1)..<end])
                     // Heuristic: skip plain currency like $5, $10.
-                    // [T-ios-table-cell-katex-false-positive] Also skip a span
+                    // Also skip a span
                     // that is really a table-cell artifact: a row like
                     // `| 月付 | $20|$ **3** |` lets the `$` at `$20` pair with a
                     // later `$` and capture `20|` (a number + the column pipe)
@@ -363,22 +363,22 @@ enum MarkdownMathExtractor {
         return content.count>2
     }
 
-    /// [T-ios-table-cell-katex-false-positive] True when a candidate inline-math
+    /// True when a candidate inline-math
     /// span is really a markdown table-cell artifact (a `$` that paired across
     /// `|` column separators) rather than a formula. Two signals, both of which
     /// a real formula avoids:
-    ///   1. An unescaped pipe with whitespace on a side — the table column
-    ///      separator is written ` | ` / `| ` / ` |`. Real LaTeX keeps pipes
-    ///      flush against operands.
-    ///   2. An ODD number of unescaped pipes — absolute-value / norm bars always
-    ///      come in balanced pairs (`|x|`, `\frac{|a|}{|b|}`), so an odd count
-    ///      (e.g. `20|`, `240|`) is a stray column separator, not math.
+    /// 1. An unescaped pipe with whitespace on a side — the table column
+    /// separator is written ` | ` / `| ` / ` |`. Real LaTeX keeps pipes
+    /// flush against operands.
+    /// 2. An ODD number of unescaped pipes — absolute-value / norm bars always
+    /// come in balanced pairs (`|x|`, `\frac{|a|}{|b|}`), so an odd count
+    /// (e.g. `20|`, `240|`) is a stray column separator, not math.
     /// Escaped `\|` (LaTeX norm) is never counted as a bare pipe.
     private static func isTablePipeArtifact(_ content: String) -> Bool {
         let chars = Array(content)
         var bareCount = 0
         for (idx, ch) in chars.enumerated() where ch == "|" {
-            if idx>0 && chars[idx-1] == "\\" { continue }   // escaped norm bar
+            if idx>0 && chars[idx-1] == "\\" { continue } // escaped norm bar
             bareCount += 1
             let prevIsSpace = idx>0 && chars[idx-1].isWhitespace
             let nextIsSpace = idx+1<chars.count && chars[idx+1].isWhitespace
@@ -747,7 +747,7 @@ extension UnsafeNode {
     ) rethrows -> ResultType? {
         cmark_gfm_core_extensions_ensure_registered()
 
-        // [T-strikethrough-syntax] Require a DOUBLE tilde for strikethrough.
+        // Require a DOUBLE tilde for strikethrough.
         // cmark-gfm's strikethrough extension accepts a SINGLE `~` as a
         // delimiter by default, so prose using `~` as a range separator
         // (e.g. "msg 41797~42810", "6月14日~6月16日") was incorrectly struck

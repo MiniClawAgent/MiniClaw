@@ -96,7 +96,7 @@ final class MathAttachment: NSTextAttachment {
                 let textHeight = (latex as NSString).boundingRect(with: constraintSize,options: [.usesLineFragmentOrigin],attributes: [.font: fallbackFont],context: nil).height
                 return CGRect(x: 0,y: 0,width: lineFrag.width,height: max(ceil(textHeight),Self.blockPlaceholderHeight))
             } else {
-                // [T-ios-math-inline-fallback-width] Measure the actual fallback
+                // Measure the actual fallback
                 // text width so the label doesn't overflow. The old hardcoded 40pt
                 // caused "G(..." truncation artifacts when the LaTeX string was
                 // wider than 40pt.
@@ -209,7 +209,7 @@ final class TableScrollView: UIScrollView,UIScrollViewDelegate {
     /// return a CGColor resolved for the supplied trait collection.
     var borderColorProvider: ((UITraitCollection) -> CGColor)?
 
-    /// [T-ios-table-hscroll-stream-interrupt] One-shot callback fired when a
+    /// One-shot callback fired when a
     /// user scroll interaction fully ends (finger lifted with no momentum, or
     /// deceleration settled). Armed by refreshAttachViews when a streaming
     /// rebuild of this table was deferred because the view was mid-gesture;
@@ -217,7 +217,7 @@ final class TableScrollView: UIScrollView,UIScrollViewDelegate {
     /// so a later interaction with no pending rebuild fires nothing.
     var onInteractionEnded: (() -> Void)?
 
-    /// [T-ios-table-hscroll-offset-lost] Reports every USER-driven offset
+    /// Reports every USER-driven offset
     /// change (finger down or momentum) so the owning TableAttachment can
     /// persist the position across streaming rebuilds. Programmatic
     /// setContentOffset calls (e.g. the makeView restore) don't fire this —
@@ -323,7 +323,7 @@ final class NativeMediaImageCache {
     func image(for key: String) -> UIImage? { cache.object(forKey: key as NSString) }
     func set(_ image: UIImage,for key: String) { cache.setObject(image,forKey: key as NSString) }
 
-    // MARK: - [T-ios-failed-image-refetch-storm] Negative (failure) cache
+    // MARK: - Negative (failure) cache
     //
     // A broken HTTP(S) image URL has no per-instance retry budget across cell
     // reuse: scrolling recycles the cell, CACHE-WIPE recreates the
@@ -345,7 +345,7 @@ final class NativeMediaImageCache {
         failedLock.lock(); defer { failedLock.unlock() }
         guard let t = failedSources[src] else { return false }
         if CFAbsoluteTimeGetCurrent()-t>failureTTL {
-            failedSources.removeValue(forKey: src)  // expired — allow a fresh attempt
+            failedSources.removeValue(forKey: src) // expired — allow a fresh attempt
             return false
         }
         return true
@@ -840,7 +840,7 @@ final class ImageAttachment: NSTextAttachment {
         self.messageId = messageId
         super.init(data: nil,ofType: nil)
         self.image = Self.transparentImage
-        AppLogger(category: "AttachHotPath").info("[IMG][CTOR] src=\(Self.shortSrc(source)) ptr=\(ObjectIdentifier(self).hashValue & 0xFFFFFF)")
+        AppLogger(category: "ChatList.Attach").info("[IMG][CTOR] src=\(Self.shortSrc(source)) ptr=\(ObjectIdentifier(self).hashValue & 0xFFFFFF)")
     }
 
     static func shortSrc(_ s: String) -> String {
@@ -868,7 +868,7 @@ final class ImageAttachment: NSTextAttachment {
             let maybeScheme = src[src.startIndex..<colon]
             // Only accept alphabetic-prefixed schemes (RFC 3986 § 3.1).
             if !maybeScheme.isEmpty && maybeScheme.allSatisfy({ $0.isLetter }) {
-                // [T-miniclaw-url-fullwidth-pipe-ios] Exception: a miniclaw:// source the
+                // Exception: a miniclaw:// source the
                 // model emitted with raw non-ASCII in the path (e.g. `｜`, CJK) that
                 // URL(string:) can't parse. Re-encode the path so the image resolves
                 // instead of bailing with a dead source. Idempotent for already-
@@ -924,7 +924,7 @@ final class ImageAttachment: NSTextAttachment {
     private static let placeholderHeight: CGFloat = 200
     /// Match MarkdownUI's maxWidth: 400 for images
     private static let maxImageWidth: CGFloat = 400
-    /// [T-md-image-shadow-clip] Breathing room reserved on EVERY side of the
+    /// Breathing room reserved on EVERY side of the
     /// rendered image inside its attachment box so the drop shadow
     /// (radius 4, y-offset 2) draws fully instead of being clipped by the
     /// text view's clipsToBounds at full-width images. attachmentBounds and
@@ -946,11 +946,11 @@ final class ImageAttachment: NSTextAttachment {
         // flooding while still proving cadence vs streaming token rate.
         let cnt = attachmentBoundsCallCount
         if cnt <= 5 || cnt%50 == 0 {
-            AppLogger(category: "AttachHotPath").info("[IMG][BOUNDS] #\(cnt) src=\(Self.shortSrc(self.source)) ptr=\(ObjectIdentifier(self).hashValue & 0xFFFFFF) rawW=\(String(format: "%.1f", rawWidth)) bucketW=\(String(format: "%.0f", width)) hasImg=\(self.loadedImage != nil) sampledAt=\(Int(self.downsampledAtPixelSize))")
+            AppLogger(category: "ChatList.Attach").info("[IMG][BOUNDS] #\(cnt) src=\(Self.shortSrc(self.source)) ptr=\(ObjectIdentifier(self).hashValue & 0xFFFFFF) rawW=\(String(format: "%.1f", rawWidth)) bucketW=\(String(format: "%.0f", width)) hasImg=\(self.loadedImage != nil) sampledAt=\(Int(self.downsampledAtPixelSize))")
         }
 
         if let img = loadedImage {
-            // [T-md-image-shadow-clip] Inset the displayed image by
+            // Inset the displayed image by
             // shadowInset per side so the drop shadow renders INSIDE the
             // attachment box. Previously the image filled the full box width;
             // for full-width images the shadow spilled past the text view's
@@ -971,22 +971,22 @@ final class ImageAttachment: NSTextAttachment {
             // Target: 2x the actual display width for retina crispness.
             // Re-reads from disk (not memory) to avoid holding raw Data in RAM.
             // Guards:
-            //  - imgWidth >= maxImageWidth * 0.8: only downsample when layout width
-            //    is close to the final display width. TextKit may call attachmentBounds
-            //    with a very small lineFrag during intermediate layout passes; if we
-            //    downsample then, loadedImage is permanently replaced with a tiny
-            //    thumbnail (e.g. 112×200) and never recovers.
-            //  - targetPixels >= 600: absolute minimum to avoid destroying image quality.
-            //  - targetPixels is bucketed to 50pt so sub-point lineFrag jitter
-            //    cannot flip the `downsampledAtPixelSize != targetPixels` guard
-            //    and re-kick downsample on every attachmentBounds call.
+            // - imgWidth >= maxImageWidth * 0.8: only downsample when layout width
+            // is close to the final display width. TextKit may call attachmentBounds
+            // with a very small lineFrag during intermediate layout passes; if we
+            // downsample then, loadedImage is permanently replaced with a tiny
+            // thumbnail (e.g. 112×200) and never recovers.
+            // - targetPixels >= 600: absolute minimum to avoid destroying image quality.
+            // - targetPixels is bucketed to 50pt so sub-point lineFrag jitter
+            // cannot flip the `downsampledAtPixelSize != targetPixels` guard
+            // and re-kick downsample on every attachmentBounds call.
             let rawTargetPixels = imgWidth*2
             let targetPixels = (rawTargetPixels/50.0).rounded()*50.0
             if imgWidth >= Self.maxImageWidth*0.8,
                targetPixels >= 600,
                img.size.width>targetPixels*1.5,
                downsampledAtPixelSize != targetPixels {
-                AppLogger(category: "AttachHotPath").info("[IMG][BOUNDS][DOWNSAMPLE-FIRE] src=\(Self.shortSrc(self.source)) ptr=\(ObjectIdentifier(self).hashValue & 0xFFFFFF) targetPx=\(Int(targetPixels)) prevPx=\(Int(self.downsampledAtPixelSize)) imgW=\(Int(img.size.width)) bucketW=\(String(format: "%.0f", width))")
+                AppLogger(category: "ChatList.Attach").info("[IMG][BOUNDS][DOWNSAMPLE-FIRE] src=\(Self.shortSrc(self.source)) ptr=\(ObjectIdentifier(self).hashValue & 0xFFFFFF) targetPx=\(Int(targetPixels)) prevPx=\(Int(self.downsampledAtPixelSize)) imgW=\(Int(img.size.width)) bucketW=\(String(format: "%.0f", width))")
                 downsampledAtPixelSize = targetPixels
                 let fileURL = resolvedFileURL
                 Task.detached(priority: .utility) { [weak self] in
@@ -994,7 +994,7 @@ final class ImageAttachment: NSTextAttachment {
                     guard let url = fileURL,let data = try? Data(contentsOf: url) else { return }
                     guard let resized = downsampleImageData(data,maxPixelSize: targetPixels) else { return }
                     await MainActor.run {
-                        AppLogger(category: "AttachHotPath").info("[IMG][BOUNDS][DOWNSAMPLE-APPLY] src=\(Self.shortSrc(self.source)) ptr=\(ObjectIdentifier(self).hashValue & 0xFFFFFF) newSize=\(Int(resized.size.width))x\(Int(resized.size.height)) — ASSIGNS loadedImage on main, will trigger TextKit re-layout")
+                        AppLogger(category: "ChatList.Attach").info("[IMG][BOUNDS][DOWNSAMPLE-APPLY] src=\(Self.shortSrc(self.source)) ptr=\(ObjectIdentifier(self).hashValue & 0xFFFFFF) newSize=\(Int(resized.size.width))x\(Int(resized.size.height)) — ASSIGNS loadedImage on main, will trigger TextKit re-layout")
                         self.loadedImage = resized
                         // Do NOT write back to NativeMediaImageCache — the shared
                         // cache must keep the full-resolution image so that other
@@ -1023,21 +1023,21 @@ final class ImageAttachment: NSTextAttachment {
         // we have its pixel size recorded globally. Use that to compute the
         // correct attachment height on the very first layout pass, instead of
         // returning the 200pt placeholder. Without this:
-        //   1. First updateUIView creates a fresh ImageAttachment (cacheCount=0)
-        //   2. SwiftUI sizeThatFits → attachmentBounds → placeholder 200pt
-        //   3. Cell self-sizes to 276pt (placeholder + surrounding text)
-        //   4. Async image load completes, attachmentBounds now returns 280pt
-        //   5. invalidateCellSizeIfChanged fires prev=271→new=358 delta=+87
-        //   6. That late grow is sometimes lost (deferSelfSizing rejects it,
-        //      SwiftUI's UIHostingConfiguration.systemLayoutSizeFitting still
-        //      caches 276pt from step 3, etc.)
-        //   7. Cell stays at 276pt; the UITextView inside grows to 358pt and
-        //      gets clipped by the cell's clipsToBounds — image bottom cut
-        //      off and the trailing prose after the image disappears.
+        // 1. First updateUIView creates a fresh ImageAttachment (cacheCount=0)
+        // 2. SwiftUI sizeThatFits → attachmentBounds → placeholder 200pt
+        // 3. Cell self-sizes to 276pt (placeholder + surrounding text)
+        // 4. Async image load completes, attachmentBounds now returns 280pt
+        // 5. invalidateCellSizeIfChanged fires prev=271→new=358 delta=+87
+        // 6. That late grow is sometimes lost (deferSelfSizing rejects it,
+        // SwiftUI's UIHostingConfiguration.systemLayoutSizeFitting still
+        // caches 276pt from step 3, etc.)
+        // 7. Cell stays at 276pt; the UITextView inside grows to 358pt and
+        // gets clipped by the cell's clipsToBounds — image bottom cut
+        // off and the trailing prose after the image disappears.
         // [AttachHang preload-bounds fix]
         let canonicalSrc = Self.canonicalizeMarkdownImageSource(source)
         if let knownSize = NativeMediaImageCache.shared.size(forSource: canonicalSrc) {
-            // [T-md-image-shadow-clip] Same inset geometry as the loaded path.
+            // Same inset geometry as the loaded path.
             let boxWidth = min(min(width,knownSize.width+Self.imageShadowInset*2),Self.maxImageWidth)
             var imgWidth = max(boxWidth-Self.imageShadowInset*2,40)
             let aspect = knownSize.height/max(knownSize.width,1)
@@ -1100,7 +1100,7 @@ final class ImageAttachment: NSTextAttachment {
 
         let src = canonicalSrc
         let isMiniClawURL = URL(string: src).map { $0.scheme == "miniclaw" } ?? false
-        // [T-ios-failed-image-refetch-storm] For remote (non-miniclaw) URLs that
+        // For remote (non-miniclaw) URLs that
         // failed recently, don't re-dispatch a network fetch on every cell
         // recycle — render the placeholder and bail. miniclaw:// is exempt: those
         // are local files that may be written shortly after the markdown
@@ -1174,12 +1174,12 @@ final class ImageAttachment: NSTextAttachment {
                 // ImageAttachment instances can compute correct bounds before
                 // the bitmap reload finishes. [AttachHang preload-bounds]
                 NativeMediaImageCache.shared.recordSize(img.size,forSource: src)
-                // [T-ios-failed-image-refetch-storm] A previously-failed URL
+                // A previously-failed URL
                 // that now succeeded — clear its negative-cache entry.
                 if !isMiniClawURL { NativeMediaImageCache.shared.clearFailure(src) }
             } else {
                 imgLogger.warning("[MiniClawImage][Load] FAILED src=\(src) — no image produced")
-                // [T-ios-failed-image-refetch-storm] Negative-cache remote
+                // Negative-cache remote
                 // failures so cell recycling during scroll doesn't re-fetch the
                 // same broken URL every recycle (the image-session decel storm).
                 // miniclaw:// is exempt — its not-yet-written-file case is handled
@@ -1223,7 +1223,7 @@ final class ImageAttachment: NSTextAttachment {
         // if this fires more than once per attachment per layout pass, the
         // UIImageView subview is being rebuilt and we have a leak in the
         // refreshAttachViews reuse path.
-        AppLogger(category: "AttachHotPath").info("[IMG][MAKEVIEW] #\(self.makeViewCallCount) src=\(Self.shortSrc(self.source)) ptr=\(ObjectIdentifier(self).hashValue & 0xFFFFFF) hasImg=\(self.loadedImage != nil) width=\(String(format: "%.0f", width))")
+        AppLogger(category: "ChatList.Attach").info("[IMG][MAKEVIEW] #\(self.makeViewCallCount) src=\(Self.shortSrc(self.source)) ptr=\(ObjectIdentifier(self).hashValue & 0xFFFFFF) hasImg=\(self.loadedImage != nil) width=\(String(format: "%.0f", width))")
         if let img = loadedImage {
             imgLogger.info("[MiniClawImage][MakeView] rendering LOADED image src=\(self.source) imgSize=\(img.size.width)x\(img.size.height) containerWidth=\(width)")
             return makeImageView(img,width: width)
@@ -1234,7 +1234,7 @@ final class ImageAttachment: NSTextAttachment {
     }
 
     private func makeImageView(_ img: UIImage,width: CGFloat) -> UIView {
-        // [T-md-image-shadow-clip] Mirror attachmentBounds' inset geometry:
+        // Mirror attachmentBounds' inset geometry:
         // the image is inset by imageShadowInset per side inside the
         // attachment box so the shadow renders fully within the text view's
         // clip bounds (it used to be cut off left/right on full-width images).
@@ -1362,7 +1362,7 @@ final class TableAttachment: NSTextAttachment {
     /// attachment, which keeps its object identity across streaming
     /// `update(...)` calls); never persisted.
     ///
-    /// [T-ios-table-hscroll-offset-lost] This is PERSISTENT, not one-shot:
+    /// This is PERSISTENT, not one-shot:
     /// the previous consume-once `pendingScrollOffset` + async restore lost
     /// the position whenever the next streaming rebuild fired before the
     /// async restore landed — the capture then read a transient offset of 0,
@@ -1409,7 +1409,7 @@ final class TableAttachment: NSTextAttachment {
     /// happy, so we no longer fall back to `ensureLayout` over the entire
     /// message every chunk.
     func update(alignments: [RawTableColumnAlignment],rows: [RawTableRow]) {
-        // [T-ios-table-hscroll-stream-interrupt] No-op when the content is
+        // No-op when the content is
         // identical. The caller's hash-based routing normally sends equal
         // content to the cache-hit path instead of here, but if it ever
         // lands here, setting needsViewRebuild would tear down (and cancel
@@ -1438,7 +1438,7 @@ final class TableAttachment: NSTextAttachment {
         self.rows = rows
         let structureChanged = rows.count != oldRowCount || alignments.count != oldColCount
 
-        // [T-ios-table-streaming-width] Check whether the cached column widths
+        // Check whether the cached column widths
         // are stale. The HangFix (2026-05-14) only invalidated on row/column
         // COUNT changes, but during streaming a row's content grows from
         // partial to complete (same row count). The cached column widths from
@@ -1483,7 +1483,7 @@ final class TableAttachment: NSTextAttachment {
         return rows.map { row in
             row.cells.prefix(colCount).map { $0.content.plainText }.joined(separator: "\t")
         }.joined(separator: "\n")
-        // [T-md-cjk-emphasis-pairs] Strip flanking-fix spacers (see
+        // Strip flanking-fix spacers (see
         // plainTextWithTabs) so table copies stay clean too.
         .replacingOccurrences(of: "\u{200B}", with: "")
         .replacingOccurrences(of: "\u{200A}", with: "")
@@ -1515,7 +1515,7 @@ final class TableAttachment: NSTextAttachment {
     /// per token — cheaper than Hasher over all plainText.
     private var cachedMaxCharPerCol: [Int] = []
 
-    // MARK: - [T-ios-attachbounds-cold-cache] Process-wide layout cache
+    // MARK: - Process-wide layout cache
     //
     // `cachedLayout` above is PER-INSTANCE. On scroll deceleration the
     // collection view recycles cells; the per-cell renderer wipes/rebuilds
@@ -1523,7 +1523,7 @@ final class TableAttachment: NSTextAttachment {
     // view at decel-stop often starts with `cachedLayout == nil` and every
     // `attachmentBounds` typesetter probe is a cold miss → a burst of per-cell
     // `boundingRect` measurement on the landing frame (the 100–190ms decel
-    // jank, confirmed via [ScrollDecel]+[AttachBoundsHot] device logs).
+    // jank, confirmed via [Decel]+[AttachBounds] device logs).
     //
     // `computeLayout` is a PURE function of (rows, alignments, theme font,
     // bucketed width). Cache its result process-wide keyed by that signature
@@ -1532,7 +1532,7 @@ final class TableAttachment: NSTextAttachment {
     // LRU-bounded; pure layout values (no view refs) so it's cheap to retain.
     private struct LayoutCacheKey: Hashable {
         let contentSig: Int
-        let widthBucket: Int   // width snapped to 4pt to fold typesetter probe jitter
+        let widthBucket: Int // width snapped to 4pt to fold typesetter probe jitter
     }
     nonisolated(unsafe) private static var sharedLayoutCache: [LayoutCacheKey: TableLayout] = [:]
     nonisolated(unsafe) private static var sharedLayoutLRU: [LayoutCacheKey] = []
@@ -1549,7 +1549,7 @@ final class TableAttachment: NSTextAttachment {
         h.combine(theme.baseFontSize)
         for row in rows {
             for cell in row.cells { h.combine(cell.content.plainText) }
-            h.combine(0x1E)  // row separator so cell regrouping changes the hash
+            h.combine(0x1E) // row separator so cell regrouping changes the hash
         }
         return h.finalize()
     }
@@ -1625,7 +1625,7 @@ final class TableAttachment: NSTextAttachment {
             // width (a rotation has happened).
         }
 
-        // [T-ios-attachbounds-cold-cache] Per-instance cachedLayout missed
+        // Per-instance cachedLayout missed
         // (this is a freshly-built / recycled attachment). Before paying for a
         // full per-cell measurement, try the process-wide cache: an identical
         // table at this width measured by any earlier cell can be reused as-is.
@@ -1707,7 +1707,7 @@ final class TableAttachment: NSTextAttachment {
                 }
             }
             cachedMaxCharPerCol = maxChars
-            // [T-ios-attachbounds-cold-cache] Populate the process-wide cache
+            // Populate the process-wide cache
             // (only for real, persisted widths — never the 32_768 probe, which
             // computeLayout never persists) so the NEXT recycled cell showing
             // this same table at this width skips the measurement entirely.
@@ -1717,7 +1717,7 @@ final class TableAttachment: NSTextAttachment {
         return layout
     }
 
-    // MARK: - [T-ios-attachbounds-cold-cache] Shared layout cache helpers
+    // MARK: - Shared layout cache helpers
 
     private static func touchSharedLayoutLRU(_ key: LayoutCacheKey) {
         if let pos = sharedLayoutLRU.firstIndex(of: key) { sharedLayoutLRU.remove(at: pos) }
@@ -1733,7 +1733,7 @@ final class TableAttachment: NSTextAttachment {
         }
     }
 
-    /// [T-ios-attachbounds-cold-cache] 1Hz hit/miss summary so we can confirm
+    /// 1Hz hit/miss summary so we can confirm
     /// the cold-cache storm is gone (high hit ratio during decel) without
     /// per-call log spam. DEBUG-only.
     private static func flushSharedLayoutStatsIfNeeded() {
@@ -1750,7 +1750,7 @@ final class TableAttachment: NSTextAttachment {
     override func attachmentBounds(for textContainer: NSTextContainer?,proposedLineFragment lineFrag: CGRect,glyphPosition position: CGPoint,characterIndex charIndex: Int) -> CGRect {
         // Use a slightly reduced width to prevent UIKit NSLayoutManager from
         // entering an infinite _fillLayoutHole loop when the attachment spans
-        // the full line fragment width.  Also snap to 1pt grid so tiny floating-
+        // the full line fragment width. Also snap to 1pt grid so tiny floating-
         // point variations between layout passes hit the cached layout.
         let usableWidth = floor(lineFrag.width)-1
         guard usableWidth>0 else {
@@ -1777,14 +1777,14 @@ final class TableAttachment: NSTextAttachment {
         // row too short and the bottom row is clipped until a scroll forces a
         // re-measure at the real width. Fix: on a probe, compute the height at a
         // realistic width, NOT the probe's 32_768pt. Width sources, in order:
-        //   1. the real textContainer width — valid even during a probe (only the
-        //      proposed lineFragment is synthesized to 10M, the container keeps its
-        //      true width). This is the crucial first-appearance source: on the
-        //      VERY first probe there is no cached layout yet, and the previous
-        //      fallback (clampedWidth=32_768) still collapsed wrapping → one row
-        //      short → the persistent "missing a row" the user still saw.
-        //   2. the last real (non-probe) width we measured (cachedLayout).
-        //   3. a conservative bubble-width cap as a last resort.
+        // 1. the real textContainer width — valid even during a probe (only the
+        // proposed lineFragment is synthesized to 10M, the container keeps its
+        // true width). This is the crucial first-appearance source: on the
+        // VERY first probe there is no cached layout yet, and the previous
+        // fallback (clampedWidth=32_768) still collapsed wrapping → one row
+        // short → the persistent "missing a row" the user still saw.
+        // 2. the last real (non-probe) width we measured (cachedLayout).
+        // 3. a conservative bubble-width cap as a last resort.
         // The RETURNED width stays the probe's clampedWidth so SwiftUI's max-width
         // discovery is unaffected. [ios_session_open_last_cell_occluded]
         let containerRealWidth: CGFloat? = {
@@ -1810,7 +1810,7 @@ final class TableAttachment: NSTextAttachment {
             : clampedWidth
         // TEMP(2026-05-13) — count attachmentBounds invocations + elapsed
         // time so a 1Hz hang on a 6-table cell shows up as e.g.
-        // "[AttachBoundsHot] tables=6 calls=180 totalMs=850" — 6 tables ×
+        // "[AttachBounds] tables=6 calls=180 totalMs=850" — 6 tables ×
         // 30 calls/sec × ~4ms each. This pinpoints the typesetter feedback
         // loop: each fillLayoutHole inside `setFrame` re-asks every
         // attachment for its bounds, and our cache only helps when width
@@ -1865,7 +1865,7 @@ final class TableAttachment: NSTextAttachment {
                 LoggingManager.shared.writeRawLine(
                     category: "AttachBoundsHot",
                     level: "WARN",
-                    message: "[HangFix][AttachBoundsHot] TableAttachment.attachmentBounds calls=\(hotCallCount) totalMs=\(String(format: "%.1f", hotTotalMs)) avg=\(String(format: "%.2f", hotTotalMs / Double(hotCallCount)))ms max=\(String(format: "%.2f", hotMaxMs))ms hit=\(hotCacheHits) miss=\(hotCacheMisses) in last \(String(format: "%.1f", now - hotLastFlush))s"
+                    message: "[HangFix][AttachBounds] TableAttachment.attachmentBounds calls=\(hotCallCount) totalMs=\(String(format: "%.1f", hotTotalMs)) avg=\(String(format: "%.2f", hotTotalMs / Double(hotCallCount)))ms max=\(String(format: "%.2f", hotMaxMs))ms hit=\(hotCacheHits) miss=\(hotCacheMisses) in last \(String(format: "%.1f", now - hotLastFlush))s"
                 )
                 LoggingManager.shared.flush()
             }
@@ -1904,16 +1904,16 @@ final class TableAttachment: NSTextAttachment {
             var codeAttrs = attrs
             codeAttrs[.font] = theme.inlineCodeFont
             codeAttrs[.foregroundColor] = theme.inlineCodeColor
-            // [T-ios-table-inline-code-rounded] Mark inline code with BOTH the
+            // Mark inline code with BOTH the
             // custom `.inlineCodeBackground` flag (drives the rounded painter)
             // and the standard `.backgroundColor` (the rect range the painter
             // keys off). Two cell render paths consume this:
-            //   - Link cells -> TableCellTextView, now backed by a
-            //     MiniClawLayoutManager whose fillBackgroundRectArray draws the
-            //     same rounded rect as body inline code (theme.inlineCodeCornerRadius=5).
-            //   - Link-inert cells -> TableCellLabel, which has no layout
-            //     manager; it strips `.backgroundColor` (to avoid the square
-            //     fill) and paints the rounded background itself in drawText.
+            // - Link cells -> TableCellTextView, now backed by a
+            // MiniClawLayoutManager whose fillBackgroundRectArray draws the
+            // same rounded rect as body inline code (theme.inlineCodeCornerRadius=5).
+            // - Link-inert cells -> TableCellLabel, which has no layout
+            // manager; it strips `.backgroundColor` (to avoid the square
+            // fill) and paints the rounded background itself in drawText.
             // Both resolve miniClawInlineCodeBackgroundColor at draw time and
             // repaint on trait changes, so light/dark stay correct.
             codeAttrs[.inlineCodeBackground] = true
@@ -2052,11 +2052,11 @@ final class TableAttachment: NSTextAttachment {
         let copyTable: () -> Void = { [weak self] in
             guard let self else { return }
             UIPasteboard.general.string = self.plainText()
-            // [T-toast-feedback] Confirm the copy succeeded.
+            // Confirm the copy succeeded.
             MiniClawToast.show(String(localized: "Table copied"))
         }
 
-        // [T-ios-copy-table-image] Render the FULL table (all rows/cols, not
+        // Render the FULL table (all rows/cols, not
         // just the visible scroll region) to a PNG and put it on the pasteboard.
         // We snapshot the `stack` view — it lays out every row at the real
         // `tableWidth × stackHeight`, so long/wide tables come out complete.
@@ -2071,7 +2071,7 @@ final class TableAttachment: NSTextAttachment {
         let copyTableImage: () -> Void = { [weak stack] in
             guard let stack,stack.bounds.width>0,stack.bounds.height>0 else { return }
 
-            // [T-ios-copy-table-image] Clear any active text selection first so
+            // Clear any active text selection first so
             // the snapshot doesn't capture the blue selection highlight. The
             // selection lives in a promoted TableCellTextView somewhere under
             // `stack`; walk the subtree, drop its selection, and force a synchronous
@@ -2110,7 +2110,7 @@ final class TableAttachment: NSTextAttachment {
                 path.stroke()
             }
             UIPasteboard.general.image = image
-            // [T-toast-feedback] Confirm the image copy succeeded.
+            // Confirm the image copy succeeded.
             MiniClawToast.show(String(localized: "Table image copied"))
         }
 
@@ -2282,7 +2282,7 @@ final class TableAttachment: NSTextAttachment {
         wrapper.addSubview(scrollView)
         wrapper.frame = CGRect(x: 0,y: 0,width: width,height: stackHeight+Self.verticalMargin*2)
 
-        // [T-ios-table-hscroll-offset-lost] Keep the attachment's persistent
+        // Keep the attachment's persistent
         // offset in sync with every user-driven scroll on this view, then
         // restore it into the freshly-built view. Restore SYNCHRONOUSLY —
         // frame and contentSize are already final at this point — so a rapid
@@ -2324,7 +2324,7 @@ final class TableCellTextView: UITextView,UITextViewDelegate {
     var onResignFirstResponder: (() -> Void)?
     /// Closure that copies the entire table. Set by TableCellLabel when promoting.
     var copyTableAction: (() -> Void)?
-    /// [T-ios-copy-table-image] Closure that copies the full table as a PNG image.
+    /// Closure that copies the full table as a PNG image.
     var copyTableImageAction: (() -> Void)?
 
     override init(frame: CGRect,textContainer: NSTextContainer?) {
@@ -2332,7 +2332,7 @@ final class TableCellTextView: UITextView,UITextViewDelegate {
         self.delegate = self
     }
 
-    /// [T-ios-table-inline-code-rounded] TextKit1 stack backed by a
+    /// TextKit1 stack backed by a
     /// MiniClawLayoutManager so inline-code spans (marked with
     /// `.inlineCodeBackground`) draw the same rounded background as body
     /// inline code via fillBackgroundRectArray. The default UITextView layout
@@ -2351,7 +2351,7 @@ final class TableCellTextView: UITextView,UITextViewDelegate {
     @available(*,unavailable)
     required init?(coder: NSCoder) { fatalError() }
 
-    // [T-ios-table-cell-image-menu] iOS 16 ONLY: drop the system
+    // iOS 16 ONLY: drop the system
     // UIContextMenuInteraction so a promoted table cell never pops the
     // "Copy Image" / "Save to Camera Roll" preview menu for the cell's inline
     // attachments. Same rationale as MarkdownTextView.addInteraction;
@@ -2452,7 +2452,7 @@ final class TableCellTextView: UITextView,UITextViewDelegate {
     /// one is registered, else directly on the global state object.
     static func activateReadAloudState() {
         let state = VoiceOutputState.shared
-        if !state.isEnabled { state.isEnabled = true }   // didSet persists to prefs
+        if !state.isEnabled { state.isEnabled = true } // didSet persists to prefs
         if state.isMuted { state.isMuted = false }
         if let vm = state.activeController as? MessageListModel {
             vm.isReadingAloud = true
@@ -2483,9 +2483,9 @@ final class TableCellTextView: UITextView,UITextViewDelegate {
         super.buildMenu(with: builder)
         // Build ONE inline menu so the order is explicit and stable, then insert
         // it after the system edit menu. Desired order (top→bottom):
-        //   Add to Chat Input  →  Copy Table  →  Copy Table Image
+        // Add to Chat Input →  Copy Table →  Copy Table Image
         // i.e. the high-frequency "Add to Chat Input" sits first, with the table
-        // copy actions after it. [T-ios-copy-table-menu-order]
+        // copy actions after it.
         var children: [UICommand] = []
         if selectedRange.length>0 {
             children.append(
@@ -2504,7 +2504,7 @@ final class TableCellTextView: UITextView,UITextViewDelegate {
                     action: #selector(copyTable)
                 )
             )
-            // [T-ios-copy-table-image] Offer copying the whole table as an image.
+            // Offer copying the whole table as an image.
             if copyTableImageAction != nil {
                 children.append(
                     UICommand(
@@ -2872,7 +2872,7 @@ final class CodeBlockAttachment: NSTextAttachment {
             }
         }
         copyButton.addAction(UIAction { @Sendable _ in performCopy() },for: .touchUpInside)
-        // [T-ios16-codeblock-copy-regression] iOS 16 ONLY: also bind an
+        // iOS 16 ONLY: also bind an
         // independent tap gesture on the button. On iOS 16 the UIControl
         // .touchUpInside event stopped firing for this button (regressed
         // between TF26 and TF28; exact toucher unidentified — the host text

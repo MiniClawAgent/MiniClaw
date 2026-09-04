@@ -18,11 +18,11 @@ extension MessageCollectionView.Coordinator {
         /// content to be essentially flush with the bottom (≤4pt) means a
         /// deliberate small scroll stays in `.userBrowsing`, while a scroll
         /// that genuinely lands at the bottom still resumes follow-along.
-        /// [T-ios-trackpad-scroll-jitter]
+        ///
 
         /// Whether a list item is part of the given assistant message's span
         /// (block or footer — the header is the span's start, matched
-        /// separately). [T-stream-hover-earlier-streaming]
+        /// separately).
         static func item(_ item: MessageListItem,belongsTo messageId: UUID) -> Bool {
             switch item {
             case .assistantBlock(let mid,_): return mid == messageId
@@ -89,11 +89,11 @@ extension MessageCollectionView.Coordinator {
 
         /// Up-button action: walk backwards through the conversation one user
         /// turn at a time. Replaces the old "jump to the very first message":
-        ///   - First tap: scroll to the user message of the turn the viewport is
-        ///     currently in (nearest role==.user at or above the top visible item).
-        ///   - Repeated taps (no intervening drag / new message / etc): each tap
-        ///     goes to the PREVIOUS turn's user message.
-        ///   - At the first turn already: stay put, no overscroll.
+        /// - First tap: scroll to the user message of the turn the viewport is
+        /// currently in (nearest role==.user at or above the top visible item).
+        /// - Repeated taps (no intervening drag / new message / etc): each tap
+        /// goes to the PREVIOUS turn's user message.
+        /// - At the first turn already: stay put, no overscroll.
         /// A browse action — must NOT touch scrollMode (same rationale as the old
         /// scrollToTopNow: leave auto-scroll as-is so streaming doesn't yank the
         /// user back down after they jump up).
@@ -137,14 +137,14 @@ extension MessageCollectionView.Coordinator {
                 if case .wholeMessage(let id) = $0,id == target { return true }
                 return false
             }),let ip = ds.indexPath(for: targetItem) else {
-                AppLogger(category: "ScrollDiag").info("[ScrollDiag][prevUserTurn] ABORT target item not found target=\(target.uuidString.prefix(8))")
+                AppLogger(category: "ChatList.Scroll").info("[Scroll][prevUserTurn] ABORT target item not found target=\(target.uuidString.prefix(8))")
                 return
             }
 
             lastJumpedUserId = target
             let curTurn = userIds.firstIndex(of: currentAnchor) ?? -1
             let tgtTurn = userIds.firstIndex(of: target) ?? -1
-            AppLogger(category: "ScrollDiag").info("[ScrollDiag][prevUserTurn][CALL] curTurn=\(curTurn) targetTurn=\(tgtTurn)/\(userIds.count) topMsgIdx=\(topMsgIdx) currentAnchor=\(currentAnchor.uuidString.prefix(8)) target=\(target.uuidString.prefix(8)) ip=\(ip.section).\(ip.item) \(Self.nbDump(cv))")
+            AppLogger(category: "ChatList.Scroll").info("[Scroll][prevUserTurn][CALL] curTurn=\(curTurn) targetTurn=\(tgtTurn)/\(userIds.count) topMsgIdx=\(topMsgIdx) currentAnchor=\(currentAnchor.uuidString.prefix(8)) target=\(target.uuidString.prefix(8)) ip=\(ip.section).\(ip.item) \(Self.nbDump(cv))")
             // Also record to the in-memory ring (debug.scrollMetrics) — the
             // on-device FILE log pipeline can stall, but the ring is live.
             // idx=target user-turn index, a=current viewport turn, b=total turns,
@@ -159,10 +159,10 @@ extension MessageCollectionView.Coordinator {
             cv.scrollToItem(at: ip,at: .top,animated: animated)
             // Re-sync isNearBottom so the up/down buttons reflect the new
             // position. Two syncs on purpose:
-            //  - the immediate main.async catches the common case;
-            //  - the delayed one covers UIKit's animated scrollToItem, whose
-            //    internal animation may not fire a terminal scrollViewDidScroll
-            //    at the settled offset. 0.4s covers the default scroll animation.
+            // - the immediate main.async catches the common case;
+            // - the delayed one covers UIKit's animated scrollToItem, whose
+            // internal animation may not fire a terminal scrollViewDidScroll
+            // at the settled offset. 0.4s covers the default scroll animation.
             DispatchQueue.main.async { [weak self] in
                 guard let self else { return }
                 let cv2 = self.viewController?.collectionView
@@ -243,7 +243,7 @@ extension MessageCollectionView.Coordinator {
             let overflowH = cv.contentSize.height-visibleH
             // Active compensation: content overflows but UIKit thinks no scroll
             // is needed. UIKit's natural maxContentOffset is
-            //   contentSize - bounds + adjustedContentInset.top + adjustedContentInset.bottom
+            // contentSize - bounds + adjustedContentInset.top + adjustedContentInset.bottom
             // safeAreaTop becomes adjustedContentInset.top, so include it here —
             // omitting it under-counts maxOffset by safeAreaTop (~116pt) and
             // wrongly engages compensation when content already fits naturally.
@@ -286,7 +286,7 @@ extension MessageCollectionView.Coordinator {
                 } else {
                     reason = "GROW (overflowH=\(String(format: "%.0f", overflowH)))"
                 }
-                AppLogger(category: "SubViewport").info("[CHANGE] from=\(caller) bottomInset \(String(format: "%.1f", prevBottomInset))→\(String(format: "%.1f", desiredBottomInset)) Δ\(String(format: "%+.1f", desiredBottomInset - prevBottomInset)) — \(reason)")
+                AppLogger(category: "ChatList.SubViewport").info("[CHANGE] from=\(caller) bottomInset \(String(format: "%.1f", prevBottomInset))→\(String(format: "%.1f", desiredBottomInset)) Δ\(String(format: "%+.1f", desiredBottomInset - prevBottomInset)) — \(reason)")
                 cv.contentInset.bottom = desiredBottomInset
             }
             // Pin offset so content's bottom reaches the overlay top
@@ -362,7 +362,7 @@ extension MessageCollectionView.Coordinator {
             guard let vm else { return }
             let nbFlag = isNearBottom()
             if vm.isNearBottom != nbFlag {
-                AppLogger(category: "ScrollDiag").info("[ScrollDiag][syncScrollFlags] isNearBottom \(vm.isNearBottom)→\(nbFlag) \(Self.nbDump(viewController?.collectionView))")
+                AppLogger(category: "ChatList.Scroll").info("[Scroll][syncScrollFlags] isNearBottom \(vm.isNearBottom)→\(nbFlag) \(Self.nbDump(viewController?.collectionView))")
                 vm.isNearBottom = nbFlag
             }
             let atTop = isAtContentTop()
@@ -371,7 +371,7 @@ extension MessageCollectionView.Coordinator {
 
         // MARK: - Scrolling Screenshot Capture
 
-        /// [T-ios-copy-screenshot-diag-logs] Locate the UITextView descendant
+        /// Locate the UITextView descendant
         /// (if any) that currently holds an active text-range selection in
         /// the collection view subtree. Used only by the screenshot
         /// diagnostic trace — non-destructive (does NOT clear selection).
@@ -424,7 +424,7 @@ extension MessageCollectionView.Coordinator {
         /// Original `contentOffset` is restored before returning.
         @MainActor
         public func captureScrollingTurnScreenshot(userMessageId: UUID,assistantMessageId: UUID?) -> UIImage? {
-            // [T-ios-copy-screenshot-diag-logs] All ChatScreenshot logs share
+            // All ChatScreenshot logs share
             // this monotonic anchorY so users can read elapsed-ms deltas
             // between stages without reasoning about wall-clock timestamps.
             let t0 = CACurrentMediaTime()
@@ -466,7 +466,7 @@ extension MessageCollectionView.Coordinator {
             // the warming pass, the page loop's first iteration crops from
             // the wrong starting Y.
             let savedOffset = cv.contentOffset
-            // [T-ios-copy-screenshot-top-blank] Suspend the auto-scroll
+            // Suspend the auto-scroll
             // pinning machinery for the duration of the capture. When
             // the session is in `.autoScrolling` mode, the contentSize
             // KVO observer (around line 695) reacts to any layout
@@ -516,7 +516,7 @@ extension MessageCollectionView.Coordinator {
 
             clearTextSelection(in: cv)
             cv.layoutIfNeeded()
-            // [T-ios-copy-screenshot-top-blank] After clearing the active
+            // After clearing the active
             // text selection, give UIKit one runloop tick to finish
             // releasing the selection state. Without this short wait,
             // scrollToItem below sometimes no-ops or partial-commits — the
@@ -572,7 +572,7 @@ extension MessageCollectionView.Coordinator {
                 chatScreenshotLogger.info("[Stage2-Warming] \(ms()) END steps=\(warmCount) finalOffset=\(String(format: "%.1f", cv.contentOffset.y)) estLast=\(String(format: "%.1f", estLast))")
             }
 
-            // [T-ios-copy-screenshot-top-blank] After the warming pass
+            // After the warming pass
             // re-anchorY scroll to the user message's measured top. The
             // warming pass advances contentOffset turn-by-turn, leaving
             // the cv parked deep in the assistant response. Subsequent
@@ -616,7 +616,7 @@ extension MessageCollectionView.Coordinator {
             let expectedOffsetY = turnTopY-cropTopY
             let offsetDelta = cv.contentOffset.y-expectedOffsetY
             chatScreenshotLogger.info("[Stage3-ReAnchor] \(ms()) ALIGN cv.contentOffset.y=\(String(format: "%.1f", cv.contentOffset.y)) expected=(turnTopY - cropTopY)=\(String(format: "%.1f", expectedOffsetY)) DELTA=\(String(format: "%.1f", offsetDelta)) (positive=scrolled past top)")
-            // [T-ios-copy-screenshot-top-blank] Diagnostic dump of every
+            // Diagnostic dump of every
             // mechanism that could be pinning the cv to bottom and
             // overriding our setContentOffset writes — without these
             // we cannot tell whether scrollMode/autoScrolling, the
@@ -626,7 +626,7 @@ extension MessageCollectionView.Coordinator {
             let maxOff = max(0,cv.contentSize.height-cv.bounds.height+cv.adjustedContentInset.bottom)
             let nearBottom = (maxOff-cv.contentOffset.y)<60
             chatScreenshotLogger.info("[Stage3-ReAnchor] \(ms()) PIN-STATE scrollMode=\(self.scrollMode == .autoScrolling ? "auto" : "browse") clampAfterSessionLoad=\(self.clampAfterSessionLoad) isAnimatingScrollToBottom=\(self.isAnimatingScrollToBottom) maxOff=\(String(format: "%.1f", maxOff)) currentOffset.y=\(String(format: "%.1f", cv.contentOffset.y)) nearBottom=\(nearBottom) tracking=\(cv.isTracking) decel=\(cv.isDecelerating) dragging=\(cv.isDragging) GRs=\((cv.gestureRecognizers ?? []).map { "\(type(of: $0)):\($0.state.rawValue)" }.joined(separator: ","))")
-            // [T-ios-copy-screenshot-top-blank] Probe each scroll write
+            // Probe each scroll write
             // separately so the log records which one (if any) actually
             // moves the offset. Reading cv.contentOffset.y BEFORE every
             // setter + RIGHT AFTER (no runloop) shows whether UIKit
@@ -645,11 +645,11 @@ extension MessageCollectionView.Coordinator {
                 // Attempt A: setContentOffset(animated:false)
                 let pA0 = cv.contentOffset.y
                 cv.setContentOffset(CGPoint(x: 0,y: max(0,expectedOffsetY)),animated: false)
-                let pA1 = cv.contentOffset.y     // immediate readback (pre-runloop)
+                let pA1 = cv.contentOffset.y // immediate readback (pre-runloop)
                 cv.layoutIfNeeded()
-                let pA2 = cv.contentOffset.y     // after layoutIfNeeded
+                let pA2 = cv.contentOffset.y // after layoutIfNeeded
                 RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.1))
-                let pA3 = cv.contentOffset.y     // after one runloop hop — if pA3 != pA2 someone wrote it back
+                let pA3 = cv.contentOffset.y // after one runloop hop — if pA3 != pA2 someone wrote it back
 
                 // Attempt B (only if A didn't reach target): direct assignment + runloop
                 var pB0: CGFloat = -1,pB1: CGFloat = -1,pB2: CGFloat = -1
@@ -740,12 +740,12 @@ extension MessageCollectionView.Coordinator {
             let bg = bgResolved
 
             // Scroll through the turn range one page at a time. Each page:
-            //   1. Scroll so `nextContentY` lands at the `cropTopY` line
-            //      (= topMask + navSafetyGap from the viewport top).
-            //   2. Snapshot the full cv bounds.
-            //   3. Crop the snapshot to [cropTopY, cropTopY + sliceH].
-            //   4. Blit the crop into the final canvas at dstY.
-            //   5. Advance by `usableH`.
+            // 1. Scroll so `nextContentY` lands at the `cropTopY` line
+            // (= topMask + navSafetyGap from the viewport top).
+            // 2. Snapshot the full cv bounds.
+            // 3. Crop the snapshot to [cropTopY, cropTopY + sliceH].
+            // 4. Blit the crop into the final canvas at dstY.
+            // 5. Advance by `usableH`.
             //
             // `cropTopY` is the y-coordinate inside the viewport where the
             // usable (nav-bar-free) area starts. By scrolling so that
@@ -960,7 +960,7 @@ extension MessageCollectionView.Coordinator {
             // Items below come from prevSnapshotIds (snapshot-locked) — the
             // messages they're resolved against must be the SAME locked array,
             // or a concurrent loadSession() swap makes every lookup miss and
-            // estimates collapse to the 44pt fallback. [T-ios-blocks-lost-render]
+            // estimates collapse to the 44pt fallback.
             let messages = snapshotMessages.isEmpty ? vm.messages : snapshotMessages
             let width = maxContentWidth
             for indexPath in indexPaths {
@@ -983,7 +983,7 @@ extension MessageCollectionView.Coordinator {
         // MARK: - UIScrollViewDelegate
 
         public func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
-            AppLogger(category: "ScrollDiag").info("[ScrollDiag][willBeginDragging] offset=\(String(format: "%.0f", scrollView.contentOffset.y)) contentSize=\(String(format: "%.0f", scrollView.contentSize.height)) visibleCells=\(viewController?.collectionView?.visibleCells.count ?? -1)")
+            AppLogger(category: "ChatList.Scroll").info("[Scroll][willBeginDragging] offset=\(String(format: "%.0f", scrollView.contentOffset.y)) contentSize=\(String(format: "%.0f", scrollView.contentSize.height)) visibleCells=\(viewController?.collectionView?.visibleCells.count ?? -1)")
             #if DEBUG
             // [DecelDisplayLink] Safety: if the user grabs again mid-decel, stop
             // the previous link so it doesn't keep ticking under the new gesture.
@@ -1005,13 +1005,13 @@ extension MessageCollectionView.Coordinator {
             withVelocity velocity: CGPoint,
             targetContentOffset: UnsafeMutablePointer<CGPoint>
         ) {
-            // [ScrollDecel] Fires the instant the finger lifts and UIKit has
+            // [Decel] Fires the instant the finger lifts and UIKit has
             // projected where the deceleration will land. Logs the launch
             // velocity + projected target so the upcoming decel can be
             // correlated to the content region it's about to render.
             decelTargetOffset = targetContentOffset.pointee.y
             #if DEBUG
-            AppLogger(category: "ScrollDecel").info("[ScrollDecel][willEndDragging] vy=\(String(format: "%.0f", velocity.y))pt/s offset=\(String(format: "%.0f", scrollView.contentOffset.y)) → target=\(String(format: "%.0f", decelTargetOffset)) projDist=\(String(format: "%.0f", decelTargetOffset - scrollView.contentOffset.y)) cs=\(String(format: "%.0f", scrollView.contentSize.height))")
+            AppLogger(category: "ChatList.Decel").info("[Decel][willEndDragging] vy=\(String(format: "%.0f", velocity.y))pt/s offset=\(String(format: "%.0f", scrollView.contentOffset.y)) → target=\(String(format: "%.0f", decelTargetOffset)) projDist=\(String(format: "%.0f", decelTargetOffset - scrollView.contentOffset.y)) cs=\(String(format: "%.0f", scrollView.contentSize.height))")
             #endif
         }
 
@@ -1022,7 +1022,7 @@ extension MessageCollectionView.Coordinator {
         }
 
         public func scrollViewWillBeginDecelerating(_ scrollView: UIScrollView) {
-            // [ScrollDecel] DECELERATION START — the marker the analysis hangs
+            // [Decel] DECELERATION START — the marker the analysis hangs
             // offY. Every subsequent slow frame is logged as "+Xms into decel".
             let now = CACurrentMediaTime()
             decelStartTime = now
@@ -1032,7 +1032,7 @@ extension MessageCollectionView.Coordinator {
             decelSlowFrameCount = 0
             #if DEBUG
             let visibleN = viewController?.collectionView?.visibleCells.count ?? -1
-            AppLogger(category: "ScrollDecel").info("[ScrollDecel][BEGIN] offset=\(String(format: "%.0f", decelStartOffset)) target=\(String(format: "%.0f", decelTargetOffset)) decelDist=\(String(format: "%.0f", decelTargetOffset - decelStartOffset)) visibleCells=\(visibleN) deferSelfSizing=\((viewController?.messageListLayout?.deferSelfSizing ?? false) ? 1 : 0)")
+            AppLogger(category: "ChatList.Decel").info("[Decel][BEGIN] offset=\(String(format: "%.0f", decelStartOffset)) target=\(String(format: "%.0f", decelTargetOffset)) decelDist=\(String(format: "%.0f", decelTargetOffset - decelStartOffset)) visibleCells=\(visibleN) deferSelfSizing=\((viewController?.messageListLayout?.deferSelfSizing ?? false) ? 1 : 0)")
             // [DecelDisplayLink] Start the real-frame-rate meter only for this
             // decel phase. Drops/summary go to the log; CADisplayLink is removed
             // in scrollViewDidEndDecelerating below.
@@ -1041,12 +1041,12 @@ extension MessageCollectionView.Coordinator {
         }
 
         public func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) {
-            // [ScrollDecel] DECELERATION END — summarize the phase: total
+            // [Decel] DECELERATION END — summarize the phase: total
             // duration, frames, how many were slow (dropped), final offset.
             if decelStartTime>0 {
                 #if DEBUG
                 let dur = (CACurrentMediaTime()-decelStartTime)*1000
-                AppLogger(category: "ScrollDecel").info("[ScrollDecel][END] dur=\(String(format: "%.0f", dur))ms frames=\(self.decelFrameCount) slowFrames=\(self.decelSlowFrameCount) offset \(String(format: "%.0f→%.0f", self.decelStartOffset, scrollView.contentOffset.y)) (target was \(String(format: "%.0f", self.decelTargetOffset)))")
+                AppLogger(category: "ChatList.Decel").info("[Decel][END] dur=\(String(format: "%.0f", dur))ms frames=\(self.decelFrameCount) slowFrames=\(self.decelSlowFrameCount) offset \(String(format: "%.0f→%.0f", self.decelStartOffset, scrollView.contentOffset.y)) (target was \(String(format: "%.0f", self.decelTargetOffset)))")
                 // [DecelDisplayLink] Print the REAL frame-rate summary for this
                 // decel and stop the link. If actualFps≈vsync and drops=0 the
                 // visual "jitter" wasn't a dropped frame at all.
@@ -1060,7 +1060,7 @@ extension MessageCollectionView.Coordinator {
             }
         }
 
-        /// [ScrollDecel] Called from scrollViewDidScroll. While decelerating,
+        /// [Decel] Called from scrollViewDidScroll. While decelerating,
         /// measures the gapH since the previous frame; a gapH above the threshold
         /// is a dropped/janky frame and gets logged with how far into the decel
         /// it happened, the current offset/scroll direction, and how many cells
@@ -1079,13 +1079,13 @@ extension MessageCollectionView.Coordinator {
             let offY = scrollView.contentOffset.y
             let dir = offY >= decelStartOffset ? "↓" : "↑"
             let visibleN = viewController?.collectionView?.visibleCells.count ?? -1
-            AppLogger(category: "ScrollDecel").warning("[ScrollDecel][SLOW-FRAME] +\(String(format: "%.0f", sinceStart))ms into decel gapH=\(String(format: "%.0f", gapH * 1000))ms offset=\(String(format: "%.0f", offY))\(dir) remainToTarget=\(String(format: "%.0f", self.decelTargetOffset - offY)) visibleCells=\(visibleN) frame#\(self.decelFrameCount)")
+            AppLogger(category: "ChatList.Decel").warning("[Decel][SLOW-FRAME] +\(String(format: "%.0f", sinceStart))ms into decel gapH=\(String(format: "%.0f", gapH * 1000))ms offset=\(String(format: "%.0f", offY))\(dir) remainToTarget=\(String(format: "%.0f", self.decelTargetOffset - offY)) visibleCells=\(visibleN) frame#\(self.decelFrameCount)")
             #endif
         }
 
         // MARK: - [DecelDisplayLink] CADisplayLink frame meter (DEBUG only)
         //
-        // The existing `[ScrollDecel] SLOW-FRAME` log measures the wall-clock gapH
+        // The existing `[Decel] SLOW-FRAME` log measures the wall-clock gapH
         // between consecutive `scrollViewDidScroll` callbacks. That is NOT the
         // same as a real dropped frame: during the tail of a decel UIKit stops
         // calling scrollViewDidScroll for the frames where contentOffset doesn't
@@ -1117,7 +1117,7 @@ extension MessageCollectionView.Coordinator {
                 let offY = cv?.contentOffset.y ?? 0
                 let sinceStart = (CACurrentMediaTime()-decelStartTime)*1000
                 let dropped = Int((gapMs/decelDLExpectedMs).rounded())-1
-                AppLogger(category: "ScrollDecel").warning("[DecelDisplayLink][DROP] +\(String(format: "%.0f", sinceStart))ms into decel gapH=\(String(format: "%.1f", gapMs))ms (expected \(String(format: "%.1f", self.decelDLExpectedMs))ms, ~\(dropped) frame(s) dropped) offset=\(String(format: "%.0f", offY)) remainToTarget=\(String(format: "%.0f", self.decelTargetOffset - offY)) frame#\(self.decelDLFrames)")
+                AppLogger(category: "ChatList.Decel").warning("[DecelDisplayLink][DROP] +\(String(format: "%.0f", sinceStart))ms into decel gapH=\(String(format: "%.1f", gapMs))ms (expected \(String(format: "%.1f", self.decelDLExpectedMs))ms, ~\(dropped) frame(s) dropped) offset=\(String(format: "%.0f", offY)) remainToTarget=\(String(format: "%.0f", self.decelTargetOffset - offY)) frame#\(self.decelDLFrames)")
             }
         }
 
@@ -1143,18 +1143,18 @@ extension MessageCollectionView.Coordinator {
             let dur = (CACurrentMediaTime()-decelStartTime)*1000
             let actualFps = decelDLFrames>0 ? Double(decelDLFrames)/(dur/1000) : 0
             let minGap = decelDLMinGapMs.isFinite ? decelDLMinGapMs : 0
-            AppLogger(category: "ScrollDecel").info("[DecelDisplayLink][SUMMARY] dur=\(String(format: "%.0f", dur))ms frames=\(self.decelDLFrames) drops=\(self.decelDLDrops) actualFps=\(String(format: "%.1f", actualFps)) gapRange=[\(String(format: "%.1f", minGap))..\(String(format: "%.1f", self.decelDLMaxGapMs))]ms expected=\(String(format: "%.1f", self.decelDLExpectedMs))ms")
+            AppLogger(category: "ChatList.Decel").info("[DecelDisplayLink][SUMMARY] dur=\(String(format: "%.0f", dur))ms frames=\(self.decelDLFrames) drops=\(self.decelDLDrops) actualFps=\(String(format: "%.1f", actualFps)) gapRange=[\(String(format: "%.1f", minGap))..\(String(format: "%.1f", self.decelDLMaxGapMs))]ms expected=\(String(format: "%.1f", self.decelDLExpectedMs))ms")
         }
         #endif
 
         /// Track last logged offset to detect jumps after settle.
 
         public func scrollViewDidScroll(_ scrollView: UIScrollView) {
-            // [ScrollDecel] Detect dropped frames during the deceleration phase
+            // [Decel] Detect dropped frames during the deceleration phase
             // (cheap: early-returns unless decelerating + frame gapH exceeded).
             logDecelFrameIfSlow(scrollView)
             #if DEBUG
-            // [T-ios-scroll-metrics-ring] Per-frame offset/contentSize sample —
+            // Per-frame offset/contentSize sample —
             // lets the pulled trace reconstruct exactly when visible content
             // shifted vs when the offset moved (jitter = the two disagreeing).
             ScrollMetricsRecorder.shared.record(
@@ -1195,11 +1195,11 @@ extension MessageCollectionView.Coordinator {
             if settleJustFinished {
                 let delta = scrollView.contentOffset.y-lastLoggedOffset
                 if abs(delta)>2 {
-                    AppLogger(category: "Settle").debug("[Settle] POST-SETTLE JUMP offset \(String(format: "%.1f→%.1f", lastLoggedOffset, scrollView.contentOffset.y)) delta=\(String(format: "%.1f", delta)) tracking=\(scrollView.isTracking) decel=\(scrollView.isDecelerating) contentSize=\(String(format: "%.1f", scrollView.contentSize.height))")
+                    AppLogger(category: "ChatList.Settle").debug("[Settle] POST-SETTLE JUMP offset \(String(format: "%.1f→%.1f", lastLoggedOffset, scrollView.contentOffset.y)) delta=\(String(format: "%.1f", delta)) tracking=\(scrollView.isTracking) decel=\(scrollView.isDecelerating) contentSize=\(String(format: "%.1f", scrollView.contentSize.height))")
                     settleJustFinished = false
                 }
             }
-            // [ScrollStall] Per-second scroll trajectory: offset, distance moved
+            // [Stall] Per-second scroll trajectory: offset, distance moved
             // since last flush, mode, tracking/decel state. Helps correlate
             // hitches with offset bursts.
             scrollSamples += 1
@@ -1207,14 +1207,14 @@ extension MessageCollectionView.Coordinator {
             if now-lastScrollFlush>1.0 {
                 let offY = scrollView.contentOffset.y
                 let dist = abs(offY-lastScrollFlushOffset)
-                AppLogger(category: "ScrollStall").debug("[SCR] last1s samples=\(scrollSamples) offset=\(String(format: "%.0f", offY)) Δdist=\(String(format: "%.0f", dist)) cs=\(String(format: "%.0f", scrollView.contentSize.height)) mode=\(self.scrollMode == .autoScrolling ? "auto" : "browse") tracking=\(scrollView.isTracking ? 1 : 0) decel=\(scrollView.isDecelerating ? 1 : 0) deferred=\((self.viewController?.messageListLayout?.deferSelfSizing ?? false) ? 1 : 0)")
+                AppLogger(category: "ChatList.Stall").debug("[SCR] last1s samples=\(scrollSamples) offset=\(String(format: "%.0f", offY)) Δdist=\(String(format: "%.0f", dist)) cs=\(String(format: "%.0f", scrollView.contentSize.height)) mode=\(self.scrollMode == .autoScrolling ? "auto" : "browse") tracking=\(scrollView.isTracking ? 1 : 0) decel=\(scrollView.isDecelerating ? 1 : 0) deferred=\((self.viewController?.messageListLayout?.deferSelfSizing ?? false) ? 1 : 0)")
                 scrollSamples = 0
                 lastScrollFlushOffset = offY
                 lastScrollFlush = now
             }
         }
 
-        // [ScrollDecel] Deceleration-phase instrumentation. Lets us pin a
+        // [Decel] Deceleration-phase instrumentation. Lets us pin a
         // dropped frame to "Xms into the decel, at offset Y" so the
         // scroll-jank trace's micro-hangs can be aligned to the exact moment
         // and content region where the costly render started.
@@ -1242,7 +1242,7 @@ extension MessageCollectionView.Coordinator {
             // Re-acquire auto-scroll only when the user settled essentially at
             // the bottom (tight threshold), not merely "near" it. This stops
             // small trackpad scrolls on iPad from snapping back to the bottom
-            // and jittering. [T-ios-trackpad-scroll-jitter]
+            // and jittering.
             let atBottom = isWithinBottom(reacquireAutoScrollThreshold)
             let nearBottom = isNearBottom()
             if atBottom {
@@ -1252,7 +1252,7 @@ extension MessageCollectionView.Coordinator {
                   let cv = viewController?.collectionView else { return }
 
             let deferredCount = layout.deferredHeightCount
-            AppLogger(category: "Settle").debug("[Settle] BEGIN mode=\(scrollMode == .autoScrolling ? "auto" : "browse") nearBottom=\(nearBottom) offset=\(String(format: "%.1f", cv.contentOffset.y)) contentSize=\(String(format: "%.1f", cv.contentSize.height)) deferredHeights=\(deferredCount) pendingSnapshotFlag=\(pendingSnapshotFlag)")
+            AppLogger(category: "ChatList.Settle").debug("[Settle] BEGIN mode=\(scrollMode == .autoScrolling ? "auto" : "browse") nearBottom=\(nearBottom) offset=\(String(format: "%.1f", cv.contentOffset.y)) contentSize=\(String(format: "%.1f", cv.contentSize.height)) deferredHeights=\(deferredCount) pendingSnapshotFlag=\(pendingSnapshotFlag)")
 
             // Re-enable self-sizing so future layout passes use real heights.
             layout.deferSelfSizing = false
@@ -1288,14 +1288,14 @@ extension MessageCollectionView.Coordinator {
                 let postY = layout.layoutAttributesForItem(at: ip)?.frame.minY ?? preY
                 let screenDelta = (postY-cv.contentOffset.y)-(preY-savedOffset)
                 #if DEBUG
-                // [T-ios-scroll-metrics-ring]
+                //
                 ScrollMetricsRecorder.shared.record(
                     kind: "settle", idx: ip.item, a: screenDelta, b: postY-preY,
                     offset: Double(cv.contentOffset.y),
                     note: String(format: "savedOff=%.0f", savedOffset))
                 #endif
                 if abs(screenDelta)>0.5 {
-                    AppLogger(category: "SettleJitter").info("[SettleJitter][settle-shift] anchorY=idx\(ip.item) screenΔ=\(String(format: "%+.1f", screenDelta)) frameY \(String(format: "%.0f", preY))→\(String(format: "%.0f", postY)) offset \(String(format: "%.0f", savedOffset))→\(String(format: "%.0f", cv.contentOffset.y))")
+                    AppLogger(category: "ChatList.Settle").info("[SettleJitter][settle-shift] anchorY=idx\(ip.item) screenΔ=\(String(format: "%+.1f", screenDelta)) frameY \(String(format: "%.0f", preY))→\(String(format: "%.0f", postY)) offset \(String(format: "%.0f", savedOffset))→\(String(format: "%.0f", cv.contentOffset.y))")
                 }
             }
 
@@ -1313,7 +1313,7 @@ extension MessageCollectionView.Coordinator {
             DispatchQueue.main.asyncAfter(deadline: .now()+0.5) { [weak self] in
                 self?.settleJustFinished = false
             }
-            AppLogger(category: "Settle").debug("[Settle] END offset=\(String(format: "%.1f", cv.contentOffset.y)) contentSize=\(String(format: "%.1f", cv.contentSize.height))")
+            AppLogger(category: "ChatList.Settle").debug("[Settle] END offset=\(String(format: "%.1f", cv.contentOffset.y)) contentSize=\(String(format: "%.1f", cv.contentSize.height))")
         }
 
 }

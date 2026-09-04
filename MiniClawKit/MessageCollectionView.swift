@@ -63,7 +63,7 @@ extension MessageCollectionView {
         /// content to be essentially flush with the bottom (≤4pt) means a
         /// deliberate small scroll stays in `.userBrowsing`, while a scroll
         /// that genuinely lands at the bottom still resumes follow-along.
-        /// [T-ios-trackpad-scroll-jitter]
+        ///
         let reacquireAutoScrollThreshold: CGFloat = 4
 
         /// The user-message id the up-button last jumped to, so a repeated tap
@@ -105,7 +105,7 @@ extension MessageCollectionView {
 
         var lastScrollFlush: CFTimeInterval = 0
 
-        // [ScrollDecel] Deceleration-phase instrumentation. Lets us pin a
+        // [Decel] Deceleration-phase instrumentation. Lets us pin a
         // dropped frame to "Xms into the decel, at offset Y" so the
         // scroll-jank trace's micro-hangs can be aligned to the exact moment
         // and content region where the costly render started.
@@ -157,7 +157,7 @@ extension MessageCollectionView {
                 // Mirror to the layout so its invalidationContext can glue the
                 // streaming cell's bottom to the viewport while pinned (smooth
                 // grow) and skip that adjustment while the user browses.
-                // [T-ios-stream-natural-transitions]
+                //
                 viewController?.messageListLayout?.isAutoScrollPinning = (scrollMode == .autoScrolling)
             }
         }
@@ -183,7 +183,7 @@ extension MessageCollectionView {
         /// Caches measureAttributedStringHeight results by NSAttributedString identity.
         /// Avoids redundant TextKit layout on repeated snapshots for the same content.
         var attrStringHeightCache: [ObjectIdentifier: CGFloat] = [:]
-        /// [T-ios-user-msg-estimate-tail-jitter] Caches accurate user-bubble
+        /// Caches accurate user-bubble
         /// heights keyed by "content|width|fontsize" (user text has no
         /// cachedAttributedString identity to key on). Cleared alongside
         /// attrStringHeightCache on session change / font change.
@@ -210,12 +210,12 @@ extension MessageCollectionView {
         var lastMessageSub: AnyCancellable?
         var lastMessageBlockCountSub: AnyCancellable?
 
-        /// [T-ios-ui-blocks-lost-suspend-resume] Last observed value of the vm's
+        /// Last observed value of the vm's
         /// `streamingUIUpdatesSuspended`, tracked so the vm-state subscription can
         /// detect a true→false transition and flush a snapshot deferred during the
         /// suspend window (see `suspendResumeSub`).
         var lastSuspendedValue: Bool = false
-        /// [T-ios-ui-blocks-lost-suspend-resume] Watches the vm for the moment
+        /// Watches the vm for the moment
         /// `streamingUIUpdatesSuspended` clears, then flushes the pending snapshot.
         var suspendResumeSub: AnyCancellable?
 
@@ -329,7 +329,7 @@ extension MessageCollectionView {
                 [weak self] cv,chg in
                 guard let self else { return }
                 if let new = chg.newValue {
-                    AppLogger(category: "KbdDiag").info("[KbdDiag] adjustedInset.bottom=\(String(format: "%.1f", new.bottom)) safeArea.bottom=\(String(format: "%.1f", cv.safeAreaInsets.bottom)) bounds.h=\(String(format: "%.1f", cv.bounds.height)) contentInset.bottom=\(String(format: "%.1f", cv.contentInset.bottom)) offset.y=\(String(format: "%.1f", cv.contentOffset.y)) mode=\(self.scrollMode)")
+                    AppLogger(category: "ChatList.Keyboard").info("[Keyboard] adjustedInset.bottom=\(String(format: "%.1f", new.bottom)) safeArea.bottom=\(String(format: "%.1f", cv.safeAreaInsets.bottom)) bounds.h=\(String(format: "%.1f", cv.bounds.height)) contentInset.bottom=\(String(format: "%.1f", cv.contentInset.bottom)) offset.y=\(String(format: "%.1f", cv.contentOffset.y)) mode=\(self.scrollMode)")
                 }
             }
 
@@ -369,7 +369,7 @@ extension MessageCollectionView {
                         if maxOff>0 {
                             // [DIAG-3] If tracking/decel, auto-scroll mode is fighting user gesture
                             if cv.isTracking || cv.isDecelerating {
-                                AppLogger(category: "StreamDiag").info("[KVO] ⚠️ PIN-WHILE-SCROLLING contentSize grew +\(String(format: "%.0f", delta)) offset \(String(format: "%.0f", cv.contentOffset.y))→\(String(format: "%.0f", maxOff)) tracking=\(cv.isTracking) decel=\(cv.isDecelerating) — MODE SHOULD BE userBrowsing")
+                                AppLogger(category: "ChatList.Stream").info("[KVO] ⚠️ PIN-WHILE-SCROLLING contentSize grew +\(String(format: "%.0f", delta)) offset \(String(format: "%.0f", cv.contentOffset.y))→\(String(format: "%.0f", maxOff)) tracking=\(cv.isTracking) decel=\(cv.isDecelerating) — MODE SHOULD BE userBrowsing")
                             }
                             // 手指按住（tracking）时绝不写 offset：与拖动手势抢滚动位置
                             // 造成流式 cell 整块抖动。decel 保持跟随（用户已松手，贴底是预期）。
@@ -381,7 +381,7 @@ extension MessageCollectionView {
                 } else if delta>0 && self.scrollMode == .userBrowsing {
                     // [DIAG-3b] Content grew while user is browsing — no pin.
                     // If a cell ABOVE viewport grew, all cells below shift down.
-                    AppLogger(category: "StreamDiag").info("[KVO] contentSize grew +\(String(format: "%.0f", delta)) IN BROWSE MODE — no pin. offset=\(String(format: "%.0f", cv.contentOffset.y)) tracking=\(cv.isTracking) decel=\(cv.isDecelerating)")
+                    AppLogger(category: "ChatList.Stream").info("[KVO] contentSize grew +\(String(format: "%.0f", delta)) IN BROWSE MODE — no pin. offset=\(String(format: "%.0f", cv.contentOffset.y)) tracking=\(cv.isTracking) decel=\(cv.isDecelerating)")
                 } else if delta<0 && self.scrollMode == .autoScrolling {
                     // Content shrank while auto-scrolling — clamp to prevent overscroll.
                     // Skip during deceleration: settleAfterInteraction will handle it.
@@ -406,7 +406,7 @@ extension MessageCollectionView {
                 if self.settleJustFinished && delta < -1 && self.scrollMode == .autoScrolling && !cv.isTracking && !cv.isDecelerating {
                     let maxOff = max(0,newH-cv.bounds.height+cv.adjustedContentInset.bottom)
                     if cv.contentOffset.y>maxOff {
-                        AppLogger(category: "Settle").debug("[Settle] POST-SETTLE SHRINK clamp offset \(String(format: "%.1f→%.1f", cv.contentOffset.y, maxOff)) contentSize \(String(format: "%.1f→%.1f", oldH, newH))")
+                        AppLogger(category: "ChatList.Settle").debug("[Settle] POST-SETTLE SHRINK clamp offset \(String(format: "%.1f→%.1f", cv.contentOffset.y, maxOff)) contentSize \(String(format: "%.1f→%.1f", oldH, newH))")
                         UIView.performWithoutAnimation {
                             cv.contentOffset.y = maxOff
                         }
@@ -446,8 +446,8 @@ extension MessageCollectionView {
         }
 
         static let cellLogger = AppLogger(category: "CellPerf")
-        let screenshotLogger = AppLogger(category: "TurnScreenshot")
-        /// [T-ios-copy-screenshot-diag-logs] Verbose stage-by-stage trace of
+        let screenshotLogger = AppLogger(category: "ChatList.TurnShot")
+        /// Verbose stage-by-stage trace of
         /// captureScrollingTurnScreenshot used to chase the "top blank when
         /// long-press from middle/bottom" symptom that the first repair
         /// (5e3c6160) didn't fully eliminate. Separate category from
@@ -506,7 +506,7 @@ extension MessageCollectionView {
                     // the deep-link forces an immediate cell rebuild before
                     // any other view layer can re-inject the vm. Re-inject
                     // explicitly on every hosting config.
-                    // [T-ios-tool-capsule-vm-envobject-crash]
+                    //
                     .environmentObject(vm)
                 }.minSize(width: 0,height: 0).margins(.all,0)
                 cell.applyContentConfiguration(config)
@@ -524,12 +524,12 @@ extension MessageCollectionView {
 
             case .assistantBlock(let msgId,let blockId):
                 guard let msgIdx = messageIndex[msgId],msgIdx<messages.count else {
-                    AppLogger(category: "SnapshotDiag").warning("[SnapshotDiag] configureCell MISS msgId=\(msgId.uuidString.prefix(8)) — messageIndex miss or OOB")
+                    AppLogger(category: "ChatList.Snapshot").warning("[Snapshot] configureCell MISS msgId=\(msgId.uuidString.prefix(8)) — messageIndex miss or OOB")
                     return
                 }
                 let message = messages[msgIdx]
                 guard let block = message.blocks.first(where: { $0.id == blockId }) else {
-                    AppLogger(category: "SnapshotDiag").warning("[SnapshotDiag] configureCell MISS blockId=\(blockId.uuidString.prefix(8)) in msg blocks=\(message.blocks.count) — block ID mismatch (vm.messages mutated since snapshot?)")
+                    AppLogger(category: "ChatList.Snapshot").warning("[Snapshot] configureCell MISS blockId=\(blockId.uuidString.prefix(8)) in msg blocks=\(message.blocks.count) — block ID mismatch (vm.messages mutated since snapshot?)")
                     return
                 }
                 let bridge = getOrCreateBridge(for: message,in: messages)
@@ -563,7 +563,7 @@ extension MessageCollectionView {
                 cell.applyContentConfiguration(config)
             }
 
-            // [T-ios-scroll-decel-height-drift] Seed this cell with the real
+            // Seed this cell with the real
             // height the SAME content measured on a prior appearance (if any),
             // so its first self-size after reuse skips the 2.5–3.8ms
             // systemLayoutSizeFitting that produced the decel "settle jitter".
@@ -574,7 +574,7 @@ extension MessageCollectionView {
                 let cvW = viewController?.collectionView.bounds.width ?? 390
                 let key = Self.contentKey(for: item,messages: messages,messageIndex: messageIndex)
 
-                // [T-ios-scroll-decel-height-drift] Register the index→key map
+                // Register the index→key map
                 // on EVERY cell config, not just snapshot apply. The memo write
                 // in invalidationContext keys offY contentKeyByIndex[index]; if
                 // it's only set during updateMessages (snapshot change), then
@@ -587,7 +587,7 @@ extension MessageCollectionView {
                 layout.setContentKey(key,at: indexPath.item)
 
                 #if DEBUG
-                // [T-ios-scroll-metrics-ring] Stamp the stable cell tag on the
+                // Stamp the stable cell tag on the
                 // cell and the layout's index map (only while recording — the
                 // hash costs a string scan per configure).
                 if ScrollMetricsRecorder.shared.isEnabled {
@@ -597,7 +597,7 @@ extension MessageCollectionView {
                 }
                 #endif
 
-                // [T-ios-scroll-decel-height-drift] STREAMING EXCLUSION. A cell
+                // STREAMING EXCLUSION. A cell
                 // belonging to the actively-streaming (last assistant) message
                 // changes height every token (tool capsule + code block grow as
                 // output arrives). It must NEVER be seeded or memoized: a seed
@@ -624,7 +624,7 @@ extension MessageCollectionView {
                 if let memo {
                     cell.seedMeasuredHeight(memo,width: cvW)
                 }
-                // [T-ios-user-msg-truncate-seed-starve] DO NOT seed from precalc.
+                // DO NOT seed from precalc.
                 //
                 // The seed short-circuit in SelfSizingCell.preferredLayoutAttributes-
                 // Fitting RETURNS the seeded height and SKIPS the real
@@ -707,7 +707,7 @@ extension MessageCollectionView {
             bridge.toolSnapshots = vm.toolSnapshots
             bridge.autoRetryAttempt = isLast ? vm.autoRetryAttempt : 0
             bridge.autoRetryCountdown = isLast ? vm.autoRetryCountdown : 0
-            // [T-ios-session-status-mismatch] Defense-in-depth: even if vm.canResume
+            // Defense-in-depth: even if vm.canResume
             // is somehow stale-true and vm.isProcessing hasn't flipped yet, do NOT
             // show the "Interrupted — tap Resume" banner while SessionActivityTracker
             // still lists this session as active (same signal the home list spinner
@@ -727,7 +727,7 @@ extension MessageCollectionView {
             bridge.onReadAloud = (message.role == .assistant)
                 ? { [weak vm] in vm?.readReplyFromStart(message) }
                 : nil
-            // [T-selection-menu-tts] "Read Selection" from the text
+            // "Read Selection" from the text
             // selection menu — speaks the selected snippet via the MiniClaw TTS
             // stack (sanitizer + provider voices + fail-over).
             bridge.onSpeakText = { [weak vm] text in vm?.speakText(text) }
@@ -749,7 +749,7 @@ extension MessageCollectionView {
                     return
                 }
                 guard let userId else { return }
-                // [T-ios-copy-screenshot-diag-logs] Entry-trace from the
+                // Entry-trace from the
                 // menu callback so the user's grep of "ChatScreenshot"
                 // catches the FULL chain, including which message they
                 // long-pressed and the resolved user→assistant pair.
@@ -823,7 +823,7 @@ extension MessageCollectionView {
 
         // MARK: - Bindings
 
-        /// [T-ios-scrollbtn-vm-split] Re-point the coordinator at a NEW view
+        /// Re-point the coordinator at a NEW view
         /// model instance when SwiftUI hands the (reused) representable a
         /// different MessageListModel for the same mounted chat view. All
         /// Combine subscriptions live in bindViewModel and are keyed to the
@@ -839,7 +839,7 @@ extension MessageCollectionView {
                 kind: "rebind", a: hadOld ? 1 : 0,
                 note: Self.nbDump(viewController?.collectionView))
             #endif
-            AppLogger(category: "ScrollDiag").info("[ScrollDiag][rebind] coordinator vm \(hadOld ? "changed" : "was nil") → rebinding subscriptions + resyncing flags")
+            AppLogger(category: "ChatList.Scroll").info("[Scroll][rebind] coordinator vm \(hadOld ? "changed" : "was nil") → rebinding subscriptions + resyncing flags")
             subscriptions.removeAll()
             lastMessageSub?.cancel(); lastMessageSub = nil
             lastMessageBlockCountSub?.cancel(); lastMessageBlockCountSub = nil
@@ -857,14 +857,14 @@ extension MessageCollectionView {
 
         func bindViewModel(_ vm: MessageListModel) {
             // 1. Messages → snapshot
-            //    Skip while isLoadingSession — binding 3 handles the post-load apply.
-            //    This prevents a redundant apply when $messages and $isLoadingSession
-            //    dispatch to main queue in the same runloop cycle.
+            // Skip while isLoadingSession — binding 3 handles the post-load apply.
+            // This prevents a redundant apply when $messages and $isLoadingSession
+            // dispatch to main queue in the same runloop cycle.
             vm.$messages
                 .receive(on: DispatchQueue.main)
                 .sink { [weak self] msgs in
                     guard let self else { return }
-                    // [T-message-list-empty-on-foreground] If a load is in flight,
+                    // If a load is in flight,
                     // DON'T silently drop this update — applySnapshot would no-op
                     // (it early-returns while isLoadingSession). Record it as
                     // pending so binding 3's true→false edge flushes it. Dropping
@@ -891,25 +891,25 @@ extension MessageCollectionView {
                 }
                 .store(in: &subscriptions)
 
-            // 1c. [T-ios-ui-blocks-lost-suspend-resume] Suspend-resume flush.
-            //     `streamingUIUpdatesSuspended` is a plain (private(set)) var on
-            //     the vm — not @Published — but every state change that clears it
-            //     (scroll-settle resume, session-transition resume, the SSE final
-            //     flush) runs through the vm's @Published/objectWillChange surface.
-            //     We piggy-back on `vm.objectWillChange` and edge-detect the
-            //     true→false transition ourselves via `lastSuspendedValue`.
+            // 1c. Suspend-resume flush.
+            // `streamingUIUpdatesSuspended` is a plain (private(set)) var on
+            // the vm — not @Published — but every state change that clears it
+            // (scroll-settle resume, session-transition resume, the SSE final
+            // flush) runs through the vm's @Published/objectWillChange surface.
+            // We piggy-back on `vm.objectWillChange` and edge-detect the
+            // true→false transition ourselves via `lastSuspendedValue`.
             //
-            //     Why this is the missing path: during a long multi-tool agent
-            //     loop, blocks appended while suspendedFlag only set
-            //     `pendingSnapshotFlag = true` (bind4b); the stream then ends and
-            //     cancels the per-message subs, and the terminal rescue at
-            //     stream-end skips the flush because suspend is still true (see
-            //     the "STREAM-END left pending (still suspendedFlag)" log). After that
-            //     nothing re-applies — `$messages` won't fire (blocks grew, the
-            //     array didn't) and the block-count sub is gone. This hook fires
-            //     the instant suspend lifts. Gated on `!isProcessing` so a
-            //     mid-stream resume is left to the live subscriptions / settle
-            //     path; only the stranded post-stream case is rescued here.
+            // Why this is the missing path: during a long multi-tool agent
+            // loop, blocks appended while suspendedFlag only set
+            // `pendingSnapshotFlag = true` (bind4b); the stream then ends and
+            // cancels the per-message subs, and the terminal rescue at
+            // stream-end skips the flush because suspend is still true (see
+            // the "STREAM-END left pending (still suspendedFlag)" log). After that
+            // nothing re-applies — `$messages` won't fire (blocks grew, the
+            // array didn't) and the block-count sub is gone. This hook fires
+            // the instant suspend lifts. Gated on `!isProcessing` so a
+            // mid-stream resume is left to the live subscriptions / settle
+            // path; only the stranded post-stream case is rescued here.
             lastSuspendedValue = vm.streamingUIUpdatesSuspended
             suspendResumeSub = vm.objectWillChange
                 .receive(on: DispatchQueue.main)
@@ -920,7 +920,7 @@ extension MessageCollectionView {
                     self.lastSuspendedValue = now
                     // Only act on a genuine true→false transition.
                     guard was,!now else { return }
-                    // [T-ios-ui-frozen-on-tool-while-loop-runs] Flush REGARDLESS
+                    // Flush REGARDLESS
                     // of isProcessing. The old `isProcessing == false` guard left
                     // a mid-loop foreground-resume unflushed: when the app returns
                     // to foreground (resumeAllStreamingUI clears the flag) while
@@ -931,44 +931,44 @@ extension MessageCollectionView {
                     // sheetDismiss/settle happened to flush. Resume always runs
                     // foreground, so applying the snapshot here is safe.
                     guard self.pendingSnapshotFlag else { return }
-                    AppLogger(category: "PendingSnap").info("[PendingSnap] suspend-resume flush applied (pendingSnapshotFlag=true, isProcessing=\(vm.isProcessing))")
+                    AppLogger(category: "ChatList.SnapQueue").info("[SnapQueue] suspend-resume flush applied (pendingSnapshotFlag=true, isProcessing=\(vm.isProcessing))")
                     self.flushPendingSnapshotIfNeeded(caller: "suspend-resume")
                 }
             suspendResumeSub?.store(in: &subscriptions)
 
-            // 1c. [T-ios-ui-blocks-lost-suspend-resume] Resume hook. When the vm
-            //     clears `streamingUIUpdatesSuspended` (true→false) from ANY path,
-            //     rebuild a snapshot that was deferred during the suspend window.
-            //     Failure chain this fixes: during a multi-tool agent loop, new
-            //     blocks append while suspendedFlag → blockCountSub only sets
-            //     pendingSnapshotFlag=true; the stream then ends and cancels the
-            //     per-message subs; the terminal rescue sees still-suspendedFlag and
-            //     skips the flush; nothing else can fire it. This hook is the
-            //     missing trigger when suspend finally lifts. Only flush when the
-            //     loop is no longer processing (a mid-stream resume is handled by
-            //     the live subscriptions / settle path).
+            // 1c. Resume hook. When the vm
+            // clears `streamingUIUpdatesSuspended` (true→false) from ANY path,
+            // rebuild a snapshot that was deferred during the suspend window.
+            // Failure chain this fixes: during a multi-tool agent loop, new
+            // blocks append while suspendedFlag → blockCountSub only sets
+            // pendingSnapshotFlag=true; the stream then ends and cancels the
+            // per-message subs; the terminal rescue sees still-suspendedFlag and
+            // skips the flush; nothing else can fire it. This hook is the
+            // missing trigger when suspend finally lifts. Only flush when the
+            // loop is no longer processing (a mid-stream resume is handled by
+            // the live subscriptions / settle path).
             vm.onStreamingUIUpdatesResumed = { [weak self] in
                 guard let self else { return }
                 // Always main-thread: the chokepoint runs on the main actor, but
                 // hop defensively so flush never races a background caller.
                 let work = {
-                    // [T-ios-ui-frozen-on-tool-while-loop-runs] Flush regardless
+                    // Flush regardless
                     // of isProcessing — see the objectWillChange sub above. A
                     // foreground-resume while the loop is still running must
                     // re-apply the deferred snapshot, or the UI freezes on the
                     // last-rendered tool until an unrelated sheetDismiss/settle.
                     guard self.pendingSnapshotFlag else { return }
-                    AppLogger(category: "PendingSnap").info("[PendingSnap] suspend-resume flush (pendingSnapshotFlag=true, isProcessing=\(self.vm?.isProcessing == true))")
+                    AppLogger(category: "ChatList.SnapQueue").info("[SnapQueue] suspend-resume flush (pendingSnapshotFlag=true, isProcessing=\(self.vm?.isProcessing == true))")
                     self.flushPendingSnapshotIfNeeded(caller: "suspend-resume")
                 }
                 if Thread.isMainThread { work() } else { DispatchQueue.main.async(execute: work) }
             }
 
             // 1b. Retry truncation signal — `retryFromToolBlock`'s sub-message
-            //     path mutates `messages[i].blocks` in place without changing
-            //     the messages array count, so `$messages` won't fire and the
-            //     diffable snapshot keeps its pre-cut block identifiers.
-            //     This signal forces a re-apply so stale blocks are removed.
+            // path mutates `messages[i].blocks` in place without changing
+            // the messages array count, so `$messages` won't fire and the
+            // diffable snapshot keeps its pre-cut block identifiers.
+            // This signal forces a re-apply so stale blocks are removed.
             vm.retrySnapshotReloadSignal
                 .receive(on: DispatchQueue.main)
                 .sink { [weak self] in
@@ -1001,7 +1001,7 @@ extension MessageCollectionView {
                     let layout = self.viewController?.messageListLayout
                     let cachedCount = layout?.debugCachedHeightCount ?? 0
                     let precalcCount = layout?.debugPrecalcHeightCount ?? 0
-                    AppLogger(category: "ScrollDiag").info("[ScrollDiag][forceScrollToBottom] window=\(cv?.window != nil) contentSize=\(String(format: "%.0f", cv?.contentSize.height ?? 0)) bounds=\(String(format: "%.0f", cv?.bounds.height ?? 0)) adjInsetBot=\(String(format: "%.0f", cv?.adjustedContentInset.bottom ?? 0)) heightCache=\(cachedCount) precalc=\(precalcCount) visibleCells=\(cv?.visibleCells.count ?? 0)")
+                    AppLogger(category: "ChatList.Scroll").info("[Scroll][forceScrollToBottom] window=\(cv?.window != nil) contentSize=\(String(format: "%.0f", cv?.contentSize.height ?? 0)) bounds=\(String(format: "%.0f", cv?.bounds.height ?? 0)) adjInsetBot=\(String(format: "%.0f", cv?.adjustedContentInset.bottom ?? 0)) heightCache=\(cachedCount) precalc=\(precalcCount) visibleCells=\(cv?.visibleCells.count ?? 0)")
                     self.vm?.setStreamingUIUpdatesSuspended(false)
                     self.scrollMode = .autoScrolling
                     // Jumping to the bottom resets the up-button's turn-walk.
@@ -1023,7 +1023,7 @@ extension MessageCollectionView {
             // 3. Session load
             vm.$isLoadingSession
                 .removeDuplicates()
-                .dropFirst()   // skip initial false — only react to true→false after actual load
+                .dropFirst() // skip initial false — only react to true→false after actual load
                 .receive(on: DispatchQueue.main)
                 .sink { [weak self] isLoading in
                     guard let self,!isLoading else { return }
@@ -1039,7 +1039,7 @@ extension MessageCollectionView {
                         // This is the authoritative post-load apply; it carries the
                         // latest messages, so any snapshot deferred during the load
                         // window (bind1 set pendingSnapshotFlag) is now satisfied.
-                        // [T-message-list-empty-on-foreground]
+                        //
                         self.pendingSnapshotFlag = false
                         self.applySnapshot(messages: msgs, caller: "bind3-sessionLoad")
                     }
@@ -1075,11 +1075,11 @@ extension MessageCollectionView {
             // when processing stopped; re-establish it here.
             vm.$isProcessing
                 .removeDuplicates()
-                .filter { $0 }   // only on false → true transition
+                .filter { $0 } // only on false → true transition
                 .receive(on: DispatchQueue.main)
                 .sink { [weak self] _ in
                     guard let self else { return }
-                    self.lastMessageId = nil  // force re-subscribe
+                    self.lastMessageId = nil // force re-subscribe
                     let lastAIMsg = self.vm?.messages.last(where: { $0.role == .assistant })
                     self.subscribeToLastMessage(lastAIMsg)
                 }
@@ -1098,7 +1098,7 @@ extension MessageCollectionView {
             // 6. Compact finished → reconfigure all cells to update opacity/divider
             vm.$isCompacting
                 .removeDuplicates()
-                .dropFirst()   // skip initial value — only react to actual true→false transitions
+                .dropFirst() // skip initial value — only react to actual true→false transitions
                 .receive(on: DispatchQueue.main)
                 .sink { [weak self] isCompacting in
                     guard let self,!isCompacting else { return }
@@ -1122,20 +1122,20 @@ extension MessageCollectionView {
                 .store(in: &subscriptions)
 
             // 8a. Background entry — snapshot content length so we can detect
-            //     whether significant content accumulated while backgrounded.
+            // whether significant content accumulated while backgrounded.
             NotificationCenter.default.publisher(for: UIApplication.didEnterBackgroundNotification)
                 .receive(on: DispatchQueue.main)
                 .sink { [weak self] _ in
                     guard let self else { return }
                     let len = self.lastAssistantContentLength()
                     self.contentLengthAtBackground = len
-                    AppLogger(category: "FGLayout").info("[FGLayout] → background, snapshotLen=\(len)")
+                    AppLogger(category: "ChatList.Layout").info("[FGLayout] → background, snapshotLen=\(len)")
                 }
                 .store(in: &subscriptions)
 
             // 8b. Foreground return — only invalidate layout if ≥200 characters
-            //     accumulated while backgrounded, avoiding unnecessary layout passes
-            //     when the content didn't change meaningfully.
+            // accumulated while backgrounded, avoiding unnecessary layout passes
+            // when the content didn't change meaningfully.
             NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)
                 .receive(on: DispatchQueue.main)
                 .sink { [weak self] _ in
@@ -1144,12 +1144,12 @@ extension MessageCollectionView {
                     let bgLen = self.contentLengthAtBackground ?? currentLen
                     self.contentLengthAtBackground = nil
                     let accumulated = currentLen-bgLen
-                    AppLogger(category: "FGLayout").info("[FGLayout] → foreground, bgLen=\(bgLen) currentLen=\(currentLen) accumulated=\(accumulated)")
+                    AppLogger(category: "ChatList.Layout").info("[FGLayout] → foreground, bgLen=\(bgLen) currentLen=\(currentLen) accumulated=\(accumulated)")
                     guard accumulated >= 200 else {
-                        AppLogger(category: "FGLayout").info("[FGLayout] skip layout (accumulated \(accumulated) < 200)")
+                        AppLogger(category: "ChatList.Layout").info("[FGLayout] skip layout (accumulated \(accumulated) < 200)")
                         return
                     }
-                    AppLogger(category: "FGLayout").info("[FGLayout] invalidating layout for \(self.viewController?.collectionView.indexPathsForVisibleItems.count ?? 0) visible cells")
+                    AppLogger(category: "ChatList.Layout").info("[FGLayout] invalidating layout for \(self.viewController?.collectionView.indexPathsForVisibleItems.count ?? 0) visible cells")
                     if let cv = self.viewController?.collectionView,
                        let layout = self.viewController?.messageListLayout {
                         for indexPath in cv.indexPathsForVisibleItems {
@@ -1162,7 +1162,7 @@ extension MessageCollectionView {
                 .store(in: &subscriptions)
 
             // 9. Text block filled — reconfigure the cell so UIHostingConfiguration
-            //    re-measures height after transitioning from empty to non-empty.
+            // re-measures height after transitioning from empty to non-empty.
             vm.blockContentFilledSignal
                 .receive(on: DispatchQueue.main)
                 .sink { [weak self] (messageId,blockId) in
@@ -1269,7 +1269,7 @@ public struct MessageCollectionView: UIViewControllerRepresentable {
 
     public func updateUIViewController(_ vc: MessageListViewController,context: Context) {
         let coord = context.coordinator
-        // [T-ios-scrollbtn-vm-split] The coordinator captured `vm` once in
+        // The coordinator captured `vm` once in
         // makeUIViewController → attach. SwiftUI reuses this representable's
         // platform VC (and coordinator) across ChatView re-creations, so when
         // the ViewModelCache hands the re-created view a NEW MessageListModel
@@ -1315,7 +1315,7 @@ public struct MessageCollectionView: UIViewControllerRepresentable {
             let wasNearBottomBefore = coord.isNearBottom()
             coord.baseBottomInset = bottomPadVal
             // [KbdDiag 2026-08-11] baseBottomInset 写入打点:base = inputBarHeight + floatingBarHeight + 8。
-            AppLogger(category: "KbdDiag").info("[KbdDiag] baseBottomInset \(String(format: "%.1f", coord.baseBottomInset))←\(String(format: "%.1f", bottomPadVal)) inputBarHeight=\(String(format: "%.1f", inputBarHeight)) floatingBarHeight=\(String(format: "%.1f", floatingBarHeight))")
+            AppLogger(category: "ChatList.Keyboard").info("[Keyboard] baseBottomInset \(String(format: "%.1f", coord.baseBottomInset))←\(String(format: "%.1f", bottomPadVal)) inputBarHeight=\(String(format: "%.1f", inputBarHeight)) floatingBarHeight=\(String(format: "%.1f", floatingBarHeight))")
             // Apply the base immediately so contentInset.bottom reflects the
             // new base before applySubViewportCompensation runs (which may
             // further inflate it). Compensation will overwrite if needed.
@@ -1343,7 +1343,7 @@ public struct MessageCollectionView: UIViewControllerRepresentable {
 
         coord.applySubViewportCompensation(caller: "updateUIVC")
 
-        // [T-message-list-empty-on-foreground] Backstop: if a snapshot was
+        // Backstop: if a snapshot was
         // deferred during a load (bind1) but binding 3's true→false edge was
         // missed (removeDuplicates collapse, or $isLoadingSession settling in
         // the same runloop cycle the snapshot was deferred), the list would be
@@ -1366,14 +1366,14 @@ public struct MessageCollectionView: UIViewControllerRepresentable {
                 // [B2 2026-08-11] 键盘弹出(用户点击输入框)时延迟贴底:
                 // 打字刷新的效果(=updateUIViewController 重跑→re-pin)提前到点击时刻。
                 // 关键参数(2026-08-11 实测调整):
-                //  · 延迟 0.6s:必须大于键盘弹出动画(约 0.35-0.4s),等 bounds 完全稳定
-                //    后再算 maxOff,否则按动画中间帧的 bounds 贴到错误位置;
-                //  · animated: false:瞬时跳转,避免动画滚动被 bounds 变化打断
-                //    (曾导致 2-5 秒卡顿 + 位置不对)。
+                // · 延迟 0.6s:必须大于键盘弹出动画(约 0.35-0.4s),等 bounds 完全稳定
+                // 后再算 maxOff,否则按动画中间帧的 bounds 贴到错误位置;
+                // · animated: false:瞬时跳转,避免动画滚动被 bounds 变化打断
+                // (曾导致 2-5 秒卡顿 + 位置不对)。
                 DispatchQueue.main.asyncAfter(deadline: .now()+0.6) { [weak coord] in
                     coord?.scrollMode = .autoScrolling
                     coord?.scrollToBottomNow(animated: false)
-                    AppLogger(category: "ScrollDiag").info("[ScrollDiag][B2-focus] keyboard shown → re-pin bottom (delayed 0.6s, no anim)")
+                    AppLogger(category: "ChatList.Scroll").info("[Scroll][B2-focus] keyboard shown → re-pin bottom (delayed 0.6s, no anim)")
                 }
             } else if wasNearBottom {
                 // 键盘收起:维持原逻辑(仅近底时贴底,浏览历史不打扰)。

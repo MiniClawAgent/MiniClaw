@@ -1,11 +1,11 @@
 //
-//  MessageListInfrastructure.swift
-//  MiniClawApp
+// MessageListInfrastructure.swift
+// MiniClawApp
 //
-//  Shared types for the collection-view-based chat message list.
-//  Shared infrastructure types used by the message list.
-//  MarkdownView / MarkdownRenderView walk the view hierarchy
-//  looking for `NoAnimationCollectionView` and `SelfSizingCell`.
+// Shared types for the collection-view-based chat message list.
+// Shared infrastructure types used by the message list.
+// MarkdownView / MarkdownRenderView walk the view hierarchy
+// looking for `NoAnimationCollectionView` and `SelfSizingCell`.
 //
 
 import Combine
@@ -23,7 +23,7 @@ public enum MessageListItem: Hashable, @unchecked Sendable {
     /// The "sparkles MiniClaw" label row at the top of an assistant turn.
     case assistantHeader(UUID)
     /// A single AssistantBlock within an assistant turn.
-    case assistantBlock(UUID,UUID)  // (messageId, blockId)
+    case assistantBlock(UUID,UUID) // (messageId, blockId)
     /// Footer area: typing indicator, error, resume, usage.
     case assistantFooter(UUID)
 
@@ -59,7 +59,7 @@ final class CellStateBridge: ObservableObject {
     @Published var onCopyScreenshot: (() -> Void)?
     /// Read this whole reply aloud from the start (clears in-progress TTS).
     @Published var onReadAloud: (() -> Void)?
-    /// [T-selection-menu-tts] Speak an arbitrary text snippet (the
+    /// Speak an arbitrary text snippet (the
     /// selection-menu "Read Selection" action) via the MiniClaw TTS stack.
     @Published var onSpeakText: ((String) -> Void)?
     /// True while this reply is still streaming — disables "Read from Start".
@@ -127,14 +127,14 @@ public final class MessageListViewController: UIViewController {
     ///
     /// Called from two width-change paths that both leave the height caches
     /// stale/empty:
-    ///   1. Device / size-class rotation — `viewWillTransition`'s completion.
-    ///   2. Sidebar collapse / expand (and any other NavigationSplitView detail
-    ///      column-width change) — `NoAnimationCollectionView.layoutSubviews`
-    ///      detects the bounds-width change and schedules this. That path has
-    ///      no UIKit transition coordinator, so before this hook the cells were
-    ///      only re-measured lazily as the user scrolled them in — the source
-    ///      of the iPad rotate→portrait→collapse scroll jank
-    ///      (T-ios-ipad-rotate-collapse-scroll-jank, GitHub #31 / #570).
+    /// 1. Device / size-class rotation — `viewWillTransition`'s completion.
+    /// 2. Sidebar collapse / expand (and any other NavigationSplitView detail
+    /// column-width change) — `NoAnimationCollectionView.layoutSubviews`
+    /// detects the bounds-width change and schedules this. That path has
+    /// no UIKit transition coordinator, so before this hook the cells were
+    /// only re-measured lazily as the user scrolled them in — the source
+    /// of the iPad rotate→portrait→collapse scroll jank
+    /// (T-ios-ipad-rotate-collapse-scroll-jank, GitHub #31 / #570).
     ///
     /// Reuses the existing measurement stack (TableAttachment column-width
     /// invalidation + SelfSizingCell self-size via `invalidateLayout`); it does
@@ -197,7 +197,7 @@ final class NoAnimationCollectionView: UICollectionView {
     /// NSInternalInconsistencyException inside UIKit.
     var isApplyingSnapshot = false
 
-    /// [T-ios-stream-grow-anim] When true, non-snapshot programmatic layout
+    /// When true, non-snapshot programmatic layout
     /// passes (a streaming cell growing taller) animate ONLY the contentOffset
     /// over a fixed 0.2s window so the viewport glides to the new bottom instead
     /// of snapping. Kept as a flag so it can be flipped off instantly if it
@@ -205,7 +205,7 @@ final class NoAnimationCollectionView: UICollectionView {
     /// built to guarantee.
     var streamingGrowAnimationEnabled = true
 
-    /// [T-ios-stream-grow-anim] Reentrancy guard: the grow path calls
+    /// Reentrancy guard: the grow path calls
     /// `setContentOffset`, which can synchronously re-enter `layoutSubviews`.
     /// Without this guard that re-entry would recurse back into the animated
     /// branch (and `super.layoutSubviews()` while a layout pass is already on
@@ -223,7 +223,7 @@ final class NoAnimationCollectionView: UICollectionView {
     /// callback to re-measure visible cells. We detect the width change here
     /// and schedule the prewarm. Tracked separately from the DEBUG-only
     /// `lastBounds` so the prewarm path compiles in every configuration.
-    /// [T-ios-ipad-rotate-collapse-scroll-jank]
+    ///
     private var lastPreWarmW: CGFloat = 0
 
     #if DEBUG
@@ -233,7 +233,7 @@ final class NoAnimationCollectionView: UICollectionView {
     /// path observed in the 0x8BADF00D crash report. We log the transition
     /// so we can correlate with WatchdogProbe STF window alarms.
     private var lastBounds: CGSize = .zero
-    private static let watchdogProbe = AppLogger(category: "WatchdogProbe")
+    private static let watchdogProbe = AppLogger(category: "ChatList.Watchdog")
     #endif
 
     override func layoutSubviews() {
@@ -267,7 +267,7 @@ final class NoAnimationCollectionView: UICollectionView {
         let t0 = CFAbsoluteTimeGetCurrent()
         #endif
 
-        // [T-ios-stream-grow-anim] Animate ONLY while a message is actively
+        // Animate ONLY while a message is actively
         // streaming (Processing). The layout sets `streamingCellIndex` to the
         // streaming message's cell and clears it the instant the run ends, so
         // this is the precise "is a Markdown message growing right now" signal —
@@ -276,7 +276,7 @@ final class NoAnimationCollectionView: UICollectionView {
         // streaming Markdown cell's height growth.
         let isStreamingNow = (collectionViewLayout as? MessageListLayout)?.streamingCellIndex != nil
 
-        // [T-ios-stream-grow-anim] Only animate when the content actually
+        // Only animate when the content actually
         // OVERFLOWS the viewport, i.e. there is a positive scrollable range. The
         // first message of a session (and any short turn) leaves contentSize <
         // bounds — a sub-viewport state where the resting offset is 0 and there
@@ -294,7 +294,7 @@ final class NoAnimationCollectionView: UICollectionView {
             super.layoutSubviews()
         } else if streamingGrowAnimationEnabled,isStreamingNow,contentOverflowsViewport,
                   !isApplyingSnapshot,!inStreamGrow {
-            // [T-ios-stream-grow-anim] The smooth-streaming trick, done right:
+            // The smooth-streaming trick, done right:
             // let the CELL FRAMES snap to their final positions instantly (the
             // content immediately occupies its final layout), but animate ONLY
             // the contentOffset over a fixed 0.2s window so the VIEWPORT glides
@@ -346,7 +346,7 @@ final class NoAnimationCollectionView: UICollectionView {
             }
         }
 
-        // [T-ios-ipad-rotate-collapse-scroll-jank] Front-load the visible-cell
+        // Front-load the visible-cell
         // re-measure when the bounds WIDTH changes outside of an active scroll
         // (sidebar collapse/expand, detail-column resize). Rotation already
         // gets this via viewWillTransition's completion; collapse has no such
@@ -398,7 +398,7 @@ final class NoAnimationCollectionView: UICollectionView {
 
     // MARK: - Text-selection edge auto-scroll
     //
-    // [T-ios-text-selection-autoscroll-followthrough] UITextView's native
+    // UITextView's native
     // selection auto-scroll only scrolls the text view itself, which here is
     // sized to its content inside a cell — so dragging a selection handle to the
     // top/bottom edge of the collection view does NOT scroll the list, and the
@@ -432,7 +432,7 @@ final class NoAnimationCollectionView: UICollectionView {
     /// it keeps scrolling while the finger is held at the edge — no
     /// selection-change event needed. nil when no drag is active.
     ///
-    /// [T-ios-selection-autoscroll-edge-flicker] Stores the full point (not just
+    /// Stores the full point (not just
     /// Y): the per-frame selection-follow uses the real touch X so the caret it
     /// computes matches UIKit's own (a fixed mid-X mismatched the native caret,
     /// so the two fought each frame → flicker).
@@ -496,7 +496,7 @@ final class NoAnimationCollectionView: UICollectionView {
                             contentSize.height-bounds.height+adjustedContentInset.bottom)
         let proposed = contentOffset.y+dir*Self.selectionAutoScrollStep
         let clamped = min(max(proposed,-adjustedContentInset.top),maxOffset)
-        // [T-ios-selection-autoscroll-edge-flicker] Already at the content
+        // Already at the content
         // extreme — stop rather than re-setting the same offset every frame
         // (which, paired with the selection re-extend below, was a source of
         // edge flicker when the user held past the end of the content).
@@ -534,7 +534,7 @@ class SelfSizingCell: UICollectionViewCell {
         contentView.clipsToBounds = true
     }
 
-    /// Incremented each time contentConfiguration is applied.  Used by
+    /// Incremented each time contentConfiguration is applied. Used by
     /// `preferredLayoutAttributesFitting` to detect that the hosting
     /// configuration changed between the moment UIKit scheduled the
     /// self-sizing pass and the moment it actually runs.
@@ -565,7 +565,7 @@ class SelfSizingCell: UICollectionViewCell {
     private var lastMeasureMedia: CFTimeInterval?
     private static let measureDedupWindow: CFTimeInterval = 0.050 // 50 ms
 
-    /// [T-ios-scroll-decel-height-drift] Pre-seeded height from the layout's
+    /// Pre-seeded height from the layout's
     /// content-keyed real-height memo, set in `configureCell` AFTER
     /// `applyContentConfiguration` for a cell whose content was already
     /// measured on a previous appearance. Unlike `lastCalcH`, this is
@@ -582,7 +582,7 @@ class SelfSizingCell: UICollectionViewCell {
     private var seedH: CGFloat?
     private var seedW: CGFloat?
 
-    /// [T-ios-scroll-decel-height-drift] Stable content key for the item this
+    /// Stable content key for the item this
     /// cell currently hosts, set by configureCell. Used to memoize the real
     /// measured height under a position-independent key — robust against the
     /// `indexPath(for:) == nil` (idx=-1) window during reuse, where an
@@ -590,7 +590,7 @@ class SelfSizingCell: UICollectionViewCell {
     var contentKey: String?
 
     #if DEBUG
-    /// [T-ios-scroll-metrics-ring] Stable content-hash identity (set by
+    /// Stable content-hash identity (set by
     /// configureCell while recording) — lets measure events be grouped into a
     /// per-cell height trajectory across message-object regenerations.
     var metricsTag: String?
@@ -614,16 +614,16 @@ class SelfSizingCell: UICollectionViewCell {
         lastCalcH = nil
         lastCalcW = nil
         lastMeasureMedia = nil
-        // [T-ios-scroll-decel-height-drift] Drop any prior seed — content just
+        // Drop any prior seed — content just
         // changed, so a seed from the old content would be wrong. configureCell
         // re-seeds (from the memo, keyed by the NEW content) right after this.
         seedH = nil
         seedW = nil
     }
 
-    private static let sizingLogger = AppLogger(category: "CellSizing")
+    private static let sizingLogger = AppLogger(category: "ChatList.CellMetrics")
 
-    // [ScrollStall] 1Hz-aggregated cache-hit counters.
+    // [Stall] 1Hz-aggregated cache-hit counters.
     private static var dedupHits: Int = 0
     private static var dedupLastFlush: CFTimeInterval = 0
     private static var broadHits: Int = 0
@@ -650,11 +650,11 @@ class SelfSizingCell: UICollectionViewCell {
             let copy = layoutAttributes.copy() as! UICollectionViewLayoutAttributes
             copy.size.width = cachedW
             copy.size.height = cached
-            // [ScrollStall] Count short-window cache hits; flush summary 1Hz.
+            // [Stall] Count short-window cache hits; flush summary 1Hz.
             Self.dedupHits &+= 1
             let now = CACurrentMediaTime()
             if now-Self.dedupLastFlush>1.0 {
-                AppLogger(category: "ScrollStall").debug("[CACHE-DEDUP] last1s hits=\(Self.dedupHits)")
+                AppLogger(category: "ChatList.Stall").debug("[CACHE-DEDUP] last1s hits=\(Self.dedupHits)")
                 Self.dedupHits = 0
                 Self.dedupLastFlush = now
             }
@@ -712,17 +712,17 @@ class SelfSizingCell: UICollectionViewCell {
         // and the interaction guard exempts streaming cells, so EVERY chunk's
         // visible-cells pass still re-entered the hosting graph for every
         // visible cell. Two extensions of the e9d167c2 lever:
-        //  A. non-streaming cells ALSO short-circuit while streaming is
-        //     active (their content isn't changing mid-stream; an in-place
-        //     change like an async image load clears the cache via
-        //     clearCachedHeight() and falls through to a live measure);
-        //  B. the streaming cell itself returns the layout's precalc height —
-        //     the real-TextKit-engine calibration reseeded on every chunk,
-        //     i.e. the exact value prepare() already laid out — so per-chunk
-        //     growth stays graph-free too. Cells without a precalc (tool
-        //     capsules, thinking, footer) keep the live measure; the
-        //     stream-end settle (ranges cleared → guards inert) re-measures
-        //     everything authoritatively.
+        // A. non-streaming cells ALSO short-circuit while streaming is
+        // active (their content isn't changing mid-stream; an in-place
+        // change like an async image load clears the cache via
+        // clearCachedHeight() and falls through to a live measure);
+        // B. the streaming cell itself returns the layout's precalc height —
+        // the real-TextKit-engine calibration reseeded on every chunk,
+        // i.e. the exact value prepare() already laid out — so per-chunk
+        // growth stays graph-free too. Cells without a precalc (tool
+        // capsules, thinking, footer) keep the live measure; the
+        // stream-end settle (ranges cleared → guards inert) re-measures
+        // everything authoritatively.
         if let cv = superview as? UICollectionView,
            let layout = cv.collectionViewLayout as? MessageListLayout {
             let item = layoutAttributes.indexPath.item
@@ -745,7 +745,7 @@ class SelfSizingCell: UICollectionViewCell {
             }
         }
 
-        // [T-ios-scroll-decel-height-drift] Seed short-circuit: this cell was
+        // Seed short-circuit: this cell was
         // pre-seeded (in configureCell) with the real height the SAME content
         // measured on a prior appearance. If the width still matches, return it
         // WITHOUT calling super.preferredLayoutAttributesFitting /
@@ -822,11 +822,11 @@ class SelfSizingCell: UICollectionViewCell {
         if let cached = lastCalcH,
            abs(layoutAttributes.size.width-attrs.size.width)<1 {
             attrs.size.height = cached
-            // [ScrollStall] Count broad cache hits; flush summary 1Hz.
+            // [Stall] Count broad cache hits; flush summary 1Hz.
             Self.broadHits &+= 1
             let now = CACurrentMediaTime()
             if now-Self.broadLastFlush>1.0 {
-                AppLogger(category: "ScrollStall").debug("[CACHE-BROAD] last1s hits=\(Self.broadHits)")
+                AppLogger(category: "ChatList.Stall").debug("[CACHE-BROAD] last1s hits=\(Self.broadHits)")
                 Self.broadHits = 0
                 Self.broadLastFlush = now
             }
@@ -884,14 +884,14 @@ class SelfSizingCell: UICollectionViewCell {
         let elapsed = (CACurrentMediaTime()-start)*1000
         let sinceAppear = (CFAbsoluteTimeGetCurrent()-MessageListModel.onAppearTimestamp)*1000
         let idx = (superview as? UICollectionView)?.indexPath(for: self)?.item ?? -1
-        // [ScrollStall] Only log measurements that actually cost time. Streaming
+        // [Stall] Only log measurements that actually cost time. Streaming
         // produces a height delta on every token, so the old "delta > 1pt"
         // gate fired per token; restrict to real measurement cost (>=5ms) to
         // keep the slow-path signal without the per-token noise.
         let est = layoutAttributes.size.height
         let fit = fittingSize.height
         #if DEBUG
-        // [T-ios-scroll-metrics-ring] Record EVERY self-size (no cost/delta
+        // Record EVERY self-size (no cost/delta
         // threshold) so the complete est→fit distribution is retrievable via
         // debug.scrollMetrics.
         if let cv = superview as? UICollectionView {
@@ -922,7 +922,7 @@ class SelfSizingCell: UICollectionViewCell {
             Self.sizingLogger.info("[CellSizing] ⚠️ SLOW MEASURE \(String(format: "%.0f", elapsed))ms idx=\(idx) width=\(String(format: "%.0f", layoutAttributes.size.width)) est=\(String(format: "%.0f", layoutAttributes.size.height))→\(String(format: "%.0f", fittingSize.height)) cfg=\(cfgKind)")
         }
         #if DEBUG
-        // [ScrollDecel] Log every measure that happens during an active scroll
+        // [Decel] Log every measure that happens during an active scroll
         // glide (decelerating OR dragging) so we can see WHICH cells the
         // landing-frame jank is paying for. The previous gate (>=8ms AND
         // isDecelerating) logged nothing during the repro: the cost is
@@ -935,7 +935,7 @@ class SelfSizingCell: UICollectionViewCell {
             let cfgKind = self.contentConfiguration.map { String(describing: type(of: $0)) } ?? "nil"
             let phase = cv.isDecelerating ? "decel" : "drag"
             let firstTime = (lastCalcH == nil) ? "FIRST" : "recompute"
-            Self.sizingLogger.info("[ScrollDecel][cell-measure] phase=\(phase) \(firstTime) idx=\(idx) cost=\(String(format: "%.1f", elapsed))ms est=\(String(format: "%.0f", est))→\(String(format: "%.0f", fit)) offset=\(String(format: "%.0f", cv.contentOffset.y)) cfg=\(cfgKind)")
+            Self.sizingLogger.info("[Decel][cell-measure] phase=\(phase) \(firstTime) idx=\(idx) cost=\(String(format: "%.1f", elapsed))ms est=\(String(format: "%.0f", est))→\(String(format: "%.0f", fit)) offset=\(String(format: "%.0f", cv.contentOffset.y)) cfg=\(cfgKind)")
         }
         #endif
         // Detect potential text-drift: cell was near-zero height and now has real content
@@ -953,7 +953,7 @@ class SelfSizingCell: UICollectionViewCell {
             lastCalcH = fittingSize.height
             lastCalcW = layoutAttributes.size.width
             lastMeasureMedia = CACurrentMediaTime()
-            // [T-ios-scroll-decel-height-drift] Memoize the real height under the
+            // Memoize the real height under the
             // content key so a later re-entry can seed it and skip this measure.
             // Done HERE (every successful self-size), not in the layout's
             // invalidationContext, which doesn't fire for stable cells during
@@ -968,7 +968,7 @@ class SelfSizingCell: UICollectionViewCell {
             }
         }
         #if DEBUG
-        // [T-attachment-zero-origin] Capture message-list snapshot right after
+        // Capture message-list snapshot right after
         // a cell finishes self-sizing. This is the canonical UIKit cell-size
         // path; if anything mutates attachment view frames during the
         // hosting view's systemLayoutSizeFitting call (e.g. UIKit resetting

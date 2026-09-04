@@ -25,13 +25,13 @@ extension MessageCollectionView.Coordinator {
                         // If flushStreamingLayout() is throttled here, the pending
                         // work item fires later but no more objectWillChange comes,
                         // so it's the very last chance to invalidate layout.
-                        AppLogger(category: "StreamDiag").info("[StreamSub] END — isProcessing=false, cancelling subs, final flush. pendingLayout=\(self.pendingStreamingLayout != nil) tracking=\(self.viewController?.collectionView?.isTracking ?? false) decel=\(self.viewController?.collectionView?.isDecelerating ?? false)")
+                        AppLogger(category: "ChatList.Stream").info("[StreamSub] END — isProcessing=false, cancelling subs, final flush. pendingLayout=\(self.pendingStreamingLayout != nil) tracking=\(self.viewController?.collectionView?.isTracking ?? false) decel=\(self.viewController?.collectionView?.isDecelerating ?? false)")
                         self.lastMessageSub?.cancel()
                         self.lastMessageSub = nil
                         self.lastMessageBlockCountSub?.cancel()
                         self.lastMessageBlockCountSub = nil
                         self.flushStreamingLayout()
-                        // [T-ios-tooluibatch-stuck-pending-snapshot] Terminal
+                        // Terminal
                         // rescue for a snapshot deferred during a streaming-UI
                         // suspend window. While `streamingUIUpdatesSuspended` was
                         // true, the blocks.count sub (bind4b) only set
@@ -52,17 +52,17 @@ extension MessageCollectionView.Coordinator {
                         // suspend is exactly what the suspend guards against, so
                         // if we're still suspendedFlag we leave `pendingSnapshotFlag`
                         // set for the resume path / next $messages apply to clear.
-                        AppLogger(category: "PendingSnap").info("[PendingSnap] STREAM-END terminal rescue check — pendingSnapshotFlag=\(self.pendingSnapshotFlag) suspendedFlag=\(self.vm?.streamingUIUpdatesSuspended == true)")
+                        AppLogger(category: "ChatList.SnapQueue").info("[SnapQueue] STREAM-END terminal rescue check — pendingSnapshotFlag=\(self.pendingSnapshotFlag) suspendedFlag=\(self.vm?.streamingUIUpdatesSuspended == true)")
                         if self.pendingSnapshotFlag,self.vm?.streamingUIUpdatesSuspended != true {
                             self.flushPendingSnapshotIfNeeded(caller: "stream-end")
                         } else if self.pendingSnapshotFlag {
                             // Still suspendedFlag at stream-end: cannot safely apply here.
                             // Left for the resume path; flag it so the freeze is traceable.
-                            // [T-ios-scroll-suspend-leak] This is the key symptom line:
+                            // This is the key symptom line:
                             // content is written to DB but the UI is waiting on a
                             // suspend that must be released (scroll settle / foreground
                             // return / the new openSession clear) before it flushes.
-                            AppLogger(category: "PendingSnap").warning("[PendingSnap] ⚠️ STREAM-END left pending (still suspendedFlag) — content in DB, UI frozen until suspend-resume (or next openSession clears it)")
+                            AppLogger(category: "ChatList.SnapQueue").warning("[SnapQueue] ⚠️ STREAM-END left pending (still suspendedFlag) — content in DB, UI frozen until suspend-resume (or next openSession clears it)")
                         }
                         return
                     }
@@ -78,9 +78,9 @@ extension MessageCollectionView.Coordinator {
                 .sink { [weak self] count in
                     guard let self,let msgs = self.vm?.messages else { return }
                     if self.vm?.streamingUIUpdatesSuspended == true {
-                        // [PendingSnap] Deferring snapshot rebuild while suspendedFlag;
+                        // [SnapQueue] Deferring snapshot rebuild while suspendedFlag;
                         // blocks added now (count) won't get cells until a flush.
-                        AppLogger(category: "PendingSnap").info("[PendingSnap] DEFER blockCount=\(count) — suspendedFlag, set pendingSnapshotFlag=true (was \(self.pendingSnapshotFlag))")
+                        AppLogger(category: "ChatList.SnapQueue").info("[SnapQueue] DEFER blockCount=\(count) — suspendedFlag, set pendingSnapshotFlag=true (was \(self.pendingSnapshotFlag))")
                         self.pendingSnapshotFlag = true
                         return
                     }
@@ -90,16 +90,16 @@ extension MessageCollectionView.Coordinator {
 
         /// Flush any snapshot that was deferred while streaming UI updates were suspendedFlag.
         // fileprivate so updateUIViewController (struct, same file) can use it as
-        // a backstop flush. [T-message-list-empty-on-foreground]
+        // a backstop flush.
         func flushPendingSnapshotIfNeeded(caller: String = "?") {
             guard pendingSnapshotFlag else { return }
             pendingSnapshotFlag = false
             let blocks = vm?.messages.last(where: { $0.role == .assistant })?.blocks.count ?? -1
-            // [T-ios-scroll-suspend-leak] Include blockCount + isProcessing so a
+            // Include blockCount + isProcessing so a
             // FLUSH can be matched against the DEFER that queued it — a DEFER with
             // no corresponding FLUSH (see the [SessionLoad] stale-suspend clear) is
             // the leak signature.
-            AppLogger(category: "PendingSnap").info("[PendingSnap] FLUSH caller=\(caller) blockCount=\(blocks) isProcessing=\(vm?.isProcessing == true) — applying deferred snapshot")
+            AppLogger(category: "ChatList.SnapQueue").info("[SnapQueue] FLUSH caller=\(caller) blockCount=\(blocks) isProcessing=\(vm?.isProcessing == true) — applying deferred snapshot")
             if let msgs = vm?.messages { applySnapshot(messages: msgs, caller: "flushPending(\(caller))") }
         }
 

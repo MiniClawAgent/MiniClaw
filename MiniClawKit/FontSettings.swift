@@ -151,22 +151,22 @@ enum FontScaleLevel: Int,CaseIterable,Identifiable,Comparable {
 
     var multiplier: CGFloat {
         switch self {
-        case .xSmall:     return 0.88   // ~15pt body
-        case .small:      return 0.94   // ~16pt body
-        case .default:    return 1.0    // 17pt body
-        case .medium:     return 1.06
-        case .large:      return 1.12
+        case .xSmall: return 0.88 // ~15pt body
+        case .small: return 0.94 // ~16pt body
+        case .default: return 1.0 // 17pt body
+        case .medium: return 1.06
+        case .large: return 1.12
         case .extraLarge: return 1.21
         }
     }
 
     var label: String {
         switch self {
-        case .xSmall:     return "XS"
-        case .small:      return "Small"
-        case .default:    return "Default"
-        case .medium:     return "Medium"
-        case .large:      return "Large"
+        case .xSmall: return "XS"
+        case .small: return "Small"
+        case .default: return "Default"
+        case .medium: return "Medium"
+        case .large: return "Large"
         case .extraLarge: return "Extra Large"
         }
     }
@@ -175,11 +175,11 @@ enum FontScaleLevel: Int,CaseIterable,Identifiable,Comparable {
     /// scale automatically when this level is applied via `.dynamicTypeSize()`.
     var dynamicTypeSize: DynamicTypeSize {
         switch self {
-        case .xSmall:     return .small
-        case .small:      return .medium
-        case .default:    return .large        // system default
-        case .medium:     return .xLarge
-        case .large:      return .xxLarge
+        case .xSmall: return .small
+        case .small: return .medium
+        case .default: return .large // system default
+        case .medium: return .xLarge
+        case .large: return .xxLarge
         case .extraLarge: return .xxxLarge
         }
     }
@@ -187,11 +187,11 @@ enum FontScaleLevel: Int,CaseIterable,Identifiable,Comparable {
     /// UIKit equivalent for applying to all UIWindows (including sheets).
     var contentSizeCategory: UIContentSizeCategory {
         switch self {
-        case .xSmall:     return .small
-        case .small:      return .medium
-        case .default:    return .large
-        case .medium:     return .extraLarge
-        case .large:      return .extraExtraLarge
+        case .xSmall: return .small
+        case .small: return .medium
+        case .default: return .large
+        case .medium: return .extraLarge
+        case .large: return .extraExtraLarge
         case .extraLarge: return .extraExtraExtraLarge
         }
     }

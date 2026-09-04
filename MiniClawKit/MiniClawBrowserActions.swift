@@ -154,7 +154,7 @@ public struct MiniClawActionResult {
     /// a fresh tab for a concurrent navigate. Without this, the agent had to
     /// guess tab_id for its follow-up reads/scrolls and routinely picked the
     /// wrong one, sometimes surfacing as empty get_text results.
-    /// [T-ios-browser-result-tab-id]
+    ///
     public var tabId: Int?
 
     init(text: String,success: Bool = true,base64Image: String? = nil,imageFilePath: String? = nil,

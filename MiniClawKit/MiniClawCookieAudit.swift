@@ -17,14 +17,14 @@ private let logger = AppLogger(category: "CookieAudit")
 /// all fire the observer while the app is running.
 ///
 /// Two layers:
-///   1. Live diff — `WKHTTPCookieStoreObserver.cookiesDidChange` fires on any
-///      store change; we diff against the last snapshot and log added /
-///      removed / modified cookies (name, domain, expiry, HttpOnly — never
-///      raw values).
-///   2. Offline diff — ITP cleanup usually runs while the app is NOT
-///      observing (or not running). The snapshot is persisted to disk after
-///      every diff; on launch we diff the persisted snapshot against the
-///      current store and log what changed since the previous run.
+/// 1. Live diff — `WKHTTPCookieStoreObserver.cookiesDidChange` fires on any
+/// store change; we diff against the last snapshot and log added /
+/// removed / modified cookies (name, domain, expiry, HttpOnly — never
+/// raw values).
+/// 2. Offline diff — ITP cleanup usually runs while the app is NOT
+/// observing (or not running). The snapshot is persisted to disk after
+/// every diff; on launch we diff the persisted snapshot against the
+/// current store and log what changed since the previous run.
 @MainActor
 final class MiniClawCookieAudit: NSObject {
     public static let shared = MiniClawCookieAudit()
@@ -115,20 +115,20 @@ final class MiniClawCookieAudit: NSObject {
         // Removals are what we're hunting (ITP wipes, expiries) — log every
         // one. Adds/modifies are page-load noise; cap them per event.
         for key in removed {
-            logger.info("[\(label)]   REMOVED \(Self.describe(key, old[key]))")
+            logger.info("[\(label)] REMOVED \(Self.describe(key, old[key]))")
         }
         let detailCap = 20
         for key in added.prefix(detailCap) {
-            logger.info("[\(label)]   added   \(Self.describe(key, new[key]))")
+            logger.info("[\(label)] added \(Self.describe(key, new[key]))")
         }
         if added.count>detailCap {
-            logger.info("[\(label)]   … and \(added.count - detailCap) more added")
+            logger.info("[\(label)] … and \(added.count - detailCap) more added")
         }
         for key in modified.prefix(detailCap) {
-            logger.info("[\(label)]   modified \(Self.describe(key, new[key]))")
+            logger.info("[\(label)] modified \(Self.describe(key, new[key]))")
         }
         if modified.count>detailCap {
-            logger.info("[\(label)]   … and \(modified.count - detailCap) more modified")
+            logger.info("[\(label)] … and \(modified.count - detailCap) more modified")
         }
     }
 

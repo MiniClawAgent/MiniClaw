@@ -76,9 +76,9 @@ public struct TokenUsage {
         // on every SSE chunk (e.g. DeepSeek-V4-Flash). With += the final count
         // would be the sum of all intermediate values (0+1+2+...+N ≈ N²/2).
         // max() is correct for both cases:
-        //   • Provider sends usage only on the last chunk → same as +=, one update
-        //   • Provider sends incremental cumulative usage each chunk → last (max) value wins
-        //   • Agent multi-turn (multiple API calls) → each call's input grows, max is correct
+        // • Provider sends usage only on the last chunk → same as +=, one update
+        // • Provider sends incremental cumulative usage each chunk → last (max) value wins
+        // • Agent multi-turn (multiple API calls) → each call's input grows, max is correct
         inputTokens = max(inputTokens,u.inputTokens)
         outputTokens = max(outputTokens,u.outputTokens)
         cacheCreationTokens = (u.cacheCreationInputTokens ?? 0)
@@ -112,9 +112,9 @@ public struct InputAttachment: Identifiable {
     public var loadState: LoadState
 
     public enum Kind {
-        case image      // JPEG/PNG/GIF/WebP
-        case video      // MP4/MOV/etc.
-        case document   // PDF or other file
+        case image // JPEG/PNG/GIF/WebP
+        case video // MP4/MOV/etc.
+        case document // PDF or other file
     }
 
     public enum LoadState: Equatable {
@@ -169,7 +169,7 @@ public enum ChatMessageRole {
 
 /// Execution status of a tool block.
 public struct ToolSnapshotItem: Identifiable {
-    public let id: String          // toolUseId
+    public let id: String // toolUseId
     public let toolName: String
     public let snapshot: ToolSnapshot
     public let mediaResolver: (MediaRef) -> URL
@@ -187,7 +187,7 @@ public final class AssistantBlock: Identifiable,ObservableObject {
     // MARK: Thinking block performance (T-thinking-render-perf-ios)
 
     /// O(1) change counter — incremented on every thinking delta. Deliberately
-    /// NOT @Published [T-thinking-stream-jank]: as a published property every
+    /// NOT @Published: as a published property every
     /// token fired objectWillChange, so an EXPANDED thinking block re-ran its
     /// SwiftUI body + animated scrollTo per delta (~60-105/s measured on
     /// iPhone 11) even though `content` only flushes every 0.3s. The view now
@@ -201,11 +201,11 @@ public final class AssistantBlock: Identifiable,ObservableObject {
     /// SwiftUI recomposition.
     public var thinkingContentBuffer: String = ""
 
-    // [T-thinking-stream-jank] Perf instrumentation: 1s-windowed delta-rate
+    // Perf instrumentation: 1s-windowed delta-rate
     // summary + per-flush timing, category "ThinkPerf". Cheap (one Date +
     // counters per delta, one log line per second) so it can stay on in
     // debug builds while reproducing the long-thinking jank report.
-    private static let perfLogger = AppLogger(category: "ThinkPerf")
+    private static let perfLogger = AppLogger(category: "ChatList.Think")
     private var perfWindowStart = Date()
     private var perfDeltaCount = 0
     private var perfDeltaBytes = 0
@@ -227,17 +227,17 @@ public final class AssistantBlock: Identifiable,ObservableObject {
         }
     }
 
-    // [T-thinking-stream-jank] Adaptive flush throttle for streaming thinking
+    // Adaptive flush throttle for streaming thinking
     // content. Each flush costs a body re-eval + windowed Text re-layout + a
     // nested animated scrollTo in the EXPANDED view, and that cost grows with
     // rendered content while the user's need for per-word tracking shrinks —
     // past a few K they only care that it's visibly moving. So the flush
     // interval widens with the buffered length. Tiers are a table so they're
     // easy to retune; lengths are characters of thinkingContentBuffer.
-    //   <1K  → 0.3s  (short content: responsiveness first, current behavior)
-    //   1-3K → 0.6s
-    //   ≥3K  → 1.0s  (cap: long content is about overall motion, not word
-    //                 tracking, but 1.0s keeps the tail visibly alive)
+    // <1K → 0.3s (short content: responsiveness first, current behavior)
+    // 1-3K → 0.6s
+    // ≥3K → 1.0s (cap: long content is about overall motion, not word
+    // tracking, but 1.0s keeps the tail visibly alive)
     // Collapsed blocks are unaffected either way: deltas only append to the
     // non-published buffer, and the flush this paces merely updates the pill's
     // char counter when collapsed.
@@ -281,7 +281,7 @@ public final class AssistantBlock: Identifiable,ObservableObject {
     @Published public var toolDuration: TimeInterval?
     /// Timestamp when tool execution started (internal, for computing duration).
     public var toolStartTime: Date?
-    /// [T-tool-bg-suspended-hint] True when this tool block was force-finalized
+    /// True when this tool block was force-finalized
     /// because the app was suspended in the background (the same condition that
     /// drives BackgroundInterruptionTracker's banner: a finite background task
     /// expired with no enhanced-background keep-alive). Distinguishes a genuine
@@ -426,7 +426,7 @@ public final class ChatMessage: Identifiable,ObservableObject {
         self.isQueued = isQueued
     }
 
-    /// [T-bridge-message-ui-leak] True when this UI message is the internal
+    /// True when this UI message is the internal
     /// role-alternation bridge (#579) that must never render as a chat bubble.
     /// The bridge is filtered out of the DB-reload path (loadSession), but a
     /// leak through any OTHER path that pushes into `messages` (e.g. a rebuild
