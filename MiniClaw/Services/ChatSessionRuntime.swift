@@ -214,7 +214,12 @@ final class ChatSessionRuntime: ObservableObject, @MainActor Identifiable {
             if let idx = segments.firstIndex(where: { $0.index == iteration }) {
                 segments[idx].text += piece
             } else {
-                let pos = streamingContent.count
+                // 锚点 = 已提交正文 + 未提交缓冲 = 模型真实流式位置。
+                // 只用 streamingContent.count 会在轮次边界竞态下偏早：上一轮尾包还在
+                // pendingText 里时下一轮思考先到（flush 先思考后正文），锚点落进上一轮
+                // 回复内部 → buildBlocks 把思考块插进上一轮回复中间，且随落盘固化。
+                // 本轮正常场景（思考先于本轮正文到达）不受影响：锚点时刻缓冲里只有上一轮尾巴。
+                let pos = streamingContent.count + pendingText.count
                 let order = nextTimelineOrder
                 nextTimelineOrder += 1
                 segments.append(ReasoningSegment(index: iteration, text: piece, position: pos, timelineOrder: order))
