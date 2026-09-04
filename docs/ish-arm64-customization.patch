@@ -153,7 +153,7 @@
  
      ISHShellExecutionContext *ctx;
      @synchronized(_activeExecutions) {
-@@ -340,15 +404,19 @@
+@@ -340,15 +404,25 @@
      if (ctx.isCompleted) return;
      ctx.isCompleted = YES;
  
@@ -171,8 +171,14 @@
 +    // 必须放在这段宽限窗口**之内**、completion 之前重新执行。
      dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 100 * NSEC_PER_MSEC),
                     dispatch_get_main_queue(), ^{
-+        ctx.result.output = [ctx.stdoutBuffer copy];
-+        ctx.result.errorOutput = [ctx.stderrBuffer copy];
++        // reader 线程在 isCompleted 置位后仍可能做最后一次残留行 append
++        // （EOF 路径），copy 必须与 append 持同一把锁。
++        @synchronized (ctx.stdoutBuffer) {
++            ctx.result.output = [ctx.stdoutBuffer copy];
++        }
++        @synchronized (ctx.stderrBuffer) {
++            ctx.result.errorOutput = [ctx.stderrBuffer copy];
++        }
 +
          [ctx cleanup];
  
