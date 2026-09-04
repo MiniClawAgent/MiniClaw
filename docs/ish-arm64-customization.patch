@@ -77,7 +77,7 @@
  }
  
  + (int)executeExecutable:(NSString *)executable
-@@ -130,7 +150,22 @@
+@@ -130,7 +150,21 @@
               environment:(NSDictionary<NSString *, NSString *> *)environment
              lineCallback:(ISHShellLineCallback)lineCallback
                completion:(ISHShellCompletionCallback)completion {
@@ -96,14 +96,14 @@
 +              completion:(ISHShellCompletionCallback)completion
 +        sessionFsContext:(uint64_t)sessionFsContext {
 +
-+    NSLog(@"[MiniClawTerm] exec %@ fsCtx=%llu", executable, (unsigned long long)sessionFsContext);
      ISHShellExecutionContext *ctx = [[ISHShellExecutionContext alloc] init];
      ctx.lineCallback = lineCallback;
      ctx.completion = completion;
-@@ -234,8 +269,39 @@
+@@ -233,6 +267,35 @@
+     [envp_str appendString:@"\0"];
  
      const char *envp = envp_str.UTF8String;
- 
++
 +    // 会话文件隔离（MiniClaw 定制）：fsContext 非零时把新进程 cwd 切到会话根
 +    // /var/MiniClaw/sessions/<uuid>。路径经 Swift 侧 SessionFileRouter 桥接还原；
 +    // 内联 open_dir 逻辑（fs.c 的 open_dir 为 static）：stat 确认目录 + O_RDONLY 打开，
@@ -126,37 +126,16 @@
 +                    NSLog(@"ISHShellExecutor: session root open failed: %s", guestRoot);
 +                } else {
 +                    fs_chdir(task->fs, dir);
-+                    NSLog(@"[MiniClawTerm] chdir ok -> %s", guestRoot);
 +                }
 +            }
 +        } else {
 +            NSLog(@"ISHShellExecutor: no session mapping for fsContext %llu", (unsigned long long) sessionFsContext);
 +        }
 +    }
-+
+ 
      // Execute
      err = do_execve(executable.UTF8String, fullArgs.count, argv_buf, envp);
-+    NSLog(@"[MiniClawTerm] do_execve err=%d", err);
-     if (err < 0) {
-         current = saved_current;
-         [ctx cleanup];
-@@ -246,6 +312,7 @@
-     // Get guest PID and start task
-     ctx.guestPid = task->pid;
-     ctx.result.pid = ctx.guestPid;
-+    NSLog(@"[MiniClawTerm] task_start pid=%d", ctx.guestPid);
-     task_start(task);
-     current = saved_current;
- 
-@@ -329,6 +396,7 @@
- + (void)processDidExit:(NSNotification *)notification {
-     int pid = [notification.userInfo[@"pid"] intValue];
-     int exitCode = [notification.userInfo[@"code"] intValue];
-+    NSLog(@"[MiniClawTerm] processDidExit pid=%d code=%d", pid, exitCode);
- 
-     ISHShellExecutionContext *ctx;
-     @synchronized(_activeExecutions) {
-@@ -340,15 +408,29 @@
+@@ -340,15 +403,25 @@
      if (ctx.isCompleted) return;
      ctx.isCompleted = YES;
  
@@ -182,15 +161,11 @@
 +        @synchronized (ctx.stderrBuffer) {
 +            ctx.result.errorOutput = [ctx.stderrBuffer copy];
 +        }
-+        NSLog(@"[MiniClawTerm] completion out=%lu err=%lu exit=%d",
-+              (unsigned long) ctx.result.output.length,
-+              (unsigned long) ctx.result.errorOutput.length,
-+              ctx.result.exitCode);
 +
          [ctx cleanup];
  
          // Call completion callback
-@@ -378,7 +460,14 @@
+@@ -378,7 +451,14 @@
      NSMutableString *lineBuffer = [NSMutableString string];
      NSMutableString *outputBuffer = isStdErr ? ctx.stderrBuffer : ctx.stdoutBuffer;
  
