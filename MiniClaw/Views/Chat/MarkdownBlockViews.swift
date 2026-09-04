@@ -219,26 +219,15 @@ struct CodeBlockView: View {
 
     @State private var isCopied: Bool = false
 
-    /// 代码块主题（来自 外观 → 聊天显示 设置）：auto 跟随系统、light 浅色、dark 深色。
-    /// 开源参考实现对齐（2026-08-09）：auto = 亮色黑底绿字 / 深色 15% 白底浅绿字（原灰底单色）。
-    private var theme: String { SettingsStore.shared.settings.chat.codeBlockTheme }
+    /// 代码块配色固定跟随系统外观（2026-09-05 移除 codeBlockTheme 设置项）。
+    /// auto = 亮色黑底绿字 / 深色 15% 白底浅绿字（原灰底单色）。
     private var codeBackground: Color {
-        switch theme {
-        case "light": return Color(white: 0.95)
-        case "dark":  return Color(white: 0.12)
-        default:
-            return Color(UIColor { $0.userInterfaceStyle == .dark ? UIColor(white: 0.15, alpha: 1) : .black })
-        }
+        Color(UIColor { $0.userInterfaceStyle == .dark ? UIColor(white: 0.15, alpha: 1) : .black })
     }
     private var codeForeground: Color {
-        switch theme {
-        case "light": return Color(white: 0.1)
-        case "dark":  return Color(white: 0.92)
-        default:
-            return Color(UIColor { $0.userInterfaceStyle == .dark
-                ? UIColor(red: 0.55, green: 0.95, blue: 0.55, alpha: 1)
-                : .systemGreen })
-        }
+        Color(UIColor { $0.userInterfaceStyle == .dark
+            ? UIColor(red: 0.55, green: 0.95, blue: 0.55, alpha: 1)
+            : .systemGreen })
     }
 
     var body: some View {

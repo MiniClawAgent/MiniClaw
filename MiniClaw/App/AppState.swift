@@ -22,8 +22,6 @@ final class AppState: ObservableObject {
         self.providers = container.providers
         self.selectedProviderId = container.selectedProviderId
         self.selectedModelId = container.selectedModelId
-        // 从持久化设置载入外观初值（init 内赋值不触发 didSet，不会回写）。
-        self.colorSchemePreference = ColorSchemePreference(rawValue: SettingsStore.shared.settings.appearance.colorSchemeRaw) ?? .system
     }
 
     // MARK: - OAuth 支持
@@ -921,15 +919,5 @@ final class AppState: ObservableObject {
 
     // Navigation
     @Published var navigationPath: [String] = []
-
-    // MARK: - 外观（迁移自 UserDefaults，现统一由 SettingsStore 持久化）
-    /// 外观模式偏好。必须是**可观察的存储属性**——修改即触发 SwiftUI 重新求值立即换肤，`didSet` 负责落盘持久化。
-    @Published var colorSchemePreference: ColorSchemePreference = .system {
-        didSet {
-            guard oldValue != colorSchemePreference else { return }
-            SettingsStore.shared.settings.appearance.colorSchemeRaw = colorSchemePreference.rawValue
-            SettingsStore.shared.save()
-        }
-    }
 }
 

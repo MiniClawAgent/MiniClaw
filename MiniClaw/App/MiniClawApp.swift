@@ -72,10 +72,8 @@ struct MiniClawApp: App {
         WindowGroup {
             ContentView()
                 .environmentObject(appState)
-                .onChange(of: appState.colorSchemePreference) { _ in applyColorScheme() }
                 .task {
                     AppState.shared = appState
-                    applyColorScheme()
                     // OAuth 服务商：启动时异步刷新 令牌（过期自动续期），回填内存 apiKey 供运行时使用。
                     // 主 actor 上下文创建，避免非 Sendable AppState 的 sending 检查报错。
                     Task { @MainActor in
@@ -139,26 +137,6 @@ struct MiniClawApp: App {
                     }
                     #endif
                 }
-        }
-    }
-
-    // MARK: - 外观应用（窗口级覆盖，确保全 App 立即统一切换）
-
-    /// 通过 UIKit 在窗口级别覆盖外观，而非 SwiftUI 的 `preferredColorScheme`。
-    /// 窗口级 trait 会让**所有页面（含当前可见页）**立即统一生效，避免 `preferredColorScheme`
-    /// 在导航栈内部分已显示页面不重新套用外观、导致「当前页卡住、背景页已变」的问题。
-    private func applyColorScheme() {
-        let style: UIUserInterfaceStyle
-        switch appState.colorSchemePreference {
-        case .dark: style = .dark
-        case .light: style = .light
-        case .system: style = .unspecified
-        }
-        for scene in UIApplication.shared.connectedScenes {
-            guard let windowScene = scene as? UIWindowScene else { continue }
-            for window in windowScene.windows {
-                window.overrideUserInterfaceStyle = style
-            }
         }
     }
 

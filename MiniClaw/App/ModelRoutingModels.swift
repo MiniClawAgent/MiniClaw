@@ -2,20 +2,6 @@ import SwiftUI
 import Foundation
 
 
-enum ColorSchemePreference: String, CaseIterable {
-    case system = "跟随系统"
-    case dark = "深色"
-    case light = "浅色"
-
-    var effectiveColorScheme: ColorScheme? {
-        switch self {
-        case .dark: return .dark
-        case .light: return .light
-        case .system: return nil
-        }
-    }
-}
-
 enum ModelGroupPurpose {
     case main
     case secondary

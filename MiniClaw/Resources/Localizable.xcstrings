@@ -3111,64 +3111,6 @@
         }
       }
     },
-    "always_use_dark_interface": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Always use dark interface"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "常にダークインターフェースを使用"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "항상 다크 인터페이스 사용"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "始终使用深色界面"
-          }
-        }
-      }
-    },
-    "always_use_light_interface": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Always use light interface"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "常にライトインターフェースを使用"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "항상 라이트 인터페이스 사용"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "始终使用浅色界面"
-          }
-        }
-      }
-    },
     "analyze_page_structure": {
       "extractionState": "manual",
       "localizations": {
@@ -3484,35 +3426,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "外观"
-          }
-        }
-      }
-    },
-    "appearance_mode": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Appearance Mode"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "外観モード"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "외관 모드"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "外观模式"
           }
         }
       }
@@ -8592,35 +8505,6 @@
         }
       }
     },
-    "chat_display": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Chat Display"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "チャット表示"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "채팅 표시"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "聊天显示"
-          }
-        }
-      }
-    },
     "chat_history": {
       "extractionState": "manual",
       "localizations": {
@@ -8820,35 +8704,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "选择认证方式。OAuth 登录后凭证自动续期。"
-          }
-        }
-      }
-    },
-    "choose_light_dark_or_follow_system_settings_changes_apply_immediately": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Choose light, dark, or follow system settings. Changes apply immediately."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ライトモード、ダークモード、またはシステム設定に従うを選択します。変更はすぐに適用されます。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "라이트 모드, 다크 모드 또는 시스템 설정 따르기를 선택하세요. 변경 사항은 즉시 적용됩니다."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "选择浅色模式、深色模式或跟随系统设置。更改将立即生效。"
           }
         }
       }
@@ -9719,35 +9574,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "模糊定位用于在后台保持 App 运行，仅当「后台运行」开启且已授权时启用。"
-          }
-        }
-      }
-    },
-    "code_block_theme": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Code Block Theme"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "コードブロックテーマ"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "코드 블록 테마"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "代码块主题"
           }
         }
       }
@@ -13286,35 +13112,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "每日记忆已写入 %@"
-          }
-        }
-      }
-    },
-    "dark": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Dark"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ダーク"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "다크"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "深色"
           }
         }
       }
@@ -27152,35 +26949,6 @@
         }
       }
     },
-    "light": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Light"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ライト"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "라이트"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "浅色"
-          }
-        }
-      }
-    },
     "lines": {
       "extractionState": "manual",
       "localizations": {
@@ -30744,35 +30512,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Markdown 人格文本"
-          }
-        }
-      }
-    },
-    "match_ios_system_settings": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Match iOS system settings"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "iOSのシステム設定に合わせる"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "iOS 시스템 설정과 일치"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "与 iOS 系统设置保持一致"
           }
         }
       }
@@ -54756,35 +54495,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "⚠️ 系统提示：你本轮意图调用工具（finish_reason=tool_calls）但未发出有效的工具调用，请重新以正确格式调用工具，或说明无法完成的原因。"
-          }
-        }
-      }
-    },
-    "system": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "System"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "システム"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "시스템"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "跟随系统"
           }
         }
       }

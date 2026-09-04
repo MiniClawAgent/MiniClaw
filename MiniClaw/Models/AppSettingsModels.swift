@@ -1,7 +1,6 @@
 import Foundation
 
 struct AppearanceSettings: Codable {
-    var colorSchemeRaw: String = "system"   // system / dark / light
     var useLargeText: Bool = false
     var accentColorRaw: String = "blue"
     /// 当前生效的背景主题插件 id（plugins/theme/<id>）；nil = 系统默认背景。

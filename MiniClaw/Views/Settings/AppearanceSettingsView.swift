@@ -2,75 +2,20 @@ import SwiftUI
 
 // MARK: - Appearance Settings
 
+/// 外观设置：仅保留背景主题（theme 插件选用）。外观模式与代码块主题已移除，
+/// 均默认跟随系统（唐唐 2026-09-05 决定）。
 struct AppearanceSettingsView: View {
-    @EnvironmentObject private var appState: AppState
-    @State private var selection: ColorSchemePreference = .system
-    @State private var chat: ChatSettings = SettingsStore.shared.settings.chat
     /// 订阅主题管理器：选用/清除背景主题时刷新选中勾与主题列表。
     @ObservedObject private var themeManager = ThemeManager.shared
 
     var body: some View {
         List {
-            // 背景主题置顶（唐唐 2026-08-30 要求）。
             backgroundThemeSection
-
-            Section {
-                ForEach(ColorSchemePreference.allCases, id: \.self) { pref in
-                    HStack {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(title(for: pref))
-                                .font(.body)
-                            Text(subtitle(for: pref))
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                        Spacer()
-                        if selection == pref {
-                            Image(systemName: "checkmark")
-                                .foregroundStyle(.orange)
-                        }
-                    }
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        selection = pref
-                        withAnimation(.easeInOut(duration: 0.35)) {
-                            appState.colorSchemePreference = pref
-                        }
-                    }
-                }
-            } header: {
-                Text(String(localized: "appearance_mode"))
-            } footer: {
-                Text(String(localized: "choose_light_dark_or_follow_system_settings_changes_apply_immediately"))
-            }
-
-            Section {
-                Picker(selection: $chat.codeBlockTheme) {
-                    Text(String(localized: "system")).tag("auto")
-                    Text(String(localized: "light")).tag("light")
-                    Text(String(localized: "dark")).tag("dark")
-                } label: {
-                    Text(String(localized: "code_block_theme"))
-                }
-            } header: {
-                Text(String(localized: "chat_display"))
-            }
-
         }
         .scrollContentBackground(.hidden)
         .background(ThemeBackground(slot: .settings))
         .navigationTitle(String(localized: "appearance"))
         .navigationBarTitleDisplayMode(.inline)
-        .onAppear {
-            selection = appState.colorSchemePreference
-            // 重新进入时从持久化源同步聊天显示设置，避免缓存视图 @State 停留旧值。
-            chat = SettingsStore.shared.settings.chat
-        }
-        .onChange(of: chat) { _ in saveChat() }
-    }
-
-    private func saveChat() {
-        SettingsStore.shared.set(chat, domain: .chat, summary: String(localized: "edit_appearance_chat_display"))
     }
 
     // MARK: - 背景主题（theme 插件，唐唐 2026-08-30 定稿）
@@ -151,21 +96,5 @@ struct AppearanceSettingsView: View {
 
     private func smallThumbnail(url: URL) -> UIImage? {
         ThemeManager.downsampledImage(at: url, maxPixel: 132)
-    }
-
-    private func title(for pref: ColorSchemePreference) -> String {
-        switch pref {
-        case .system: return String(localized: "system")
-        case .dark:   return String(localized: "dark")
-        case .light:  return String(localized: "light")
-        }
-    }
-
-    private func subtitle(for pref: ColorSchemePreference) -> String {
-        switch pref {
-        case .system: return String(localized: "match_ios_system_settings")
-        case .dark: return String(localized: "always_use_dark_interface")
-        case .light: return String(localized: "always_use_light_interface")
-        }
     }
 }

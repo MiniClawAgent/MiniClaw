@@ -2,8 +2,8 @@ import Foundation
 
 struct ChatSettings: Codable, Equatable {
     // 2026-08-09 字体适配：移除 fontSize 设置，统一跟随系统动态字体（body 17pt 基准）。
+    // 2026-09-05 移除 codeBlockTheme：代码块配色固定跟随系统外观。
     var showThinking: Bool = true
-    var codeBlockTheme: String = "auto"
     var enterToSend: Bool = false
 }
 

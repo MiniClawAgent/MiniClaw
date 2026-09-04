@@ -428,7 +428,6 @@ struct ConfigTool: AgentTool {
         ],
         "chat": [
             ("showThinking", "bool", String(localized: "show_thinking_process")),
-            ("codeBlockTheme", "enum", "auto/light/dark"),
             ("enterToSend", "bool", String(localized: "enter_to_send")),
         ],
         "speech": [
@@ -450,7 +449,6 @@ struct ConfigTool: AgentTool {
             ("blockPopups", "bool", String(localized: "block_pop_ups")),
         ],
         "appearance": [
-            ("colorSchemeRaw", "enum", "system/dark/light"),
             ("useLargeText", "bool", String(localized: "large_text")),
             ("accentColorRaw", "string", String(localized: "accent_color")),
         ],
