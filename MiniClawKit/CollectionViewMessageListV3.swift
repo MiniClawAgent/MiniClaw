@@ -289,7 +289,11 @@ extension CollectionViewMessageListV3 {
                             if cv.isTracking || cv.isDecelerating {
                                 AppLogger(category: "StreamDiag").info("[KVO] ⚠️ PIN-WHILE-SCROLLING contentSize grew +\(String(format: "%.0f", delta)) offset \(String(format: "%.0f", cv.contentOffset.y))→\(String(format: "%.0f", maxOff)) tracking=\(cv.isTracking) decel=\(cv.isDecelerating) — MODE SHOULD BE userBrowsing")
                             }
-                            cv.contentOffset.y = max(cv.contentOffset.y,maxOff)
+                            // 手指按住（tracking）时绝不写 offset：与拖动手势抢滚动位置
+                            // 造成流式 cell 整块抖动。decel 保持跟随（用户已松手，贴底是预期）。
+                            if !cv.isTracking {
+                                cv.contentOffset.y = max(cv.contentOffset.y,maxOff)
+                            }
                         }
                     }
                 } else if delta>0 && self.scrollMode == .userBrowsing {
@@ -789,6 +793,14 @@ extension CollectionViewMessageListV3 {
                     // the list stayed on its stale/empty snapshot while the VM
                     // (and toolbar) had the full messages.
                     if self.vm?.isLoadingSession == true {
+                        self.pendingSnapshotFlag = true
+                        return
+                    }
+                    // 拖动/减速挂起期间冻结快照应用：流式内容继续在 vm 累积，松手
+                    // settle 由 suspend-resume 边缘一次性 flush——消除拖动中流式 cell
+                    // 每 0.25s 被 reconfigure/重测造成的整块抖动（bind4b 已有同款
+                    // 守卫，bind1 此前漏了，内容增长路径绕过了挂起）。
+                    if self.vm?.streamingUIUpdatesSuspended == true {
                         self.pendingSnapshotFlag = true
                         return
                     }
