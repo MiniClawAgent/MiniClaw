@@ -207,7 +207,7 @@ struct ChatView: View {
             // 记忆开关切换（/memory）
             var memorySettings = SettingsStore.shared.settings.memory
             memorySettings.isEnabled = !current
-            SettingsStore.shared.set(memorySettings, domain: .memory, summary: L10n.l("slash_command_toggled"))
+            SettingsStore.shared.set(memorySettings, domain: .memory, summary: String(localized: "slash_command_toggled"))
 
         case .thinkingPicker(selectedLevel: _, levels: _):
             // 「/thinking」：左侧标签 = 开/关切换；右侧档位 pill = 直接切到该档。
@@ -275,7 +275,7 @@ struct ChatView: View {
         let workingText: String
         if let skillName {
             SkillManager.shared.incrementUseCount(skillName)
-            workingText = (taskText?.isEmpty == false) ? taskText! : String(format: L10n.l("please_complete_the_task_directly_using_the_skill"), skillName)
+            workingText = (taskText?.isEmpty == false) ? taskText! : String(format: String(localized: "please_complete_the_task_directly_using_the_skill"), skillName)
         } else {
             // 非技能（普通文本或 /search 等插入文本命令）：原样发送。
             workingText = trimmed
@@ -362,7 +362,7 @@ struct ChatView: View {
     private func compactAbove(_ messageID: UUID) {
         guard let idx = session.messages.firstIndex(where: { $0.id == messageID }), idx > 0 else { return }
         guard appState.chatRuntimes[session.id] == nil else { return }
-        let indicator = ChatMessage(role: .system, content: L10n.l("compact_above_indicator"))
+        let indicator = ChatMessage(role: .system, content: String(localized: "compact_above_indicator"))
         session.messages.insert(indicator, at: idx)
         session.updatedAt = Date()
         SessionManager.shared.persist(session)
@@ -605,17 +605,17 @@ struct ChatView: View {
                 Button {
                     showFileManager = true
                 } label: {
-                    Label(L10n.l("file_management_for_the_current_session"), systemImage: "folder")
+                    Label(String(localized: "file_management_for_the_current_session"), systemImage: "folder")
                 }
                 Button {
                     showSessionTerminal = true
                 } label: {
-                    Label(L10n.l("terminal"), systemImage: "terminal")
+                    Label(String(localized: "terminal"), systemImage: "terminal")
                 }
                 Button {
                     showSessionBrowser = true
                 } label: {
-                    Label(L10n.l("browser_bound_to_this_session"), systemImage: "safari")
+                    Label(String(localized: "browser_bound_to_this_session"), systemImage: "safari")
                 }
 
                 // 后续选项在此追加
@@ -646,7 +646,7 @@ struct ChatView: View {
     private var headerTitle: String {
         // 显示标题：默认占位标题（"新会话"）走 i18n（存量数据为中文默认值，显示层兜底本地化）。
         func localizedDefault(_ title: String) -> String {
-            title == "NewChat" ? L10n.l("new_chat_title") : title
+            title == "NewChat" ? String(localized: "new_chat_title") : title
         }
         if session.titleIsPlaceholder {
             guard let first = session.messages.first(where: { $0.role == .user })?.content else {
@@ -897,7 +897,7 @@ struct ChatView: View {
             // 全屏高度呈现;系统下滑手势关闭(不画蛇添足加关闭按钮)。
             NavigationStack {
                 ProviderSettingsView()
-                    .navigationTitle(L10n.l("providers"))
+                    .navigationTitle(String(localized: "providers"))
             }
             .presentationDetents([.large])
             .presentationDragIndicator(.visible)
@@ -906,7 +906,7 @@ struct ChatView: View {
             #if ISH_ENABLED
             TerminalView(initialSessionID: session.id, initialSessionTitle: session.title)
             #else
-            UnavailablePlaceholder(title: L10n.l("terminal_unavailable"), message: L10n.l("the_current_build_does_not_include_the_ish_runtime"))
+            UnavailablePlaceholder(title: String(localized: "terminal_unavailable"), message: String(localized: "the_current_build_does_not_include_the_ish_runtime"))
             #endif
         }
         // 会话内浏览器（菜单「浏览器」入口）：初始 URL = 当前会话打开的链接；
@@ -1105,7 +1105,7 @@ struct ChatView: View {
             Image(systemName: "key.fill")
                 .font(.system(size: 15))
                 .foregroundStyle(.orange)
-            Text(L10n.l("add_api_key"))
+            Text(String(localized: "add_api_key"))
                 .font(.system(size: 14))
                 .foregroundStyle(.primary)
             Spacer(minLength: 0)
@@ -1179,7 +1179,7 @@ struct ChatView: View {
             Button {
                 UIPasteboard.general.string = item.text
             } label: {
-                Label(L10n.l("copy_action"), systemImage: "doc.on.doc")
+                Label(String(localized: "copy_action"), systemImage: "doc.on.doc")
             }
             Button {
                 injectInput(item.text)
@@ -1187,14 +1187,14 @@ struct ChatView: View {
                 persistQueue()
                 chatBridge.refresh()
             } label: {
-                Label(L10n.l("edit_action"), systemImage: "square.and.pencil")
+                Label(String(localized: "edit_action"), systemImage: "square.and.pencil")
             }
             Button(role: .destructive) {
                 appState.pendingUserMessages[session.id, default: []].removeAll { $0.id == item.id }
                 persistQueue()
                 chatBridge.refresh()
             } label: {
-                Label(L10n.l("delete_action"), systemImage: "trash")
+                Label(String(localized: "delete_action"), systemImage: "trash")
             }
         }
     }
@@ -1262,8 +1262,8 @@ struct ChatView: View {
     private func showAttachmentNotice(droppedNames: [String]) {
         guard !droppedNames.isEmpty else { return }
         let list = droppedNames.prefix(3).joined(separator: "、")
-        let suffix = droppedNames.count > 3 ? String(format: L10n.l("and_other_files"), String(droppedNames.count)) : ""
-        withAnimation { attachmentNotice = String(format: L10n.l("sent_to_the_agent_it_will_read_them_via_tools"), list, suffix) }
+        let suffix = droppedNames.count > 3 ? String(format: String(localized: "and_other_files"), String(droppedNames.count)) : ""
+        withAnimation { attachmentNotice = String(format: String(localized: "sent_to_the_agent_it_will_read_them_via_tools"), list, suffix) }
         Task { @MainActor in
             try? await Task.sleep(nanoseconds: 5_000_000_000)
             withAnimation { attachmentNotice = nil }
@@ -1309,15 +1309,15 @@ struct ChatView: View {
             if !imagePaths.isEmpty {
                 let fileList = imagePaths.map { ($0 as NSString).lastPathComponent }.joined(separator: ", ")
                 let pathList = imagePaths.joined(separator: "\", \"")
-                hints.append(String(format: L10n.l("vision_unsupported_hint"), imagePaths.count, fileList, pathList))
+                hints.append(String(format: String(localized: "vision_unsupported_hint"), imagePaths.count, fileList, pathList))
             }
             if !filePaths.isEmpty {
                 let fileList = filePaths.map { ($0 as NSString).lastPathComponent }.joined(separator: ", ")
                 let pathList = filePaths.joined(separator: "\", \"")
-                hints.append(String(format: L10n.l("files_unsupported_hint"), filePaths.count, fileList, pathList))
+                hints.append(String(format: String(localized: "files_unsupported_hint"), filePaths.count, fileList, pathList))
             }
             if !hints.isEmpty {
-                enrichedInput.append("\n\n" + L10n.l("sys_note_prefix") + hints.joined(separator: "\n"))
+                enrichedInput.append("\n\n" + String(localized: "sys_note_prefix") + hints.joined(separator: "\n"))
             }
         }
 
@@ -1357,7 +1357,7 @@ struct ChatView: View {
         let stoppedAt = Date()
         // 只标记当前仍未返回结果的工具；此前已完成/失败的工具保留原状态。
         for exec in runtime.streamingToolExecutions where exec.result == nil {
-            exec.markInterrupted(text: L10n.l("user_stopped"), at: stoppedAt)
+            exec.markInterrupted(text: String(localized: "user_stopped"), at: stoppedAt)
         }
 
         if let sid = runtime.streamingMessageID,

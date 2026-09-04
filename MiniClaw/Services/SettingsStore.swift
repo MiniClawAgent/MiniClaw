@@ -140,7 +140,7 @@ final class SettingsStore: ObservableObject {
             id: UUID(),
             timestamp: Date(),
             domain: SettingsDomain.envvars.rawValue,
-            summary: String(format: L10n.l("audit_privacy_mode"), String(describing: value)),
+            summary: String(format: String(localized: "audit_privacy_mode"), String(describing: value)),
             before: try? JSONEncoder().encode(before),
             after: try? JSONEncoder().encode(value)
         )
@@ -171,7 +171,7 @@ final class SettingsStore: ObservableObject {
             id: UUID(),
             timestamp: Date(),
             domain: entry.domain,
-            summary: String(format: L10n.l("audit_rollback"), String(entry.id.uuidString.prefix(8))),
+            summary: String(format: String(localized: "audit_rollback"), String(entry.id.uuidString.prefix(8))),
             before: nil,
             after: before
         )

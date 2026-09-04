@@ -10,43 +10,43 @@ struct AgentSettingsGroupView: View {
             NavigationLink {
                 ProviderSettingsView()
             } label: {
-                SettingsRow(icon: "server.rack", color: .blue, title: L10n.l("providers"), subtitle: L10n.l("configure_llm_providers_and_api"))
+                SettingsRow(icon: "server.rack", color: .blue, title: String(localized: "providers"), subtitle: String(localized: "configure_llm_providers_and_api"))
             }
 
             NavigationLink {
                 GroupsSettingsView()
             } label: {
-                SettingsRow(icon: "square.stack.3d.up.fill", color: .purple, title: L10n.l("model_management"), subtitle: L10n.l("manage_model_groups_and_default_model"))
+                SettingsRow(icon: "square.stack.3d.up.fill", color: .purple, title: String(localized: "model_management"), subtitle: String(localized: "manage_model_groups_and_default_model"))
             }
 
             NavigationLink {
                 TokenUsageView()
             } label: {
-                SettingsRow(icon: "chart.bar.fill", color: .orange, title: L10n.l("token_usage_alias"), subtitle: L10n.l("view_api_usage_statistics"))
+                SettingsRow(icon: "chart.bar.fill", color: .orange, title: String(localized: "token_usage_alias"), subtitle: String(localized: "view_api_usage_statistics"))
             }
 
             NavigationLink {
                 SoulSettingsView()
             } label: {
-                SettingsRow(icon: "cat.fill", color: .orange, title: L10n.l("soul"), subtitle: L10n.l("define_agent_personality_and_behavior"))
+                SettingsRow(icon: "cat.fill", color: .orange, title: String(localized: "soul"), subtitle: String(localized: "define_agent_personality_and_behavior"))
             }
 
             NavigationLink {
                 SubAgentSettingsView()
             } label: {
-                SettingsRow(icon: "person.2.fill", color: .indigo, title: L10n.l("subagents"), subtitle: L10n.l("control_subagent_enablement_concurrency_and_thinking"))
+                SettingsRow(icon: "person.2.fill", color: .indigo, title: String(localized: "subagents"), subtitle: String(localized: "control_subagent_enablement_concurrency_and_thinking"))
             }
 
             NavigationLink {
                 MemorySettingsView()
             } label: {
-                SettingsRow(icon: "brain.fill", color: .purple, title: L10n.l("memory"), subtitle: L10n.l("manage_long_term_and_daily_memory"))
+                SettingsRow(icon: "brain.fill", color: .purple, title: String(localized: "memory"), subtitle: String(localized: "manage_long_term_and_daily_memory"))
             }
         }
         .listStyle(.insetGrouped)
         .scrollContentBackground(.hidden)
         .background(ThemeBackground(slot: .settings))
-        .navigationTitle(L10n.l("agent"))
+        .navigationTitle(String(localized: "agent"))
         .navigationBarTitleDisplayMode(.inline)
     }
 }
@@ -58,19 +58,19 @@ struct StorageSettingsGroupView: View {
             NavigationLink {
                 StorageSettingsView()
             } label: {
-                SettingsRow(icon: "externaldrive.fill", color: .green, title: L10n.l("storage"), subtitle: L10n.l("view_and_manage_file_storage"))
+                SettingsRow(icon: "externaldrive.fill", color: .green, title: String(localized: "storage"), subtitle: String(localized: "view_and_manage_file_storage"))
             }
 
             NavigationLink {
                 MountSettingsView()
             } label: {
-                SettingsRow(icon: "externaldrive.connected.to.line.below.fill", color: .mint, title: L10n.l("mounts"), subtitle: L10n.l("manage_external_folder_mount_points"))
+                SettingsRow(icon: "externaldrive.connected.to.line.below.fill", color: .mint, title: String(localized: "mounts"), subtitle: String(localized: "manage_external_folder_mount_points"))
             }
         }
         .listStyle(.insetGrouped)
         .scrollContentBackground(.hidden)
         .background(ThemeBackground(slot: .settings))
-        .navigationTitle(L10n.l("storage"))
+        .navigationTitle(String(localized: "storage"))
         .navigationBarTitleDisplayMode(.inline)
     }
 }
@@ -82,38 +82,38 @@ struct GeneralSettingsGroupView: View {
             NavigationLink {
                 MCPSettingsView()
             } label: {
-                SettingsRow(icon: "link.circle.fill", color: .teal, title: L10n.l("mcp"), subtitle: L10n.l("connect_external_services_and_protocols"))
+                SettingsRow(icon: "link.circle.fill", color: .teal, title: String(localized: "mcp"), subtitle: String(localized: "connect_external_services_and_protocols"))
             }
 
             NavigationLink {
                 EnvVarsSettingsView()
             } label: {
-                SettingsRow(icon: "key.fill", color: .gray, title: L10n.l("environment_variables"), subtitle: L10n.l("manage_api_keys_and_secrets"))
+                SettingsRow(icon: "key.fill", color: .gray, title: String(localized: "environment_variables"), subtitle: String(localized: "manage_api_keys_and_secrets"))
             }
 
             NavigationLink {
                 RuntimeStatusView()
             } label: {
-                SettingsRow(icon: "cpu", color: .teal, title: L10n.l("rootfs_management"), subtitle: L10n.l("ish_running"))
+                SettingsRow(icon: "cpu", color: .teal, title: String(localized: "rootfs_management"), subtitle: String(localized: "ish_running"))
             }
 
             NavigationLink {
                 PermissionsSettingsView()
             } label: {
-                SettingsRow(icon: "lock.shield.fill", color: .indigo, title: L10n.l("permissions_background"), subtitle: L10n.l("background_permission_grants"))
+                SettingsRow(icon: "lock.shield.fill", color: .indigo, title: String(localized: "permissions_background"), subtitle: String(localized: "background_permission_grants"))
             }
 
             // 通用设置（默认名/语言/确认对话）——用户重排清单未提及，暂保留于此。
             NavigationLink {
                 GeneralSettingsView()
             } label: {
-                SettingsRow(icon: "gearshape.2.fill", color: .gray, title: L10n.l("general_settings"), subtitle: L10n.l("defaults_name_language_confirm_full"))
+                SettingsRow(icon: "gearshape.2.fill", color: .gray, title: String(localized: "general_settings"), subtitle: String(localized: "defaults_name_language_confirm_full"))
             }
         }
         .listStyle(.insetGrouped)
         .scrollContentBackground(.hidden)
         .background(ThemeBackground(slot: .settings))
-        .navigationTitle(L10n.l("general_section"))
+        .navigationTitle(String(localized: "general_section"))
         .navigationBarTitleDisplayMode(.inline)
     }
 }

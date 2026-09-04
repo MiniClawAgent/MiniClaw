@@ -5,13 +5,13 @@ enum ChatCommandParser {
 
     /// 可用的思考强度档位（固定列表，与 normalizedThinkingLevel 对齐）。
     static let thinkingLevels: [(id: String, label: String)] = [
-        ("low", L10n.l("level_low")), ("medium", L10n.l("level_medium")), ("high", L10n.l("high")), ("xhigh", L10n.l("very_high")), ("max", L10n.l("level_extreme"))
+        ("low", String(localized: "level_low")), ("medium", String(localized: "level_medium")), ("high", String(localized: "high")), ("xhigh", String(localized: "very_high")), ("max", String(localized: "level_extreme"))
     ]
 
 
     /// 档位 id → 中文标签。
     static let thinkingLevelLabels: [String: String] = [
-        "low": L10n.l("level_low"), "medium": L10n.l("level_medium"), "high": L10n.l("high"), "xhigh": L10n.l("very_high"), "max": L10n.l("level_extreme")
+        "low": String(localized: "level_low"), "medium": String(localized: "level_medium"), "high": String(localized: "high"), "xhigh": String(localized: "very_high"), "max": String(localized: "level_extreme")
     ]
 
 

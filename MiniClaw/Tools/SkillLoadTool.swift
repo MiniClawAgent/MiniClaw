@@ -24,13 +24,13 @@ struct SkillLoadTool: AgentTool {
             type: "function",
             function: ToolSchema.FunctionDef(
                 name: "skill_load",
-                description: L10n.l("skill_load_tool_desc"),
+                description: String(localized: "skill_load_tool_desc"),
                 parameters: JSONSchema(
                     type: "object",
                     properties: [
                         "name": JSONSchema.JSONProperty(
                             type: "string",
-                            description: L10n.l("param_skill_name")
+                            description: String(localized: "param_skill_name")
                         )
                     ],
                     required: ["name"]
@@ -43,13 +43,13 @@ struct SkillLoadTool: AgentTool {
         guard let name = (parameters["name"] as? String)?
             .trimmingCharacters(in: .whitespacesAndNewlines),
               !name.isEmpty else {
-            return ToolResult(success: false, text: L10n.l("err_skill_load_need_name"))
+            return ToolResult(success: false, text: String(localized: "err_skill_load_need_name"))
         }
 
         guard let body = await SkillManager.shared.loadSkillBody(named: name) else {
             return ToolResult(
                 success: false,
-                text: String(format: L10n.l("skill_not_found"), name)
+                text: String(format: String(localized: "skill_not_found"), name)
             )
         }
 
@@ -58,14 +58,14 @@ struct SkillLoadTool: AgentTool {
             await SkillManager.shared.markSkillLoaded(name, sessionID: sid)
             return ToolResult(
                 success: true,
-                text: String(format: L10n.l("skill_loaded"), name)
+                text: String(format: String(localized: "skill_loaded"), name)
             )
         }
 
         // 兜底：无会话上下文（理论上不会发生）时退回工具结果返回正文，保证模型至少本轮可见。
         return ToolResult(
             success: true,
-            text: String(format: L10n.l("skill_loaded_prompt_fmt"), name, body)
+            text: String(format: String(localized: "skill_loaded_prompt_fmt"), name, body)
         )
     }
 }

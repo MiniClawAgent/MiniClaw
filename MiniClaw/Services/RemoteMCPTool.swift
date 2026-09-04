@@ -73,7 +73,7 @@ struct RemoteMCPTool: AgentTool, @unchecked Sendable {
             type: "function",
             function: ToolSchema.FunctionDef(
                 name: self.name,
-                description: definition.description ?? String(format: L10n.l("mcp_tool_desc_fallback"), definition.name, server.name),
+                description: definition.description ?? String(format: String(localized: "mcp_tool_desc_fallback"), definition.name, server.name),
                 parameters: Self.toolProtocolSchema(from: definition.inputSchema)
             )
         )

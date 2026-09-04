@@ -20,14 +20,14 @@ struct SessionFileManagerView: View {
     var body: some View {
         NavigationStack(path: $path) {
             SessionFileManagerRootView(sessionID: sessionID, path: $path)
-                .navigationTitle(L10n.l("session_files"))
+                .navigationTitle(String(localized: "session_files"))
                 .navigationBarTitleDisplayMode(.inline)
                 .navigationDestination(for: FileBrowserLocation.self) { loc in
                     UnifiedFileBrowser(location: loc, path: $path)
                 }
                 .toolbar {
                     ToolbarItem(placement: .topBarTrailing) {
-                        Button(L10n.l("done")) { dismiss() }
+                        Button(String(localized: "done")) { dismiss() }
                     }
                 }
         }
@@ -92,29 +92,29 @@ struct SessionFileManagerRootView: View {
             Section {
                 pathBar
             } header: {
-                Text(L10n.l("current_path_agent_accessible"))
+                Text(String(localized: "current_path_agent_accessible"))
             }
             Section {
                 ForEach(sessionDirLocations, id: \.id) { loc in
                     dirRow(loc)
                 }
-            } header: { Text(L10n.l("this_session")) } footer: { Text(L10n.l("visible_only_in_the_current_session_isolated_from_other_sessions")) }
+            } header: { Text(String(localized: "this_session")) } footer: { Text(String(localized: "visible_only_in_the_current_session_isolated_from_other_sessions")) }
             Section {
                 ForEach(sharedDirLocations, id: \.id) { loc in
                     dirRow(loc)
                 }
-            } header: { Text(L10n.l("shared_folders")) } footer: { Text(L10n.l("shared_across_all_sessions_changes_affect_the_global_scope_e_g_skills_mounts_memory")) }
+            } header: { Text(String(localized: "shared_folders")) } footer: { Text(String(localized: "shared_across_all_sessions_changes_affect_the_global_scope_e_g_skills_mounts_memory")) }
         }
         .listStyle(.insetGrouped)
-        .alert(Text(L10n.l("confirm_deletion")), isPresented: Binding(
+        .alert(Text(String(localized: "confirm_deletion")), isPresented: Binding(
             get: { deleteTarget != nil },
             set: { if !$0 { deleteTarget = nil } }
         )) {
-            Button(L10n.l("delete_action"), role: .destructive) { confirmDelete() }
-            Button(L10n.l("cancel"), role: .cancel) { deleteTarget = nil }
+            Button(String(localized: "delete_action"), role: .destructive) { confirmDelete() }
+            Button(String(localized: "cancel"), role: .cancel) { deleteTarget = nil }
         } message: {
             if let t = deleteTarget {
-                Text(String(format: L10n.l("delete_folder"), t.directoryURL.lastPathComponent) + L10n.l("and_all_its_contents_this_action_cannot_be_undone"))
+                Text(String(format: String(localized: "delete_folder"), t.directoryURL.lastPathComponent) + String(localized: "and_all_its_contents_this_action_cannot_be_undone"))
             }
         }
         .overlay(alignment: .bottom) { toastView }
@@ -146,12 +146,12 @@ struct SessionFileManagerRootView: View {
             Button {
                 copyPath(for: loc)
             } label: {
-                Label(L10n.l("copy_path"), systemImage: "doc.on.clipboard")
+                Label(String(localized: "copy_path"), systemImage: "doc.on.clipboard")
             }
             Button(role: .destructive) {
                 deleteTarget = loc
             } label: {
-                Label(L10n.l("delete_action"), systemImage: "trash")
+                Label(String(localized: "delete_action"), systemImage: "trash")
             }
         }
     }
@@ -175,7 +175,7 @@ struct SessionFileManagerRootView: View {
     private func copyPath(for loc: FileBrowserLocation) {
         let p = aiAccessibleGuestPath(for: loc.directoryURL)
         UIPasteboard.general.string = p
-        showToast(String(format: L10n.l("path_copied"), p))
+        showToast(String(format: String(localized: "path_copied"), p))
     }
 
     private func confirmDelete() {
@@ -185,7 +185,7 @@ struct SessionFileManagerRootView: View {
             deleteTarget = nil
         } catch {
             deleteTarget = nil
-            showToast(String(format: L10n.l("delete_failed"), error.localizedDescription))
+            showToast(String(format: String(localized: "delete_failed"), error.localizedDescription))
         }
     }
 

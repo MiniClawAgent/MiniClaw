@@ -285,7 +285,7 @@ enum ProviderType: String, Codable, CaseIterable {
         }
     }
 
-    /// 按兼容格式分类（用于设置列表分组与匹配，英文语义 key；显示走 L10n.l）
+    /// 按兼容格式分类（用于设置列表分组与匹配，英文语义 key；显示走 String(localized:)）
     var compatFormat: String {
         switch self {
         case .openai, .openRouter, .custom, .grok, .deepSeek, .qwen, .xiaomi, .zhipu: return "openai_compatible"
@@ -301,12 +301,12 @@ enum ProviderType: String, Codable, CaseIterable {
         case .anthropic: return "Anthropic"
         case .google: return "Google Gemini"
         case .openRouter: return "OpenRouter"
-        case .custom: return L10n.l("provider_kind_custom")
+        case .custom: return String(localized: "provider_kind_custom")
         case .grok: return "xAI Grok"
         case .deepSeek: return "DeepSeek"
-        case .qwen: return L10n.l("provider_qwen")
+        case .qwen: return String(localized: "provider_qwen")
         case .xiaomi: return "Xiaomi MiMo"
-        case .zhipu: return L10n.l("provider_zhipu")
+        case .zhipu: return String(localized: "provider_zhipu")
         }
     }
 
@@ -357,23 +357,23 @@ enum ProviderType: String, Codable, CaseIterable {
         case .openRouter:
             return EmbeddingSupport(openAICompatPath: "v1/embeddings",
                                     models: [],
-                                    note: L10n.l("embed_note_openrouter"))
+                                    note: String(localized: "embed_note_openrouter"))
         case .qwen:
             return EmbeddingSupport(openAICompatPath: "embeddings",
                                     models: ["text-embedding-v4", "text-embedding-v3"],
-                                    note: L10n.l("embed_note_bailian"))
+                                    note: String(localized: "embed_note_bailian"))
         case .zhipu:
             return EmbeddingSupport(openAICompatPath: "embeddings",
                                     models: ["embedding-3"],
-                                    note: L10n.l("embed_note_zhipu"))
+                                    note: String(localized: "embed_note_zhipu"))
         case .google:
             return EmbeddingSupport(openAICompatPath: nil,
                                     models: ["embedding-001"],
-                                    note: L10n.l("embed_note_gemini"))
+                                    note: String(localized: "embed_note_gemini"))
         case .grok:
             return EmbeddingSupport(openAICompatPath: nil,
                                     models: [],
-                                    note: L10n.l("embed_note_unknown"))
+                                    note: String(localized: "embed_note_unknown"))
         case .anthropic, .deepSeek, .xiaomi, .custom:
             // 官方无 embedding（Anthropic 明示不提供；DeepSeek API 参考无；小米模型矩阵无）；
             // custom 端点由用户自填，不预登记。

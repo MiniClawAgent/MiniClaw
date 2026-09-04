@@ -23,15 +23,15 @@ struct PermissionsSettingsView: View {
     /// 此处点击即一次性申请全量读类型授权（写入授权由「设置 → 通用 → 允许 AI 写入健康数据」按需申请）。
     /// 家庭配件（AppleHomeKitTool）仍是占位空壳，入口继续保持隐藏。
     private let permissionItems: [(key: String, label: String)] = [
-        ("healthData", L10n.l("health_data")),
-        ("calendar",  L10n.l("calendar")),
-        ("photos",    L10n.l("images")),
-        // ("homeKit",   L10n.l("home_accessories")),   // 待 HomeKit 工具接入后恢复
-        ("pasteboard",L10n.l("clipboard")),
-        ("reminders", L10n.l("reminders")),
-        ("microphone",L10n.l("microphone")),
-        ("speech",    L10n.l("speech_recognition")),
-        ("localNetwork", L10n.l("local_network")),   // iSH 内网 DNS/局域网设备访问依赖（NWBrowser 触发系统弹窗）
+        ("healthData", String(localized: "health_data")),
+        ("calendar",  String(localized: "calendar")),
+        ("photos",    String(localized: "images")),
+        // ("homeKit",   String(localized: "home_accessories")),   // 待 HomeKit 工具接入后恢复
+        ("pasteboard",String(localized: "clipboard")),
+        ("reminders", String(localized: "reminders")),
+        ("microphone",String(localized: "microphone")),
+        ("speech",    String(localized: "speech_recognition")),
+        ("localNetwork", String(localized: "local_network")),   // iSH 内网 DNS/局域网设备访问依赖（NWBrowser 触发系统弹窗）
     ]
 
     /// 权限状态实时从统一配置读取。
@@ -40,13 +40,13 @@ struct PermissionsSettingsView: View {
     var body: some View {
         Form {
             Section {
-                NavigationLink(L10n.l("background")) {
+                NavigationLink(String(localized: "background")) {
                     BackgroundSettingsView()
                 }
             } header: {
-                Text(L10n.l("background"))
+                Text(String(localized: "background"))
             } footer: {
-                Text(L10n.l("background_running_live_activities_dynamic_island_notifications_and_location_keepalive_settings"))
+                Text(String(localized: "background_running_live_activities_dynamic_island_notifications_and_location_keepalive_settings"))
             }
 
             Section {
@@ -56,14 +56,14 @@ struct PermissionsSettingsView: View {
                     permissionRow(item)
                 }
             } header: {
-                Text(L10n.l("permissions"))
+                Text(String(localized: "permissions"))
             } footer: {
-                Text(L10n.l("lists_the_permissions_this_app_may_request_and_their_current_authorization_status_tap_an_unauthorized_item_to_request_it_in_app_or_jump_to_system_settings_to_enable_it"))
+                Text(String(localized: "lists_the_permissions_this_app_may_request_and_their_current_authorization_status_tap_an_unauthorized_item_to_request_it_in_app_or_jump_to_system_settings_to_enable_it"))
             }
         }
         .scrollContentBackground(.hidden)
         .background(ThemeBackground(slot: .settings))
-        .navigationTitle(L10n.l("permissions_background"))
+        .navigationTitle(String(localized: "permissions_background"))
         .navigationBarTitleDisplayMode(.inline)
         .task {
             await MainActor.run { PermissionManager.shared.refreshStatuses() }
@@ -84,8 +84,8 @@ struct PermissionsSettingsView: View {
                 }
             }
         }
-        .alert(L10n.l("tip"), isPresented: $showInfo) {
-            Button(L10n.l("got_it"), role: .cancel) {}
+        .alert(String(localized: "tip"), isPresented: $showInfo) {
+            Button(String(localized: "got_it"), role: .cancel) {}
         } message: { Text(infoText) }
     }
 
@@ -93,21 +93,21 @@ struct PermissionsSettingsView: View {
     @ViewBuilder
     private var notificationRow: some View {
         if notifAuthorized {
-            Toggle(L10n.l("notifications"), isOn: Binding(
+            Toggle(String(localized: "notifications"), isOn: Binding(
                 get: { store.settings.background.notifications },
                 set: { newValue in
                     var b = store.settings.background
                     b.notifications = newValue
-                    store.set(b, domain: .background, summary: L10n.l("modify_notification_settings"))
+                    store.set(b, domain: .background, summary: String(localized: "modify_notification_settings"))
                 }
             ))
         } else {
             HStack {
-                Text(L10n.l("notifications"))
+                Text(String(localized: "notifications"))
                 Spacer()
                 // 与其它权限行的授权徽标同款（PermissionBadgeView 单一来源）：红字红底胶囊，
                 // 但保持可点击（点击申请通知授权）。
-                Button(L10n.l("not_authorized")) { requestNotification() }
+                Button(String(localized: "not_authorized")) { requestNotification() }
                     .font(.caption)
                     .fontWeight(.medium)
                     .padding(.horizontal, 8)
@@ -127,7 +127,7 @@ struct PermissionsSettingsView: View {
             Task { await requestLocation() }
         } label: {
             HStack {
-                Text(L10n.l("locate_action"))
+                Text(String(localized: "locate_action"))
                 Spacer()
                 // 申请中显示菊花（与其它权限行同款）
                 if busyKey == "location" {
@@ -171,7 +171,7 @@ struct PermissionsSettingsView: View {
                 if granted, !store.settings.background.notifications {
                     var b = store.settings.background
                     b.notifications = true
-                    store.set(b, domain: .background, summary: L10n.l("modify_notification_settings"))
+                    store.set(b, domain: .background, summary: String(localized: "modify_notification_settings"))
                 }
             }
         }
@@ -201,7 +201,7 @@ struct PermissionsSettingsView: View {
     private func handleTap(_ item: (key: String, label: String)) {
         let key = item.key
         if key == "pasteboard" {
-            infoText = L10n.l("the_clipboard_requires_no_authorization_the_app_can_always_read_and_write_it_and_no_system_setting_needs_to_be_enabled")
+            infoText = String(localized: "the_clipboard_requires_no_authorization_the_app_can_always_read_and_write_it_and_no_system_setting_needs_to_be_enabled")
             showInfo = true
             return
         }
@@ -212,7 +212,7 @@ struct PermissionsSettingsView: View {
             // 已拒绝：系统不再重复弹窗，点击无意义——直接引导去系统设置手动开启
             // （本地网络开关在「设置 → 隐私与安全性 → 本地网络」，openSettingsURLString 到不了）。
             if store.settings.permissions.localNetwork == .denied {
-                infoText = L10n.l("local_network_permission_was_denied_go_to_settings_privacy_security_local_network_and_enable_miniclaw_once_enabled_internal_dns_names_and_lan_devices_will_work_automatically")
+                infoText = String(localized: "local_network_permission_was_denied_go_to_settings_privacy_security_local_network_and_enable_miniclaw_once_enabled_internal_dns_names_and_lan_devices_will_work_automatically")
                 showInfo = true
                 return
             }
@@ -273,7 +273,7 @@ struct PermissionBadgeView: View {
     let state: PermissionState
 
     var body: some View {
-        Text(L10n.l(state.label))
+        Text(String(localized: String.LocalizationValue(state.label)))
             .font(.caption)
             .fontWeight(.medium)
             .padding(.horizontal, 8)

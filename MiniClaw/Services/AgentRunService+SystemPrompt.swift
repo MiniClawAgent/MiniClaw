@@ -35,16 +35,16 @@ extension AgentRunService {
                 of: fs.rulesDir.path + "/",
                 with: ""
             )
-            ruleSections.append(String(format: L10n.l("agent_rules_file_inject"), relativePath, raw.trimmingCharacters(in: .whitespacesAndNewlines)))
+            ruleSections.append(String(format: String(localized: "agent_rules_file_inject"), relativePath, raw.trimmingCharacters(in: .whitespacesAndNewlines)))
         }
         if !ruleSections.isEmpty {
-            stableParts.append(L10n.l("project_rules_header") + ruleSections.joined(separator: "\n\n"))
+            stableParts.append(String(localized: "project_rules_header") + ruleSections.joined(separator: "\n\n"))
         }
 
         // 2.5 已启用技能（渐进式加载：仅常驻 name + description 元数据；正文由 skill_load 工具按需加载）
         let skillMeta = await SkillManager.shared.enabledSkillMetadata()
         if !skillMeta.isEmpty {
-            stableParts.append(L10n.l("enabled_skills_header") + skillMeta + L10n.l("skills_hint_load"))
+            stableParts.append(String(localized: "enabled_skills_header") + skillMeta + String(localized: "skills_hint_load"))
         }
 
         // 2.6 本次一次性强制使用的技能（/技能名 触发）：无论该技能是否启用，都临时注入其正文，
@@ -148,8 +148,8 @@ extension AgentRunService {
 
         // 6. 环境变量 —— 已移至下方 volatile 段:设置页修改 envVars/隐私模式不破坏前缀。
 
-        // 7. 内存系统（i18n：整段走 L10n）
-        stableParts.append(L10n.l("memory_system_section"))
+        // 7. 内存系统（i18n：整段经 String(localized:) 查 String Catalog）
+        stableParts.append(String(localized: "memory_system_section"))
 
         // 8. 子代理使用指南（stable：角色列表与角色文件同频，属稳定内容，进缓存前缀）
         stableParts.append(SubAgentGuide.guideWithProfiles())
@@ -182,22 +182,22 @@ extension AgentRunService {
         // 3.5.1 环境变量(设置页可改,不进前缀)
         let privacyMode = SettingsStore.shared.settings.envvarsPrivacyMode
         let envVars = SettingsStore.shared.settings.envvars
-        var envSection = L10n.l("env_vars_header")
+        var envSection = String(localized: "env_vars_header")
         if envVars.isEmpty {
-            envSection += L10n.l("no_env_vars_header")
+            envSection += String(localized: "no_env_vars_header")
         } else {
-            envSection += L10n.l("env_vars_available")
+            envSection += String(localized: "env_vars_available")
             for v in envVars where !v.key.isEmpty {
                 envSection += "- `\(v.key)`\n"
             }
         }
-        envSection += String(format: L10n.l("prompt_privacy_mode_label"), privacyMode ? L10n.l("enable_mask_label") : L10n.l("close"))
+        envSection += String(format: String(localized: "prompt_privacy_mode_label"), privacyMode ? String(localized: "enable_mask_label") : String(localized: "close"))
         volatileParts.append(envSection)
 
         // 3.6 已挂载的外部文件夹（动态注入，让 智能体知道具体可访问的挂载名与路径）
         let mounted = MountStore.shared.list().filter { $0.isMounted }
         if !mounted.isEmpty {
-            let mountLines = mounted.map { "  - `\($0.path)/`（\($0.isWritable ? L10n.l("prompt_mount_writable") : L10n.l("prompt_mount_readonly"))）" }.joined(separator: "\n")
+            let mountLines = mounted.map { "  - `\($0.path)/`（\($0.isWritable ? String(localized: "prompt_mount_writable") : String(localized: "prompt_mount_readonly"))）" }.joined(separator: "\n")
             let firstPath = mounted.first!.path
             volatileParts.append("""
             ## 已挂载的外部文件夹
@@ -231,7 +231,7 @@ extension AgentRunService {
             // 9. 近期记忆（今日 + 昨日）；getRecentMemory 内部同步读 2 个文件，卸载到后台执行避免主线程阻塞。
             let recentMemory = await Task.detached(priority: .userInitiated) { MemoryManager.shared.getRecentMemory(days: 2) }.value
             if !recentMemory.isEmpty {
-                volatileParts.append(String(format: L10n.l("agent_recent_memory_inject"), recentMemory))
+                volatileParts.append(String(format: String(localized: "agent_recent_memory_inject"), recentMemory))
             }
         }
 
@@ -258,9 +258,9 @@ extension AgentRunService {
             if !query.isEmpty {
                 let fragments = await MemoryIndexer.shared.search(keyword: query, scope: .longTerm, topK: 8)
                 if !fragments.isEmpty {
-                    return L10n.l("long_term_memory_fragments")
+                    return String(localized: "long_term_memory_fragments")
                         + fragments.joined(separator: "\n\n")
-                        + L10n.l("agent_memory_get_hint")
+                        + String(localized: "agent_memory_get_hint")
                 }
             }
             // 检索无命中 → 回落全文兜底
@@ -269,7 +269,7 @@ extension AgentRunService {
         if let memory = await readText(fs.memoryDir.appendingPathComponent("MEMORY.md")),
            !memory.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
            memory.trimmingCharacters(in: .whitespacesAndNewlines) != FileSystemManager.defaultMemoryMarkdown.trimmingCharacters(in: .whitespacesAndNewlines) {
-            return String(format: L10n.l("agent_long_term_memory_inject"), memory.trimmingCharacters(in: .whitespacesAndNewlines))
+            return String(format: String(localized: "agent_long_term_memory_inject"), memory.trimmingCharacters(in: .whitespacesAndNewlines))
         }
         return nil
     }
@@ -294,7 +294,7 @@ extension AgentRunService {
             .sorted { $0.1 > $1.1 }
             .prefix(5)
         guard !others.isEmpty else { return nil }
-        return L10n.l("other_sessions_recent_points") + others.map { "- \($0.0)" }.joined(separator: "\n")
+        return String(localized: "other_sessions_recent_points") + others.map { "- \($0.0)" }.joined(separator: "\n")
     }
 
 // MARK: - 环境快照（Step C：自 ChatView 迁入）
@@ -332,8 +332,8 @@ extension AgentRunService {
         let offsetMinutes = (absoluteOffset % 3_600) / 60
         let utcOffset = String(format: "%@%02d:%02d", offsetSign, offsetHours, offsetMinutes)
 
-        let languageCode = locale.language.languageCode?.identifier ?? L10n.l("unknown")
-        let regionCode = locale.region?.identifier ?? L10n.l("unknown")
+        let languageCode = locale.language.languageCode?.identifier ?? String(localized: "unknown")
+        let regionCode = locale.region?.identifier ?? String(localized: "unknown")
         let calendarIdentifier = String(describing: calendar.identifier)
 
         return """

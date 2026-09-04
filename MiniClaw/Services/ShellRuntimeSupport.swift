@@ -79,10 +79,10 @@ enum ShellError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .runtimeNotReady: return L10n.l("shell_runtime_not_ready")
-        case .invalidRootfs(let reason): return String(format: L10n.l("shell_invalid_rootfs"), reason)
-        case .launchFailed(let code): return String(format: L10n.l("shell_launch_failed"), code)
-        case .timeout: return L10n.l("shell_timeout")
+        case .runtimeNotReady: return String(localized: "shell_runtime_not_ready")
+        case .invalidRootfs(let reason): return String(format: String(localized: "shell_invalid_rootfs"), reason)
+        case .launchFailed(let code): return String(format: String(localized: "shell_launch_failed"), code)
+        case .timeout: return String(localized: "shell_timeout")
         }
     }
 }

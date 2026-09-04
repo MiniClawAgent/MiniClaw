@@ -41,7 +41,7 @@ indirect enum MCPJSONValue: Codable, Hashable, Sendable {
         case let value as NSNumber: self = .number(value.doubleValue)
         case let value as [Any]: self = .array(try value.map(MCPJSONValue.init(any:)))
         case let value as [String: Any]: self = .object(try value.mapValues(MCPJSONValue.init(any:)))
-        default: throw MCPClientError.invalidJSON(String(format: L10n.l("mcp_unsupported_param_type"), String(describing: type(of: value))))
+        default: throw MCPClientError.invalidJSON(String(format: String(localized: "mcp_unsupported_param_type"), String(describing: type(of: value))))
         }
     }
 
@@ -120,14 +120,14 @@ enum MCPClientError: Error, LocalizedError, Sendable {
 
     var errorDescription: String? {
         switch self {
-        case .invalidEndpoint: L10n.l("mcp_err_invalid_endpoint")
+        case .invalidEndpoint: String(localized: "mcp_err_invalid_endpoint")
         case .invalidJSON(let message), .transport(let message), .invalidResponse(let message): message
         case .httpStatus(let status, let body): "MCP HTTP \(status): \(body)"
         case .rpc(let code, let message): "MCP RPC \(code): \(message)"
-        case .responseTimeout(let requestID): String(format: L10n.l("mcp_err_response_timeout"), requestID)
+        case .responseTimeout(let requestID): String(format: String(localized: "mcp_err_response_timeout"), requestID)
         case .timeout(let message): message
         case .connectionLost(let message): message
-        case .paginationLimit: L10n.l("mcp_err_pagination_limit")
+        case .paginationLimit: String(localized: "mcp_err_pagination_limit")
         case .unsupported(let message): message
         }
     }

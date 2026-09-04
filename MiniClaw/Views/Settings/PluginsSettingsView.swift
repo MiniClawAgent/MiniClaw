@@ -24,7 +24,7 @@ struct PluginsSettingsView: View {
         List {
             if skills.isEmpty {
                 Section {
-                    Text(L10n.l("no_skills_yet_tap_in_the_top_right_to_import_from_local_files_or_place_a_skill_directory_following_the_skill_format_into_skills"))
+                    Text(String(localized: "no_skills_yet_tap_in_the_top_right_to_import_from_local_files_or_place_a_skill_directory_following_the_skill_format_into_skills"))
                         .font(.callout)
                         .foregroundStyle(.secondary)
                 }
@@ -49,7 +49,7 @@ struct PluginsSettingsView: View {
         }
         .scrollContentBackground(.hidden)
         .background(ThemeBackground(slot: .settings))
-        .navigationTitle(L10n.l("plugins"))
+        .navigationTitle(String(localized: "plugins"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
@@ -57,20 +57,20 @@ struct PluginsSettingsView: View {
                     Button {
                         sortMode = .name
                     } label: {
-                        Label(L10n.l("by_name"), systemImage: sortMode == .name ? "checkmark" : "")
+                        Label(String(localized: "by_name"), systemImage: sortMode == .name ? "checkmark" : "")
                     }
                     Button {
                         sortMode = .updated
                     } label: {
-                        Label(L10n.l("by_update_time"), systemImage: sortMode == .updated ? "checkmark" : "")
+                        Label(String(localized: "by_update_time"), systemImage: sortMode == .updated ? "checkmark" : "")
                     }
                 } label: {
-                    Label(L10n.l("sort"), systemImage: "arrow.up.arrow.down")
+                    Label(String(localized: "sort"), systemImage: "arrow.up.arrow.down")
                 }
             }
             ToolbarItem(placement: .topBarTrailing) {
                 Button(action: { showImport = true }) {
-                    Label(L10n.l("local_import"), systemImage: "plus")
+                    Label(String(localized: "local_import"), systemImage: "plus")
                 }
             }
         }
@@ -85,16 +85,16 @@ struct PluginsSettingsView: View {
                 let didStart = url.startAccessingSecurityScopedResource()
                 defer { if didStart { url.stopAccessingSecurityScopedResource() } }
                 let res = SkillManager.shared.importSkillFile(from: url)
-                importMessage = res.message.isEmpty ? L10n.l("import_complete") : res.message
+                importMessage = res.message.isEmpty ? String(localized: "import_complete") : res.message
                 showImportResult = true
                 reload()
             case .failure(let error):
-                importMessage = String(format: L10n.l("failed_to_select_file"), error.localizedDescription)
+                importMessage = String(format: String(localized: "failed_to_select_file"), error.localizedDescription)
                 showImportResult = true
             }
         }
-        .alert(L10n.l("import_result"), isPresented: $showImportResult) {
-            Button(L10n.l("ok")) {}
+        .alert(String(localized: "import_result"), isPresented: $showImportResult) {
+            Button(String(localized: "ok")) {}
         } message: {
             Text(importMessage)
         }
@@ -231,12 +231,12 @@ private struct SkillDetailView: View {
 
     var body: some View {
         List {
-            Section(L10n.l("details")) {
-                LabeledContent(L10n.l("name"), value: skill.name)
-                LabeledContent(L10n.l("version_number"), value: "v\(skill.version)")
-                LabeledContent(L10n.l("install_time"), value: Self.dateFmt.string(from: skill.installDate))
+            Section(String(localized: "details")) {
+                LabeledContent(String(localized: "name"), value: skill.name)
+                LabeledContent(String(localized: "version_number"), value: "v\(skill.version)")
+                LabeledContent(String(localized: "install_time"), value: Self.dateFmt.string(from: skill.installDate))
                 HStack {
-                    Text(L10n.l("source"))
+                    Text(String(localized: "source"))
                     Spacer()
                     sourceBadge
                 }
@@ -247,18 +247,18 @@ private struct SkillDetailView: View {
                 if skill.type != "mcp" && skill.type != "model" && skill.type != "theme"
                     && !(skill.type == "soul" && skill.source == "builtin") {
                     Toggle(skill.type == "skill"
-                           ? L10n.l("enable_inject_into_conversation")
-                           : L10n.l("enable_plugin"),
+                           ? String(localized: "enable_inject_into_conversation")
+                           : String(localized: "enable_plugin"),
                            isOn: enabledBinding)
                 }
             }
 
             if skill.type == "skill" {
-                Section(L10n.l("update")) {
+                Section(String(localized: "update")) {
                     Button {
                         // 非网页链接下载来源，禁用
                     } label: {
-                        Label(L10n.l("update_from_url"), systemImage: "link")
+                        Label(String(localized: "update_from_url"), systemImage: "link")
                     }
                     .disabled(true)
                     .foregroundStyle(.secondary)
@@ -266,14 +266,14 @@ private struct SkillDetailView: View {
                     Button {
                         showUpdateImporter = true
                     } label: {
-                        Label(L10n.l("update_from_file"), systemImage: "doc")
+                        Label(String(localized: "update_from_file"), systemImage: "doc")
                     }
 
                     Button {
-                        alertMsg = L10n.l("icloud_sync_is_not_enabled_yet_you_need_to_enable_icloud_in_the_signing_capabilities")
+                        alertMsg = String(localized: "icloud_sync_is_not_enabled_yet_you_need_to_enable_icloud_in_the_signing_capabilities")
                         showAlert = true
                     } label: {
-                        Label(L10n.l("sync_icloud"), systemImage: "icloud")
+                        Label(String(localized: "sync_icloud"), systemImage: "icloud")
                     }
                     .foregroundStyle(.secondary)
                 }
@@ -281,12 +281,12 @@ private struct SkillDetailView: View {
 
             // 描述：读 plugin.json 的 description 字段（内置必填/第三方选填，
             // loadSkills 已按清单→frontmatter→"无描述"兜底）。
-            Section(L10n.l("description")) {
+            Section(String(localized: "description")) {
                 Text(skill.description)
                     .font(.callout)
             }
 
-            Section(L10n.l("files")) {
+            Section(String(localized: "files")) {
                 ForEach(SkillManager.shared.skillFiles(directoryName: skill.directoryName), id: \.self) { rel in
                     Button {
                         if let content = SkillManager.shared.fileContent(
@@ -311,7 +311,7 @@ private struct SkillDetailView: View {
                     } label: {
                         HStack {
                             Spacer()
-                            Label(L10n.l("delete_skill"), systemImage: "trash")
+                            Label(String(localized: "delete_skill"), systemImage: "trash")
                             Spacer()
                         }
                     }
@@ -331,7 +331,7 @@ private struct SkillDetailView: View {
                         exportedURL = try SkillManager.shared.exportPluginMPK(directoryName: skill.directoryName)
                         showExport = exportedURL != nil
                     } catch {
-                        alertMsg = String(format: L10n.l("export_plugin_failed"), error.localizedDescription)
+                        alertMsg = String(format: String(localized: "export_plugin_failed"), error.localizedDescription)
                         showAlert = true
                     }
                 } label: {
@@ -355,16 +355,16 @@ private struct SkillDetailView: View {
                 let didStart = url.startAccessingSecurityScopedResource()
                 defer { if didStart { url.stopAccessingSecurityScopedResource() } }
                 let res = SkillManager.shared.updateSkill(directoryName: skill.directoryName, from: url)
-                alertMsg = res.message.isEmpty ? L10n.l("update_complete") : res.message
+                alertMsg = res.message.isEmpty ? String(localized: "update_complete") : res.message
                 showAlert = true
                 onChanged()
             case .failure(let error):
-                alertMsg = String(format: L10n.l("failed_to_select_file"), error.localizedDescription)
+                alertMsg = String(format: String(localized: "failed_to_select_file"), error.localizedDescription)
                 showAlert = true
             }
         }
-        .alert(L10n.l("update_result"), isPresented: $showAlert) {
-            Button(L10n.l("ok")) {}
+        .alert(String(localized: "update_result"), isPresented: $showAlert) {
+            Button(String(localized: "ok")) {}
         } message: {
             Text(alertMsg)
         }
@@ -378,11 +378,11 @@ private struct SkillDetailView: View {
                             .padding()
                     }
                 }
-                .navigationTitle(fileView?.name ?? L10n.l("files"))
+                .navigationTitle(fileView?.name ?? String(localized: "files"))
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .confirmationAction) {
-                        Button(L10n.l("done")) { showFile = false }
+                        Button(String(localized: "done")) { showFile = false }
                     }
                 }
             }
@@ -393,7 +393,7 @@ private struct SkillDetailView: View {
         HStack(spacing: 3) {
             Image(systemName: skill.source == "builtin" ? "internaldrive.fill" : "tray.and.arrow.down.fill")
                 .imageScale(.small)
-            Text(skill.source == "builtin" ? L10n.l("built_in_skills") : L10n.l("local_import"))
+            Text(skill.source == "builtin" ? String(localized: "built_in_skills") : String(localized: "local_import"))
                 .font(.subheadline)
         }
         .foregroundStyle(.secondary)

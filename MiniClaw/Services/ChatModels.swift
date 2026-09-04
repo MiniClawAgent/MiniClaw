@@ -293,7 +293,7 @@ enum ContentPart: Codable {
                 filename: try? nested.decode(String.self, forKey: .filename)
             )
         default:
-            throw DecodingError.dataCorruptedError(forKey: .type, in: container, debugDescription: String(format: L10n.l("err_unknown_content_part"), String(describing: type)))
+            throw DecodingError.dataCorruptedError(forKey: .type, in: container, debugDescription: String(format: String(localized: "err_unknown_content_part"), String(describing: type)))
         }
     }
 

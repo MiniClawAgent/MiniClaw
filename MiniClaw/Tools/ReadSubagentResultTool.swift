@@ -18,13 +18,13 @@ final class ReadSubagentResultTool: AgentTool {
             type: "function",
             function: ToolSchema.FunctionDef(
                 name: name,
-                description: L10n.l("read_subagent_result_tool_desc"),
+                description: String(localized: "read_subagent_result_tool_desc"),
                 parameters: JSONSchema(
                     type: "object",
                     properties: [
-                        "subagent_id": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_close_subagent_id")),
-                        "offset": JSONSchema.JSONProperty(type: "integer", description: L10n.l("param_read_offset")),
-                        "limit": JSONSchema.JSONProperty(type: "integer", description: L10n.l("param_read_length"))
+                        "subagent_id": JSONSchema.JSONProperty(type: "string", description: String(localized: "param_close_subagent_id")),
+                        "offset": JSONSchema.JSONProperty(type: "integer", description: String(localized: "param_read_offset")),
+                        "limit": JSONSchema.JSONProperty(type: "integer", description: String(localized: "param_read_length"))
                     ],
                     required: ["subagent_id"]
                 )
@@ -35,12 +35,12 @@ final class ReadSubagentResultTool: AgentTool {
     func execute(_ parameters: [String: Any]) async throws -> ToolResult {
         guard let sidStr = parameters["subagent_id"] as? String,
               let subagentID = UUID(uuidString: sidStr) else {
-            return ToolResult(success: false, text: L10n.l("err_read_result_need_id"))
+            return ToolResult(success: false, text: String(localized: "err_read_result_need_id"))
         }
         let offset = (parameters["offset"] as? Int) ?? 0
         let limit = min((parameters["limit"] as? Int) ?? 4000, 20000)
         guard offset >= 0, limit > 0 else {
-            return ToolResult(success: false, text: L10n.l("err_offset_limit_invalid"))
+            return ToolResult(success: false, text: String(localized: "err_offset_limit_invalid"))
         }
 
         let sessionID = self.sessionID
@@ -55,15 +55,15 @@ final class ReadSubagentResultTool: AgentTool {
 
         guard found else {
             return ToolResult(success: false,
-                              text: String(format: L10n.l("read_result_not_found"), sidStr))
+                              text: String(format: String(localized: "read_result_not_found"), sidStr))
         }
         guard offset < total else {
-            return ToolResult(success: true, text: String(format: L10n.l("read_result_offset_exceeded"), total, offset))
+            return ToolResult(success: true, text: String(format: String(localized: "read_result_offset_exceeded"), total, offset))
         }
         let start = full.index(full.startIndex, offsetBy: offset, limitedBy: full.endIndex) ?? full.endIndex
         let end = full.index(start, offsetBy: limit, limitedBy: full.endIndex) ?? full.endIndex
         let chunk = String(full[start..<end])
         return ToolResult(success: true,
-                          text: String(format: L10n.l("read_result_page"), offset, offset + chunk.count, total, chunk))
+                          text: String(format: String(localized: "read_result_page"), offset, offset + chunk.count, total, chunk))
     }
 }

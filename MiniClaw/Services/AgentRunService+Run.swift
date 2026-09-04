@@ -77,7 +77,7 @@ extension AgentRunService {
             // headless 派发信号：引擎即将开始 run（网络请求在途、agentDidStart 保活已续），
             // intent.perform 等待此信号后返回，避免「perform 已返回但引擎还没启动」的窗口。
             AppState.shared?.intentEngineStartedSessions.insert(session.id)
-            AppLogger.shared.info(L10n.l("intent_engine_about_to_run"), category: "Intent")
+            AppLogger.shared.info(String(localized: "intent_engine_about_to_run"), category: "Intent")
             await engine.run(userMessage: enrichedInput, history: builtHistory.messages,
                              historySourceIDs: builtHistory.sourceIDs, attachments: resolvedAttachments,
                              forceThinkingLevel: thinkingLevel)
@@ -114,7 +114,7 @@ extension AgentRunService {
         }
         guard !lines.isEmpty else { return nil }
         // 指令置于文本之后（compress_prompt_zh 现为「压缩上面的对话」语义，2026-08-31 统一）。
-        let prompt = lines.joined(separator: "\n") + "\n\n" + L10n.l("compress_prompt_zh")
+        let prompt = lines.joined(separator: "\n") + "\n\n" + String(localized: "compress_prompt_zh")
         let client = LLMClient(
             endpointURL: endpoint.url, apiKey: endpoint.apiKey, format: endpoint.format,
             usesAzureAPIKey: endpoint.usesAzureAPIKey, customHeaders: endpoint.customHeaders,
@@ -125,7 +125,7 @@ extension AgentRunService {
             _ = client.streamChat(
                 model: endpoint.modelId,
                 messages: [
-                    ChatCompletionMessage(role: "system", content: L10n.l("compress_prompt")),
+                    ChatCompletionMessage(role: "system", content: String(localized: "compress_prompt")),
                     ChatCompletionMessage(role: "user", content: prompt)
                 ],
                 onToken: { summary += $0 },
@@ -141,7 +141,7 @@ extension AgentRunService {
 
     func generateAITitleIfNeeded(session: ChatSession, firstUserText: String) {
         let sessionSettings = SettingsStore.shared.settings.session
-        let isPlaceholder = session.title == L10n.l("new_chat_title") || session.title.isEmpty || session.title == L10n.l("deep_link_task")
+        let isPlaceholder = session.title == String(localized: "new_chat_title") || session.title.isEmpty || session.title == String(localized: "deep_link_task")
         guard sessionSettings.autoGenerateTitle, isPlaceholder,
               session.messages.filter({ $0.role == .user }).count == 1 else { return }
         let derived = firstUserText.replacingOccurrences(of: "\n", with: " ")
@@ -238,7 +238,7 @@ extension AgentRunService {
 
     图标背景将自动取 iconColor 的 0.12 透明度，前景符号使用 iconColor 本身。
     只输出一个 JSON 对象，严格使用如下格式，不要输出任何其他文字、也不要使用代码围栏：
-                    {"title":"\(L10n.l("title_gen_placeholder"))","icon":"sf_symbol_name","iconColor":"#FF6B6B"}
+                    {"title":"\(String(localized: "title_gen_placeholder"))","icon":"sf_symbol_name","iconColor":"#FF6B6B"}
     """
 
     nonisolated private static func sanitizeTitle(_ raw: String) -> String {

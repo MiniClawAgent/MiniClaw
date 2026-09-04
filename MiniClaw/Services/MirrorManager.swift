@@ -9,12 +9,12 @@ import Foundation
 /// 单个候选镜像源。
 struct MirrorEntry: Identifiable, Equatable {
     let id: String
-    /// 显示名 L10n 键（i18n：经 L10n.l 查表取当前语言显示名）。
+    /// 显示名本地化键（i18n：经 String(localized:) 查 String Catalog 取显示名）。
     let nameKey: String
     /// 基础 URL：apk 为镜像根（拼 /alpine/{v}/main）；pip/npm 为完整可用 URL。
     let url: String
     /// 当前语言显示名。
-    var name: String { L10n.l(nameKey) }
+    var name: String { String(localized: String.LocalizationValue(nameKey)) }
 }
 
 /// 探测结果（含延迟毫秒，供 UI 展示）。
@@ -49,9 +49,9 @@ enum MirrorKind: String, CaseIterable, Identifiable {
 
     var footer: String {
         switch self {
-        case .apk: return L10n.l("mirror_apk_desc")
-        case .pip: return L10n.l("mirror_pip_desc")
-        case .npm: return L10n.l("mirror_npm_desc")
+        case .apk: return String(localized: "mirror_apk_desc")
+        case .pip: return String(localized: "mirror_pip_desc")
+        case .npm: return String(localized: "mirror_npm_desc")
         }
     }
 
@@ -287,9 +287,9 @@ enum MirrorError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .rootfsNotDeployed:
-            return L10n.l("mirror_rootfs_not_deployed")
+            return String(localized: "mirror_rootfs_not_deployed")
         case .unknownSource(let id):
-            return String(format: L10n.l("mirror_unknown_source"), id)
+            return String(format: String(localized: "mirror_unknown_source"), id)
         }
     }
 }

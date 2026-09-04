@@ -56,7 +56,7 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
                 try? await Task.sleep(for: .milliseconds(400))
                 if let session = SessionManager.shared.session(id: uuid) {
                     AppState.shared?.selectedSession = session
-                    AppLogger.shared.info(String(format: L10n.l("bg_notification_tap"), session.title), category: "BG")
+                    AppLogger.shared.info(String(format: String(localized: "bg_notification_tap"), session.title), category: "BG")
                 }
             }
         }
@@ -68,7 +68,7 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
     func notifyTaskStarted(title: String, promptPreview: String, sessionID: UUID? = nil) async {
         let content = UNMutableNotificationContent()
         content.title = title
-        content.body = String(format: L10n.l("started_processing"), promptPreview)
+        content.body = String(format: String(localized: "started_processing"), promptPreview)
         content.sound = .default
         content.threadIdentifier = "miniclaw-agent"
         if let sessionID { content.userInfo["sessionID"] = sessionID.uuidString }
@@ -76,7 +76,7 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
         do {
             try await center.add(request)
         } catch {
-            AppLogger.shared.error(String(format: L10n.l("bg_start_notification_failed"), String(describing: error)), category: "BG")
+            AppLogger.shared.error(String(format: String(localized: "bg_start_notification_failed"), String(describing: error)), category: "BG")
         }
     }
 
@@ -92,7 +92,7 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
         do {
             try await center.add(request)
         } catch {
-            AppLogger.shared.error(String(format: L10n.l("bg_complete_notification_failed"), String(describing: error)), category: "BG")
+            AppLogger.shared.error(String(format: String(localized: "bg_complete_notification_failed"), String(describing: error)), category: "BG")
         }
     }
 
@@ -100,7 +100,7 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
     /// 换行/空格/Tab 全部折叠为单个空格——正文紧凑连续，不会因模型排版换行显得稀碎。
     /// 无回复时回退完成/结束文案。
     private static func completionBody(reply: String?, success: Bool) -> String {
-        let fallback = success ? L10n.l("the_agent_has_completed_this_task") : L10n.l("the_agent_has_ended_this_task")
+        let fallback = success ? String(localized: "the_agent_has_completed_this_task") : String(localized: "the_agent_has_ended_this_task")
         guard let reply, !reply.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return fallback }
         return reply
             .split(whereSeparator: \.isWhitespace)
@@ -133,7 +133,7 @@ final class BackgroundLocationKeeper: NSObject, CLLocationManagerDelegate {
     }
 
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
-        AppLogger.shared.warn(String(format: L10n.l("bg_location_keepalive_failed"), error.localizedDescription), category: "BG")
+        AppLogger.shared.warn(String(format: String(localized: "bg_location_keepalive_failed"), error.localizedDescription), category: "BG")
     }
 }
 

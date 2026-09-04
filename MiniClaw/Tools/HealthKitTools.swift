@@ -6,7 +6,7 @@ import HealthKit
 /// 单个健康指标的定义：模型侧名字 ↔ HealthKit 类型 + 单位 + 聚合方式。
 ///
 /// 名字保持英文（数据字典性质，供模型精确引用并在 `types` 中自查），
-/// 面向用户的中文由模型在回复时生成，故不进 L10n。
+/// 面向用户的中文由模型在回复时生成，故不进本地化表。
 private struct HealthMetricDef {
     let key: String
     let objectType: HKObjectType
@@ -135,51 +135,51 @@ struct AppleHealthKitTool: AgentTool {
         type: "function",
         function: ToolSchema.FunctionDef(
             name: "apple-healthkit",
-            description: L10n.l("health_tool_desc"),
+            description: String(localized: "health_tool_desc"),
             parameters: JSONSchema(
                 type: "object",
                 properties: [
                     "action": JSONSchema.JSONProperty(
                         type: "string",
-                        description: L10n.l("health_param_action"),
+                        description: String(localized: "health_param_action"),
                         enum: ["summary", "query", "write", "delete", "types", "workouts", "characteristic"]
                     ),
                     "metric": JSONSchema.JSONProperty(
                         type: "string",
-                        description: L10n.l("health_param_metric")
+                        description: String(localized: "health_param_metric")
                     ),
                     "start_date": JSONSchema.JSONProperty(
                         type: "string",
-                        description: L10n.l("health_param_start")
+                        description: String(localized: "health_param_start")
                     ),
                     "end_date": JSONSchema.JSONProperty(
                         type: "string",
-                        description: L10n.l("health_param_end")
+                        description: String(localized: "health_param_end")
                     ),
                     "aggregate": JSONSchema.JSONProperty(
                         type: "string",
-                        description: L10n.l("health_param_aggregate"),
+                        description: String(localized: "health_param_aggregate"),
                         enum: ["auto", "sum", "avg", "min", "max", "none"]
                     ),
                     "limit": JSONSchema.JSONProperty(
                         type: "integer",
-                        description: L10n.l("health_param_limit")
+                        description: String(localized: "health_param_limit")
                     ),
                     "value": JSONSchema.JSONProperty(
                         type: "number",
-                        description: L10n.l("health_param_value")
+                        description: String(localized: "health_param_value")
                     ),
                     "date": JSONSchema.JSONProperty(
                         type: "string",
-                        description: L10n.l("health_param_date")
+                        description: String(localized: "health_param_date")
                     ),
                     "sample_id": JSONSchema.JSONProperty(
                         type: "string",
-                        description: L10n.l("health_param_sample_id")
+                        description: String(localized: "health_param_sample_id")
                     ),
                     "workout_type": JSONSchema.JSONProperty(
                         type: "string",
-                        description: L10n.l("health_param_workout_type")
+                        description: String(localized: "health_param_workout_type")
                     ),
                 ],
                 required: ["action"]
@@ -191,7 +191,7 @@ struct AppleHealthKitTool: AgentTool {
 
     func execute(_ parameters: [String: Any]) async throws -> ToolResult {
         guard HKHealthStore.isHealthDataAvailable() else {
-            return failure(L10n.l("health_unavailable"))
+            return failure(String(localized: "health_unavailable"))
         }
         let action = (parameters["action"] as? String)?.lowercased() ?? ""
         switch action {
@@ -203,7 +203,7 @@ struct AppleHealthKitTool: AgentTool {
         case "workouts":      return await workoutsAction(parameters)
         case "characteristic": return await characteristicAction()
         default:
-            return failure(String(format: L10n.l("health_unknown_action"), action))
+            return failure(String(format: String(localized: "health_unknown_action"), action))
         }
     }
 
@@ -219,7 +219,7 @@ struct AppleHealthKitTool: AgentTool {
             let flag = writableSet.contains(m.key) ? "read+write" : "read-only"
             lines.append("\(m.key) [\(unit)] \(flag)")
         }
-        let text = L10n.l("health_types_header") + "\n" + lines.joined(separator: "\n")
+        let text = String(localized: "health_types_header") + "\n" + lines.joined(separator: "\n")
         return ToolResult(success: true, text: text)
     }
 
@@ -232,7 +232,7 @@ struct AppleHealthKitTool: AgentTool {
         let now = Date()
         let todayStart = cal.startOfDay(for: now)
         guard let weekStart = cal.date(byAdding: .day, value: -6, to: todayStart) else {
-            return failure(L10n.l("health_bad_date_range"))
+            return failure(String(localized: "health_bad_date_range"))
         }
         await requestReadAccess(for: HealthMetrics.summaryKeys.compactMap { HealthMetrics.byKey[$0]?.objectType })
 
@@ -240,18 +240,18 @@ struct AppleHealthKitTool: AgentTool {
         let df = DateFormatter()
         df.dateStyle = .medium
         df.timeStyle = .none
-        lines.append(String(format: L10n.l("health_summary_header"), df.string(from: now)))
+        lines.append(String(format: String(localized: "health_summary_header"), df.string(from: now)))
 
         for key in HealthMetrics.summaryKeys {
             guard let def = HealthMetrics.byKey[key] else { continue }
-            if let line = await metricLine(def, start: todayStart, end: now, header: L10n.l("health_label_today")) {
+            if let line = await metricLine(def, start: todayStart, end: now, header: String(localized: "health_label_today")) {
                 lines.append(line)
             }
         }
         lines.append("")
         for key in HealthMetrics.summaryKeys {
             guard let def = HealthMetrics.byKey[key] else { continue }
-            if let line = await metricLine(def, start: weekStart, end: now, header: L10n.l("health_label_7d")) {
+            if let line = await metricLine(def, start: weekStart, end: now, header: String(localized: "health_label_7d")) {
                 lines.append(line)
             }
         }
@@ -275,7 +275,7 @@ struct AppleHealthKitTool: AgentTool {
 
     private func queryAction(_ parameters: [String: Any]) async -> ToolResult {
         guard let key = parameters["metric"] as? String, let def = HealthMetrics.byKey[key] else {
-            return failure(String(format: L10n.l("health_type_unsupported"),
+            return failure(String(format: String(localized: "health_type_unsupported"),
                                   HealthMetrics.all.map(\.key).joined(separator: ", ")))
         }
         let (start, end, rangeError) = resolveRange(parameters)
@@ -288,21 +288,21 @@ struct AppleHealthKitTool: AgentTool {
 
         if aggregate != "none", let options = resolveOptions(aggregate, def: def) {
             if let value = await statisticValue(def, start: start, end: end, options: options) {
-                let label = L10n.l("health_label_aggregate")
+                let label = String(localized: "health_label_aggregate")
                 return ToolResult(success: true,
                                   text: "\(label) \(def.key) (\(shortISO(start)) ~ \(shortISO(end))): \(formatValue(value, def: def))")
             }
-            return failure(L10n.l("health_no_data"))
+            return failure(String(localized: "health_no_data"))
         }
 
         let samples = await fetchSamples(def, start: start, end: end, limit: limit)
-        guard !samples.isEmpty else { return failure(L10n.l("health_no_data")) }
+        guard !samples.isEmpty else { return failure(String(localized: "health_no_data")) }
         // 格式符纪律：%@ 只接受对象/String，Int 必须显式转字符串——
         // 实测 String(format: "%@", intValue) 编译通过但运行期 SIGSEGV（编译器不校验格式符）。
-        var lines: [String] = [String(format: L10n.l("health_query_header"), def.key, String(samples.count))]
+        var lines: [String] = [String(format: String(localized: "health_query_header"), def.key, String(samples.count))]
         for s in samples { lines.append(describeSample(s, def: def)) }
         if samples.count == limit {
-            lines.append(L10n.l("health_result_truncated"))
+            lines.append(String(localized: "health_result_truncated"))
         }
         return ToolResult(success: true, text: lines.joined(separator: "\n"))
     }
@@ -310,44 +310,44 @@ struct AppleHealthKitTool: AgentTool {
     // MARK: action - write
 
     private func writeAction(_ parameters: [String: Any]) async -> ToolResult {
-        guard healthWriteEnabled() else { return failure(L10n.l("health_write_disabled")) }
+        guard healthWriteEnabled() else { return failure(String(localized: "health_write_disabled")) }
         guard let key = parameters["metric"] as? String, let def = HealthMetrics.byKey[key] else {
-            return failure(String(format: L10n.l("health_type_unsupported"),
+            return failure(String(format: String(localized: "health_type_unsupported"),
                                   HealthMetrics.writableKeys.joined(separator: ", ")))
         }
         guard def.writable else {
-            return failure(String(format: L10n.l("health_type_not_writable"),
+            return failure(String(format: String(localized: "health_type_not_writable"),
                                   HealthMetrics.writableKeys.joined(separator: ", ")))
         }
-        guard let unit = def.unit else { return failure(L10n.l("health_type_not_writable_one")) }
+        guard let unit = def.unit else { return failure(String(localized: "health_type_not_writable_one")) }
         let number = Self.number(from: parameters["value"])
-        guard let value = number else { return failure(L10n.l("health_value_required")) }
+        guard let value = number else { return failure(String(localized: "health_value_required")) }
 
         let date = resolveDate(parameters["date"]) ?? Date()
         let quantity = HKQuantity(unit: unit, doubleValue: value)
         guard let sampleType = def.objectType as? HKSampleType else {
-            return failure(L10n.l("health_type_not_writable_one"))
+            return failure(String(localized: "health_type_not_writable_one"))
         }
 
         let store = HKHealthStore()
         if store.authorizationStatus(for: sampleType) != .sharingAuthorized {
             await HealthKitAuthGate.shared.request(read: [], share: [sampleType])
             if store.authorizationStatus(for: sampleType) != .sharingAuthorized {
-                return failure(L10n.l("health_auth_denied"))
+                return failure(String(localized: "health_auth_denied"))
             }
         }
 
         let sample: HKSample
         if def.isDurationCategory {
             guard let categoryType = def.objectType as? HKCategoryType else {
-                return failure(L10n.l("health_type_not_writable_one"))
+                return failure(String(localized: "health_type_not_writable_one"))
             }
             let minutes = max(1, Int(value))
             let endDate = date.addingTimeInterval(Double(minutes) * 60)
             sample = HKCategorySample(type: categoryType, value: 0, start: date, end: endDate)
         } else {
             guard let quantityType = sampleType as? HKQuantityType else {
-                return failure(L10n.l("health_type_not_writable_one"))
+                return failure(String(localized: "health_type_not_writable_one"))
             }
             sample = HKQuantitySample(type: quantityType, quantity: quantity, start: date, end: date)
         }
@@ -355,12 +355,12 @@ struct AppleHealthKitTool: AgentTool {
         do {
             try await store.save(sample)
             return ToolResult(success: true,
-                              text: String(format: L10n.l("health_write_done"),
+                              text: String(format: String(localized: "health_write_done"),
                                            def.key,
                                            formatValue(value, def: def),
                                            sample.uuid.uuidString))
         } catch {
-            return failure(String(format: L10n.l("health_write_failed"), error.localizedDescription))
+            return failure(String(format: String(localized: "health_write_failed"), error.localizedDescription))
         }
     }
 
@@ -369,19 +369,19 @@ struct AppleHealthKitTool: AgentTool {
     /// 删除本 App 写入的样本。HealthKit 天然限制「App 只能删除自己创建的样本」，
     /// 因此该操作无法越权删除设备或其他 App 记录的数据。
     private func deleteAction(_ parameters: [String: Any]) async -> ToolResult {
-        guard healthWriteEnabled() else { return failure(L10n.l("health_write_disabled")) }
+        guard healthWriteEnabled() else { return failure(String(localized: "health_write_disabled")) }
         guard let key = parameters["metric"] as? String, let def = HealthMetrics.byKey[key], def.writable else {
-            return failure(String(format: L10n.l("health_type_unsupported"),
+            return failure(String(format: String(localized: "health_type_unsupported"),
                                   HealthMetrics.writableKeys.joined(separator: ", ")))
         }
         let store = HKHealthStore()
         guard let sampleType = def.objectType as? HKSampleType else {
-            return failure(L10n.l("health_type_not_writable_one"))
+            return failure(String(localized: "health_type_not_writable_one"))
         }
         if store.authorizationStatus(for: sampleType) != .sharingAuthorized {
             await HealthKitAuthGate.shared.request(read: [], share: [sampleType])
             if store.authorizationStatus(for: sampleType) != .sharingAuthorized {
-                return failure(L10n.l("health_auth_denied"))
+                return failure(String(localized: "health_auth_denied"))
             }
         }
 
@@ -395,13 +395,13 @@ struct AppleHealthKitTool: AgentTool {
         }
 
         let samples = await fetchRawSamples(def, start: nil, end: nil, limit: 200, predicate: predicate)
-        guard !samples.isEmpty else { return failure(L10n.l("health_delete_nothing")) }
+        guard !samples.isEmpty else { return failure(String(localized: "health_delete_nothing")) }
         do {
             try await store.delete(samples)
             return ToolResult(success: true,
-                              text: String(format: L10n.l("health_delete_done"), String(samples.count), def.key))
+                              text: String(format: String(localized: "health_delete_done"), String(samples.count), def.key))
         } catch {
-            return failure(String(format: L10n.l("health_delete_failed"), error.localizedDescription))
+            return failure(String(format: String(localized: "health_delete_failed"), error.localizedDescription))
         }
     }
 
@@ -431,9 +431,9 @@ struct AppleHealthKitTool: AgentTool {
             guard let wanted, !wanted.isEmpty else { return true }
             return Self.workoutName(w.workoutActivityType).contains(wanted)
         }
-        guard !filtered.isEmpty else { return failure(L10n.l("health_no_data")) }
+        guard !filtered.isEmpty else { return failure(String(localized: "health_no_data")) }
 
-        var lines: [String] = [String(format: L10n.l("health_workouts_header"), String(filtered.count))]
+        var lines: [String] = [String(format: String(localized: "health_workouts_header"), String(filtered.count))]
         for w in filtered {
             let minutes = Int(w.duration / 60)
             var parts = ["\(shortISO(w.startDate))", "\(Self.workoutName(w.workoutActivityType))", "\(minutes)min"]
@@ -467,10 +467,10 @@ struct AppleHealthKitTool: AgentTool {
             if blood.bloodType != .notSet {
                 lines.append("blood_type: \(Self.bloodName(blood.bloodType))")
             }
-            guard !lines.isEmpty else { return failure(L10n.l("health_no_data")) }
+            guard !lines.isEmpty else { return failure(String(localized: "health_no_data")) }
             return ToolResult(success: true, text: lines.joined(separator: "\n"))
         } catch {
-            return failure(L10n.l("health_no_data"))
+            return failure(String(localized: "health_no_data"))
         }
     }
 
@@ -579,7 +579,7 @@ struct AppleHealthKitTool: AgentTool {
         } else {
             start = cal.startOfDay(for: now)
         }
-        guard start <= end else { return (start, end, L10n.l("health_bad_date_range")) }
+        guard start <= end else { return (start, end, String(localized: "health_bad_date_range")) }
         return (start, end, nil)
     }
 

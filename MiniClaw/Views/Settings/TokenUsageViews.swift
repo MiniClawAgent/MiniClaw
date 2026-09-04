@@ -22,10 +22,10 @@ struct TokenUsageView: View {
                         Image(systemName: "chart.bar.xaxis")
                             .font(.system(size: 32))
                             .foregroundStyle(.secondary)
-                        Text(L10n.l("no_usage_data_yet"))
+                        Text(String(localized: "no_usage_data_yet"))
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
-                        Text(L10n.l("your_token_usage_accumulates_here_after_you_start_a_conversation"))
+                        Text(String(localized: "your_token_usage_accumulates_here_after_you_start_a_conversation"))
                             .font(.caption)
                             .foregroundStyle(.tertiary)
                             .multilineTextAlignment(.center)
@@ -35,18 +35,18 @@ struct TokenUsageView: View {
                 }
             }
 
-            Section(L10n.l("total_usage")) {
-                UsageRow(label: L10n.l("total_input_incl_cache"), value: compact(totalInput), color: .blue)
-                UsageRow(label: L10n.l("total_output"), value: compact(totalOutput), color: .green)
-                UsageRow(label: L10n.l("cache_reads"), value: compact(totalCachedRead), color: .purple)
-                UsageRow(label: L10n.l("cache_hit_rate"), value: hitRateString, color: .orange)
+            Section(String(localized: "total_usage")) {
+                UsageRow(label: String(localized: "total_input_incl_cache"), value: compact(totalInput), color: .blue)
+                UsageRow(label: String(localized: "total_output"), value: compact(totalOutput), color: .green)
+                UsageRow(label: String(localized: "cache_reads"), value: compact(totalCachedRead), color: .purple)
+                UsageRow(label: String(localized: "cache_hit_rate"), value: hitRateString, color: .orange)
             }
 
-            Section(L10n.l("recent_usage")) {
-                UsageRow(label: L10n.l("today_s_input"), value: compact(todayInput), color: .blue)
-                UsageRow(label: L10n.l("today_s_output"), value: compact(todayOutput), color: .green)
-                UsageRow(label: L10n.l("input_this_month"), value: compact(monthInput), color: .blue)
-                UsageRow(label: L10n.l("this_month_output"), value: compact(monthOutput), color: .green)
+            Section(String(localized: "recent_usage")) {
+                UsageRow(label: String(localized: "today_s_input"), value: compact(todayInput), color: .blue)
+                UsageRow(label: String(localized: "today_s_output"), value: compact(todayOutput), color: .green)
+                UsageRow(label: String(localized: "input_this_month"), value: compact(monthInput), color: .blue)
+                UsageRow(label: String(localized: "this_month_output"), value: compact(monthOutput), color: .green)
             }
 
             ForEach(providerSections) { section in
@@ -65,30 +65,30 @@ struct TokenUsageView: View {
             }
 
             Section {
-                Button(L10n.l("reset_statistics"), role: .destructive) {
+                Button(String(localized: "reset_statistics"), role: .destructive) {
                     showResetConfirm = true
                 }
                 .frame(maxWidth: .infinity, alignment: .center)
                 .disabled(!TokenUsageTracker.hasData())
             } footer: {
-                Text(L10n.l("data_from_real_conversations_accumulated_across_sessions_cache_hit_rate_cache_reads_total_input_including_cache_when_a_provider_doesn_t_report_usage_in_streaming_responses_a_local_estimate_is_used_1_6_cjk_chars_token_4_latin_chars_token"))
+                Text(String(localized: "data_from_real_conversations_accumulated_across_sessions_cache_hit_rate_cache_reads_total_input_including_cache_when_a_provider_doesn_t_report_usage_in_streaming_responses_a_local_estimate_is_used_1_6_cjk_chars_token_4_latin_chars_token"))
                     .font(.caption)
             }
         }
         .scrollContentBackground(.hidden)
         .background(ThemeBackground(slot: .settings))
-        .navigationTitle(L10n.l("token_usage_alias"))
+        .navigationTitle(String(localized: "token_usage_alias"))
         .navigationBarTitleDisplayMode(.inline)
         .onAppear(perform: reload)
         .refreshable { reload() }
-        .alert(L10n.l("reset_token_statistics"), isPresented: $showResetConfirm) {
-            Button(L10n.l("cancel"), role: .cancel) {}
-            Button(L10n.l("reset"), role: .destructive) {
+        .alert(String(localized: "reset_token_statistics"), isPresented: $showResetConfirm) {
+            Button(String(localized: "cancel"), role: .cancel) {}
+            Button(String(localized: "reset"), role: .destructive) {
                 TokenUsageTracker.reset()
                 reload()
             }
         } message: {
-            Text(L10n.l("this_will_clear_all_token_usage_records_including_total_usage_provider_breakdown_and_recent_stats_this_action_cannot_be_undone"))
+            Text(String(localized: "this_will_clear_all_token_usage_records_including_total_usage_provider_breakdown_and_recent_stats_this_action_cannot_be_undone"))
         }
     }
 
@@ -126,7 +126,7 @@ struct TokenUsageView: View {
 
         var grouped: [String: [(name: String, input: Int, output: Int)]] = [:]
         for row in TokenUsageTracker.byModel() {
-            let provider = info[row.model]?.provider ?? L10n.l("others")
+            let provider = info[row.model]?.provider ?? String(localized: "others")
             let name = info[row.model]?.name ?? ModelConfig.titleCasedModelId(row.model)
             grouped[provider, default: []].append((name: name, input: row.input, output: row.output))
         }
@@ -201,29 +201,29 @@ struct SessionTokenUsageView: View {
                 }
                 if let d = data {
                     if contextSnapshot == nil || contextSnapshot?.tokens == 0 {
-                        Section(L10n.l("context")) {
-                            UsageRow(label: L10n.l("context_used"), value: compact(d.input), color: .blue)
-                            UsageRow(label: L10n.l("context_window"), value: windowString, color: .gray)
+                        Section(String(localized: "context")) {
+                            UsageRow(label: String(localized: "context_used"), value: compact(d.input), color: .blue)
+                            UsageRow(label: String(localized: "context_window"), value: windowString, color: .gray)
                         }
                     }
 
-                    Section(L10n.l("tokens_session_total")) {
-                        UsageRow(label: L10n.l("input_with_cache"), value: compact(d.input), color: .blue)
-                        UsageRow(label: L10n.l("output"), value: compact(d.output), color: .green)
+                    Section(String(localized: "tokens_session_total")) {
+                        UsageRow(label: String(localized: "input_with_cache"), value: compact(d.input), color: .blue)
+                        UsageRow(label: String(localized: "output"), value: compact(d.output), color: .green)
                     }
 
-                    Section(L10n.l("cache_session_total")) {
-                        UsageRow(label: L10n.l("cache_reads"), value: compact(d.cachedRead ?? 0), color: .purple)
-                        UsageRow(label: L10n.l("cache_write"), value: compact(d.cachedWrite ?? 0), color: .indigo)
-                        UsageRow(label: L10n.l("cache_hit_rate"), value: sessionHitRate(d), color: .orange)
+                    Section(String(localized: "cache_session_total")) {
+                        UsageRow(label: String(localized: "cache_reads"), value: compact(d.cachedRead ?? 0), color: .purple)
+                        UsageRow(label: String(localized: "cache_write"), value: compact(d.cachedWrite ?? 0), color: .indigo)
+                        UsageRow(label: String(localized: "cache_hit_rate"), value: sessionHitRate(d), color: .orange)
                     }
 
-                    Section(L10n.l("speed")) {
-                        UsageRow(label: L10n.l("output_speed_average"), value: speedString(d), color: .teal)
+                    Section(String(localized: "speed")) {
+                        UsageRow(label: String(localized: "output_speed_average"), value: speedString(d), color: .teal)
                     }
 
-                    Section(L10n.l("agent_loop")) {
-                        UsageRow(label: L10n.l("total_loop_count"), value: "\(d.agentLoops)", color: .red)
+                    Section(String(localized: "agent_loop")) {
+                        UsageRow(label: String(localized: "total_loop_count"), value: "\(d.agentLoops)", color: .red)
                     }
                 } else {
                     Section {
@@ -231,10 +231,10 @@ struct SessionTokenUsageView: View {
                             Image(systemName: "chart.bar.xaxis")
                                 .font(.system(size: 32))
                                 .foregroundStyle(.secondary)
-                            Text(L10n.l("no_usage_data_for_this_session_yet"))
+                            Text(String(localized: "no_usage_data_for_this_session_yet"))
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
-                            Text(L10n.l("after_starting_a_conversation_this_will_accumulate_the_session_s_token_usage"))
+                            Text(String(localized: "after_starting_a_conversation_this_will_accumulate_the_session_s_token_usage"))
                                 .font(.caption)
                                 .foregroundStyle(.tertiary)
                                 .multilineTextAlignment(.center)
@@ -246,11 +246,11 @@ struct SessionTokenUsageView: View {
             }
             .scrollContentBackground(.hidden)
             .background(ThemeBackground(slot: .settings))
-            .navigationTitle(L10n.l("session_token_usage"))
+            .navigationTitle(String(localized: "session_token_usage"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button(L10n.l("done")) { dismiss() }
+                    Button(String(localized: "done")) { dismiss() }
                 }
             }
             .onAppear(perform: reload)
@@ -263,33 +263,33 @@ struct SessionTokenUsageView: View {
     private func contextSection(_ s: ContextUsageSnapshot) -> some View {
         Section {
             UsageRow(
-                label: L10n.l("current_usage"),
+                label: String(localized: "current_usage"),
                 value: s.isUnlimited ? compact(s.tokens) : "\(compact(s.tokens)) / \(compact(s.window))（\(Int(s.ratio * 100))%）",
                 color: s.ratio >= s.thresholdRatio ? .red : (s.ratio >= s.thresholdRatio * 0.8 ? .orange : .green)
             )
             if !s.isUnlimited, s.compactThreshold > 0 {
                 UsageRow(
-                    label: L10n.l("compaction_trigger_line"),
+                    label: String(localized: "compaction_trigger_line"),
                     value: "\(compact(s.compactThreshold))（\(Int(s.thresholdRatio * 100))%）",
                     color: .gray
                 )
             }
-            UsageRow(label: L10n.l("system_prompt"), value: compact(s.breakdown.system), color: .purple)
-            UsageRow(label: L10n.l("tool_definitions"), value: compact(s.breakdown.tools), color: .indigo)
-            UsageRow(label: L10n.l("history_chats"), value: compact(s.breakdown.history), color: .blue)
-            UsageRow(label: L10n.l("this_turn_input"), value: compact(s.breakdown.current), color: .teal)
+            UsageRow(label: String(localized: "system_prompt"), value: compact(s.breakdown.system), color: .purple)
+            UsageRow(label: String(localized: "tool_definitions"), value: compact(s.breakdown.tools), color: .indigo)
+            UsageRow(label: String(localized: "history_chats"), value: compact(s.breakdown.history), color: .blue)
+            UsageRow(label: String(localized: "this_turn_input"), value: compact(s.breakdown.current), color: .teal)
             if s.breakdown.media > 0 {
-                UsageRow(label: L10n.l("images_attachments"), value: compact(s.breakdown.media), color: .pink)
+                UsageRow(label: String(localized: "images_attachments"), value: compact(s.breakdown.media), color: .pink)
             }
             if !s.isUnlimited {
-                UsageRow(label: L10n.l("remaining"), value: compact(max(0, s.window - s.tokens)), color: .gray)
+                UsageRow(label: String(localized: "remaining"), value: compact(max(0, s.window - s.tokens)), color: .gray)
             }
         } header: {
-            Text(L10n.l("context_usage_label"))
+            Text(String(localized: "context_usage_label"))
         } footer: {
             Text(s.measured
-                 ? L10n.l("data_from_real_usage_reported_by_the_provider")
-                 : L10n.l("local_estimate_shown_when_the_provider_doesn_t_report_usage_based_on_calibrated_estimates"))
+                 ? String(localized: "data_from_real_usage_reported_by_the_provider")
+                 : String(localized: "local_estimate_shown_when_the_provider_doesn_t_report_usage_based_on_calibrated_estimates"))
         }
     }
 

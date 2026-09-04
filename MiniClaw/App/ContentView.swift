@@ -2,11 +2,6 @@ import SwiftUI
 
 struct ContentView: View {
     @EnvironmentObject private var appState: AppState
-    /// 订阅界面语言单例：语言切换时 `current` 变化触发本视图重渲染，
-    /// 让 NavigationStack 及其内 HomeView（含设置 sheet）的 `L10n.tr` 文案以新语言重新求值。
-    /// App 文案走纯 String、不读 `.locale` 环境，故必须在 View 层显式订阅 L10n.shared；
-    /// 各用 L10n.tr 的关键子视图（HomeView / SettingsView / AppearanceSettingsView 等）同样订阅。
-    @ObservedObject private var l10n = L10n.shared
     @State private var isChatActive: Bool = false
     @State private var chatSession: ChatSession?
     /// 订阅工具确认桥：确认框为全局弹窗，挂在本根视图，
@@ -47,18 +42,6 @@ struct ContentView: View {
                 self.currentConfirmItem = items.first
             }
         }
-        // ── 语言切换 ──
-        // appState.appLanguage 的 didSet 已同步 L10n.shared.current；
-        // 此处 onChange 作为双保险（防 @Observable 宏下 didSet 行为异常时漏同步）。
-        // 注意：不再使用 .id(appState.appLanguage.rawValue) 强制重建整棵视图树——
-        // 之前的实现会导致 HomeView 的设置 sheet 被销毁后用全新 NavigationStack 重开，
-        // 用户从「外观」子页被打回「设置」根页、NavigationStack 路径丢失，看起来像「切换没生效」。
-        // 现改为：依赖 L10n.shared (ObservableObject) 的 @Published current 变化，
-        // 让观察了 L10n.shared 的视图（ContentView / HomeView / SettingsView / AppearanceSettingsView 等）
-        // 自动重新求值，L10n.tr(...) 读到新语言；sheet 状态不受影响，用户留在原页面看到文案即时切换。
-        .onChange(of: appState.appLanguage) { newLang in
-            L10n.shared.setLanguage(newLang)
-        }
         // ── 工具调用前确认（全局自定义浮层，非系统 Alert）──
         // 任意页面/会话都可看到并处理的工具确认框；框内标注会话名称避免跨会话误认；
         // 点击按 item.id 精确恢复，不会作用于其他会话。多项待确认时依次弹出。
@@ -71,10 +54,10 @@ struct ContentView: View {
                         .ignoresSafeArea()
                         .onTapGesture { /* 点击遮罩不关闭，避免引擎 continuation 悬挂 */ }
                     VStack(spacing: 14) {
-                        Text(L10n.l("tool_call_confirmation"))
+                        Text(String(localized: "tool_call_confirmation"))
                             .font(.headline)
                         Group {
-                            let actionLine = L10n.l("about_to_call_tool") + item.toolName + "」\n" + L10n.l("operation_label") + item.summary
+                            let actionLine = String(localized: "about_to_call_tool") + item.toolName + "」\n" + String(localized: "operation_label") + item.summary
                             Text(actionLine)
                         }
                             .font(.subheadline)
@@ -84,18 +67,18 @@ struct ContentView: View {
                         Button {
                             confirmBridge.resolve(itemID: item.id, approved: true)
                         } label: {
-                            Text(L10n.l("allow_once")).frame(maxWidth: .infinity)
+                            Text(String(localized: "allow_once")).frame(maxWidth: .infinity)
                         }
                         Button {
                             confirmBridge.approveSession(sessionID: item.sessionID)
                             confirmBridge.resolve(itemID: item.id, approved: true)
                         } label: {
-                            Text(L10n.l("allow_this_session")).frame(maxWidth: .infinity)
+                            Text(String(localized: "allow_this_session")).frame(maxWidth: .infinity)
                         }
                         Button(role: .destructive) {
                             confirmBridge.resolve(itemID: item.id, approved: false)
                         } label: {
-                            Text(L10n.l("deny")).frame(maxWidth: .infinity)
+                            Text(String(localized: "deny")).frame(maxWidth: .infinity)
                         }
                     }
                     .padding(20)

@@ -106,7 +106,7 @@ struct AssistantStatusRow: View {
                 Image(systemName: "pause.circle.fill")
                     .font(.caption)
                     .foregroundStyle(Color(red: 0.098, green: 0.549, blue: 0.996))
-                Text(L10n.l("paused"))
+                Text(String(localized: "paused"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -114,7 +114,7 @@ struct AssistantStatusRow: View {
         } else if isStreaming {
             // 开源参考实现对齐(2026-08-09)：TypingIndicator = "<名字> 正在思考" + 3 点弹跳
             HStack(spacing: 0) {
-                Text(agentName + L10n.l("thinking_suffix"))
+                Text(agentName + String(localized: "thinking_suffix"))
                 ForEach(0..<3, id: \.self) { i in
                     Text(".")
                         .offset(y: dotOffsets[i] ? -3 : 1)
@@ -133,7 +133,7 @@ struct AssistantStatusRow: View {
                 Image(systemName: "stop.circle.fill")
                     .font(.caption)
                     .foregroundStyle(.orange)
-                Text(L10n.l("stopped"))
+                Text(String(localized: "stopped"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 elapsedSuffix
@@ -144,7 +144,7 @@ struct AssistantStatusRow: View {
                 Image(systemName: "exclamationmark.triangle.fill")
                     .font(.caption)
                     .foregroundStyle(.red)
-                Text(L10n.l("interrupted"))
+                Text(String(localized: "interrupted"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 elapsedSuffix
@@ -155,7 +155,7 @@ struct AssistantStatusRow: View {
                 Image(systemName: "checkmark.circle.fill")
                     .font(.caption)
                     .foregroundStyle(.green)
-                Text(L10n.l("completed"))
+                Text(String(localized: "completed"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 elapsedSuffix

@@ -29,8 +29,8 @@ struct OAuthSetupView: View {
 
     var body: some View {
         Form {
-            Section(L10n.l("tabs")) {
-                TextField(L10n.l("tabs"), text: $labelText)
+            Section(String(localized: "tabs")) {
+                TextField(String(localized: "tabs"), text: $labelText)
             }
 
             Section {
@@ -44,12 +44,12 @@ struct OAuthSetupView: View {
                         } else {
                             Image(systemName: "person.badge.key")
                         }
-                        Text(isLoggingIn ? L10n.l("signing_in") : String(format: L10n.l("sign_in_with"), defaultLabel))
+                        Text(isLoggingIn ? String(localized: "signing_in") : String(format: String(localized: "sign_in_with"), defaultLabel))
                     }
                 }
                 .disabled(isLoggingIn)
             } footer: {
-                Text(L10n.l("sign_in_via_official_oauth_credentials_renew_automatically"))
+                Text(String(localized: "sign_in_via_official_oauth_credentials_renew_automatically"))
             }
 
             Section {
@@ -57,15 +57,15 @@ struct OAuthSetupView: View {
                     .keyboardType(.URL)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
-                SecureField(L10n.l("bearer_token"), text: $bearerToken)
-                Button(L10n.l("add")) {
+                SecureField(String(localized: "bearer_token"), text: $bearerToken)
+                Button(String(localized: "add")) {
                     Task { await saveManual() }
                 }
                 .disabled(bearerToken.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             } header: {
-                Text(L10n.l("manual_configuration"))
+                Text(String(localized: "manual_configuration"))
             } footer: {
-                Text(L10n.l("you_can_fill_in_an_existing_access_token_directly_leave_the_api_url_empty_to_use_the_official_default"))
+                Text(String(localized: "you_can_fill_in_an_existing_access_token_directly_leave_the_api_url_empty_to_use_the_official_default"))
             }
 
             if let errorMessage {
@@ -77,7 +77,7 @@ struct OAuthSetupView: View {
         }
         .scrollContentBackground(.hidden)
         .background(ThemeBackground(slot: .settings))
-        .navigationTitle(L10n.l("oauth_authentication"))
+        .navigationTitle(String(localized: "oauth_authentication"))
         .navigationBarTitleDisplayMode(.inline)
     }
 
@@ -111,7 +111,7 @@ struct OAuthSetupView: View {
         do {
             try await OAuthKeychainStorage.shared.saveToken(tokens, instanceId: id.uuidString)
         } catch {
-            errorMessage = String(format: L10n.l("failed_to_save_credentials"), error.localizedDescription)
+            errorMessage = String(format: String(localized: "failed_to_save_credentials"), error.localizedDescription)
             return
         }
         let label = labelText.trimmingCharacters(in: .whitespacesAndNewlines)

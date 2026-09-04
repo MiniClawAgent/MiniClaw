@@ -11,17 +11,17 @@ struct ConfigTool: AgentTool {
         type: "function",
         function: ToolSchema.FunctionDef(
             name: "miniclaw_config",
-            description: L10n.l("config_tool_desc"),
+            description: String(localized: "config_tool_desc"),
             parameters: JSONSchema(
                 type: "object",
                 properties: [
-                    "subcommand": JSONSchema.JSONProperty(type: "string", description: L10n.l("subcommand_label"), enum: ["get", "set", "add", "audit-list", "audit-revert", "list-topics", "topic-help"]),
-                    "topic": JSONSchema.JSONProperty(type: "string", description: L10n.l("config_domains_list")),
-                    "path": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_dotted_path")),
-                    "value": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_set_value")),
-                    "json": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_add_item_json")),
-                    "id": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_audit_revert_id")),
-                    "limit": JSONSchema.JSONProperty(type: "integer", description: L10n.l("param_audit_list_limit")),
+                    "subcommand": JSONSchema.JSONProperty(type: "string", description: String(localized: "subcommand_label"), enum: ["get", "set", "add", "audit-list", "audit-revert", "list-topics", "topic-help"]),
+                    "topic": JSONSchema.JSONProperty(type: "string", description: String(localized: "config_domains_list")),
+                    "path": JSONSchema.JSONProperty(type: "string", description: String(localized: "param_dotted_path")),
+                    "value": JSONSchema.JSONProperty(type: "string", description: String(localized: "param_set_value")),
+                    "json": JSONSchema.JSONProperty(type: "string", description: String(localized: "param_add_item_json")),
+                    "id": JSONSchema.JSONProperty(type: "string", description: String(localized: "param_audit_revert_id")),
+                    "limit": JSONSchema.JSONProperty(type: "integer", description: String(localized: "param_audit_list_limit")),
                 ],
                 required: ["subcommand"]
             )
@@ -30,7 +30,7 @@ struct ConfigTool: AgentTool {
 
     func execute(_ parameters: [String: Any]) async throws -> ToolResult {
         guard let sub = parameters["subcommand"] as? String else {
-            return ToolResult(success: false, text: L10n.l("err_missing_subcommand"))
+            return ToolResult(success: false, text: String(localized: "err_missing_subcommand"))
         }
 
         switch sub {
@@ -42,7 +42,7 @@ struct ConfigTool: AgentTool {
         case "set":          return setConfig(topic: parameters["topic"] as? String, path: parameters["path"] as? String, value: parameters["value"] as? String)
         case "add":          return addItem(topic: parameters["topic"] as? String, json: parameters["json"] as? String)
         default:
-            return ToolResult(success: false, text: String(format: L10n.l("config_unknown_subcommand"), sub))
+            return ToolResult(success: false, text: String(format: String(localized: "config_unknown_subcommand"), sub))
         }
     }
 
@@ -55,65 +55,65 @@ struct ConfigTool: AgentTool {
 
     private func denied() -> ToolResult {
         ToolResult(success: false,
-                   text: L10n.l("err_write_rejected_perm"))
+                   text: String(localized: "err_write_rejected_perm"))
     }
 
     // MARK: - 子命令实现
 
     private func listTopics() -> ToolResult {
         let lines = TOPIC_DESCRIPTIONS.map { "• \($0.key) — \($0.value)" }
-        return ToolResult(success: true, text: L10n.l("configurable_domains_header") + lines.joined(separator: "\n"))
+        return ToolResult(success: true, text: String(localized: "configurable_domains_header") + lines.joined(separator: "\n"))
     }
 
     private func topicHelp(_ topic: String?) -> ToolResult {
         guard let t = topic, let fields = TOPIC_FIELDS[t] else {
-            return ToolResult(success: false, text: L10n.l("err_unknown_topic"))
+            return ToolResult(success: false, text: String(localized: "err_unknown_topic"))
         }
         let lines = fields.map { "  - \($0.key) (\($0.type)): \($0.desc)" }
-        return ToolResult(success: true, text: String(format: L10n.l("config_domain_fields"), t) + lines.joined(separator: "\n"))
+        return ToolResult(success: true, text: String(format: String(localized: "config_domain_fields"), t) + lines.joined(separator: "\n"))
     }
 
     private func auditList(_ limit: Int?) -> ToolResult {
         let max = min(limit ?? 20, 100)
         let entries = SettingsStore.shared.auditEntries.prefix(max)
         if entries.isEmpty {
-            return ToolResult(success: true, text: L10n.l("no_audit_records"))
+            return ToolResult(success: true, text: String(localized: "no_audit_records"))
         }
         let lines = entries.map { e in
             let ts = ISO8601DateFormatter().string(from: e.timestamp)
             return "[\(e.id.uuidString.prefix(8))] \(ts) \(e.domain) — \(e.summary)"
         }
-        return ToolResult(success: true, text: String(format: L10n.l("config_recent_entries"), entries.count) + lines.joined(separator: "\n"))
+        return ToolResult(success: true, text: String(format: String(localized: "config_recent_entries"), entries.count) + lines.joined(separator: "\n"))
     }
 
     private func auditRevert(_ idStr: String?) -> ToolResult {
         guard let idStr, let id = UUID(uuidString: idStr) else {
-            return ToolResult(success: false, text: L10n.l("err_missing_audit_id"))
+            return ToolResult(success: false, text: String(localized: "err_missing_audit_id"))
         }
         let ok = SettingsStore.shared.rollback(to: id)
-        return ToolResult(success: ok, text: ok ? String(format: L10n.l("config_rollback_done"), String(id.uuidString.prefix(8))) : L10n.l("config_rollback_failed"))
+        return ToolResult(success: ok, text: ok ? String(format: String(localized: "config_rollback_done"), String(id.uuidString.prefix(8))) : String(localized: "config_rollback_failed"))
     }
 
     private func getConfig(topic: String?, path: String?) -> ToolResult {
         let (t, idStr, field) = resolvePath(topic: topic, path: path)
         guard let t else {
-            return ToolResult(success: false, text: L10n.l("err_missing_topic_path"))
+            return ToolResult(success: false, text: String(localized: "err_missing_topic_path"))
         }
         let isArray = (t == "providers" || t == "groups")
 
         // 数组域（providers / groups）
         if isArray {
             guard let arr = loadArray(topic: t) else {
-                return ToolResult(success: false, text: String(format: L10n.l("config_domain_load_failed"), t))
+                return ToolResult(success: false, text: String(format: String(localized: "config_domain_load_failed"), t))
             }
             if let idStr {
                 guard let idx = arr.firstIndex(where: { ($0["id"] as? String) == idStr }) else {
-                    return ToolResult(success: false, text: String(format: L10n.l("config_item_not_found"), idStr, t))
+                    return ToolResult(success: false, text: String(format: String(localized: "config_item_not_found"), idStr, t))
                 }
                 let item = arr[idx]
                 if let field {
                     if isSensitive(field: field) {
-                        return ToolResult(success: true, text: String(format: L10n.l("config_protected_field"), field))
+                        return ToolResult(success: true, text: String(format: String(localized: "config_protected_field"), field))
                     }
                     return ToolResult(success: true, text: "\(field): \(stringify(item[field]))")
                 }
@@ -124,11 +124,11 @@ struct ConfigTool: AgentTool {
 
         // 域级（单对象）
         guard let obj = loadDomainObject(topic: t) else {
-            return ToolResult(success: false, text: String(format: L10n.l("config_domain_not_found"), t))
+            return ToolResult(success: false, text: String(format: String(localized: "config_domain_not_found"), t))
         }
         if let field {
             if isSensitive(field: field) {
-                return ToolResult(success: true, text: String(format: L10n.l("config_protected_field"), field))
+                return ToolResult(success: true, text: String(format: String(localized: "config_protected_field"), field))
             }
             return ToolResult(success: true, text: "\(field): \(stringify(obj[field]))")
         }
@@ -139,73 +139,73 @@ struct ConfigTool: AgentTool {
         guard writeAllowed() else { return denied() }
         let (t, idStr, field) = resolvePath(topic: topic, path: path)
         guard let t, let field else {
-            return ToolResult(success: false, text: L10n.l("err_set_need_path"))
+            return ToolResult(success: false, text: String(localized: "err_set_need_path"))
         }
         guard let raw = value else {
-            return ToolResult(success: false, text: L10n.l("err_missing_value"))
+            return ToolResult(success: false, text: String(localized: "err_missing_value"))
         }
         let isArray = (t == "providers" || t == "groups")
 
         // 数组域（providers / groups）
         if isArray {
             guard let idStr else {
-                return ToolResult(success: false, text: String(format: L10n.l("config_array_set_need_id"), t, t, field))
+                return ToolResult(success: false, text: String(format: String(localized: "config_array_set_need_id"), t, t, field))
             }
             guard var arr = loadArray(topic: t) else {
-                return ToolResult(success: false, text: String(format: L10n.l("config_domain_load_failed"), t))
+                return ToolResult(success: false, text: String(format: String(localized: "config_domain_load_failed"), t))
             }
             guard let idx = arr.firstIndex(where: { ($0["id"] as? String) == idStr }) else {
-                return ToolResult(success: false, text: String(format: L10n.l("config_item_not_found"), idStr, t))
+                return ToolResult(success: false, text: String(format: String(localized: "config_item_not_found"), idStr, t))
             }
             let existing = arr[idx][field] ?? ""
             arr[idx][field] = coerce(raw: raw, existing: existing)
             guard saveArray(topic: t, arr: arr) else {
-                return ToolResult(success: false, text: String(format: L10n.l("config_save_failed"), t))
+                return ToolResult(success: false, text: String(format: String(localized: "config_save_failed"), t))
             }
-            return ToolResult(success: true, text: String(format: L10n.l("config_updated_array"), t, idStr, field))
+            return ToolResult(success: true, text: String(format: String(localized: "config_updated_array"), t, idStr, field))
         }
 
         // 域级单对象
         guard var obj = loadDomainObject(topic: t) else {
-            return ToolResult(success: false, text: String(format: L10n.l("config_domain_not_found"), t))
+            return ToolResult(success: false, text: String(format: String(localized: "config_domain_not_found"), t))
         }
         let existing = obj[field] ?? ""
         obj[field] = coerce(raw: raw, existing: existing)
         guard saveDomainObject(topic: t, dict: obj) else {
-            return ToolResult(success: false, text: String(format: L10n.l("config_save_failed"), t))
+            return ToolResult(success: false, text: String(format: String(localized: "config_save_failed"), t))
         }
-        return ToolResult(success: true, text: String(format: L10n.l("config_updated_field"), t, field))
+        return ToolResult(success: true, text: String(format: String(localized: "config_updated_field"), t, field))
     }
 
     private func addItem(topic: String?, json: String?) -> ToolResult {
         guard writeAllowed() else { return denied() }
         guard let t = topic, let json, !json.isEmpty else {
-            return ToolResult(success: false, text: L10n.l("err_add_need_topic_json"))
+            return ToolResult(success: false, text: String(localized: "err_add_need_topic_json"))
         }
         guard let data = json.data(using: .utf8),
               (try? JSONSerialization.jsonObject(with: data) as? [String: Any]) != nil else {
-            return ToolResult(success: false, text: L10n.l("err_json_parse"))
+            return ToolResult(success: false, text: String(localized: "err_json_parse"))
         }
 
         switch t {
         case "providers":
             guard let p = try? JSONDecoder().decode(LLMProvider.self, from: json.data(using: .utf8)!) else {
-                return ToolResult(success: false, text: L10n.l("err_provider_json_parse"))
+                return ToolResult(success: false, text: String(localized: "err_provider_json_parse"))
             }
             var c = ProviderFileStore.load()
             c.providers.append(p)
             ProviderFileStore.save(c)
-            return ToolResult(success: true, text: String(format: L10n.l("config_provider_added"), p.label, String(p.id.uuidString.prefix(8))))
+            return ToolResult(success: true, text: String(format: String(localized: "config_provider_added"), p.label, String(p.id.uuidString.prefix(8))))
         case "groups":
             guard let g = try? JSONDecoder().decode(ModelGroup.self, from: json.data(using: .utf8)!) else {
-                return ToolResult(success: false, text: L10n.l("err_group_json_parse"))
+                return ToolResult(success: false, text: String(localized: "err_group_json_parse"))
             }
             SettingsStore.shared.update(domain: .groups, summary: "config add group") { (groups: inout [ModelGroup]) in
                 groups.append(g)
             }
-            return ToolResult(success: true, text: String(format: L10n.l("config_group_added"), g.name, String(g.id.uuidString.prefix(8))))
+            return ToolResult(success: true, text: String(format: String(localized: "config_group_added"), g.name, String(g.id.uuidString.prefix(8))))
         default:
-            return ToolResult(success: false, text: String(format: L10n.l("config_add_not_supported"), t))
+            return ToolResult(success: false, text: String(format: String(localized: "config_add_not_supported"), t))
         }
     }
 
@@ -311,7 +311,7 @@ struct ConfigTool: AgentTool {
         if var dict = value as? [String: Any] {
             for (k, v) in dict {
                 if isSensitive(field: k) {
-                    dict[k] = L10n.l("protected_not_readable")
+                    dict[k] = String(localized: "protected_not_readable")
                 } else {
                     dict[k] = maskSensitive(v)
                 }
@@ -370,116 +370,116 @@ struct ConfigTool: AgentTool {
     // MARK: - 字段说明（spec 9.2）
 
     private let TOPIC_DESCRIPTIONS: [String: String] = [
-        "providers": L10n.l("llm_provider_instance"),
-        "groups": L10n.l("param_routing_group"),
-        "soul": L10n.l("agent_persona_soul"),
-        "envvars": L10n.l("param_shell_env"),
-        "session": L10n.l("current_session_settings"),
-        "chat": L10n.l("chat_ui_settings"),
-        "speech": L10n.l("speech_stt_tts_settings"),
-        "memory": L10n.l("memory_toggle"),
-        "browser": L10n.l("browser_settings"),
-        "appearance": L10n.l("appearance_theme"),
-        "background": L10n.l("background_task_behavior"),
-        "files": L10n.l("file_management_settings"),
-        "permissions": L10n.l("permission_switches_desc"),
-        "defaults": L10n.l("agent_loop_defaults"),
+        "providers": String(localized: "llm_provider_instance"),
+        "groups": String(localized: "param_routing_group"),
+        "soul": String(localized: "agent_persona_soul"),
+        "envvars": String(localized: "param_shell_env"),
+        "session": String(localized: "current_session_settings"),
+        "chat": String(localized: "chat_ui_settings"),
+        "speech": String(localized: "speech_stt_tts_settings"),
+        "memory": String(localized: "memory_toggle"),
+        "browser": String(localized: "browser_settings"),
+        "appearance": String(localized: "appearance_theme"),
+        "background": String(localized: "background_task_behavior"),
+        "files": String(localized: "file_management_settings"),
+        "permissions": String(localized: "permission_switches_desc"),
+        "defaults": String(localized: "agent_loop_defaults"),
     ]
 
     private let TOPIC_FIELDS: [String: [(key: String, type: String, desc: String)]] = [
         "providers": [
-            ("id", "UUID", L10n.l("param_instance_id")),
-            ("label", "string", L10n.l("user_visible_nickname")),
-            ("providerType", "enum", L10n.l("provider_types_readonly")),
-            ("credentialType", "enum", L10n.l("api_key_oauth_readonly")),
-            ("apiKey", "string", L10n.l("api_key_write_only")),
-            ("customBaseURL", "string", L10n.l("param_custom_endpoint")),
-            ("customUserAgent", "string", L10n.l("custom_user_agent")),
-            ("appendV1Suffix", "bool", L10n.l("auto_append_v1")),
+            ("id", "UUID", String(localized: "param_instance_id")),
+            ("label", "string", String(localized: "user_visible_nickname")),
+            ("providerType", "enum", String(localized: "provider_types_readonly")),
+            ("credentialType", "enum", String(localized: "api_key_oauth_readonly")),
+            ("apiKey", "string", String(localized: "api_key_write_only")),
+            ("customBaseURL", "string", String(localized: "param_custom_endpoint")),
+            ("customUserAgent", "string", String(localized: "custom_user_agent")),
+            ("appendV1Suffix", "bool", String(localized: "auto_append_v1")),
             ("imageEndpointMode", "enum", "auto/images_generations/chat_completions"),
-            ("isEnabled", "bool", L10n.l("param_use_provider_flag")),
+            ("isEnabled", "bool", String(localized: "param_use_provider_flag")),
         ],
         "groups": [
-            ("id", "UUID", L10n.l("param_group_id")),
-            ("name", "string", L10n.l("user_visible_name")),
-            ("modelIds", "[string]", L10n.l("param_associated_model_ids")),
+            ("id", "UUID", String(localized: "param_group_id")),
+            ("name", "string", String(localized: "user_visible_name")),
+            ("modelIds", "[string]", String(localized: "param_associated_model_ids")),
             ("strategy", "enum", "fallback / loadBalance"),
             ("fallbackStrategy", "enum", "limited / always"),
-            ("contextLimitTokens", "int", L10n.l("param_context_limit")),
+            ("contextLimitTokens", "int", String(localized: "param_context_limit")),
             ("defaultThinkingLevel", "enum", "off/low/medium/high/xhigh/max/ultra"),
         ],
         "soul": [
-            ("name", "string", L10n.l("agent_display_name")),
-            ("style", "string", L10n.l("param_response_style")),
+            ("name", "string", String(localized: "agent_display_name")),
+            ("style", "string", String(localized: "param_response_style")),
             ("lang", "enum", "auto / zh / en"),
-            ("body", "string", L10n.l("markdown_persona_text")),
+            ("body", "string", String(localized: "markdown_persona_text")),
         ],
         "envvars": [
-            ("key", "string", L10n.l("param_var_name")),
-            ("value", "string", L10n.l("param_write_only_value")),
-            ("isSecret", "bool", L10n.l("param_is_secret")),
-            ("privacyMode", "bool", L10n.l("param_mask_enabled")),
+            ("key", "string", String(localized: "param_var_name")),
+            ("value", "string", String(localized: "param_write_only_value")),
+            ("isSecret", "bool", String(localized: "param_is_secret")),
+            ("privacyMode", "bool", String(localized: "param_mask_enabled")),
         ],
         "session": [
-            ("autoGenerateTitle", "bool", L10n.l("auto_generate_title")),
-            ("defaultModelId", "string", L10n.l("default_model_id")),
-            ("maxContextMessages", "int", L10n.l("param_context_max_messages")),
-            ("streamResponses", "bool", L10n.l("streaming_response")),
+            ("autoGenerateTitle", "bool", String(localized: "auto_generate_title")),
+            ("defaultModelId", "string", String(localized: "default_model_id")),
+            ("maxContextMessages", "int", String(localized: "param_context_max_messages")),
+            ("streamResponses", "bool", String(localized: "streaming_response")),
         ],
         "chat": [
-            ("showThinking", "bool", L10n.l("show_thinking_process")),
+            ("showThinking", "bool", String(localized: "show_thinking_process")),
             ("codeBlockTheme", "enum", "auto/light/dark"),
-            ("enterToSend", "bool", L10n.l("enter_to_send")),
+            ("enterToSend", "bool", String(localized: "enter_to_send")),
         ],
         "speech": [
-            ("sttEnabled", "bool", L10n.l("voice_input")),
-            ("ttsEnabled", "bool", L10n.l("voice_output")),
-            ("voiceIdentifier", "string", L10n.l("voice_identifier")),
-            ("speechRate", "double", L10n.l("speech_rate")),
+            ("sttEnabled", "bool", String(localized: "voice_input")),
+            ("ttsEnabled", "bool", String(localized: "voice_output")),
+            ("voiceIdentifier", "string", String(localized: "voice_identifier")),
+            ("speechRate", "double", String(localized: "speech_rate")),
             ("preferredLanguage", "enum", "auto/zh-CN/en-US"),
         ],
         "memory": [
-            ("isEnabled", "bool", L10n.l("memory_feature_switch")),
-            ("autoSaveDaily", "bool", L10n.l("daily_memory_auto_save")),
-            ("retentionDays", "int", L10n.l("param_retention_days")),
+            ("isEnabled", "bool", String(localized: "memory_feature_switch")),
+            ("autoSaveDaily", "bool", String(localized: "daily_memory_auto_save")),
+            ("retentionDays", "int", String(localized: "param_retention_days")),
         ],
         "browser": [
-            ("maxTabs", "int", L10n.l("param_max_tabs")),
+            ("maxTabs", "int", String(localized: "param_max_tabs")),
             ("uaMode", "enum", "mobile/desktop/custom"),
-            ("userAgent", "string", L10n.l("param_custom_ua")),
-            ("blockPopups", "bool", L10n.l("block_pop_ups")),
+            ("userAgent", "string", String(localized: "param_custom_ua")),
+            ("blockPopups", "bool", String(localized: "block_pop_ups")),
         ],
         "appearance": [
             ("colorSchemeRaw", "enum", "system/dark/light"),
-            ("useLargeText", "bool", L10n.l("large_text")),
-            ("accentColorRaw", "string", L10n.l("accent_color")),
+            ("useLargeText", "bool", String(localized: "large_text")),
+            ("accentColorRaw", "string", String(localized: "accent_color")),
         ],
         "background": [
-            ("backgroundRun", "bool", L10n.l("background_run")),
-            ("liveActivity", "bool", L10n.l("live_activity")),
-            ("notifications", "bool", L10n.l("notifications")),
+            ("backgroundRun", "bool", String(localized: "background_run")),
+            ("liveActivity", "bool", String(localized: "live_activity")),
+            ("notifications", "bool", String(localized: "notifications")),
         ],
         "files": [
-            ("defaultWorkspace", "string", L10n.l("default_workspace_directory_name")),
-            ("autoOffloadThresholdKB", "int", L10n.l("param_offload_threshold")),
-            ("cleanupAttachmentsDays", "int", L10n.l("param_attachment_cleanup_days")),
+            ("defaultWorkspace", "string", String(localized: "default_workspace_directory_name")),
+            ("autoOffloadThresholdKB", "int", String(localized: "param_offload_threshold")),
+            ("cleanupAttachmentsDays", "int", String(localized: "param_attachment_cleanup_days")),
         ],
         "permissions": [
-            ("miniclawConfigWrite", "bool", L10n.l("allow_config_write")),
-            ("location", "enum", L10n.l("location_permission")),
-            ("microphone", "enum", L10n.l("microphone_permission")),
-            ("speechRecognition", "enum", L10n.l("speech_recognition_permission")),
-            ("photoLibrary", "enum", L10n.l("photo_library_permission")),
-            ("calendar", "enum", L10n.l("calendar_permission")),
-            ("reminders", "enum", L10n.l("reminder_permission")),
-            ("healthKit", "enum", L10n.l("health_permission")),
-            ("homeKit", "enum", L10n.l("homekit_permission")),
-            ("localNetwork", "enum", L10n.l("local_network_permission")),
+            ("miniclawConfigWrite", "bool", String(localized: "allow_config_write")),
+            ("location", "enum", String(localized: "location_permission")),
+            ("microphone", "enum", String(localized: "microphone_permission")),
+            ("speechRecognition", "enum", String(localized: "speech_recognition_permission")),
+            ("photoLibrary", "enum", String(localized: "photo_library_permission")),
+            ("calendar", "enum", String(localized: "calendar_permission")),
+            ("reminders", "enum", String(localized: "reminder_permission")),
+            ("healthKit", "enum", String(localized: "health_permission")),
+            ("homeKit", "enum", String(localized: "homekit_permission")),
+            ("localNetwork", "enum", String(localized: "local_network_permission")),
         ],
         "defaults": [
-            ("defaultAgentName", "string", L10n.l("default_agent_name")),
+            ("defaultAgentName", "string", String(localized: "default_agent_name")),
             ("defaultLanguage", "enum", "auto/zh-CN/en-US"),
-            ("confirmBeforeToolCall", "bool", L10n.l("confirm_before_tool_calls")),
+            ("confirmBeforeToolCall", "bool", String(localized: "confirm_before_tool_calls")),
         ],
     ]
 }

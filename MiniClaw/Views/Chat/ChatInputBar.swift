@@ -180,23 +180,23 @@ struct ChatInputBar: View {
                 performMicPermissionRequest()
             }
         }
-        .alert(L10n.l("permission_required"), isPresented: $speechVM.showPermissionAlert) {
-            Button(L10n.l("go_to_settings")) {
+        .alert(String(localized: "permission_required"), isPresented: $speechVM.showPermissionAlert) {
+            Button(String(localized: "go_to_settings")) {
                 // 跳转到 App 内「权限与后台」页（该页的麦克风/语音识别开关可由 App 内正常申请权限，
                 // 不会像聊天输入栏的手势上下文那样触发系统 TCC 回调崩溃）。
                 appState.showSettings = true
                 appState.settingsDeepLink = "permissions"
             }
-            Button(L10n.l("cancel"), role: .cancel) {
+            Button(String(localized: "cancel"), role: .cancel) {
                 collapseVoiceToText()
             }
         } message: { Text(speechVM.permissionAlertMessage) }
         // 三选项弹窗：附件 / 拍照 / 图片或视频
-        .confirmationDialog(L10n.l("add_attachment"), isPresented: $showSourcePicker, titleVisibility: .visible) {
-            Button(L10n.l("attachments")) { activeSource = .document }
-            Button(L10n.l("take_photo")) { activeSource = .camera }
-            Button(L10n.l("image_or_video")) { activeSource = .photoVideo }
-            Button(L10n.l("cancel"), role: .cancel) { }
+        .confirmationDialog(String(localized: "add_attachment"), isPresented: $showSourcePicker, titleVisibility: .visible) {
+            Button(String(localized: "attachments")) { activeSource = .document }
+            Button(String(localized: "take_photo")) { activeSource = .camera }
+            Button(String(localized: "image_or_video")) { activeSource = .photoVideo }
+            Button(String(localized: "cancel"), role: .cancel) { }
         }
         // 拉起对应的系统选择器
         .sheet(item: $activeSource) { source in
@@ -279,13 +279,13 @@ struct ChatInputBar: View {
         let thinkingCommand: SlashCommandItem
         if thinkingSupported {
             let levels = thinkingLevels.isEmpty
-                ? [("low", L10n.l("level_low")), ("medium", L10n.l("level_medium")), ("high", L10n.l("high"))]
+                ? [("low", String(localized: "level_low")), ("medium", String(localized: "level_medium")), ("high", String(localized: "high"))]
                 : thinkingLevels
             thinkingCommand = SlashCommandItem(
                 id: "thinking",
                 icon: "wand.and.sparkles",
                 title: "/thinking",
-                subtitle: thinkingSelectedLevel == "off" ? L10n.l("deep_thinking_off") : L10n.l("deep_thinking_enabled"),
+                subtitle: thinkingSelectedLevel == "off" ? String(localized: "deep_thinking_off") : String(localized: "deep_thinking_enabled"),
                 kind: .thinkingPicker(selectedLevel: thinkingSelectedLevel, levels: levels),
                 thinkingLevel: nil  // 由 row 内 pill 点击设置
             )
@@ -294,8 +294,8 @@ struct ChatInputBar: View {
                 id: "thinking",
                 icon: "wand.and.sparkles",
                 title: "/thinking",
-                subtitle: L10n.l("current_model_not_supported"),
-                kind: .disabled(L10n.l("current_model_not_supported"))
+                subtitle: String(localized: "current_model_not_supported"),
+                kind: .disabled(String(localized: "current_model_not_supported"))
             )
         }
         let base = SlashCommandOverlay.defaultCommands.map { $0.id == "thinking" ? thinkingCommand : $0 }
@@ -438,11 +438,11 @@ struct ChatInputBar: View {
 
     private var textFieldPlaceholder: String {
         if isAgentResponding && !isPaused {
-            return L10n.l("the_agent_is_replying_you_can_keep_typing_to_queue_more_messages")
+            return String(localized: "the_agent_is_replying_you_can_keep_typing_to_queue_more_messages")
         } else if isPaused {
-            return L10n.l("paused_type_a_message_and_tap_send_to_join_the_queue")
+            return String(localized: "paused_type_a_message_and_tap_send_to_join_the_queue")
         } else {
-            return L10n.l("type_a_message")
+            return String(localized: "type_a_message")
         }
     }
 
@@ -610,7 +610,7 @@ struct ChatInputBar: View {
                 if isFinal {
                     vm.canSend = !vm.recognizedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                     if !spoken.isEmpty {
-                        vm.statusMessage = L10n.l("recognition_complete_tap_send_to_send")
+                        vm.statusMessage = String(localized: "recognition_complete_tap_send_to_send")
                     }
                 }
             }
@@ -627,9 +627,9 @@ struct ChatInputBar: View {
                 guard let vm = speechVM else { return }
                 vm.isRecording = recording
                 if recording {
-                    vm.statusMessage = L10n.l("listening_release_to_finish")
+                    vm.statusMessage = String(localized: "listening_release_to_finish")
                 } else if vm.recognizedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    vm.statusMessage = L10n.l("hold_the_microphone_to_start_speaking")
+                    vm.statusMessage = String(localized: "hold_the_microphone_to_start_speaking")
                 }
             }
         }
@@ -786,7 +786,7 @@ struct ChatInputBar: View {
                 }
             }
             ScrollView {
-                Text(speechVM.recognizedText.isEmpty ? L10n.l("recognized_text_will_appear_here") : speechVM.recognizedText)
+                Text(speechVM.recognizedText.isEmpty ? String(localized: "recognized_text_will_appear_here") : speechVM.recognizedText)
                     .font(.body)
                     .foregroundStyle(speechVM.recognizedText.isEmpty ? .secondary : .primary)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -887,7 +887,7 @@ struct ChatInputBar: View {
                 if speechStatus == .authorized {
                     self.startRecordingOnMainQueue(controller)
                 } else {
-                    vm.permissionAlertMessage = L10n.l("miniclaw_needs_speech_recognition_permission_to_transcribe_your_voice_n_ntap_go_to_settings_below_enable_speech_recognition_in_app_settings_permissions_background_then_return")
+                    vm.permissionAlertMessage = String(localized: "miniclaw_needs_speech_recognition_permission_to_transcribe_your_voice_n_ntap_go_to_settings_below_enable_speech_recognition_in_app_settings_permissions_background_then_return")
                     vm.showPermissionAlert = true
                 }
             }
@@ -897,14 +897,14 @@ struct ChatInputBar: View {
         case .granted:
             proceedToSpeech()
         case .denied:
-            vm.permissionAlertMessage = L10n.l("miniclaw_was_denied_microphone_access_n_ntap_go_to_settings_below_enable_microphone_in_app_settings_permissions_background_microphone_then_return")
+            vm.permissionAlertMessage = String(localized: "miniclaw_was_denied_microphone_access_n_ntap_go_to_settings_below_enable_microphone_in_app_settings_permissions_background_microphone_then_return")
             vm.showPermissionAlert = true
         case .undetermined:
             // 未决定：引导用户去 App 内「权限与后台」页点麦克风开关申请（那里能正常弹系统授权框）。
-            vm.permissionAlertMessage = L10n.l("miniclaw_needs_microphone_access_for_voice_input_n_ntap_go_to_settings_below_enable_microphone_in_app_settings_permissions_background_microphone_then_return")
+            vm.permissionAlertMessage = String(localized: "miniclaw_needs_microphone_access_for_voice_input_n_ntap_go_to_settings_below_enable_microphone_in_app_settings_permissions_background_microphone_then_return")
             vm.showPermissionAlert = true
         @unknown default:
-            vm.permissionAlertMessage = L10n.l("could_not_determine_microphone_permission_status_check_app_settings_permissions_background")
+            vm.permissionAlertMessage = String(localized: "could_not_determine_microphone_permission_status_check_app_settings_permissions_background")
             vm.showPermissionAlert = true
         }
     }

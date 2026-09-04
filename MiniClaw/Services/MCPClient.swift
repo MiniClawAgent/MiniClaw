@@ -122,7 +122,7 @@ actor RemoteMCPClient {
             let result = try await rpc(method: "tools/list", params: .object(params))
             guard let object = result.objectValue,
                   case .array(let rawTools)? = object["tools"] else {
-                throw MCPClientError.invalidResponse(L10n.l("mcp_tools_list_missing"))
+                throw MCPClientError.invalidResponse(String(localized: "mcp_tools_list_missing"))
             }
             tools.append(contentsOf: try rawTools.map(decodeTool))
             guard let next = object["nextCursor"]?.stringValue, !next.isEmpty else { return tools }
@@ -139,7 +139,7 @@ actor RemoteMCPClient {
             params: .object(["name": .string(name), "arguments": .object(arguments)])
         )
         guard let object = result.objectValue else {
-            throw MCPClientError.invalidResponse(L10n.l("mcp_tools_call_not_object"))
+            throw MCPClientError.invalidResponse(String(localized: "mcp_tools_call_not_object"))
         }
         let isError: Bool
         if case .bool(let value)? = object["isError"] { isError = value } else { isError = false }
@@ -183,10 +183,10 @@ actor RemoteMCPClient {
         let responseData = try await send(request)
         let response = try decodeResponse(responseData)
         guard response.jsonrpc == "2.0", case .number(let responseID)? = response.id, Int(exactly: responseID) == id else {
-            throw MCPClientError.invalidResponse(L10n.l("mcp_jsonrpc_id_mismatch"))
+            throw MCPClientError.invalidResponse(String(localized: "mcp_jsonrpc_id_mismatch"))
         }
         if let error = response.error { throw MCPClientError.rpc(code: error.code, message: error.message) }
-        guard let result = response.result else { throw MCPClientError.invalidResponse(L10n.l("mcp_jsonrpc_missing_result")) }
+        guard let result = response.result else { throw MCPClientError.invalidResponse(String(localized: "mcp_jsonrpc_missing_result")) }
         return result
     }
 
@@ -206,7 +206,7 @@ actor RemoteMCPClient {
         case .legacySSE:
             return try await legacySend(message, endpoint: configuredURL, expectsResponse: expectsResponse)
         case .stdio:
-            throw MCPClientError.unsupported(L10n.l("mcp_remote_http_only"))
+            throw MCPClientError.unsupported(String(localized: "mcp_remote_http_only"))
         case .auto:
             if autoSelectedLegacy {
                 return try await legacySend(message, endpoint: configuredURL, expectsResponse: expectsResponse)
@@ -249,7 +249,7 @@ actor RemoteMCPClient {
         do {
             let (data, response) = try await session.data(for: request)
             guard let http = response as? HTTPURLResponse else {
-                throw MCPClientError.invalidResponse(L10n.l("mcp_response_not_http"))
+                throw MCPClientError.invalidResponse(String(localized: "mcp_response_not_http"))
             }
             if let value = http.value(forHTTPHeaderField: "Mcp-Session-Id"), !value.isEmpty { sessionID = value }
             if http.statusCode != 200 {
@@ -297,7 +297,7 @@ actor RemoteMCPClient {
         }
         guard let http = response as? HTTPURLResponse else {
             if let requestID { cancelLegacyResponse(requestID: requestID) }
-            throw MCPClientError.invalidResponse(L10n.l("mcp_legacy_post_not_http"))
+            throw MCPClientError.invalidResponse(String(localized: "mcp_legacy_post_not_http"))
         }
         guard (200..<300).contains(http.statusCode) else {
             if let requestID { cancelLegacyResponse(requestID: requestID) }
@@ -374,7 +374,7 @@ actor RemoteMCPClient {
 
     private func timeoutLegacyEndpoint(waiterID: UUID) {
         legacyEndpointWaiters.removeValue(forKey: waiterID)?.resume(
-            throwing: MCPClientError.transport(L10n.l("mcp_legacy_sse_endpoint_timeout"))
+            throwing: MCPClientError.transport(String(localized: "mcp_legacy_sse_endpoint_timeout"))
         )
     }
 
@@ -391,10 +391,10 @@ actor RemoteMCPClient {
             if let bearerToken, !bearerToken.isEmpty { request.setValue("Bearer \(bearerToken)", forHTTPHeaderField: "Authorization") }
             applyCustomHeaders(to: &request)
             let (bytes, response) = try await streamingSession.bytes(for: request)
-            guard let http = response as? HTTPURLResponse else { throw MCPClientError.invalidResponse(L10n.l("mcp_legacy_sse_not_http")) }
-            guard (200..<300).contains(http.statusCode) else { throw MCPClientError.httpStatus(http.statusCode, L10n.l("mcp_legacy_sse_conn_failed")) }
+            guard let http = response as? HTTPURLResponse else { throw MCPClientError.invalidResponse(String(localized: "mcp_legacy_sse_not_http")) }
+            guard (200..<300).contains(http.statusCode) else { throw MCPClientError.httpStatus(http.statusCode, String(localized: "mcp_legacy_sse_conn_failed")) }
             guard http.value(forHTTPHeaderField: "Content-Type")?.lowercased().contains("text/event-stream") == true else {
-                throw MCPClientError.invalidResponse(L10n.l("mcp_legacy_sse_not_event_stream"))
+                throw MCPClientError.invalidResponse(String(localized: "mcp_legacy_sse_not_event_stream"))
             }
 
             var eventName: String?
@@ -410,7 +410,7 @@ actor RemoteMCPClient {
                     dataLines.append(String(line.dropFirst(5)).trimmingCharacters(in: .whitespaces))
                 }
             }
-            throw MCPClientError.transport(L10n.l("mcp_legacy_sse_closed"))
+            throw MCPClientError.transport(String(localized: "mcp_legacy_sse_closed"))
         } catch {
             failLegacyStream(error)
         }
@@ -423,7 +423,7 @@ actor RemoteMCPClient {
             guard let resolved = URL(string: data.trimmingCharacters(in: .whitespacesAndNewlines), relativeTo: baseURL)?.absoluteURL,
                   Self.isSameOrigin(resolved, baseURL),
                   resolved.user == nil, resolved.password == nil, resolved.fragment == nil else {
-                throw MCPClientError.invalidResponse(L10n.l("mcp_legacy_sse_origin_mismatch"))
+                throw MCPClientError.invalidResponse(String(localized: "mcp_legacy_sse_origin_mismatch"))
             }
             legacyMessageEndpoint = resolved
             let waiters = legacyEndpointWaiters.values
@@ -474,7 +474,7 @@ actor RemoteMCPClient {
 
     private func decodeResponse(_ data: Data) throws -> MCPJSONRPCResponse {
         do { return try JSONDecoder().decode(MCPJSONRPCResponse.self, from: data) }
-        catch { throw MCPClientError.invalidResponse(String(format: L10n.l("mcp_parse_failed"), error.localizedDescription)) }
+        catch { throw MCPClientError.invalidResponse(String(format: String(localized: "mcp_parse_failed"), error.localizedDescription)) }
     }
 
     private func decodeTool(_ value: MCPJSONValue) throws -> MCPRemoteToolDefinition {
@@ -494,7 +494,7 @@ actor RemoteMCPClient {
             }
         }
         if let structuredContent, pieces.isEmpty { pieces.append(structuredContent.jsonString(pretty: true)) }
-        return pieces.isEmpty ? L10n.l("mcp_no_text_content") : pieces.joined(separator: "\n")
+        return pieces.isEmpty ? String(localized: "mcp_no_text_content") : pieces.joined(separator: "\n")
     }
 
     private static func extractJSON(from data: Data, contentType: String?, requestID: Int?) throws -> Data {
@@ -512,10 +512,10 @@ actor RemoteMCPClient {
                           Int(exactly: numericID) == requestID else { continue }
                     return payload
                 }
-                throw MCPClientError.invalidResponse(L10n.l("mcp_sse_missing_request_id"))
+                throw MCPClientError.invalidResponse(String(localized: "mcp_sse_missing_request_id"))
             }
             guard let payload = payloads.last else {
-                throw MCPClientError.invalidResponse(L10n.l("mcp_sse_missing_data"))
+                throw MCPClientError.invalidResponse(String(localized: "mcp_sse_missing_data"))
             }
             return payload
         }

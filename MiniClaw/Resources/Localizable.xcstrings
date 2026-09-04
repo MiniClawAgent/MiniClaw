@@ -8505,35 +8505,6 @@
         }
       }
     },
-    "change_the_interface_display_language_applies_immediately": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Change the interface display language. Applies immediately."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "インターフェースの表示言語を変更します。すぐに適用されます。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "인터페이스 표시 언어를 변경합니다. 즉시 적용됩니다."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "更改界面显示语言，立即生效。"
-          }
-        }
-      }
-    },
     "characters_1_d_2_d": {
       "extractionState": "manual",
       "localizations": {
@@ -26800,35 +26771,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "密钥未添加"
-          }
-        }
-      }
-    },
-    "language": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Language"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "言語"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "언어"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "语言"
           }
         }
       }

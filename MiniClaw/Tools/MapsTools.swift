@@ -44,26 +44,26 @@ struct AppleMapsTool: AgentTool {
         type: "function",
         function: ToolSchema.FunctionDef(
             name: "apple-maps",
-            description: L10n.l("maps_tool_desc"),
+            description: String(localized: "maps_tool_desc"),
             parameters: JSONSchema(
                 type: "object",
                 properties: [
                     "action": JSONSchema.JSONProperty(
                         type: "string",
-                        description: L10n.l("op_map_actions"),
+                        description: String(localized: "op_map_actions"),
                         enum: ["search_poi", "route", "eta"]
                     ),
-                    "query": JSONSchema.JSONProperty(type: "string", description: L10n.l("poi_search_keyword")),
-                    "near": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_map_center")),
-                    "radius": JSONSchema.JSONProperty(type: "integer", description: L10n.l("param_search_radius")),
-                    "from": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_origin")),
-                    "to": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_destination")),
+                    "query": JSONSchema.JSONProperty(type: "string", description: String(localized: "poi_search_keyword")),
+                    "near": JSONSchema.JSONProperty(type: "string", description: String(localized: "param_map_center")),
+                    "radius": JSONSchema.JSONProperty(type: "integer", description: String(localized: "param_search_radius")),
+                    "from": JSONSchema.JSONProperty(type: "string", description: String(localized: "param_origin")),
+                    "to": JSONSchema.JSONProperty(type: "string", description: String(localized: "param_destination")),
                     "transport_type": JSONSchema.JSONProperty(
                         type: "string",
-                        description: L10n.l("param_transit_mode"),
+                        description: String(localized: "param_transit_mode"),
                         enum: ["driving", "walking", "transit"]
                     ),
-                    "limit": JSONSchema.JSONProperty(type: "integer", description: L10n.l("param_result_limit")),
+                    "limit": JSONSchema.JSONProperty(type: "integer", description: String(localized: "param_result_limit")),
                 ],
                 required: ["action"]
             )
@@ -72,13 +72,13 @@ struct AppleMapsTool: AgentTool {
 
     func execute(_ parameters: [String: Any]) async throws -> ToolResult {
         guard let action = parameters["action"] as? String else {
-            throw ToolError.invalidParameters(L10n.l("err_missing_action"))
+            throw ToolError.invalidParameters(String(localized: "err_missing_action"))
         }
 
         switch action {
         case "search_poi":
             guard let query = Self.string(parameters["query"]), !query.isEmpty else {
-                return ToolResult(success: false, text: L10n.l("maps_need_query"))
+                return ToolResult(success: false, text: String(localized: "maps_need_query"))
             }
             let outcome = await MapsBridge.searchPOI(query: query,
                                                     near: Self.string(parameters["near"]),
@@ -89,7 +89,7 @@ struct AppleMapsTool: AgentTool {
         case "route", "eta":
             guard let from = Self.string(parameters["from"]), !from.isEmpty,
                   let to = Self.string(parameters["to"]), !to.isEmpty else {
-                return ToolResult(success: false, text: L10n.l("maps_need_from_to"))
+                return ToolResult(success: false, text: String(localized: "maps_need_from_to"))
             }
             let outcome = action == "route"
                 ? await MapsBridge.route(from: from, to: to, mode: Self.string(parameters["transport_type"]))
@@ -97,7 +97,7 @@ struct AppleMapsTool: AgentTool {
             return ToolResult(success: outcome.success, text: outcome.text)
 
         default:
-            return ToolResult(success: false, text: L10n.l("maps_unknown_action") + action)
+            return ToolResult(success: false, text: String(localized: "maps_unknown_action") + action)
         }
     }
 }
@@ -135,7 +135,7 @@ private enum MapsBridge {
         request.naturalLanguageQuery = query
         if let near {
             guard let center = await resolve(near) else {
-                return .fail(L10n.l("maps_resolve_failed") + near)
+                return .fail(String(localized: "maps_resolve_failed") + near)
             }
             let meters = max(radius ?? 1000, 100)
             request.region = MKCoordinateRegion(center: center.coordinate,
@@ -152,7 +152,7 @@ private enum MapsBridge {
 
     static func route(from: String, to: String, mode: String?) async -> MapOutcome {
         guard let source = await resolve(from), let destination = await resolve(to) else {
-            return .fail(L10n.l("maps_resolve_failed") + "\(from) / \(to)")
+            return .fail(String(localized: "maps_resolve_failed") + "\(from) / \(to)")
         }
         let request = MKDirections.Request()
         request.source = mapItem(for: source)
@@ -172,7 +172,7 @@ private enum MapsBridge {
     /// ETA 是路线计算的轻量版：只要时间与距离，不拉分段步骤。
     static func eta(from: String, to: String, mode: String?) async -> MapOutcome {
         guard let source = await resolve(from), let destination = await resolve(to) else {
-            return .fail(L10n.l("maps_resolve_failed") + "\(from) / \(to)")
+            return .fail(String(localized: "maps_resolve_failed") + "\(from) / \(to)")
         }
         let request = MKDirections.Request()
         request.source = mapItem(for: source)
@@ -235,12 +235,12 @@ private enum MapsBridge {
     nonisolated private static func renderPOI(_ response: MKLocalSearch.Response?,
                                               error: Error?,
                                               limit: Int?) -> MapOutcome {
-        if let error { return .fail(L10n.l("maps_failed") + error.localizedDescription) }
-        guard let items = response?.mapItems, !items.isEmpty else { return .ok(L10n.l("maps_no_results")) }
+        if let error { return .fail(String(localized: "maps_failed") + error.localizedDescription) }
+        guard let items = response?.mapItems, !items.isEmpty else { return .ok(String(localized: "maps_no_results")) }
         let shown = Array(items.prefix(max(limit ?? 10, 1)))
-        var lines: [String] = [L10n.l("maps_search_header") + "\(shown.count)/\(items.count)"]
+        var lines: [String] = [String(localized: "maps_search_header") + "\(shown.count)/\(items.count)"]
         for item in shown {
-            var parts = ["- " + (item.name ?? L10n.l("unknown"))]
+            var parts = ["- " + (item.name ?? String(localized: "unknown"))]
             if let address = item.placemark.title, !address.isEmpty, address != item.name {
                 parts.append(address)
             }
@@ -256,17 +256,17 @@ private enum MapsBridge {
                                                 error: Error?,
                                                 sourceName: String,
                                                 destinationName: String) -> MapOutcome {
-        if let error { return .fail(L10n.l("maps_failed") + error.localizedDescription) }
-        guard let route = response?.routes.first else { return .ok(L10n.l("maps_no_results")) }
+        if let error { return .fail(String(localized: "maps_failed") + error.localizedDescription) }
+        guard let route = response?.routes.first else { return .ok(String(localized: "maps_no_results")) }
         var lines: [String] = [
-            L10n.l("maps_route_header") + sourceName + " → " + destinationName,
-            L10n.l("maps_distance_label") + distance(route.distance),
-            L10n.l("maps_duration_label") + duration(route.expectedTravelTime),
+            String(localized: "maps_route_header") + sourceName + " → " + destinationName,
+            String(localized: "maps_distance_label") + distance(route.distance),
+            String(localized: "maps_duration_label") + duration(route.expectedTravelTime),
         ]
         // 步骤可能上百条（长路线），只给前 10 段，够模型回答「怎么走」又不灌爆上下文
         let steps = Array(route.steps.prefix(10))
         if !steps.isEmpty {
-            lines.append(L10n.l("maps_steps_header"))
+            lines.append(String(localized: "maps_steps_header"))
             for step in steps {
                 if step.instructions.isEmpty { continue }
                 lines.append("- " + step.instructions + " (" + distance(step.distance) + ")")
@@ -279,23 +279,23 @@ private enum MapsBridge {
                                               error: Error?,
                                               sourceName: String,
                                               destinationName: String) -> MapOutcome {
-        if let error { return .fail(L10n.l("maps_failed") + error.localizedDescription) }
-        guard let eta = response else { return .ok(L10n.l("maps_no_results")) }
+        if let error { return .fail(String(localized: "maps_failed") + error.localizedDescription) }
+        guard let eta = response else { return .ok(String(localized: "maps_no_results")) }
         return .ok([
-            L10n.l("maps_eta_header") + sourceName + " → " + destinationName,
-            L10n.l("maps_duration_label") + duration(eta.expectedTravelTime),
-            L10n.l("maps_distance_label") + distance(eta.distance),
+            String(localized: "maps_eta_header") + sourceName + " → " + destinationName,
+            String(localized: "maps_duration_label") + duration(eta.expectedTravelTime),
+            String(localized: "maps_distance_label") + distance(eta.distance),
         ].joined(separator: "\n"))
     }
 
     nonisolated private static func distance(_ meters: CLLocationDistance) -> String {
-        if meters < 1000 { return String(format: "%.0f", meters) + L10n.l("unit_meters") }
-        return String(format: "%.1f", meters / 1000) + L10n.l("unit_kilometers")
+        if meters < 1000 { return String(format: "%.0f", meters) + String(localized: "unit_meters") }
+        return String(format: "%.1f", meters / 1000) + String(localized: "unit_kilometers")
     }
 
     nonisolated private static func duration(_ seconds: TimeInterval) -> String {
         let total = Int(seconds / 60)
-        if total < 60 { return "\(max(total, 1))" + L10n.l("unit_minutes") }
-        return "\(total / 60)" + L10n.l("unit_hours") + "\(total % 60)" + L10n.l("unit_minutes")
+        if total < 60 { return "\(max(total, 1))" + String(localized: "unit_minutes") }
+        return "\(total / 60)" + String(localized: "unit_hours") + "\(total % 60)" + String(localized: "unit_minutes")
     }
 }

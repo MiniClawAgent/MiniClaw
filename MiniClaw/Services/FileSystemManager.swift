@@ -368,6 +368,15 @@ final class FileSystemManager: @unchecked Sendable {
     /// 默认语言目录：当前语言无覆盖文件时回退（对齐旧 syncBundledRules 的"非 en 用中文默认"语义）。
     private static let ruleDefaultLanguageDir = "zh-Hans"
 
+    /// 当前系统语言码（ja / ko / zh-Hans / en），供 rule/soul 插件语言目录取用。
+    private var systemLanguageCode: String {
+        let pref = Locale.preferredLanguages.first ?? "en"
+        if pref.hasPrefix("ja") { return "ja" }
+        if pref.hasPrefix("ko") { return "ko" }
+        if pref.hasPrefix("zh") { return "zh-Hans" }
+        return "en"
+    }
+
     /// 返回所有**已启用 rule 插件**中、当前语言下应注入的 Markdown，按路径稳定排序。
     /// - 插件形态：plugins/rule/<id>/{plugin.json[type=rule], ...}；
     ///   插件内**无语言子目录** → 全部 .md 直接生效；
@@ -379,7 +388,7 @@ final class FileSystemManager: @unchecked Sendable {
         let pluginDirs = ((try? fileManager.contentsOfDirectory(
             at: typeDir, includingPropertiesForKeys: [.isDirectoryKey])) ?? [])
             .filter { $0.hasDirectoryPath }
-        let currentLang = L10n.shared.current.tableCode
+        let currentLang = systemLanguageCode
         var result: [URL] = []
         for pluginDir in pluginDirs {
             guard let manifestData = try? Data(contentsOf: pluginDir.appendingPathComponent("plugin.json")),
@@ -441,7 +450,7 @@ final class FileSystemManager: @unchecked Sendable {
                 rootFile = url
             }
         }
-        let currentLang = L10n.shared.current.tableCode
+        let currentLang = systemLanguageCode
         guard let source = byLang[currentLang] ?? byLang[Self.ruleDefaultLanguageDir] ?? rootFile else { return }
         let dest = memoryDir.appendingPathComponent("SOUL.md")
         try? fileManager.removeItem(at: dest)
@@ -494,13 +503,13 @@ final class FileSystemManager: @unchecked Sendable {
         let content = try String(contentsOf: url, encoding: .utf8)
         let lines = content.components(separatedBy: "\n")
         if let tail {
-            guard tail >= 0 else { throw FileError.invalidRange(L10n.l("err_tail_negative")) }
+            guard tail >= 0 else { throw FileError.invalidRange(String(localized: "err_tail_negative")) }
             return lines.suffix(tail).joined(separator: "\n")
         }
 
         let start = offset ?? 0
-        guard start >= 0 else { throw FileError.invalidRange(L10n.l("err_offset_negative")) }
-        if let limit, limit < 0 { throw FileError.invalidRange(L10n.l("err_limit_negative")) }
+        guard start >= 0 else { throw FileError.invalidRange(String(localized: "err_offset_negative")) }
+        if let limit, limit < 0 { throw FileError.invalidRange(String(localized: "err_limit_negative")) }
         guard start < lines.count else { return "" }
         let end = limit.map { min(start + $0, lines.count) } ?? lines.count
         return lines[start..<end].joined(separator: "\n")
@@ -666,7 +675,7 @@ final class FileSystemManager: @unchecked Sendable {
                 actor: .shellAutomatic,
                 sessionID: sessionID
             )
-            return String(format: L10n.l("fs_offload_notice"), output.utf8.count, filename)
+            return String(format: String(localized: "fs_offload_notice"), output.utf8.count, filename)
         } catch {
             return output
         }

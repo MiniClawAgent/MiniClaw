@@ -28,9 +28,9 @@ enum SubagentLifecycle {
         BrowserContextManager.shared.destroy(sessionID: subagentID)
 
         if existed {
-            return (true, String(format: L10n.l("subagent_closed_msg"), subagentID.uuidString))
+            return (true, String(format: String(localized: "subagent_closed_msg"), subagentID.uuidString))
         } else {
-            return (false, String(format: L10n.l("subagent_already_closed"), subagentID.uuidString))
+            return (false, String(format: String(localized: "subagent_already_closed"), subagentID.uuidString))
         }
     }
 }

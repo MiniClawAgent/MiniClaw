@@ -74,13 +74,13 @@ final class ToolLoopBreaker {
         buckets[fp] = bucket
 
         if bucket.pollCount >= config.pollRepeatCritical {
-            return .break(reason: String(format: L10n.l("loopbreak_poll"), toolName, bucket.pollCount))
+            return .break(reason: String(format: String(localized: "loopbreak_poll"), toolName, bucket.pollCount))
         }
         if bucket.genericCount >= config.genericRepeatCritical {
-            return .break(reason: String(format: L10n.l("loopbreak_generic_break"), toolName, bucket.genericCount))
+            return .break(reason: String(format: String(localized: "loopbreak_generic_break"), toolName, bucket.genericCount))
         }
         if bucket.genericCount == config.genericRepeatWarn {
-            return .warn(reason: String(format: L10n.l("loopbreak_warn"), toolName, bucket.genericCount))
+            return .warn(reason: String(format: String(localized: "loopbreak_warn"), toolName, bucket.genericCount))
         }
         return .none
     }

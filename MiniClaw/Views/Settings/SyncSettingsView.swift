@@ -14,9 +14,9 @@ struct SyncSettingsView: View {
     var body: some View {
         List {
             Section {
-                Toggle(L10n.l("icloud_sync"), isOn: $iCloudEnabled)
+                Toggle(String(localized: "icloud_sync"), isOn: $iCloudEnabled)
                     .onChange(of: iCloudEnabled) { newValue in
-                        SettingsStore.shared.update(domain: .sync, summary: L10n.l("modify_sync_settings")) { (config: inout SyncConfig) in
+                        SettingsStore.shared.update(domain: .sync, summary: String(localized: "modify_sync_settings")) { (config: inout SyncConfig) in
                             config.iCloudEnabled = newValue
                         }
                         if newValue {
@@ -27,18 +27,18 @@ struct SyncSettingsView: View {
                         }
                     }
                 if iCloudEnabled {
-                    Toggle(L10n.l("auto_sync"), isOn: $autoSync)
+                    Toggle(String(localized: "auto_sync"), isOn: $autoSync)
                 }
             } footer: {
-                Text(L10n.l("when_enabled_session_data_configuration_and_skills_will_sync_across_devices_via_icloud"))
+                Text(String(localized: "when_enabled_session_data_configuration_and_skills_will_sync_across_devices_via_icloud"))
             }
 
             if iCloudEnabled {
                 // 账号状态
                 if !accountStatus.isEmpty {
-                    Section(L10n.l("account_status")) {
+                    Section(String(localized: "account_status")) {
                         HStack {
-                            Text(L10n.l("icloud_account"))
+                            Text(String(localized: "icloud_account"))
                             Spacer()
                             Text(accountStatus)
                                 .foregroundStyle(.secondary)
@@ -47,41 +47,41 @@ struct SyncSettingsView: View {
                 }
 
                 // 同步内容
-                Section(L10n.l("sync_contents")) {
-                    SyncContentRow(icon: "bubble.left.and.bubble.right.fill", title: L10n.l("chat_history"))
-                    SyncContentRow(icon: "server.rack", title: L10n.l("provider_config"))
-                    SyncContentRow(icon: "square.stack.3d.up.fill", title: L10n.l("model_group"))
-                    SyncContentRow(icon: "puzzlepiece.extension.fill", title: L10n.l("skills"))
-                    SyncContentRow(icon: "key.fill", title: L10n.l("env_vars"))
-                    SyncContentRow(icon: "cat.fill", title: L10n.l("sync_soul"))
-                    SyncContentRow(icon: "brain.fill", title: L10n.l("memory"))
+                Section(String(localized: "sync_contents")) {
+                    SyncContentRow(icon: "bubble.left.and.bubble.right.fill", title: String(localized: "chat_history"))
+                    SyncContentRow(icon: "server.rack", title: String(localized: "provider_config"))
+                    SyncContentRow(icon: "square.stack.3d.up.fill", title: String(localized: "model_group"))
+                    SyncContentRow(icon: "puzzlepiece.extension.fill", title: String(localized: "skills"))
+                    SyncContentRow(icon: "key.fill", title: String(localized: "env_vars"))
+                    SyncContentRow(icon: "cat.fill", title: String(localized: "sync_soul"))
+                    SyncContentRow(icon: "brain.fill", title: String(localized: "memory"))
                 }
 
                 // 同步状态
-                Section(L10n.l("sync_status")) {
+                Section(String(localized: "sync_status")) {
                     HStack {
-                        Text(L10n.l("last_synced"))
+                        Text(String(localized: "last_synced"))
                         Spacer()
                         if let date = lastSyncDate {
                             Text(date, style: .relative)
                                 .foregroundStyle(.secondary)
                         } else {
-                            Text(L10n.l("not_yet_synced"))
+                            Text(String(localized: "not_yet_synced"))
                                 .foregroundStyle(.secondary)
                         }
                     }
 
                     if totalSent > 0 || totalReceived > 0 {
                         HStack {
-                            Text(L10n.l("sent"))
+                            Text(String(localized: "sent"))
                             Spacer()
-                            Text(String(format: L10n.l("records"), "\(totalSent)"))
+                            Text(String(format: String(localized: "records"), "\(totalSent)"))
                                 .foregroundStyle(.secondary)
                         }
                         HStack {
-                            Text(L10n.l("received"))
+                            Text(String(localized: "received"))
                             Spacer()
-                            Text(String(format: L10n.l("records"), "\(totalReceived)"))
+                            Text(String(format: String(localized: "records"), "\(totalReceived)"))
                                 .foregroundStyle(.secondary)
                         }
                     }
@@ -94,7 +94,7 @@ struct SyncSettingsView: View {
                                 ProgressView()
                                     .scaleEffect(0.8)
                             }
-                            Text(isSyncing ? L10n.l("syncing") : L10n.l("sync_now"))
+                            Text(isSyncing ? String(localized: "syncing") : String(localized: "sync_now"))
                         }
                     }
                     .disabled(isSyncing)
@@ -103,7 +103,7 @@ struct SyncSettingsView: View {
         }
         .scrollContentBackground(.hidden)
         .background(ThemeBackground(slot: .settings))
-        .navigationTitle(L10n.l("sync"))
+        .navigationTitle(String(localized: "sync"))
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
             let config = SettingsStore.shared.settings.sync
@@ -117,7 +117,7 @@ struct SyncSettingsView: View {
     private func checkAccountStatus() {
         // CloudKit transport 当前不可用（entitlements 已移除，2026-08-03）。
         // 后续重做 iCloud 同步时恢复此检查。
-        accountStatus = L10n.l("icloud_sync_disabled")
+        accountStatus = String(localized: "icloud_sync_disabled")
     }
 
     private func performSync() async {

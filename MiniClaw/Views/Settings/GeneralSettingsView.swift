@@ -11,61 +11,61 @@ struct GeneralSettingsView: View {
     var body: some View {
         Form {
             Section {
-                Toggle(L10n.l("confirm_before_tool_calls"), isOn: $defaults.confirmBeforeToolCall)
-                Toggle(L10n.l("ai_plugin_install_requires_confirmation"), isOn: $defaults.aiPluginInstallRequiresConfirmation)
+                Toggle(String(localized: "confirm_before_tool_calls"), isOn: $defaults.confirmBeforeToolCall)
+                Toggle(String(localized: "ai_plugin_install_requires_confirmation"), isOn: $defaults.aiPluginInstallRequiresConfirmation)
             } header: {
-                Text(L10n.l("default_behavior"))
+                Text(String(localized: "default_behavior"))
             } footer: {
-                Text(L10n.l("when_enabled_the_agent_will_ask_for_your_confirmation_before_each_tool_call_file_browser_shell_etc")
-                     + "\n" + L10n.l("ai_plugin_install_requires_confirmation_footer"))
+                Text(String(localized: "when_enabled_the_agent_will_ask_for_your_confirmation_before_each_tool_call_file_browser_shell_etc")
+                     + "\n" + String(localized: "ai_plugin_install_requires_confirmation_footer"))
             }
 
             // 健康写入总闸：write / delete 执行前检查（apple-healthkit）。
             // 独立于 confirmBeforeToolCall —— 后者只控制「调用前要不要问」，
             // 这个开关决定「这条能力存不存在」。
             Section {
-                Toggle(L10n.l("allow_health_write"), isOn: $defaults.healthWriteEnabled)
+                Toggle(String(localized: "allow_health_write"), isOn: $defaults.healthWriteEnabled)
             } header: {
-                Text(L10n.l("health_data_section"))
+                Text(String(localized: "health_data_section"))
             } footer: {
-                Text(L10n.l("allow_health_write_footer"))
+                Text(String(localized: "allow_health_write_footer"))
             }
 
             Section {
-                Toggle(L10n.l("show_thinking_process"), isOn: $chat.showThinking)
-                Toggle(L10n.l("enter_to_send_off_newline"), isOn: $chat.enterToSend)
+                Toggle(String(localized: "show_thinking_process"), isOn: $chat.showThinking)
+                Toggle(String(localized: "enter_to_send_off_newline"), isOn: $chat.enterToSend)
             } header: {
-                Text(L10n.l("chat"))
+                Text(String(localized: "chat"))
             }
 
             Section {
                 Stepper(value: $browser.maxTabs, in: 1...5) {
-                    Text(String(format: L10n.l("max_tabs"), "\(browser.maxTabs)"))
+                    Text(String(format: String(localized: "max_tabs"), "\(browser.maxTabs)"))
                 }
-                Toggle(L10n.l("block_pop_ups"), isOn: $browser.blockPopups)
-                Toggle(L10n.l("open_in_builtin_browser"), isOn: Binding(
+                Toggle(String(localized: "block_pop_ups"), isOn: $browser.blockPopups)
+                Toggle(String(localized: "open_in_builtin_browser"), isOn: Binding(
                     get: { MiniClawOpenURLHandler.openLinksInline() },
                     set: { UserDefaults.standard.set($0, forKey: MiniClawOpenURLHandler.openLinksInlineKey) }
                 ))
-                Picker(L10n.l("user_agent_form"), selection: $browser.uaMode) {
-                    Text(L10n.l("mobile")).tag("mobile")
-                    Text(L10n.l("desktop")).tag("desktop")
-                    Text(L10n.l("custom")).tag("custom")
+                Picker(String(localized: "user_agent_form"), selection: $browser.uaMode) {
+                    Text(String(localized: "mobile")).tag("mobile")
+                    Text(String(localized: "desktop")).tag("desktop")
+                    Text(String(localized: "custom")).tag("custom")
                 }
                 if browser.uaMode == "custom" {
-                    TextField(L10n.l("custom_user_agent"), text: $browser.userAgent)
+                    TextField(String(localized: "custom_user_agent"), text: $browser.userAgent)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                 }
             } header: {
-                Text(L10n.l("browser"))
+                Text(String(localized: "browser"))
             } footer: {
-                Text(L10n.l("choose_the_user_agent_form_used_by_the_browser_if_custom_is_selected_fill_in_the_ua_string_below"))
+                Text(String(localized: "choose_the_user_agent_form_used_by_the_browser_if_custom_is_selected_fill_in_the_ua_string_below"))
             }
         }
         .scrollContentBackground(.hidden)
         .background(ThemeBackground(slot: .settings))
-        .navigationTitle(L10n.l("general_settings"))
+        .navigationTitle(String(localized: "general_settings"))
         .navigationBarTitleDisplayMode(.inline)
         .onChange(of: defaults) { _ in saveDefaults() }
         .onChange(of: chat) { _ in saveChat() }
@@ -80,15 +80,15 @@ struct GeneralSettingsView: View {
     }
 
     private func saveDefaults() {
-        SettingsStore.shared.set(defaults, domain: .defaults, summary: L10n.l("edit_general_settings"))
+        SettingsStore.shared.set(defaults, domain: .defaults, summary: String(localized: "edit_general_settings"))
     }
 
     private func saveChat() {
-        SettingsStore.shared.set(chat, domain: .chat, summary: L10n.l("edit_chat_settings"))
+        SettingsStore.shared.set(chat, domain: .chat, summary: String(localized: "edit_chat_settings"))
     }
 
     private func saveBrowser() {
-        SettingsStore.shared.set(browser, domain: .browser, summary: L10n.l("edit_browser_settings"))
+        SettingsStore.shared.set(browser, domain: .browser, summary: String(localized: "edit_browser_settings"))
         // 立即把 UA 形态同步到浏览器运行时（若当前有打开的标签）。
         BrowserController.shared.applyUAProfileToAllTabs()
     }

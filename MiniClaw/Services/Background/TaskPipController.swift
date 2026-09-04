@@ -98,7 +98,7 @@ final class TaskPipController: NSObject {
         log("任务登记: sid=\(sid.prefix(8)) title=\(title) running=\(runningTasks.count) active=\(activeTaskSessionID.map { String($0.prefix(8)) } ?? "nil") dismissed=\(dismissedTaskSessionIDs.map { String($0.prefix(8)) })")
         // 若 PiP 恰好在显示该任务(多任务切换场景)→ 立即刷新面板
         if activeTaskSessionID == sid {
-            updatePanel(title: title, icon: icon, progress: progressLabel.text ?? L10n.l("thinking"))
+            updatePanel(title: title, icon: icon, progress: progressLabel.text ?? String(localized: "thinking"))
         }
     }
 
@@ -149,7 +149,7 @@ final class TaskPipController: NSObject {
         if appState != .background {
             if pipController == nil {
                 if prepareInfrastructure() {
-                    updatePanel(title: info.title, icon: info.icon, progress: L10n.l("thinking"))
+                    updatePanel(title: info.title, icon: info.icon, progress: String(localized: "thinking"))
                     log("前台预热: PiP 基础设施就绪,不显示(退后台系统立即自动启动) sid=\(sid.prefix(8))")
                 }
             }
@@ -162,7 +162,7 @@ final class TaskPipController: NSObject {
                 log("ensure 失败: 后台创建基础设施失败 sid=\(sid.prefix(8))")
                 return
             }
-            updatePanel(title: info.title, icon: info.icon, progress: L10n.l("thinking"))
+            updatePanel(title: info.title, icon: info.icon, progress: String(localized: "thinking"))
             log("ensure: 后台创建基础设施就绪(系统将自动启动) sid=\(sid.prefix(8))")
         }
         if !force, dismissedTaskSessionIDs.contains(sid) {
@@ -303,7 +303,7 @@ final class TaskPipController: NSObject {
             start(sessionID: nextSid, title: next.title, icon: next.icon)
         } else {
             // 任务完成【不关闭】:PiP 常驻显示「已完成」,等用户回到会话查看结果才关闭。
-            updatePanel(title: titleLabel.text ?? "", icon: currentIcon, progress: L10n.l("completed"))
+            updatePanel(title: titleLabel.text ?? "", icon: currentIcon, progress: String(localized: "completed"))
             log("任务完成: PiP 保持显示「已完成」(active=\(sid.prefix(8)))")
             // 记住「已完成待销毁」:runningTasks 已被清空,onAppForeground 靠此标记销毁基础设施
             completedTaskPendingTeardown = true
@@ -343,7 +343,7 @@ final class TaskPipController: NSObject {
         // 幂等:同一任务已显示/正在启动(含系统延迟启动中)→ 只刷新面板,不重置重试链
         // (此前每 token 的 ensure 都重新 start,日志刷屏 + 多次 startPictureInPicture 竞争)
         if activeTaskSessionID == sessionID, wantsActive {
-            updatePanel(title: title, icon: icon, progress: progressLabel.text ?? L10n.l("thinking"))
+            updatePanel(title: title, icon: icon, progress: progressLabel.text ?? String(localized: "thinking"))
             return
         }
         wantsActive = true
@@ -354,7 +354,7 @@ final class TaskPipController: NSObject {
             activeTaskSessionID = nil
             return
         }
-        updatePanel(title: title, icon: icon, progress: L10n.l("thinking"))
+        updatePanel(title: title, icon: icon, progress: String(localized: "thinking"))
         requestStart(attempt: 0)
     }
 
@@ -527,7 +527,7 @@ final class TaskPipController: NSObject {
             log("DidStart 自愈: 恢复 active=\(sid.prefix(8)) title=\(info.title)")
             activeTaskSessionID = sid
             wantsActive = true
-            updatePanel(title: info.title, icon: info.icon, progress: progressLabel.text ?? L10n.l("thinking"))
+            updatePanel(title: info.title, icon: info.icon, progress: progressLabel.text ?? String(localized: "thinking"))
         }
     }
 

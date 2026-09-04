@@ -196,7 +196,7 @@ final class AnthropicStreamDelegate: NSObject, URLSessionDataDelegate, @unchecke
             }
             accumulatedToolCalls.removeAll()
         case "error":
-            let msg = obj.error?.message ?? L10n.l("err_anthropic_server")
+            let msg = obj.error?.message ?? String(localized: "err_anthropic_server")
             finish(failure: LLMError.providerRejected(msg))
         default:
             break

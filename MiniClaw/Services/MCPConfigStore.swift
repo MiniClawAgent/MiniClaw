@@ -139,7 +139,7 @@ final class MCPConfigStore: ObservableObject {
                     servers[idx] = snapshot
                 }
                 persist()
-                updateDiscovery(id: id, toolCount: 0, error: MCPClientError.httpStatus(401, L10n.l("mcp_needs_authorization_hint")))
+                updateDiscovery(id: id, toolCount: 0, error: MCPClientError.httpStatus(401, String(localized: "mcp_needs_authorization_hint")))
                 return
             }
             AppLogger.shared.info("[MCP] \(server.name): 刷新失败: \(error.localizedDescription)")
@@ -191,7 +191,7 @@ final class MCPConfigStore: ObservableObject {
         guard let data = json.data(using: .utf8),
               let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let serversDict = root["mcpServers"] as? [String: Any] else {
-            throw MCPClientError.invalidJSON(L10n.l("err_claude_desktop_config"))
+            throw MCPClientError.invalidJSON(String(localized: "err_claude_desktop_config"))
         }
         var result: [MCPServerConfig] = []
         for (name, value) in serversDict {

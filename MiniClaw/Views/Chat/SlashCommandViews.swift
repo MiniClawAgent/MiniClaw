@@ -52,7 +52,7 @@ struct SlashCommandOverlay: View {
         SlashCommandItem(id: "clear", icon: "trash", title: "/clear", subtitle: "Clear all messages in this session", kind: .action),
         SlashCommandItem(id: "compact", icon: "arrow.up.arrow.down", title: "/compact", subtitle: "Compress conversation history into summary", kind: .action),
         SlashCommandItem(id: "memory", icon: "brain", title: "/memory", subtitle: "Writes off — tap to toggle", kind: .toggle(false)),
-        SlashCommandItem(id: "thinking", icon: "wand.and.sparkles", title: "/thinking", subtitle: L10n.l("current_model_not_supported"), kind: .disabled(L10n.l("current_model_not_supported"))),
+        SlashCommandItem(id: "thinking", icon: "wand.and.sparkles", title: "/thinking", subtitle: String(localized: "current_model_not_supported"), kind: .disabled(String(localized: "current_model_not_supported"))),
     ]
 
     /// 按过滤关键词筛选命令：匹配命令名或副标题。
@@ -71,7 +71,7 @@ struct SlashCommandOverlay: View {
                     slashCommandRow(cmd)
                 }
                 if filteredCommands.isEmpty {
-                    Text(L10n.l("no_matching_command"))
+                    Text(String(localized: "no_matching_command"))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity)

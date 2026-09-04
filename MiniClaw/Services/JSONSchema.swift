@@ -62,7 +62,7 @@ struct JSONSchema: Codable, Sendable, Equatable {
     init(from decoder: Decoder) throws {
         let value = try JSONSchemaValue(from: decoder)
         guard case .object(let object) = value else {
-            throw DecodingError.dataCorrupted(.init(codingPath: decoder.codingPath, debugDescription: L10n.l("err_jsonschema_not_object")))
+            throw DecodingError.dataCorrupted(.init(codingPath: decoder.codingPath, debugDescription: String(localized: "err_jsonschema_not_object")))
         }
         self.init(rawObject: object)
     }
@@ -145,7 +145,7 @@ struct JSONSchema: Codable, Sendable, Equatable {
         init(from decoder: Decoder) throws {
             let value = try JSONSchemaValue(from: decoder)
             guard case .object(let object) = value else {
-                throw DecodingError.dataCorrupted(.init(codingPath: decoder.codingPath, debugDescription: L10n.l("err_jsonschema_prop_not_object")))
+                throw DecodingError.dataCorrupted(.init(codingPath: decoder.codingPath, debugDescription: String(localized: "err_jsonschema_prop_not_object")))
             }
             self.init(rawObject: object)
         }

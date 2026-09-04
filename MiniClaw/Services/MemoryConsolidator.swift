@@ -45,25 +45,25 @@ final class MemoryConsolidator: @unchecked Sendable {
         var rewriteRejected = false
 
         var text: String {
-            if let skippedReason { return String(format: L10n.l("skipped"), skippedReason) }
+            if let skippedReason { return String(format: String(localized: "skipped"), skippedReason) }
             var parts: [String] = []
-            parts.append(String(format: L10n.l("entries_1_d_2_d"), itemsBefore, itemsAfter))
-            parts.append(String(format: L10n.l("characters_1_d_2_d"), charsBefore, charsAfter))
+            parts.append(String(format: String(localized: "entries_1_d_2_d"), itemsBefore, itemsAfter))
+            parts.append(String(format: String(localized: "characters_1_d_2_d"), charsBefore, charsAfter))
             if exactDuplicatesRemoved > 0 {
-                parts.append(String(format: L10n.l("exact_duplicates_removed"), exactDuplicatesRemoved))
+                parts.append(String(format: String(localized: "exact_duplicates_removed"), exactDuplicatesRemoved))
             }
             if semanticDuplicatesMerged > 0 {
-                parts.append(String(format: L10n.l("semantic_merges"), semanticDuplicatesMerged))
+                parts.append(String(format: String(localized: "semantic_merges"), semanticDuplicatesMerged))
             }
             if dailyFilesArchived > 0 {
-                parts.append(String(format: L10n.l("archived_daily_logs"), dailyFilesArchived))
+                parts.append(String(format: String(localized: "archived_daily_logs"), dailyFilesArchived))
             }
             if rewritten {
-                parts.append(L10n.l("rewritten_by_topic"))
+                parts.append(String(localized: "rewritten_by_topic"))
             } else if rewriteRejected {
-                parts.append(L10n.l("rewrite_failed_validation_rolled_back"))
+                parts.append(String(localized: "rewrite_failed_validation_rolled_back"))
             }
-            return parts.joined(separator: L10n.l("semicolon_char"))
+            return parts.joined(separator: String(localized: "semicolon_char"))
         }
     }
 
@@ -85,23 +85,23 @@ final class MemoryConsolidator: @unchecked Sendable {
         let settings = await SettingsStore.shared.snapshot()
         let mem = settings.memory
         guard mem.isEnabled else {
-            report.skippedReason = L10n.l("memory_is_disabled")
+            report.skippedReason = String(localized: "memory_is_disabled")
             return report
         }
         if !force {
             guard mem.consolidationEnabled else {
-                report.skippedReason = L10n.l("auto_consolidation_is_off")
+                report.skippedReason = String(localized: "auto_consolidation_is_off")
                 return report
             }
             if let last = UserDefaults.standard.object(forKey: Self.lastRunKey) as? Double,
                Date().timeIntervalSince1970 - last < Self.cooldown {
-                report.skippedReason = L10n.l("in_cooldown_period")
+                report.skippedReason = String(localized: "in_cooldown_period")
                 return report
             }
         }
 
         guard gate.begin() else {
-            report.skippedReason = L10n.l("a_consolidation_run_is_already_in_progress")
+            report.skippedReason = String(localized: "a_consolidation_run_is_already_in_progress")
             return report
         }
         defer { gate.end() }
@@ -112,13 +112,13 @@ final class MemoryConsolidator: @unchecked Sendable {
 
         if !force, original.count < mem.consolidationMinChars {
             report.skippedReason = String(
-                format: L10n.l("long_term_memory_is_1_d_chars_below_the_2_d_threshold"),
+                format: String(localized: "long_term_memory_is_1_d_chars_below_the_2_d_threshold"),
                 original.count, mem.consolidationMinChars
             )
             return report
         }
         guard !original.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            report.skippedReason = L10n.l("long_term_memory_is_empty")
+            report.skippedReason = String(localized: "long_term_memory_is_empty")
             return report
         }
 
@@ -133,7 +133,7 @@ final class MemoryConsolidator: @unchecked Sendable {
                 endpoint: endpoint
             )
             if let digest, !digest.isEmpty {
-                working += "\n\n## \(L10n.l("archive"))\n\n" + digest + "\n"
+                working += "\n\n## \(String(localized: "archive"))\n\n" + digest + "\n"
             }
             report.dailyFilesArchived = archivedCount
         }
@@ -185,7 +185,7 @@ final class MemoryConsolidator: @unchecked Sendable {
                 AppLogger.shared.info("整理期间检测到新增记忆，已合并保留（+\(appended.count) 字符）", category: "Memory")
             } else {
                 AppLogger.shared.warn("整理期间 MEMORY.md 被改写，放弃本次写回以保护新数据", category: "Memory")
-                report.skippedReason = L10n.l("memory_rewrite_aborted")
+                report.skippedReason = String(localized: "memory_rewrite_aborted")
                 return report
             }
         }
@@ -361,7 +361,7 @@ final class MemoryConsolidator: @unchecked Sendable {
         engine.configure(sessionID: UUID(), streamingMessageID: nil)
         engine.isSubagentEngine = true
         engine.setSystemPrompt(
-            stable: L10n.l("memory_consolidator_prompt"),
+            stable: String(localized: "memory_consolidator_prompt"),
             volatile: ""
         )
 

@@ -30,14 +30,14 @@ struct LogsView: View {
         }
         .scrollContentBackground(.hidden)
         .background(ThemeBackground(slot: .settings))
-        .navigationTitle(L10n.l("logs"))
+        .navigationTitle(String(localized: "logs"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 ShareLink(items: allLogURLs) {
                     Image(systemName: "square.and.arrow.up")
                 }
-                .help(L10n.l("export_all_logs_runtime_logs_crash_logs"))
+                .help(String(localized: "export_all_logs_runtime_logs_crash_logs"))
                 .disabled(allLogURLs.isEmpty)
             }
         }
@@ -50,7 +50,7 @@ struct LogsView: View {
     private var runtimeSection: some View {
         Section {
             Toggle(isOn: $loggingEnabled) {
-                Label(L10n.l("enable_logging"), systemImage: "power")
+                Label(String(localized: "enable_logging"), systemImage: "power")
             }
             .onChange(of: loggingEnabled) { newValue in
                 AppLogger.shared.setEnabled(newValue)
@@ -59,8 +59,8 @@ struct LogsView: View {
 
             if runtimeFiles.isEmpty {
                 Text(loggingEnabled
-                     ? L10n.l("no_run_logs_yet_debug_logs_are_generated_daily_once_the_app_runs")
-                     : L10n.l("logging_is_off_no_new_run_logs_will_be_generated"))
+                     ? String(localized: "no_run_logs_yet_debug_logs_are_generated_daily_once_the_app_runs")
+                     : String(localized: "logging_is_off_no_new_run_logs_will_be_generated"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             } else {
@@ -89,9 +89,9 @@ struct LogsView: View {
                 }
             }
         } header: {
-            Text(L10n.l("runtime_logs"))
+            Text(String(localized: "runtime_logs"))
         } footer: {
-            Text(L10n.l("records_app_debug_logs_by_day_errors_freezes_infinite_loops_crashes_logging_stops_when_the_switch_is_off_swipe_left_to_delete_a_single_log"))
+            Text(String(localized: "records_app_debug_logs_by_day_errors_freezes_infinite_loops_crashes_logging_stops_when_the_switch_is_off_swipe_left_to_delete_a_single_log"))
         }
     }
 
@@ -100,7 +100,7 @@ struct LogsView: View {
     private var crashSection: some View {
         Section {
             if crashFiles.isEmpty {
-                Text(L10n.l("no_crash_logs_yet_automatically_recorded_after_a_crash_or_abnormal_exit"))
+                Text(String(localized: "no_crash_logs_yet_automatically_recorded_after_a_crash_or_abnormal_exit"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             } else {
@@ -129,9 +129,9 @@ struct LogsView: View {
                 }
             }
         } header: {
-            Text(L10n.l("crash_log"))
+            Text(String(localized: "crash_log"))
         } footer: {
-            Text(L10n.l("crash_report_full_description"))
+            Text(String(localized: "crash_report_full_description"))
         }
     }
 
@@ -145,14 +145,14 @@ struct LogsView: View {
                 HStack(spacing: 10) {
                     Image(systemName: "doc.text.magnifyingglass")
                         .foregroundStyle(.gray)
-                    Text(L10n.l("audit_log"))
+                    Text(String(localized: "audit_log"))
                     Spacer()
                 }
             }
         } header: {
-            Text(L10n.l("audit_log"))
+            Text(String(localized: "audit_log"))
         } footer: {
-            Text(L10n.l("records_setting_changes_and_rollback_actions_tap_to_view_all_audit_content"))
+            Text(String(localized: "records_setting_changes_and_rollback_actions_tap_to_view_all_audit_content"))
         }
     }
 
@@ -179,7 +179,7 @@ struct AuditLogsView: View {
     var body: some View {
         List {
             if auditEntries.isEmpty {
-                Text(L10n.l("no_audit_records_yet_automatically_logged_after_any_config_change"))
+                Text(String(localized: "no_audit_records_yet_automatically_logged_after_any_config_change"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -206,7 +206,7 @@ struct AuditLogsView: View {
         .scrollContentBackground(.hidden)
         .background(ThemeBackground(slot: .settings))
         .listStyle(.plain)
-        .navigationTitle(L10n.l("audit_log"))
+        .navigationTitle(String(localized: "audit_log"))
         .navigationBarTitleDisplayMode(.inline)
         .onAppear(perform: loadAudit)
         .refreshable { loadAudit() }
@@ -234,7 +234,7 @@ struct LogDetailView: View {
                     ShareLink(item: url) {
                         Image(systemName: "square.and.arrow.up")
                     }
-                    .help(L10n.l("export_entire_log_file"))
+                    .help(String(localized: "export_entire_log_file"))
                 }
             }
             .onAppear { content = AppLogger.shared.readTail(of: url) }

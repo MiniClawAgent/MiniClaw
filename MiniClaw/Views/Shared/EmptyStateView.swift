@@ -35,7 +35,7 @@ struct EmptyStateView: View {
                 .font(.system(size: 52, weight: .regular))
                 .foregroundStyle(.secondary)
                 .padding(.bottom, 4)
-            Text(String(format: L10n.l("no_results_for"), text))
+            Text(String(format: String(localized: "no_results_for"), text))
                 .font(.title3.weight(.semibold))
                 .foregroundStyle(.primary)
                 .multilineTextAlignment(.center)

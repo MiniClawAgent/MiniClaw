@@ -28,7 +28,7 @@ struct AboutView: View {
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
 
-                        Text(L10n.l("ios_agent_app"))
+                        Text(String(localized: "ios_agent_app"))
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -37,27 +37,27 @@ struct AboutView: View {
                 .padding(.vertical, 20)
             }
 
-            Section(L10n.l("about_miniclaw_doc")) {
-                NavigationLink(L10n.l("about_miniclaw_doc")) {
-                    DocumentView(filename: "关于MiniClaw.md", title: L10n.l("about_miniclaw_doc"))
+            Section(String(localized: "about_miniclaw_doc")) {
+                NavigationLink(String(localized: "about_miniclaw_doc")) {
+                    DocumentView(filename: "关于MiniClaw.md", title: String(localized: "about_miniclaw_doc"))
                 }
-                NavigationLink(L10n.l("user_agreement")) {
-                    DocumentView(filename: "用户使用协议.md", title: L10n.l("user_agreement"))
+                NavigationLink(String(localized: "user_agreement")) {
+                    DocumentView(filename: "用户使用协议.md", title: String(localized: "user_agreement"))
                 }
-                NavigationLink(L10n.l("privacy_policy")) {
-                    DocumentView(filename: "用户隐私政策.md", title: L10n.l("privacy_policy"))
+                NavigationLink(String(localized: "privacy_policy")) {
+                    DocumentView(filename: "用户隐私政策.md", title: String(localized: "privacy_policy"))
                 }
             }
 
-            Section(L10n.l("open_source_components")) {
-                Text(L10n.l("swiftsoup_html_parsing_n_highlightr_code_highlighting_n_markdownui_markdown_rendering"))
+            Section(String(localized: "open_source_components")) {
+                Text(String(localized: "swiftsoup_html_parsing_n_highlightr_code_highlighting_n_markdownui_markdown_rendering"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
         }
         .scrollContentBackground(.hidden)
         .background(ThemeBackground(slot: .settings))
-        .navigationTitle(L10n.l("about"))
+        .navigationTitle(String(localized: "about"))
         .navigationBarTitleDisplayMode(.inline)
     }
 }

@@ -37,19 +37,19 @@ struct AppleSpeechTool: AgentTool {
         type: "function",
         function: ToolSchema.FunctionDef(
             name: "apple-speech",
-            description: L10n.l("stt_tool_desc"),
+            description: String(localized: "stt_tool_desc"),
             parameters: JSONSchema(
                 type: "object",
                 properties: [
                     "action": JSONSchema.JSONProperty(
                         type: "string",
-                        description: L10n.l("op_speech_actions"),
+                        description: String(localized: "op_speech_actions"),
                         enum: ["transcribe", "languages", "status"]
                     ),
-                    "source": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_speech_source")),
-                    "language": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_lang_code_en")),
-                    "duration": JSONSchema.JSONProperty(type: "integer", description: L10n.l("param_speech_duration")),
-                    "on_device": JSONSchema.JSONProperty(type: "boolean", description: L10n.l("param_on_device")),
+                    "source": JSONSchema.JSONProperty(type: "string", description: String(localized: "param_speech_source")),
+                    "language": JSONSchema.JSONProperty(type: "string", description: String(localized: "param_lang_code_en")),
+                    "duration": JSONSchema.JSONProperty(type: "integer", description: String(localized: "param_speech_duration")),
+                    "on_device": JSONSchema.JSONProperty(type: "boolean", description: String(localized: "param_on_device")),
                 ],
                 required: ["action"]
             )
@@ -58,7 +58,7 @@ struct AppleSpeechTool: AgentTool {
 
     func execute(_ parameters: [String: Any]) async throws -> ToolResult {
         guard let action = parameters["action"] as? String else {
-            throw ToolError.invalidParameters(L10n.l("err_missing_action"))
+            throw ToolError.invalidParameters(String(localized: "err_missing_action"))
         }
 
         switch action {
@@ -86,7 +86,7 @@ struct AppleSpeechTool: AgentTool {
             return ToolResult(success: outcome.success, text: outcome.text)
 
         default:
-            return ToolResult(success: false, text: L10n.l("speech_unknown_action") + action)
+            return ToolResult(success: false, text: String(localized: "speech_unknown_action") + action)
         }
     }
 }
@@ -129,14 +129,14 @@ private enum SpeechBridge {
 
     static func status() async -> SpeechOutcome {
         let recognizer = SFSpeechRecognizer() ?? SFSpeechRecognizer(locale: Locale(identifier: "en-US"))
-        guard let recognizer else { return .fail(L10n.l("speech_unavailable")) }
+        guard let recognizer else { return .fail(String(localized: "speech_unavailable")) }
         let authorized = SFSpeechRecognizer.authorizationStatus() == .authorized
         let lines = [
-            L10n.l("speech_status_header"),
-            L10n.l("speech_auth_label") + (authorized ? L10n.l("speech_authorized") : L10n.l("unavailable")),
-            L10n.l("speech_ready_label") + (recognizer.isAvailable ? L10n.l("available_yes") : L10n.l("unavailable")),
-            L10n.l("speech_locale_label") + recognizer.locale.identifier,
-            L10n.l("speech_on_device_label") + (recognizer.supportsOnDeviceRecognition ? L10n.l("available_yes") : L10n.l("unavailable")),
+            String(localized: "speech_status_header"),
+            String(localized: "speech_auth_label") + (authorized ? String(localized: "speech_authorized") : String(localized: "unavailable")),
+            String(localized: "speech_ready_label") + (recognizer.isAvailable ? String(localized: "available_yes") : String(localized: "unavailable")),
+            String(localized: "speech_locale_label") + recognizer.locale.identifier,
+            String(localized: "speech_on_device_label") + (recognizer.supportsOnDeviceRecognition ? String(localized: "available_yes") : String(localized: "unavailable")),
         ]
         return .ok(lines.joined(separator: "\n"))
     }
@@ -146,15 +146,15 @@ private enum SpeechBridge {
         let locales = SFSpeechRecognizer.supportedLocales()
             .map(\.identifier)
             .sorted()
-        guard !locales.isEmpty else { return .fail(L10n.l("speech_unavailable")) }
+        guard !locales.isEmpty else { return .fail(String(localized: "speech_unavailable")) }
         let shown = Array(locales.prefix(40))
-        var lines: [String] = [L10n.l("speech_languages_header") + "\(locales.count)"]
+        var lines: [String] = [String(localized: "speech_languages_header") + "\(locales.count)"]
         for id in shown {
             let name = Locale.current.localizedString(forIdentifier: id) ?? id
             lines.append("- \(id) | \(name)")
         }
         if locales.count > shown.count {
-            lines.append(L10n.l("speech_languages_truncated") + "\(locales.count - shown.count)")
+            lines.append(String(localized: "speech_languages_truncated") + "\(locales.count - shown.count)")
         }
         return .ok(lines.joined(separator: "\n"))
     }
@@ -164,12 +164,12 @@ private enum SpeechBridge {
     static func transcribeFile(path: String, localeID: String?, onDevice: Bool) async -> SpeechOutcome {
         let url = Self.resolve(path)
         guard FileManager.default.fileExists(atPath: url.path) else {
-            return .fail(L10n.l("speech_file_missing") + path)
+            return .fail(String(localized: "speech_file_missing") + path)
         }
         guard let recognizer = Self.makeRecognizer(localeID: localeID) else {
-            return .fail(L10n.l("speech_lang_unsupported") + (localeID ?? ""))
+            return .fail(String(localized: "speech_lang_unsupported") + (localeID ?? ""))
         }
-        guard recognizer.isAvailable else { return .fail(L10n.l("speech_unavailable")) }
+        guard recognizer.isAvailable else { return .fail(String(localized: "speech_unavailable")) }
         guard await Self.ensureSpeechAuthorization() else { return .fail(Self.speechDeniedText) }
 
         let request = SFSpeechURLRecognitionRequest(url: url)
@@ -184,11 +184,11 @@ private enum SpeechBridge {
     }
 
     static func transcribeMic(seconds: Int?, localeID: String?, onDevice: Bool) async -> SpeechOutcome {
-        guard await Self.ensureMicAccess() else { return .fail(L10n.l("speech_mic_denied")) }
+        guard await Self.ensureMicAccess() else { return .fail(String(localized: "speech_mic_denied")) }
         guard let recognizer = Self.makeRecognizer(localeID: localeID) else {
-            return .fail(L10n.l("speech_lang_unsupported") + (localeID ?? ""))
+            return .fail(String(localized: "speech_lang_unsupported") + (localeID ?? ""))
         }
-        guard recognizer.isAvailable else { return .fail(L10n.l("speech_unavailable")) }
+        guard recognizer.isAvailable else { return .fail(String(localized: "speech_unavailable")) }
         guard await Self.ensureSpeechAuthorization() else { return .fail(Self.speechDeniedText) }
 
         let duration = min(max(seconds ?? 10, 1), 60)
@@ -216,7 +216,7 @@ private enum SpeechBridge {
                 engine.prepare()
                 try engine.start()
             } catch {
-                box.finish(.fail(L10n.l("speech_failed") + error.localizedDescription))
+                box.finish(.fail(String(localized: "speech_failed") + error.localizedDescription))
             }
             // 到点收尾：停引擎 → 拆 tap → 告知识别请求「音频结束」（随后会收到 isFinal 结果）。
             // 放在独立的 MainActor 任务里，避免把 continuation 的等待拉长到 duration 之后。
@@ -239,23 +239,23 @@ private enum SpeechBridge {
                                             box: TranscriptBox) {
         if let result { box.note(result.bestTranscription.formattedString) }
         if let error, !(error is CancellationError) {
-            box.finish(.fail(L10n.l("speech_failed") + error.localizedDescription))
+            box.finish(.fail(String(localized: "speech_failed") + error.localizedDescription))
             return
         }
         if result?.isFinal == true {
             let text = box.text.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !text.isEmpty else {
-                box.finish(.ok(L10n.l("speech_no_speech")))
+                box.finish(.ok(String(localized: "speech_no_speech")))
                 return
             }
-            box.finish(.ok(L10n.l("speech_result_label") + text))
+            box.finish(.ok(String(localized: "speech_result_label") + text))
         }
     }
 
     // MARK: 授权
 
     private static var speechDeniedText: String {
-        L10n.l("miniclaw_needs_the_speech_recognition_permission_to_convert_your_speech_to_text_please_go_to_settings_privacy_security_speech_recognition_find_miniclaw_and_turn_on_the_switch_then_return_to_use_it")
+        String(localized: "miniclaw_needs_the_speech_recognition_permission_to_convert_your_speech_to_text_please_go_to_settings_privacy_security_speech_recognition_find_miniclaw_and_turn_on_the_switch_then_return_to_use_it")
     }
 
     private static func ensureSpeechAuthorization() async -> Bool {

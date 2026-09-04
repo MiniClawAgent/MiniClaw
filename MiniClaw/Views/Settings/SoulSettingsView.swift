@@ -23,7 +23,7 @@ struct SoulSettingsView: View {
             if let plugin = activePlugin {
                 Section {
                     Label {
-                        Text(String(format: L10n.l("soul_banner_plugin_active"), plugin))
+                        Text(String(format: String(localized: "soul_banner_plugin_active"), plugin))
                             .font(.callout)
                     } icon: {
                         Image(systemName: "sparkles")
@@ -32,17 +32,17 @@ struct SoulSettingsView: View {
                 }
             }
 
-            Section(L10n.l("basic_info")) {
+            Section(String(localized: "basic_info")) {
                 HStack {
-                    Text(L10n.l("name"))
+                    Text(String(localized: "name"))
                     Spacer()
-                    TextField(L10n.l("agent_name"), text: $name)
+                    TextField(String(localized: "agent_name"), text: $name)
                         .multilineTextAlignment(.trailing)
                 }
                 HStack {
-                    Text(L10n.l("style"))
+                    Text(String(localized: "style"))
                     Spacer()
-                    TextField(L10n.l("response_style"), text: $style, axis: .vertical)
+                    TextField(String(localized: "response_style"), text: $style, axis: .vertical)
                         .lineLimit(2...4)
                         .multilineTextAlignment(.trailing)
                         // 多行 TextField 在 HStack 里会吃掉全部可用宽度（比单行的「名称」行宽很多），
@@ -51,7 +51,7 @@ struct SoulSettingsView: View {
                 }
             }
 
-            Section(L10n.l("soul_definition_soul_md")) {
+            Section(String(localized: "soul_definition_soul_md")) {
                 TextEditor(text: $bodyText)
                     .font(.system(.caption, design: .monospaced))
                     .frame(minHeight: 200)
@@ -62,7 +62,7 @@ struct SoulSettingsView: View {
                     fullSoulText = (try? String(contentsOf: soulURL(), encoding: .utf8)) ?? ""
                     showSoulFile = true
                 } label: {
-                    Label(L10n.l("view_edit_full_soul_md"), systemImage: "doc.plaintext")
+                    Label(String(localized: "view_edit_full_soul_md"), systemImage: "doc.plaintext")
                 }
             }
 
@@ -70,13 +70,13 @@ struct SoulSettingsView: View {
                 Button(role: .destructive) {
                     showResetConfirm = true
                 } label: {
-                    Label(L10n.l("reset_soul"), systemImage: "arrow.counterclockwise")
+                    Label(String(localized: "reset_soul"), systemImage: "arrow.counterclockwise")
                 }
             }
         }
         .scrollContentBackground(.hidden)
         .background(ThemeBackground(slot: .settings))
-        .navigationTitle(L10n.l("soul"))
+        .navigationTitle(String(localized: "soul"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             // 弹出场景（首页/会话页顶部点击）不需要左上关闭按钮：右上「勾」= 保存并退出。
@@ -90,15 +90,15 @@ struct SoulSettingsView: View {
                         .padding(6)
                         .background(.ultraThinMaterial, in: Circle())
                 }
-                .accessibilityLabel(L10n.l("save"))
+                .accessibilityLabel(String(localized: "save"))
             }
         }
         .onAppear { loadFromSoulFile() }
-        .alert(L10n.l("reset_soul"), isPresented: $showResetConfirm) {
-            Button(L10n.l("cancel"), role: .cancel) { }
-            Button(L10n.l("reset"), role: .destructive) { resetSoulToDefault() }
+        .alert(String(localized: "reset_soul"), isPresented: $showResetConfirm) {
+            Button(String(localized: "cancel"), role: .cancel) { }
+            Button(String(localized: "reset"), role: .destructive) { resetSoulToDefault() }
         } message: {
-            Text(L10n.l("this_will_restore_soul_md_to_its_default_content_your_current_changes_name_style_language_body_will_be_lost_continue"))
+            Text(String(localized: "this_will_restore_soul_md_to_its_default_content_your_current_changes_name_style_language_body_will_be_lost_continue"))
         }
         .sheet(isPresented: $showSoulFile) {
             NavigationStack {
@@ -109,10 +109,10 @@ struct SoulSettingsView: View {
                     .navigationBarTitleDisplayMode(.inline)
                     .toolbar {
                         ToolbarItem(placement: .topBarLeading) {
-                            Button(L10n.l("cancel")) { showSoulFile = false }
+                            Button(String(localized: "cancel")) { showSoulFile = false }
                         }
                         ToolbarItem(placement: .topBarTrailing) {
-                            Button(L10n.l("save")) {
+                            Button(String(localized: "save")) {
                                 try? fullSoulText.write(to: soulURL(), atomically: true, encoding: .utf8)
                                 loadFromSoulFile() // 回写后重新同步基本信息字段
                                 showSoulFile = false
@@ -180,7 +180,7 @@ struct SoulSettingsView: View {
         guard activePlugin == nil else { dismissAction?(); return }
 
         // 同步 SoulConfig（供 ConfigTool / 其它读取保持一致）
-        SettingsStore.shared.update(domain: .soul, summary: L10n.l("edit_personality_config")) { (s: inout SoulConfig) in
+        SettingsStore.shared.update(domain: .soul, summary: String(localized: "edit_personality_config")) { (s: inout SoulConfig) in
             s.name = name
             s.style = style
             s.lang = lang

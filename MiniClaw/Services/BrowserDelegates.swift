@@ -286,10 +286,10 @@ final class BrowserOpenTabHandler: NSObject, WKScriptMessageHandler {
         guard let tab, let url = message.body as? String, !url.isEmpty else { return }
         // 拦截开关开启时：只放行用户手势（1s 内点击）触发的；自动弹窗丢弃。
         if SettingsStore.shared.settings.browser.blockPopups, !tab.wasRecentUserGesture() {
-            AppLogger.shared.info(String(format: L10n.l("bc_popup_blocked"), url), category: "Browser", subsystem: "Browser")
+            AppLogger.shared.info(String(format: String(localized: "bc_popup_blocked"), url), category: "Browser", subsystem: "Browser")
             return
         }
-        AppLogger.shared.info(String(format: L10n.l("bc_popup_request"), url), category: "Browser", subsystem: "Browser")
+        AppLogger.shared.info(String(format: String(localized: "bc_popup_request"), url), category: "Browser", subsystem: "Browser")
         Task { @MainActor in
             _ = BrowserController.shared.openPopupTab(urlString: url)
         }
@@ -320,9 +320,9 @@ final class BrowserUIDelegate: NSObject, WKUIDelegate {
             // 与 iOS Safari「拦截弹窗」行为一致——只拦页面自动弹出的广告弹窗，
             // 不拦用户主动点击的「登录窗口/分享窗口」等。
             if let tab = tab, tab.wasRecentUserGesture() {
-                AppLogger.shared.info(String(format: L10n.l("bc_popup_allow"), urlString), category: "Browser", subsystem: "Browser")
+                AppLogger.shared.info(String(format: String(localized: "bc_popup_allow"), urlString), category: "Browser", subsystem: "Browser")
             } else {
-                AppLogger.shared.info(String(format: L10n.l("bc_popup_blocked_switch"), urlString), category: "Browser", subsystem: "Browser")
+                AppLogger.shared.info(String(format: String(localized: "bc_popup_blocked_switch"), urlString), category: "Browser", subsystem: "Browser")
                 return nil
             }
         }

@@ -89,18 +89,18 @@ struct UnifiedFileBrowser: View {
             Section {
                 pathBar
             } header: {
-                Text(L10n.l("current_path_agent_accessible"))
+                Text(String(localized: "current_path_agent_accessible"))
             }
             if showSessionsBanner {
                 Section {
-                    Label(L10n.l("the_following_are_isolated_files_for_each_session_physically_stored_in_the_host_documents_miniclaw_sessions"), systemImage: "info.circle")
+                    Label(String(localized: "the_following_are_isolated_files_for_each_session_physically_stored_in_the_host_documents_miniclaw_sessions"), systemImage: "info.circle")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
             }
             if entries.isEmpty {
                 Section {
-                    Text(loadError ?? L10n.l("empty_folder"))
+                    Text(loadError ?? String(localized: "empty_folder"))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -118,23 +118,23 @@ struct UnifiedFileBrowser: View {
         .fullScreenCover(item: $fileToView) { item in
             FilePreviewView(fileURL: item.readURL)
         }
-        .alert(Text(L10n.l("confirm_deletion")), isPresented: Binding(
+        .alert(Text(String(localized: "confirm_deletion")), isPresented: Binding(
             get: { deleteTarget != nil },
             set: { if !$0 { deleteTarget = nil } }
         )) {
-            Button(L10n.l("delete_action"), role: .destructive) { confirmDelete() }
-            Button(L10n.l("cancel"), role: .cancel) { deleteTarget = nil }
+            Button(String(localized: "delete_action"), role: .destructive) { confirmDelete() }
+            Button(String(localized: "cancel"), role: .cancel) { deleteTarget = nil }
         } message: {
             if let t = deleteTarget {
-                let type = t.isDir ? L10n.l("directory") : L10n.l("files")
-                Text(L10n.l("will_delete") + type + "「\(t.name)」" + L10n.l("and_all_its_contents_this_action_cannot_be_undone"))
+                let type = t.isDir ? String(localized: "directory") : String(localized: "files")
+                Text(String(localized: "will_delete") + type + "「\(t.name)」" + String(localized: "and_all_its_contents_this_action_cannot_be_undone"))
             }
         }
-        .alert(Text(L10n.l("cannot_preview")), isPresented: Binding(
+        .alert(Text(String(localized: "cannot_preview")), isPresented: Binding(
             get: { errorMessage != nil },
             set: { if !$0 { errorMessage = nil } }
         )) {
-            Button(L10n.l("got_it"), role: .cancel) {}
+            Button(String(localized: "got_it"), role: .cancel) {}
         } message: {
             Text(errorMessage ?? "")
         }
@@ -189,21 +189,21 @@ struct UnifiedFileBrowser: View {
             Button {
                 copyPath(entry)
             } label: {
-                Label(L10n.l("copy_path"), systemImage: "doc.on.clipboard")
+                Label(String(localized: "copy_path"), systemImage: "doc.on.clipboard")
             }
             // 长按菜单：复制文件（仅文件）
             if !entry.isDir {
                 Button {
                     copyFile(entry)
                 } label: {
-                    Label(L10n.l("copy_file"), systemImage: "doc.on.doc")
+                    Label(String(localized: "copy_file"), systemImage: "doc.on.doc")
                 }
             }
             // 长按菜单：删除
             Button(role: .destructive) {
                 deleteTarget = entry
             } label: {
-                Label(L10n.l("delete_action"), systemImage: "trash")
+                Label(String(localized: "delete_action"), systemImage: "trash")
             }
         }
     }
@@ -252,7 +252,7 @@ struct UnifiedFileBrowser: View {
             entries = result
         } catch {
             entries = []
-            loadError = String(format: L10n.l("failed_to_read_directory"), error.localizedDescription)
+            loadError = String(format: String(localized: "failed_to_read_directory"), error.localizedDescription)
         }
     }
 
@@ -261,7 +261,7 @@ struct UnifiedFileBrowser: View {
     private func openFile(_ entry: FileBrowserItem) {
         if case .rootfs = mode, entry.size >= 2_000_000 {
             let sizeStr = ByteCountFormatter.string(fromByteCount: Int64(entry.size), countStyle: .file)
-            errorMessage = String(format: L10n.l("file_too_large_to_preview"), sizeStr)
+            errorMessage = String(format: String(localized: "file_too_large_to_preview"), sizeStr)
             return
         }
         fileToView = entry
@@ -270,13 +270,13 @@ struct UnifiedFileBrowser: View {
     private func copyPath(_ entry: FileBrowserItem) {
         let p = guestPath(for: entry.name)
         UIPasteboard.general.string = p
-        showToast(String(format: L10n.l("path_copied"), p))
+        showToast(String(format: String(localized: "path_copied"), p))
     }
 
     private func copyFile(_ entry: FileBrowserItem) {
         // iOS 文件 app 的「拷贝」行为：把文件数据按 UTI 写入剪贴板，可粘贴到其他 App。
         guard entry.size < 50_000_000 else {
-            errorMessage = String(format: L10n.l("file_too_large_to_copy_to_the_clipboard"),
+            errorMessage = String(format: String(localized: "file_too_large_to_copy_to_the_clipboard"),
                                  ByteCountFormatter.string(fromByteCount: Int64(entry.size), countStyle: .file))
             return
         }
@@ -285,9 +285,9 @@ struct UnifiedFileBrowser: View {
             let uti = (try? entry.readURL.resourceValues(forKeys: [.contentTypeKey]))?.contentType?.identifier
                 ?? "public.data"
             UIPasteboard.general.setData(data, forPasteboardType: uti)
-            showToast(String(format: L10n.l("copied_file"), entry.name))
+            showToast(String(format: String(localized: "copied_file"), entry.name))
         } catch {
-            showToast(String(format: L10n.l("copy_failed_format"), error.localizedDescription))
+            showToast(String(format: String(localized: "copy_failed_format"), error.localizedDescription))
         }
     }
 
@@ -306,7 +306,7 @@ struct UnifiedFileBrowser: View {
             load()
         } catch {
             deleteTarget = nil
-            showToast(String(format: L10n.l("delete_failed"), error.localizedDescription))
+            showToast(String(format: String(localized: "delete_failed"), error.localizedDescription))
         }
     }
 
@@ -321,7 +321,7 @@ struct UnifiedFileBrowser: View {
             .lineLimit(nil)
             .onLongPressGesture {
                 UIPasteboard.general.string = p
-                showToast(String(format: L10n.l("path_copied"), p))
+                showToast(String(format: String(localized: "path_copied"), p))
             }
     }
 
@@ -392,8 +392,8 @@ func uniqueCopyName(for name: String, in dir: URL) -> String {
     var i = 2
     while true {
         let cand = ext.isEmpty
-            ? String(format: L10n.l("copy_of_format"), base, String(i))
-            : String(format: L10n.l("copy_ext_format"), base, String(i), ext)
+            ? String(format: String(localized: "copy_of_format"), base, String(i))
+            : String(format: String(localized: "copy_ext_format"), base, String(i), ext)
         if !fm.fileExists(atPath: dir.appendingPathComponent(cand).path) { return cand }
         i += 1
     }

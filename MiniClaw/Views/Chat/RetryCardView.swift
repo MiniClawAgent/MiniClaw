@@ -14,14 +14,14 @@ struct RetryCardView: View {
                 if state.phase == .retrying {
                     ProgressView()
                         .controlSize(.small)
-                    Text(String(format: L10n.l("retrying"), "\(state.attempt)", "\(state.total)"))
+                    Text(String(format: String(localized: "retrying"), "\(state.attempt)", "\(state.total)"))
                         .font(.subheadline)
                         .foregroundStyle(.primary)
                 } else {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .font(.subheadline)
                         .foregroundStyle(.red)
-                    Text(L10n.l("retry_failed"))
+                    Text(String(localized: "retry_failed"))
                         .font(.subheadline)
                         .foregroundStyle(.primary)
                 }

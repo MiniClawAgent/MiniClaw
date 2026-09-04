@@ -206,19 +206,19 @@ extension ChatSession {
         var lines: [String] = []
         lines.append("# \(title)")
         lines.append("")
-        lines.append(String(format: L10n.l("export_model_label"), modelName))
-        lines.append(String(format: L10n.l("export_agent_label"), agentName))
-        lines.append(String(format: L10n.l("export_created_label"), sessionExportDateFormatter.string(from: createdAt)))
-        lines.append(String(format: L10n.l("export_updated_label"), sessionExportDateFormatter.string(from: updatedAt)))
+        lines.append(String(format: String(localized: "export_model_label"), modelName))
+        lines.append(String(format: String(localized: "export_agent_label"), agentName))
+        lines.append(String(format: String(localized: "export_created_label"), sessionExportDateFormatter.string(from: createdAt)))
+        lines.append(String(format: String(localized: "export_updated_label"), sessionExportDateFormatter.string(from: updatedAt)))
         lines.append("")
 
         for msg in messages.sorted(by: { $0.createdAt < $1.createdAt }) {
             let roleLabel: String = {
                 switch msg.role {
-                case .user: return L10n.l("export_role_user")
-                case .assistant: return L10n.l("export_role_assistant")
-                case .tool: return L10n.l("export_role_tool")
-                case .system: return L10n.l("export_role_system")
+                case .user: return String(localized: "export_role_user")
+                case .assistant: return String(localized: "export_role_assistant")
+                case .tool: return String(localized: "export_role_tool")
+                case .system: return String(localized: "export_role_system")
                 }
             }()
             lines.append("--- \(roleLabel) · \(sessionExportDateFormatter.string(from: msg.createdAt)) ---")
@@ -227,12 +227,12 @@ extension ChatSession {
             }
             if !msg.toolCalls.isEmpty {
                 for tc in msg.toolCalls {
-                    lines.append(String(format: L10n.l("export_tool_call"), tc.name))
+                    lines.append(String(format: String(localized: "export_tool_call"), tc.name))
                     if !tc.arguments.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                        lines.append(String(format: L10n.l("export_tool_args"), tc.arguments))
+                        lines.append(String(format: String(localized: "export_tool_args"), tc.arguments))
                     }
                     if !tc.resultText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                        lines.append(String(format: L10n.l("export_tool_result"), tc.resultText))
+                        lines.append(String(format: String(localized: "export_tool_result"), tc.resultText))
                     }
                 }
             }

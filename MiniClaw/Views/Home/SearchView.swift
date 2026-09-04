@@ -11,7 +11,7 @@ struct SearchView: View {
     var body: some View {
         List {
             if searchText.isEmpty {
-                Section(L10n.l("recent_sessions")) {
+                Section(String(localized: "recent_sessions")) {
                     ForEach(sessions.prefix(10)) { session in
                         SessionRowView(session: session)
                     }
@@ -25,9 +25,9 @@ struct SearchView: View {
             }
         }
         .listStyle(.plain)
-        .navigationTitle(Text(L10n.l("search")))
+        .navigationTitle(Text(String(localized: "search")))
         .navigationBarTitleDisplayMode(.inline)
-        .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: L10n.l("search_sessions"))
+        .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: String(localized: "search_sessions"))
         .onChange(of: searchText) { newValue in
             if newValue.isEmpty {
                 searchResults = []

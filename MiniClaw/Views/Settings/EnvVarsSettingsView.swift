@@ -11,23 +11,23 @@ struct EnvVarsSettingsView: View {
     var body: some View {
         List {
             Section {
-                Toggle(L10n.l("privacy_mode"), isOn: $isPrivacyMode)
+                Toggle(String(localized: "privacy_mode"), isOn: $isPrivacyMode)
                     .onChange(of: isPrivacyMode) { newValue in
                         SettingsStore.shared.setEnvvarsPrivacyMode(newValue)
                     }
-                Text(L10n.l("when_enabled_environment_variable_values_in_shell_output_will_be_masked"))
+                Text(String(localized: "when_enabled_environment_variable_values_in_shell_output_will_be_masked"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
 
-            Section(L10n.l("environment_variables")) {
+            Section(String(localized: "environment_variables")) {
                 ForEach(envVars) { v in
                     HStack {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(v.key)
                                 .font(.system(.body, design: .monospaced))
                             if v.isSecret {
-                                Label(L10n.l("encrypted_storage_cannot_be_read_back"), systemImage: "lock.fill")
+                                Label(String(localized: "encrypted_storage_cannot_be_read_back"), systemImage: "lock.fill")
                                     .font(.caption2)
                                     .foregroundStyle(.secondary)
                             }
@@ -46,32 +46,32 @@ struct EnvVarsSettingsView: View {
                 Button(action: { showAddVar = true }) {
                     HStack {
                         Image(systemName: "plus.circle.fill")
-                        Text(L10n.l("add_environment_variable"))
+                        Text(String(localized: "add_environment_variable"))
                     }
                 }
             }
         }
         .scrollContentBackground(.hidden)
         .background(ThemeBackground(slot: .settings))
-        .navigationTitle(L10n.l("environment_variables"))
+        .navigationTitle(String(localized: "environment_variables"))
         .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $showAddVar) {
             NavigationStack {
                 Form {
-                    TextField(L10n.l("variable_name"), text: $newKey)
-                    TextField(L10n.l("variable_value"), text: $newValue)
-                    Toggle(L10n.l("encrypted_storage"), isOn: $newIsSecret)
+                    TextField(String(localized: "variable_name"), text: $newKey)
+                    TextField(String(localized: "variable_value"), text: $newValue)
+                    Toggle(String(localized: "encrypted_storage"), isOn: $newIsSecret)
                 }
                 .scrollContentBackground(.hidden)
                 .background(ThemeBackground(slot: .settings))
-                .navigationTitle(L10n.l("add_variable"))
+                .navigationTitle(String(localized: "add_variable"))
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) {
-                        Button(L10n.l("cancel")) { showAddVar = false }
+                        Button(String(localized: "cancel")) { showAddVar = false }
                     }
                     ToolbarItem(placement: .confirmationAction) {
-                        Button(L10n.l("add")) { addVar() }
+                        Button(String(localized: "add")) { addVar() }
                     }
                 }
             }
@@ -83,7 +83,7 @@ struct EnvVarsSettingsView: View {
     }
 
     private func persist() {
-        SettingsStore.shared.set(envVars, domain: .envvars, summary: L10n.l("update_environment_variables"))
+        SettingsStore.shared.set(envVars, domain: .envvars, summary: String(localized: "update_environment_variables"))
     }
 
     private func addVar() {

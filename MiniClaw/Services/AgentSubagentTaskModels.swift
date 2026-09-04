@@ -17,7 +17,7 @@ struct SubagentRunResult {
         let name: String
         let body: String
         let ok: Bool
-        var rendered: String { String(format: L10n.l("loop_subagent_prefix"), name, id.uuidString, body) }
+        var rendered: String { String(format: String(localized: "loop_subagent_prefix"), name, id.uuidString, body) }
     }
 
 /// dispatch_subagent 参数解析（顶层函数入口）。

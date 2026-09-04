@@ -45,7 +45,7 @@ enum PermissionState: String, Codable {
     case denied = "已拒绝"
     case restricted = "受限"
 
-    /// 显示标签(英文 key,经 L10n.l 查表);rawValue 保持中文以兼容 Codable 持久化。
+    /// 显示标签(英文 key,经 String(localized:) 查表);rawValue 保持中文以兼容 Codable 持久化。
     var label: String {
         switch self {
         case .notDetermined: "permission_not_determined"

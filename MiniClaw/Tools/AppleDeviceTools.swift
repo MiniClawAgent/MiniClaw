@@ -27,12 +27,12 @@ struct AppleClipboardTool: AgentTool {
         type: "function",
         function: ToolSchema.FunctionDef(
             name: "apple-clipboard",
-            description: L10n.l("clipboard_tool_desc"),
+            description: String(localized: "clipboard_tool_desc"),
             parameters: JSONSchema(
                 type: "object",
                 properties: [
-                    "action": JSONSchema.JSONProperty(type: "string", description: L10n.l("op_health_actions"), enum: ["read", "write"]),
-                    "text": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_write_text")),
+                    "action": JSONSchema.JSONProperty(type: "string", description: String(localized: "op_health_actions"), enum: ["read", "write"]),
+                    "text": JSONSchema.JSONProperty(type: "string", description: String(localized: "param_write_text")),
                 ],
                 required: ["action"]
             )
@@ -41,23 +41,23 @@ struct AppleClipboardTool: AgentTool {
 
     func execute(_ parameters: [String: Any]) async throws -> ToolResult {
         guard let action = parameters["action"] as? String else {
-            throw ToolError.invalidParameters(L10n.l("err_missing_action"))
+            throw ToolError.invalidParameters(String(localized: "err_missing_action"))
         }
         switch action {
         case "read":
-            let text: String = await MainActor.run { UIPasteboard.general.string ?? L10n.l("clipboard_empty") }
-            if text == L10n.l("clipboard_empty") {
+            let text: String = await MainActor.run { UIPasteboard.general.string ?? String(localized: "clipboard_empty") }
+            if text == String(localized: "clipboard_empty") {
                 return ToolResult(success: true, text: text)
             }
             return ToolResult(success: true, text: text)
         case "write":
             guard let text = parameters["text"] as? String else {
-                return ToolResult(success: false, text: L10n.l("err_missing_text"))
+                return ToolResult(success: false, text: String(localized: "err_missing_text"))
             }
             await MainActor.run { UIPasteboard.general.string = text }
-            return ToolResult(success: true, text: String(format: L10n.l("apple_clipboard_written"), text.count))
+            return ToolResult(success: true, text: String(format: String(localized: "apple_clipboard_written"), text.count))
         default:
-            return ToolResult(success: false, text: String(format: L10n.l("apple_unsupported_action"), action))
+            return ToolResult(success: false, text: String(format: String(localized: "apple_unsupported_action"), action))
         }
     }
 }
@@ -70,11 +70,11 @@ struct AppleDeviceTool: AgentTool {
         type: "function",
         function: ToolSchema.FunctionDef(
             name: "apple-device",
-            description: L10n.l("device_info_tool_desc"),
+            description: String(localized: "device_info_tool_desc"),
             parameters: JSONSchema(
                 type: "object",
                 properties: [
-                    "info": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_query_items"), enum: ["all", "model", "os", "battery", "storage", "network", "screen"]),
+                    "info": JSONSchema.JSONProperty(type: "string", description: String(localized: "param_query_items"), enum: ["all", "model", "os", "battery", "storage", "network", "screen"]),
                 ],
                 required: []
             )
@@ -87,32 +87,32 @@ struct AppleDeviceTool: AgentTool {
             let device = UIDevice.current
             var p: [String] = []
             if info == "all" || info == "model" {
-                p.append(String(format: L10n.l("apple_device_model"), device.model, device.name))
+                p.append(String(format: String(localized: "apple_device_model"), device.model, device.name))
             }
             if info == "all" || info == "os" {
-                p.append(String(format: L10n.l("apple_system"), device.systemName, device.systemVersion))
-                p.append(String(format: L10n.l("device_identifier_label"), device.identifierForVendor.map { String($0.uuidString.prefix(12)) } ?? L10n.l("unknown")))
+                p.append(String(format: String(localized: "apple_system"), device.systemName, device.systemVersion))
+                p.append(String(format: String(localized: "device_identifier_label"), device.identifierForVendor.map { String($0.uuidString.prefix(12)) } ?? String(localized: "unknown")))
             }
             if info == "all" || info == "battery" {
                 device.isBatteryMonitoringEnabled = true
                 let pct = Int(device.batteryLevel * 100)
                 let state: String = {
                     switch device.batteryState {
-                    case .unplugged: return L10n.l("battery_usage")
-                    case .charging: return L10n.l("charging_status")
-                    case .full: return L10n.l("battery_full")
-                    default: return L10n.l("unknown")
+                    case .unplugged: return String(localized: "battery_usage")
+                    case .charging: return String(localized: "charging_status")
+                    case .full: return String(localized: "battery_full")
+                    default: return String(localized: "unknown")
                     }
                 }()
-                p.append(String(format: L10n.l("apple_battery"), pct, state))
+                p.append(String(format: String(localized: "apple_battery"), pct, state))
             }
             if info == "all" || info == "screen" {
                 let screen = UIScreen.main
                 let bounds = screen.bounds
-                p.append(String(format: L10n.l("apple_screen"), Int(bounds.width), Int(bounds.height), Int(screen.scale)))
+                p.append(String(format: String(localized: "apple_screen"), Int(bounds.width), Int(bounds.height), Int(screen.scale)))
             }
             if info == "storage" {
-                p.append(L10n.l("not_implemented_storage"))
+                p.append(String(localized: "not_implemented_storage"))
             }
             return p
         }

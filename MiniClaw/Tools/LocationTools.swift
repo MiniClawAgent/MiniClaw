@@ -90,35 +90,35 @@ struct AppleLocationTool: AgentTool {
         type: "function",
         function: ToolSchema.FunctionDef(
             name: "apple-location",
-            description: L10n.l("location_tool_desc"),
+            description: String(localized: "location_tool_desc"),
             parameters: JSONSchema(
                 type: "object",
                 properties: [
                     "action": JSONSchema.JSONProperty(
                         type: "string",
-                        description: L10n.l("location_param_action"),
+                        description: String(localized: "location_param_action"),
                         enum: ["current", "geocode", "reverse_geocode"]
                     ),
                     "accuracy": JSONSchema.JSONProperty(
                         type: "string",
-                        description: L10n.l("location_param_accuracy"),
+                        description: String(localized: "location_param_accuracy"),
                         enum: ["reduced", "hundred", "best"]
                     ),
                     "include_address": JSONSchema.JSONProperty(
                         type: "boolean",
-                        description: L10n.l("location_param_include_address")
+                        description: String(localized: "location_param_include_address")
                     ),
                     "address": JSONSchema.JSONProperty(
                         type: "string",
-                        description: L10n.l("location_param_address")
+                        description: String(localized: "location_param_address")
                     ),
                     "latitude": JSONSchema.JSONProperty(
                         type: "number",
-                        description: L10n.l("location_param_latitude")
+                        description: String(localized: "location_param_latitude")
                     ),
                     "longitude": JSONSchema.JSONProperty(
                         type: "number",
-                        description: L10n.l("location_param_longitude")
+                        description: String(localized: "location_param_longitude")
                     ),
                 ],
                 required: ["action"]
@@ -137,7 +137,7 @@ struct AppleLocationTool: AgentTool {
         case "reverse_geocode": return await reverseGeocodeAction(parameters)
         default:
             return ToolResult(success: false,
-                              text: String(format: L10n.l("location_unknown_action"), action))
+                              text: String(format: String(localized: "location_unknown_action"), action))
         }
     }
 
@@ -145,17 +145,17 @@ struct AppleLocationTool: AgentTool {
 
     private func currentAction(_ parameters: [String: Any]) async -> ToolResult {
         guard CLLocationManager.locationServicesEnabled() else {
-            return ToolResult(success: false, text: L10n.l("location_unavailable"))
+            return ToolResult(success: false, text: String(localized: "location_unavailable"))
         }
         guard authorizationGranted() else {
-            return ToolResult(success: false, text: L10n.l("location_denied"))
+            return ToolResult(success: false, text: String(localized: "location_denied"))
         }
 
         let accuracy = resolvedAccuracy(parameters["accuracy"])
         let includeAddress = Self.bool(from: parameters["include_address"]) ?? true
 
         guard let location = await fetchOnce(accuracy: accuracy) else {
-            return ToolResult(success: false, text: L10n.l("location_timeout"))
+            return ToolResult(success: false, text: String(localized: "location_timeout"))
         }
 
         var lines = [
@@ -175,7 +175,7 @@ struct AppleLocationTool: AgentTool {
 
     private func geocodeAction(_ parameters: [String: Any]) async -> ToolResult {
         guard let address = parameters["address"] as? String, !address.isEmpty else {
-            return ToolResult(success: false, text: L10n.l("location_arg_missing"))
+            return ToolResult(success: false, text: String(localized: "location_arg_missing"))
         }
         let placemarks = await withCheckedContinuation { (cont: CheckedContinuation<[CLPlacemark], Never>) in
             CLGeocoder().geocodeAddressString(address) { marks, _ in
@@ -183,9 +183,9 @@ struct AppleLocationTool: AgentTool {
             }
         }
         guard !placemarks.isEmpty else {
-            return ToolResult(success: false, text: L10n.l("location_geocode_no_result"))
+            return ToolResult(success: false, text: String(localized: "location_geocode_no_result"))
         }
-        var lines: [String] = [String(format: L10n.l("location_geocode_header"), String(placemarks.count))]
+        var lines: [String] = [String(format: String(localized: "location_geocode_header"), String(placemarks.count))]
         for (index, mark) in placemarks.enumerated() where index < 5 {
             guard let coordinate = mark.location?.coordinate else { continue }
             lines.append("\(index + 1). \(Self.readableAddress(mark)) | \(Self.trim(coordinate.latitude)), \(Self.trim(coordinate.longitude))")
@@ -198,11 +198,11 @@ struct AppleLocationTool: AgentTool {
     private func reverseGeocodeAction(_ parameters: [String: Any]) async -> ToolResult {
         guard let latitude = Self.number(from: parameters["latitude"]),
               let longitude = Self.number(from: parameters["longitude"]) else {
-            return ToolResult(success: false, text: L10n.l("location_arg_missing"))
+            return ToolResult(success: false, text: String(localized: "location_arg_missing"))
         }
         let location = CLLocation(latitude: latitude, longitude: longitude)
         guard let address = await reverseGeocode(location) else {
-            return ToolResult(success: false, text: L10n.l("location_geocode_no_result"))
+            return ToolResult(success: false, text: String(localized: "location_geocode_no_result"))
         }
         return ToolResult(success: true, text: "address: \(address)")
     }
@@ -256,7 +256,7 @@ struct AppleLocationTool: AgentTool {
         let parts = [mark.name, mark.locality, mark.administrativeArea, mark.country]
             .compactMap { $0 }
             .filter { !$0.isEmpty }
-        return parts.isEmpty ? L10n.l("unknown") : parts.joined(separator: ", ")
+        return parts.isEmpty ? String(localized: "unknown") : parts.joined(separator: ", ")
     }
 
     private static func trim(_ value: Double) -> String {

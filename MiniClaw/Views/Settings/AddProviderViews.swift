@@ -90,7 +90,7 @@ struct AddProviderView: View {
             List {
                 Section {
                     if pluginTemplates.isEmpty {
-                        Text(L10n.l("no_provider_templates"))
+                        Text(String(localized: "no_provider_templates"))
                             .font(.callout)
                             .foregroundStyle(.secondary)
                     }
@@ -119,9 +119,9 @@ struct AddProviderView: View {
                         }
                     }
                 } header: {
-                    Text(L10n.l("providers_from_installed_plugins"))
+                    Text(String(localized: "providers_from_installed_plugins"))
                 } footer: {
-                    Text(L10n.l("you_can_add_multiple_instances_of_the_same_provider"))
+                    Text(String(localized: "you_can_add_multiple_instances_of_the_same_provider"))
                 }
 
                 Section {
@@ -131,18 +131,18 @@ struct AddProviderView: View {
                         HStack {
                             Image(systemName: "square.and.arrow.down")
                                 .foregroundStyle(.orange)
-                            Text(L10n.l("import_config_from_file"))
+                            Text(String(localized: "import_config_from_file"))
                         }
                     }
                 }
             }
             .scrollContentBackground(.hidden)
             .background(ThemeBackground(slot: .settings))
-            .navigationTitle(L10n.l("add_provider_action"))
+            .navigationTitle(String(localized: "add_provider_action"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button(L10n.l("done")) { dismiss() }
+                    Button(String(localized: "done")) { dismiss() }
                 }
             }
             .navigationDestination(for: AddProviderDestination.self) { dest in
@@ -186,8 +186,8 @@ struct AuthMethodPickerView: View {
                         Image(systemName: "key.fill")
                             .foregroundStyle(.blue)
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(L10n.l("api_key_authentication"))
-                            Text(L10n.l("use_an_api_key_to_access_the_provider_api"))
+                            Text(String(localized: "api_key_authentication"))
+                            Text(String(localized: "use_an_api_key_to_access_the_provider_api"))
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
@@ -203,8 +203,8 @@ struct AuthMethodPickerView: View {
                         Image(systemName: "person.badge.key.fill")
                             .foregroundStyle(.blue)
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(L10n.l("oauth_authentication"))
-                            Text(L10n.l("sign_in_with_your_account_or_enter_a_bearer_token_manually"))
+                            Text(String(localized: "oauth_authentication"))
+                            Text(String(localized: "sign_in_with_your_account_or_enter_a_bearer_token_manually"))
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
@@ -214,7 +214,7 @@ struct AuthMethodPickerView: View {
                     }
                 }
             } footer: {
-                Text(L10n.l("choose_an_authentication_method_credentials_renew_automatically_after_oauth_sign_in"))
+                Text(String(localized: "choose_an_authentication_method_credentials_renew_automatically_after_oauth_sign_in"))
             }
         }
         .scrollContentBackground(.hidden)

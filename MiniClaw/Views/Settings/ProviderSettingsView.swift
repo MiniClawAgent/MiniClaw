@@ -16,7 +16,7 @@ struct ProviderSettingsView: View {
             ForEach(categoryOrder, id: \.self) { category in
                 let items = appState.providers.filter { $0.providerType.compatFormat == category }
                 if !items.isEmpty {
-                    Section(L10n.l(category)) {
+                    Section(String(localized: String.LocalizationValue(category))) {
                         ForEach(items) { p in
                             NavigationLink {
                                 ProviderDetailView(providerId: p.id)
@@ -28,10 +28,10 @@ struct ProviderSettingsView: View {
                                     HStack(spacing: 6) {
                                         Image(systemName: p.keyAdded ? "checkmark.shield.fill" : "exclamationmark.shield.fill")
                                             .foregroundStyle(p.keyAdded ? .green : .orange)
-                                        Text(p.keyAdded ? L10n.l("key_added") : L10n.l("key_not_added"))
+                                        Text(p.keyAdded ? String(localized: "key_added") : String(localized: "key_not_added"))
                                         Text("·")
                                             .foregroundStyle(.tertiary)
-                                        Text(L10n.l("model_label_space") + "\(p.models.count)")
+                                        Text(String(localized: "model_label_space") + "\(p.models.count)")
                                     }
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
@@ -50,14 +50,14 @@ struct ProviderSettingsView: View {
 
             if appState.providers.isEmpty {
                 Section {
-                    Text(L10n.l("no_providers_yet"))
+                    Text(String(localized: "no_providers_yet"))
                         .foregroundStyle(.secondary)
                 }
             }
         }
         .scrollContentBackground(.hidden)
         .background(ThemeBackground(slot: .settings))
-        .navigationTitle(L10n.l("providers"))
+        .navigationTitle(String(localized: "providers"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
@@ -65,12 +65,12 @@ struct ProviderSettingsView: View {
                     Button {
                         showAdd = true
                     } label: {
-                        Label(L10n.l("add_provider_button"), systemImage: "plus")
+                        Label(String(localized: "add_provider_button"), systemImage: "plus")
                     }
                     Button {
                         showImportFile = true
                     } label: {
-                        Label(L10n.l("import_provider"), systemImage: "square.and.arrow.down")
+                        Label(String(localized: "import_provider"), systemImage: "square.and.arrow.down")
                     }
                 } label: {
                     Image(systemName: "plus")

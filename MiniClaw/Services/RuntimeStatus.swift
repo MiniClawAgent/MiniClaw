@@ -29,10 +29,10 @@ enum StatusState {
 
     var label: String {
         switch self {
-        case .ok: return L10n.l("status_ok")
-        case .warning: return L10n.l("status_warning")
-        case .error: return L10n.l("status_error")
-        case .unknown: return L10n.l("status_unknown")
+        case .ok: return String(localized: "status_ok")
+        case .warning: return String(localized: "status_warning")
+        case .error: return String(localized: "status_error")
+        case .unknown: return String(localized: "status_unknown")
         }
     }
 }
@@ -60,10 +60,10 @@ enum BootPhase {
     /// “iSH 运行时”那一行的详细说明
     var runtimeDetail: String {
         switch self {
-        case .booted:     return L10n.l("status_booted")
-        case .prewarming: return L10n.l("status_prewarming")
-        case .failed:     return L10n.l("status_failed")
-        case .idle:       return L10n.l("status_idle")
+        case .booted:     return String(localized: "status_booted")
+        case .prewarming: return String(localized: "status_prewarming")
+        case .failed:     return String(localized: "status_failed")
+        case .idle:       return String(localized: "status_idle")
         }
     }
 }
@@ -97,18 +97,18 @@ struct RuntimeStatusSnapshot {
 
     /// 顶部列表行的快速摘要
     var summary: String {
-        if !ishCompiledIn { return L10n.l("status_ish_not_integrated") }
+        if !ishCompiledIn { return String(localized: "status_ish_not_integrated") }
         switch bootPhase {
         case .booted:
-            let version = alpineRelease ?? L10n.l("unknown_version")
-            let arch = liveArch ?? alpineArch ?? L10n.l("unknown_arch")
-            return String(format: L10n.l("status_ish_running"), version, arch)
+            let version = alpineRelease ?? String(localized: "unknown_version")
+            let arch = liveArch ?? alpineArch ?? String(localized: "unknown_arch")
+            return String(format: String(localized: "status_ish_running"), version, arch)
         case .prewarming:
-            return L10n.l("status_kernel_prewarming")
+            return String(localized: "status_kernel_prewarming")
         case .failed:
-            return L10n.l("status_kernel_failed")
+            return String(localized: "status_kernel_failed")
         case .idle:
-            return rootfsDeployed ? L10n.l("status_idle_ready") : L10n.l("status_idle_not_deployed")
+            return rootfsDeployed ? String(localized: "status_idle_ready") : String(localized: "status_idle_not_deployed")
         }
     }
 }

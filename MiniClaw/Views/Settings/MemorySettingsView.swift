@@ -8,22 +8,22 @@ struct MemorySettingsView: View {
 
     var body: some View {
         List {
-            Section(L10n.l("memory_toggle")) {
-                Toggle(L10n.l("enable_memory"), isOn: $memory.isEnabled)
+            Section(String(localized: "memory_toggle")) {
+                Toggle(String(localized: "enable_memory"), isOn: $memory.isEnabled)
                     .onChange(of: memory.isEnabled) { _ in persist() }
-                Toggle(L10n.l("auto_save_daily_memory"), isOn: $memory.autoSaveDaily)
+                Toggle(String(localized: "auto_save_daily_memory"), isOn: $memory.autoSaveDaily)
                     .onChange(of: memory.autoSaveDaily) { _ in persist() }
-                Toggle(L10n.l("vector_recall_fts_vector"), isOn: $memory.embeddingEnabled)
+                Toggle(String(localized: "vector_recall_fts_vector"), isOn: $memory.embeddingEnabled)
                     .onChange(of: memory.embeddingEnabled) { _ in persist() }
             }
 
-            Section(L10n.l("long_term_memory_memory_md")) {
+            Section(String(localized: "long_term_memory_memory_md")) {
                 Button {
                     loadLongTermMemory()
                     activeSheet = .longTermEditor
                 } label: {
                     HStack {
-                        Label(L10n.l("view_edit_long_term_memory"), systemImage: "brain.head.profile")
+                        Label(String(localized: "view_edit_long_term_memory"), systemImage: "brain.head.profile")
                         Spacer()
                         Image(systemName: "chevron.right")
                             .font(.caption)
@@ -33,9 +33,9 @@ struct MemorySettingsView: View {
                 .buttonStyle(.plain)
             }
 
-            Section(L10n.l("daily_memory")) {
+            Section(String(localized: "daily_memory")) {
                 if memoryLogs.isEmpty {
-                    Text(L10n.l("no_logs_yet"))
+                    Text(String(localized: "no_logs_yet"))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 } else {
@@ -75,7 +75,7 @@ struct MemorySettingsView: View {
         }
         .scrollContentBackground(.hidden)
         .background(ThemeBackground(slot: .settings))
-        .navigationTitle(L10n.l("memory"))
+        .navigationTitle(String(localized: "memory"))
         .navigationBarTitleDisplayMode(.inline)
         .onAppear { loadFromStore() }
         .sheet(item: $activeSheet) { sheet in
@@ -83,7 +83,7 @@ struct MemorySettingsView: View {
             case .dailyLog(let url):
                 NavigationStack {
                     ScrollView {
-                        Text((try? String(contentsOf: url, encoding: .utf8)) ?? L10n.l("unable_to_read_file"))
+                        Text((try? String(contentsOf: url, encoding: .utf8)) ?? String(localized: "unable_to_read_file"))
                             .font(.system(.caption, design: .monospaced))
                             .textSelection(.enabled)
                             .padding()
@@ -101,10 +101,10 @@ struct MemorySettingsView: View {
                         .navigationBarTitleDisplayMode(.inline)
                         .toolbar {
                             ToolbarItem(placement: .cancellationAction) {
-                                Button(L10n.l("cancel")) { activeSheet = nil }
+                                Button(String(localized: "cancel")) { activeSheet = nil }
                             }
                             ToolbarItem(placement: .confirmationAction) {
-                                Button(L10n.l("save")) { saveLongTermMemory() }
+                                Button(String(localized: "save")) { saveLongTermMemory() }
                                     .disabled(longTermMemoryDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                             }
                         }
@@ -119,7 +119,7 @@ struct MemorySettingsView: View {
     }
 
     private func persist() {
-        SettingsStore.shared.set(memory, domain: .memory, summary: L10n.l("update_memory_settings"))
+        SettingsStore.shared.set(memory, domain: .memory, summary: String(localized: "update_memory_settings"))
     }
 
     private func loadLongTermMemory() {

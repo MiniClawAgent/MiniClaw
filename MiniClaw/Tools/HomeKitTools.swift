@@ -15,7 +15,7 @@ private struct HomeKitBrief: Sendable {
     let reachable: Bool
 
     var line: String {
-        let state = reachable ? L10n.l("homekit_online") : L10n.l("homekit_offline")
+        let state = reachable ? String(localized: "homekit_online") : String(localized: "homekit_offline")
         return "- \(name) | \(kind) | \(room) | \(state)"
     }
 }
@@ -99,12 +99,12 @@ private final class HomeKitHub: NSObject, HMHomeManagerDelegate {
     func detail(name: String) async -> HomeKitOutcome {
         await waitUntilReady()
         guard let item = findAccessory(name) else {
-            return HomeKitOutcome(success: false, text: L10n.l("homekit_not_found") + name)
+            return HomeKitOutcome(success: false, text: String(localized: "homekit_not_found") + name)
         }
         var lines: [String] = [
-            "\(L10n.l("homekit_accessory_label")) \(item.accessory.name)",
-            "\(L10n.l("homekit_room_label")) \(item.room)",
-            "\(L10n.l("homekit_reachable_label")) \(item.accessory.isReachable ? L10n.l("yes_label") : L10n.l("no_label"))",
+            "\(String(localized: "homekit_accessory_label")) \(item.accessory.name)",
+            "\(String(localized: "homekit_room_label")) \(item.room)",
+            "\(String(localized: "homekit_reachable_label")) \(item.accessory.isReachable ? String(localized: "yes_label") : String(localized: "no_label"))",
         ]
         for service in item.accessory.services {
             // 配件信息服务只含厂商/型号/固件等元数据，对控制无用，跳过以免刷屏
@@ -120,13 +120,13 @@ private final class HomeKitHub: NSObject, HMHomeManagerDelegate {
                 guard c.properties.contains(HMCharacteristicPropertyWritable)
                         || c.properties.contains(HMCharacteristicPropertyReadable) else { continue }
                 var line = "  - \(HomeKitNames.characteristicName(c)) = \(HomeKitNames.valueText(c.value))"
-                line += " [\(c.properties.contains(HMCharacteristicPropertyWritable) ? L10n.l("writable_yes") : L10n.l("writable_no"))]"
+                line += " [\(c.properties.contains(HMCharacteristicPropertyWritable) ? String(localized: "writable_yes") : String(localized: "writable_no"))]"
                 if let meta = c.metadata {
                     var hints: [String] = []
                     if let min = meta.minimumValue, let max = meta.maximumValue {
                         hints.append("\(min)~\(max)")
                     }
-                    if let step = meta.stepValue { hints.append("\(L10n.l("homekit_step_label")) \(step)") }
+                    if let step = meta.stepValue { hints.append("\(String(localized: "homekit_step_label")) \(step)") }
                     if let units = meta.units, !units.isEmpty { hints.append(units) }
                     if !hints.isEmpty { line += " (\(hints.joined(separator: ", ")))" }
                 }
@@ -139,7 +139,7 @@ private final class HomeKitHub: NSObject, HMHomeManagerDelegate {
     func write(accessory name: String, characteristic charName: String, value rawValue: String) async -> HomeKitOutcome {
         await waitUntilReady()
         guard let item = findAccessory(name) else {
-            return HomeKitOutcome(success: false, text: L10n.l("homekit_not_found") + name)
+            return HomeKitOutcome(success: false, text: String(localized: "homekit_not_found") + name)
         }
         let all = item.accessory.services.flatMap(\.characteristics)
         // 先按规范类型匹配（稳定），再按可读名匹配（兜底厂商自定义特征）
@@ -147,20 +147,20 @@ private final class HomeKitHub: NSObject, HMHomeManagerDelegate {
             if let wanted = HomeKitNames.characteristicType(named: charName), c.characteristicType == wanted { return true }
             return HomeKitNames.characteristicName(c).localizedCaseInsensitiveCompare(charName) == .orderedSame
         }) else {
-            return HomeKitOutcome(success: false, text: L10n.l("homekit_characteristic_not_found") + charName)
+            return HomeKitOutcome(success: false, text: String(localized: "homekit_characteristic_not_found") + charName)
         }
         guard characteristic.properties.contains(HMCharacteristicPropertyWritable) else {
-            return HomeKitOutcome(success: false, text: L10n.l("homekit_readonly"))
+            return HomeKitOutcome(success: false, text: String(localized: "homekit_readonly"))
         }
         guard let value = HomeKitNames.coerce(rawValue, format: characteristic.metadata?.format) else {
-            return HomeKitOutcome(success: false, text: L10n.l("homekit_bad_value") + rawValue)
+            return HomeKitOutcome(success: false, text: String(localized: "homekit_bad_value") + rawValue)
         }
         do {
             try await characteristic.writeValue(value)
             let after = HomeKitNames.valueText(characteristic.value)
-            return HomeKitOutcome(success: true, text: L10n.l("homekit_set_ok") + "\(HomeKitNames.characteristicName(characteristic)) = \(after)")
+            return HomeKitOutcome(success: true, text: String(localized: "homekit_set_ok") + "\(HomeKitNames.characteristicName(characteristic)) = \(after)")
         } catch {
-            return HomeKitOutcome(success: false, text: L10n.l("homekit_set_failed") + error.localizedDescription)
+            return HomeKitOutcome(success: false, text: String(localized: "homekit_set_failed") + error.localizedDescription)
         }
     }
 
@@ -173,18 +173,18 @@ private final class HomeKitHub: NSObject, HMHomeManagerDelegate {
     func runScene(name: String) async -> HomeKitOutcome {
         await waitUntilReady()
         guard let home = manager.primaryHome ?? manager.homes.first else {
-            return HomeKitOutcome(success: false, text: L10n.l("homekit_no_home"))
+            return HomeKitOutcome(success: false, text: String(localized: "homekit_no_home"))
         }
         let sets = runnableScenes(in: home)
         guard let scene = sets.first(where: { $0.name.localizedCaseInsensitiveCompare(name) == .orderedSame })
                 ?? sets.first(where: { $0.name.localizedCaseInsensitiveContains(name) }) else {
-            return HomeKitOutcome(success: false, text: L10n.l("homekit_scene_not_found") + name)
+            return HomeKitOutcome(success: false, text: String(localized: "homekit_scene_not_found") + name)
         }
         do {
             try await home.executeActionSet(scene)
-            return HomeKitOutcome(success: true, text: L10n.l("homekit_scene_ok") + scene.name)
+            return HomeKitOutcome(success: true, text: String(localized: "homekit_scene_ok") + scene.name)
         } catch {
-            return HomeKitOutcome(success: false, text: L10n.l("homekit_scene_failed") + error.localizedDescription)
+            return HomeKitOutcome(success: false, text: String(localized: "homekit_scene_failed") + error.localizedDescription)
         }
     }
 
@@ -202,7 +202,7 @@ private final class HomeKitHub: NSObject, HMHomeManagerDelegate {
             }
             let roomed = Set(refs.map { $0.2.uniqueIdentifier })
             for accessory in home.accessories where !roomed.contains(accessory.uniqueIdentifier) {
-                refs.append((home.name, L10n.l("homekit_no_room"), accessory))
+                refs.append((home.name, String(localized: "homekit_no_room"), accessory))
             }
             return refs
         }
@@ -226,7 +226,7 @@ private final class HomeKitHub: NSObject, HMHomeManagerDelegate {
 /// 纯函数集合：只做「类型 ↔ 名字」映射与值转换，不持有 HomeKit 对象状态，故不隔离到主线程。
 private enum HomeKitNames {
 
-    /// L10n key → 该短名覆盖的服务类型集合。
+    /// 本地化 key → 该短名覆盖的服务类型集合。
     /// 类型过滤与类型展示名共用这一张表，避免两处维护不一致。
     /// key 后缀即 schema 里的 `type` 取值（如 `light` ↔ `homekit_type_light`）。
     private static let typeTable: [(key: String, types: Set<String>)] = [
@@ -270,7 +270,7 @@ private enum HomeKitNames {
 
     static func serviceName(_ service: HMService) -> String {
         if let hit = typeTable.first(where: { $0.types.contains(service.serviceType) }) {
-            return L10n.l(hit.key)
+            return String(localized: String.LocalizationValue(hit.key))
         }
         // 表外类型（厂商自定义等）退回系统本地化名
         return service.name
@@ -278,7 +278,7 @@ private enum HomeKitNames {
 
     static func brief(accessory: HMAccessory, home: String, room: String) -> HomeKitBrief {
         let services = accessory.services.filter { $0.serviceType != HMServiceTypeAccessoryInformation }
-        let kind = services.first.map { serviceName($0) } ?? L10n.l("homekit_type_other")
+        let kind = services.first.map { serviceName($0) } ?? String(localized: "homekit_type_other")
         return HomeKitBrief(home: home, name: accessory.name, kind: kind, room: room,
                             reachable: accessory.isReachable)
     }
@@ -404,25 +404,25 @@ struct AppleHomeKitTool: AgentTool {
         type: "function",
         function: ToolSchema.FunctionDef(
             name: "apple-homekit",
-            description: L10n.l("homekit_tool_desc"),
+            description: String(localized: "homekit_tool_desc"),
             parameters: JSONSchema(
                 type: "object",
                 properties: [
                     "action": JSONSchema.JSONProperty(
                         type: "string",
-                        description: L10n.l("op_homekit_actions"),
+                        description: String(localized: "op_homekit_actions"),
                         enum: ["list", "search", "get", "set", "scenes", "trigger"]
                     ),
-                    "name": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_accessory_or_scene")),
-                    "query": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_homekit_query")),
+                    "name": JSONSchema.JSONProperty(type: "string", description: String(localized: "param_accessory_or_scene")),
+                    "query": JSONSchema.JSONProperty(type: "string", description: String(localized: "param_homekit_query")),
                     "type": JSONSchema.JSONProperty(
                         type: "string",
-                        description: L10n.l("param_homekit_type"),
+                        description: String(localized: "param_homekit_type"),
                         enum: ["light", "fan", "thermostat", "lock", "door", "sensor", "switch", "outlet", "camera", "speaker", "blind", "irrigation"]
                     ),
-                    "room": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_room_name")),
-                    "characteristic": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_characteristic_name")),
-                    "value": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_target_value")),
+                    "room": JSONSchema.JSONProperty(type: "string", description: String(localized: "param_room_name")),
+                    "characteristic": JSONSchema.JSONProperty(type: "string", description: String(localized: "param_characteristic_name")),
+                    "value": JSONSchema.JSONProperty(type: "string", description: String(localized: "param_target_value")),
                 ],
                 required: ["action"]
             )
@@ -431,7 +431,7 @@ struct AppleHomeKitTool: AgentTool {
 
     func execute(_ parameters: [String: Any]) async throws -> ToolResult {
         guard let action = parameters["action"] as? String else {
-            throw ToolError.invalidParameters(L10n.l("err_missing_action"))
+            throw ToolError.invalidParameters(String(localized: "err_missing_action"))
         }
         switch action {
         case "list":    return await listAction(parameters)
@@ -441,7 +441,7 @@ struct AppleHomeKitTool: AgentTool {
         case "scenes":  return await scenesAction()
         case "trigger": return await triggerAction(parameters)
         default:
-            return ToolResult(success: false, text: L10n.l("homekit_unknown_action") + action)
+            return ToolResult(success: false, text: String(localized: "homekit_unknown_action") + action)
         }
     }
 }
@@ -454,18 +454,18 @@ extension AppleHomeKitTool {
         let room = Self.string(parameters["room"])
         // 先确认有没有家庭，避免把「未授权/无配置」误报成「没有配件」
         guard await HomeKitHub.shared.homeNames().isEmpty == false else {
-            return ToolResult(success: false, text: L10n.l("homekit_no_home"))
+            return ToolResult(success: false, text: String(localized: "homekit_no_home"))
         }
         let briefs = await HomeKitHub.shared.briefs(type: type, room: room)
         guard !briefs.isEmpty else {
-            return ToolResult(success: true, text: L10n.l("homekit_no_accessory"))
+            return ToolResult(success: true, text: String(localized: "homekit_no_accessory"))
         }
         var lines: [String] = []
         var current = ""
         for item in briefs {
             if item.home != current {
                 current = item.home
-                lines.append("\(L10n.l("homekit_home_label")) \(item.home)")
+                lines.append("\(String(localized: "homekit_home_label")) \(item.home)")
             }
             lines.append("  " + item.line)
         }
@@ -477,18 +477,18 @@ extension AppleHomeKitTool {
         let type = Self.string(parameters["type"])
         let room = Self.string(parameters["room"])
         guard query != nil || type != nil || room != nil else {
-            return ToolResult(success: false, text: L10n.l("homekit_need_filter"))
+            return ToolResult(success: false, text: String(localized: "homekit_need_filter"))
         }
         let hits = await HomeKitHub.shared.search(query: query, type: type, room: room)
-        guard !hits.isEmpty else { return ToolResult(success: true, text: L10n.l("homekit_no_match")) }
-        var lines: [String] = [L10n.l("homekit_match_header") + "\(hits.count)"]
+        guard !hits.isEmpty else { return ToolResult(success: true, text: String(localized: "homekit_no_match")) }
+        var lines: [String] = [String(localized: "homekit_match_header") + "\(hits.count)"]
         lines.append(contentsOf: hits.map(\.line))
         return ToolResult(success: true, text: lines.joined(separator: "\n"))
     }
 
     private func getAction(_ parameters: [String: Any]) async -> ToolResult {
         guard let name = Self.string(parameters["name"]) else {
-            return ToolResult(success: false, text: L10n.l("homekit_need_name"))
+            return ToolResult(success: false, text: String(localized: "homekit_need_name"))
         }
         let outcome = await HomeKitHub.shared.detail(name: name)
         return ToolResult(success: outcome.success, text: outcome.text)
@@ -496,13 +496,13 @@ extension AppleHomeKitTool {
 
     private func setAction(_ parameters: [String: Any]) async -> ToolResult {
         guard let name = Self.string(parameters["name"]) else {
-            return ToolResult(success: false, text: L10n.l("homekit_need_name"))
+            return ToolResult(success: false, text: String(localized: "homekit_need_name"))
         }
         guard let characteristic = Self.string(parameters["characteristic"]) else {
-            return ToolResult(success: false, text: L10n.l("homekit_need_characteristic"))
+            return ToolResult(success: false, text: String(localized: "homekit_need_characteristic"))
         }
         guard let value = Self.string(parameters["value"]) else {
-            return ToolResult(success: false, text: L10n.l("homekit_need_value"))
+            return ToolResult(success: false, text: String(localized: "homekit_need_value"))
         }
         let outcome = await HomeKitHub.shared.write(accessory: name, characteristic: characteristic, value: value)
         return ToolResult(success: outcome.success, text: outcome.text)
@@ -510,18 +510,18 @@ extension AppleHomeKitTool {
 
     private func scenesAction() async -> ToolResult {
         guard await HomeKitHub.shared.homeNames().isEmpty == false else {
-            return ToolResult(success: false, text: L10n.l("homekit_no_home"))
+            return ToolResult(success: false, text: String(localized: "homekit_no_home"))
         }
         let names = await HomeKitHub.shared.sceneNames()
-        guard !names.isEmpty else { return ToolResult(success: true, text: L10n.l("homekit_no_scene")) }
-        var lines: [String] = [L10n.l("homekit_scene_header")]
+        guard !names.isEmpty else { return ToolResult(success: true, text: String(localized: "homekit_no_scene")) }
+        var lines: [String] = [String(localized: "homekit_scene_header")]
         lines.append(contentsOf: names.map { "- \($0)" })
         return ToolResult(success: true, text: lines.joined(separator: "\n"))
     }
 
     private func triggerAction(_ parameters: [String: Any]) async -> ToolResult {
         guard let name = Self.string(parameters["name"]) else {
-            return ToolResult(success: false, text: L10n.l("homekit_need_scene"))
+            return ToolResult(success: false, text: String(localized: "homekit_need_scene"))
         }
         let outcome = await HomeKitHub.shared.runScene(name: name)
         return ToolResult(success: outcome.success, text: outcome.text)

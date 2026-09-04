@@ -11,7 +11,7 @@ struct BrowserSheetSettingsView: View {
     @State private var searchEngine: SearchEngine =
         SearchEngine(rawValue: SettingsStore.shared.settings.browser.searchEngine) ?? .bing
     /// 缓存大小文本（WebKit 磁盘缓存 + URLCache，后台计算，不卡主线程）。
-    @State private var cacheSizeText: String = L10n.l("calculating")
+    @State private var cacheSizeText: String = String(localized: "calculating")
 
     /// 按域名聚合的 Cookie 数量
     struct CookieGroup: Identifiable {
@@ -23,8 +23,8 @@ struct BrowserSheetSettingsView: View {
     var body: some View {
         List {
             // MARK: UA 设置
-            Section(L10n.l("user_agent")) {
-                Picker(L10n.l("ua_preset"), selection: $uaProfile) {
+            Section(String(localized: "user_agent")) {
+                Picker(String(localized: "ua_preset"), selection: $uaProfile) {
                     Text("Mobile Safari").tag(UAProfile.mobile)
                     Text("Desktop Safari").tag(UAProfile.desktop)
                 }
@@ -38,8 +38,8 @@ struct BrowserSheetSettingsView: View {
 
             // MARK: 搜索引擎
             // 仅切换「地址栏搜索词」跳转的引擎（默认 bing），与默认首页无关。
-            Section(L10n.l("search_engine")) {
-                Picker(L10n.l("search_engine"), selection: $searchEngine) {
+            Section(String(localized: "search_engine")) {
+                Picker(String(localized: "search_engine"), selection: $searchEngine) {
                     ForEach(SearchEngine.allCases) { engine in
                         Text(engine.displayName).tag(engine)
                     }
@@ -49,18 +49,18 @@ struct BrowserSheetSettingsView: View {
                 .onChange(of: searchEngine) { newValue in
                     var b = SettingsStore.shared.settings.browser
                     b.searchEngine = newValue.rawValue
-                    SettingsStore.shared.set(b, domain: .browser, summary: L10n.l("change_search_engine"))
+                    SettingsStore.shared.set(b, domain: .browser, summary: String(localized: "change_search_engine"))
                 }
 
-                Text(L10n.l("only_takes_effect_when_a_search_term_is_typed_in_the_address_bar_the_default_homepage_is_unaffected"))
+                Text(String(localized: "only_takes_effect_when_a_search_term_is_typed_in_the_address_bar_the_default_homepage_is_unaffected"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
 
             // MARK: 缓存
-            Section(L10n.l("cache")) {
+            Section(String(localized: "cache")) {
                 HStack {
-                    Text(L10n.l("cache_size"))
+                    Text(String(localized: "cache_size"))
                     Spacer()
                     Text(cacheSizeText)
                         .foregroundStyle(.secondary)
@@ -69,14 +69,14 @@ struct BrowserSheetSettingsView: View {
                 Button(role: .destructive) {
                     Task { await clearCache() }
                 } label: {
-                    Text(L10n.l("clear_cache"))
+                    Text(String(localized: "clear_cache"))
                 }
             }
 
             // MARK: Cookie 和数据
-            Section(L10n.l("cookies_and_data")) {
+            Section(String(localized: "cookies_and_data")) {
                 HStack {
-                    Text(L10n.l("total_cookies"))
+                    Text(String(localized: "total_cookies"))
                     Spacer()
                     Text("\(totalCount)")
                         .foregroundStyle(.secondary)
@@ -90,28 +90,28 @@ struct BrowserSheetSettingsView: View {
                         await reloadCookies()
                     }
                 } label: {
-                    Text(L10n.l("clear_all_cookies"))
+                    Text(String(localized: "clear_all_cookies"))
                 }
             }
 
             if !cookieGroups.isEmpty {
-                Section(L10n.l("group_by_domain")) {
+                Section(String(localized: "group_by_domain")) {
                     ForEach(cookieGroups) { group in
                         HStack {
                             Text(group.domain)
                             Spacer()
-                            Text("\(group.count) " + L10n.l("cookie_count_suffix"))
+                            Text("\(group.count) " + String(localized: "cookie_count_suffix"))
                                 .foregroundStyle(.secondary)
                         }
                     }
                 }
             }
         }
-        .navigationTitle(L10n.l("browser_settings"))
+        .navigationTitle(String(localized: "browser_settings"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Button(L10n.l("done")) { dismiss() }
+                Button(String(localized: "done")) { dismiss() }
             }
         }
         .onAppear {

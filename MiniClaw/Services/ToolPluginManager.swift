@@ -11,7 +11,7 @@ import Foundation
 struct ToolDefinition: Codable {
     /// 工具名（模型可见）。仅允许 [A-Za-z0-9_-]，与内置/MCP 重名时拒绝注册。
     var name: String = ""
-    /// 工具描述（模型可见，作者撰写，不走 App L10n——同技能正文）。
+    /// 工具描述（模型可见，作者撰写，不走 App 本地化查表——同技能正文）。
     var description: String = ""
     /// 参数 JSON Schema（对象），原样下发给模型。
     var parameters: JSONSchema = JSONSchema(type: "object")
@@ -110,7 +110,7 @@ struct DeclarativeShellTool: AgentTool {
                 sessionID: currentSessionID
             )
             let output = result.stdout + (result.stderr.isEmpty ? "" : "\n[stderr]\n\(result.stderr)")
-            let full = output.isEmpty ? L10n.l("no_output") : output
+            let full = output.isEmpty ? String(localized: "no_output") : output
             // 隐私掩码与超限转存：与 shell_execute 同口径（同一份设置快照）。
             var text = full
             if settings.envvarsPrivacyMode {

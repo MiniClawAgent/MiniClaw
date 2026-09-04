@@ -24,12 +24,12 @@ enum AgentLoopHelpers {
     /// `canDispatchDeeper` 为 true 时（P2-4 多层编排，深度未触顶）允许继续往下派子代理。
     static func subagentEngineSuffix(focus: String?, depth: Int, canDispatchDeeper: Bool) -> String {
         let recursionRule = canDispatchDeeper
-        ? String(format: L10n.l("loop_subagent_depth_hint"), depth, maxSubagentDepth)
-        : String(format: L10n.l("loop_subagent_max_depth"), depth, maxSubagentDepth)
+        ? String(format: String(localized: "loop_subagent_depth_hint"), depth, maxSubagentDepth)
+        : String(format: String(localized: "loop_subagent_max_depth"), depth, maxSubagentDepth)
         return """
         规则：
         - 只使用你手上的工具完成任务。
-        \(focus.map { String(format: L10n.l("subagent_focus_line"), $0) } ?? "")
+        \(focus.map { String(format: String(localized: "subagent_focus_line"), $0) } ?? "")
         \(recursionRule)
         - 直接、简洁地完成任务，最后用一段中文总结你的关键发现或结果，不要多余寒暄与自我介绍。
         - 你的最终回答会作为父代理的一个工具结果，请保证信息自包含、可被父代理直接引用。

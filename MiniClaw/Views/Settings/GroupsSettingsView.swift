@@ -48,7 +48,7 @@ struct GroupsSettingsView: View {
                         ModelGroupEditView(group: $g)
                     } label: {
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(g.name.isEmpty ? L10n.l("unnamed_group") : g.name)
+                            Text(g.name.isEmpty ? String(localized: "unnamed_group") : g.name)
                                 .font(.headline)
                             Text(groupSummary(g))
                                 .font(.caption)
@@ -61,8 +61,8 @@ struct GroupsSettingsView: View {
                     let deletedIds = Set(idx.map { groups[$0].id })
                     groups.remove(atOffsets: idx)
                     clearDeletedAssignments(deletedIds)
-                    saveGroups(summary: L10n.l("delete_model_group"))
-                    saveAssignments(summary: L10n.l("clear_deleted_model_group_assignments"))
+                    saveGroups(summary: String(localized: "delete_model_group"))
+                    saveAssignments(summary: String(localized: "clear_deleted_model_group_assignments"))
                 }
 
                 if groups.isEmpty {
@@ -71,7 +71,7 @@ struct GroupsSettingsView: View {
                     } label: {
                         HStack(spacing: 8) {
                             Image(systemName: "plus.circle.fill")
-                            Text(L10n.l("tap_to_create_model_group"))
+                            Text(String(localized: "tap_to_create_model_group"))
                         }
                         .font(.headline)
                         .frame(maxWidth: .infinity, alignment: .center)
@@ -81,24 +81,24 @@ struct GroupsSettingsView: View {
                     .foregroundStyle(.secondary)
                 }
             } header: {
-                Text(L10n.l("model_group"))
+                Text(String(localized: "model_group"))
             }
 
             Section {
                 HStack {
-                    TextField(L10n.l("new_model_group"), text: $newName)
+                    TextField(String(localized: "new_model_group"), text: $newName)
                         .focused($newNameFocused)
-                    Button(L10n.l("add")) {
+                    Button(String(localized: "add")) {
                         let name = newName.trimmingCharacters(in: .whitespaces)
                         guard !name.isEmpty else { return }
                         groups.append(ModelGroup(name: name, modelIds: []))
                         newName = ""
-                        saveGroups(summary: L10n.l("new_model_group"))
+                        saveGroups(summary: String(localized: "new_model_group"))
                     }
                     .disabled(newName.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
             } footer: {
-                Text(L10n.l("a_model_group_is_saved_immediately_even_if_no_models_are_linked_yet"))
+                Text(String(localized: "a_model_group_is_saved_immediately_even_if_no_models_are_linked_yet"))
             }
 
             groupAssignmentsContent
@@ -106,7 +106,7 @@ struct GroupsSettingsView: View {
         }
         .scrollContentBackground(.hidden)
         .background(ThemeBackground(slot: .settings))
-        .navigationTitle(L10n.l("model_management"))
+        .navigationTitle(String(localized: "model_management"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             // 弹出场景（首页/会话页顶部点击）：保存由 onChange/onDisappear 自动完成，
@@ -122,7 +122,7 @@ struct GroupsSettingsView: View {
                             .padding(6)
                             .background(.ultraThinMaterial, in: Circle())
                     }
-                    .accessibilityLabel(L10n.l("save"))
+                    .accessibilityLabel(String(localized: "save"))
                 }
             }
         }
@@ -132,14 +132,14 @@ struct GroupsSettingsView: View {
             normalizeAssignments()
         }
         .onChange(of: groups) { _ in
-            saveGroups(summary: L10n.l("edit_model_group"))
+            saveGroups(summary: String(localized: "edit_model_group"))
         }
         .onChange(of: sessionSettings) { _ in
-            saveAssignments(summary: L10n.l("edit_model_group_assignment"))
+            saveAssignments(summary: String(localized: "edit_model_group_assignment"))
         }
         .onDisappear {
-            saveGroups(summary: L10n.l("save_model_group"))
-            saveAssignments(summary: L10n.l("save_model_group_assignment"))
+            saveGroups(summary: String(localized: "save_model_group"))
+            saveAssignments(summary: String(localized: "save_model_group_assignment"))
         }
         .sheet(item: $editingProviderModel) { selection in
             NavigationStack {
@@ -163,14 +163,14 @@ struct GroupsSettingsView: View {
     @ViewBuilder
     private var groupAssignmentsContent: some View {
         Section {
-            modelSlotPicker(L10n.l("primary_model"), selection: $sessionSettings.mainModel, textInAndOutOnly: true)
-            modelSlotPicker(L10n.l("sub_model"), selection: $sessionSettings.secondaryModel, textInAndOutOnly: true)
-            modelSlotPicker(L10n.l("voice_input"), selection: $sessionSettings.speechInputModel)
-            modelSlotPicker(L10n.l("voice_output"), selection: $sessionSettings.speechOutputModel)
+            modelSlotPicker(String(localized: "primary_model"), selection: $sessionSettings.mainModel, textInAndOutOnly: true)
+            modelSlotPicker(String(localized: "sub_model"), selection: $sessionSettings.secondaryModel, textInAndOutOnly: true)
+            modelSlotPicker(String(localized: "voice_input"), selection: $sessionSettings.speechInputModel)
+            modelSlotPicker(String(localized: "voice_output"), selection: $sessionSettings.speechOutputModel)
         } header: {
-            Text(L10n.l("settings_group"))
+            Text(String(localized: "settings_group"))
         } footer: {
-            Text(L10n.l("choose_a_model_group_or_a_single_model_per_purpose_none_means_unspecified_the_secondary_model_also_handles_all_background_tasks_titles_memory_subagents_embedding_etc_subagents_automatically_use_the_secondary_model_no_separate_setup_needed"))
+            Text(String(localized: "choose_a_model_group_or_a_single_model_per_purpose_none_means_unspecified_the_secondary_model_also_handles_all_background_tasks_titles_memory_subagents_embedding_etc_subagents_automatically_use_the_secondary_model_no_separate_setup_needed"))
         }
     }
 
@@ -179,18 +179,18 @@ struct GroupsSettingsView: View {
     /// 为 false 时（语音输入/输出）保留原"文本输入或输出"的宽松过滤。
     private func modelSlotPicker(_ title: String, selection: Binding<ModelSelection>, textInAndOutOnly: Bool = false) -> some View {
         Picker(title, selection: selection) {
-            Text(L10n.l("none")).tag(ModelSelection.none)
+            Text(String(localized: "none")).tag(ModelSelection.none)
             if !groups.isEmpty {
-                Section(L10n.l("model_groups")) {
+                Section(String(localized: "model_groups")) {
                     ForEach(groups) { group in
-                        Text(group.name.isEmpty ? L10n.l("unnamed_group") : group.name)
+                        Text(group.name.isEmpty ? String(localized: "unnamed_group") : group.name)
                             .tag(ModelSelection.group(id: group.id))
                     }
                 }
             }
             let models = textInAndOutOnly ? chatModelOptions : textCapableModelOptions
             if !models.isEmpty {
-                Section(L10n.l("individual_models")) {
+                Section(String(localized: "individual_models")) {
                     ForEach(models, id: \.tag) { option in
                         Text(option.title).tag(option.tag)
                     }
@@ -242,10 +242,10 @@ struct GroupsSettingsView: View {
 
         Section {
             if enabledProviders.isEmpty {
-                Text(L10n.l("no_enabled_providers_yet"))
+                Text(String(localized: "no_enabled_providers_yet"))
                     .foregroundStyle(.secondary)
             } else if providersWithModels.isEmpty {
-                Text(L10n.l("enabled_providers_have_not_fetched_models_yet"))
+                Text(String(localized: "enabled_providers_have_not_fetched_models_yet"))
                     .foregroundStyle(.secondary)
             } else {
                 ForEach(providersWithModels) { provider in
@@ -277,14 +277,14 @@ struct GroupsSettingsView: View {
                                 .contentShape(Rectangle())
                             }
                             .buttonStyle(.plain)
-                            .accessibilityLabel(String(format: L10n.l("adjust_model"), model.resolvedName))
+                            .accessibilityLabel(String(format: String(localized: "adjust_model"), model.resolvedName))
                         }
                     } label: {
                         HStack {
                             Text(provider.label.isEmpty ? provider.providerType.defaultLabel : provider.label)
                                 .font(.subheadline.weight(.semibold))
                             Spacer()
-                            Text("\(provider.models.filter { !$0.hidden }.count) " + L10n.l("model_count_suffix"))
+                            Text("\(provider.models.filter { !$0.hidden }.count) " + String(localized: "model_count_suffix"))
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
@@ -292,9 +292,9 @@ struct GroupsSettingsView: View {
                 }
             }
         } header: {
-            Text(L10n.l("model_options"))
+            Text(String(localized: "model_options"))
         } footer: {
-            Text(L10n.l("tap_a_model_to_open_its_detail_page_and_adjust_parameters_set_the_default_inference_model_as_the_main_model_in_model_groups"))
+            Text(String(localized: "tap_a_model_to_open_its_detail_page_and_adjust_parameters_set_the_default_inference_model_as_the_main_model_in_model_groups"))
         }
     }
 
@@ -304,9 +304,9 @@ struct GroupsSettingsView: View {
                 resolveCompositeKey(entry.compositeKey, in: appState.providers)?.model.resolvedName
                     ?? modelIdFromCompositeKey(entry.compositeKey)
             }
-            return names.isEmpty ? L10n.l("no_associated_model") : names.joined(separator: ", ")
+            return names.isEmpty ? String(localized: "no_associated_model") : names.joined(separator: ", ")
         }
-        return group.modelIds.isEmpty ? L10n.l("no_associated_model") : group.modelIds.joined(separator: ", ")
+        return group.modelIds.isEmpty ? String(localized: "no_associated_model") : group.modelIds.joined(separator: ", ")
     }
 
     private func providerExpansionBinding(_ providerId: UUID) -> Binding<Bool> {

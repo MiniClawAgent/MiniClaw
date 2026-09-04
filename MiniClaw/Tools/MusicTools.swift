@@ -37,23 +37,23 @@ struct AppleMediaTool: AgentTool {
         type: "function",
         function: ToolSchema.FunctionDef(
             name: "apple-media",
-            description: L10n.l("music_tool_desc"),
+            description: String(localized: "music_tool_desc"),
             parameters: JSONSchema(
                 type: "object",
                 properties: [
                     "action": JSONSchema.JSONProperty(
                         type: "string",
-                        description: L10n.l("op_music_actions"),
+                        description: String(localized: "op_music_actions"),
                         enum: ["now_playing", "play", "pause", "toggle", "next", "previous", "volume", "search", "play_search"]
                     ),
-                    "query": JSONSchema.JSONProperty(type: "string", description: L10n.l("search_keyword_alt")),
+                    "query": JSONSchema.JSONProperty(type: "string", description: String(localized: "search_keyword_alt")),
                     "media_type": JSONSchema.JSONProperty(
                         type: "string",
-                        description: L10n.l("param_music_type"),
+                        description: String(localized: "param_music_type"),
                         enum: ["song", "album", "artist", "playlist"]
                     ),
-                    "level": JSONSchema.JSONProperty(type: "number", description: L10n.l("param_volume_level")),
-                    "limit": JSONSchema.JSONProperty(type: "integer", description: L10n.l("param_result_limit")),
+                    "level": JSONSchema.JSONProperty(type: "number", description: String(localized: "param_volume_level")),
+                    "limit": JSONSchema.JSONProperty(type: "integer", description: String(localized: "param_result_limit")),
                 ],
                 required: ["action"]
             )
@@ -62,7 +62,7 @@ struct AppleMediaTool: AgentTool {
 
     func execute(_ parameters: [String: Any]) async throws -> ToolResult {
         guard let action = parameters["action"] as? String else {
-            throw ToolError.invalidParameters(L10n.l("err_missing_action"))
+            throw ToolError.invalidParameters(String(localized: "err_missing_action"))
         }
 
         switch action {
@@ -73,7 +73,7 @@ struct AppleMediaTool: AgentTool {
 
         case "search":
             guard let query = Self.string(parameters["query"]), !query.isEmpty else {
-                return ToolResult(success: false, text: L10n.l("music_need_query"))
+                return ToolResult(success: false, text: String(localized: "music_need_query"))
             }
             let outcome = await MusicBridge.search(query: query,
                                                    type: Self.string(parameters["media_type"]),
@@ -82,14 +82,14 @@ struct AppleMediaTool: AgentTool {
 
         case "play_search":
             guard let query = Self.string(parameters["query"]), !query.isEmpty else {
-                return ToolResult(success: false, text: L10n.l("music_need_query"))
+                return ToolResult(success: false, text: String(localized: "music_need_query"))
             }
             let outcome = await MusicBridge.playSearch(query: query,
                                                        type: Self.string(parameters["media_type"]))
             return ToolResult(success: outcome.success, text: outcome.text)
 
         default:
-            return ToolResult(success: false, text: L10n.l("music_unknown_action") + action)
+            return ToolResult(success: false, text: String(localized: "music_unknown_action") + action)
         }
     }
 }
@@ -130,25 +130,25 @@ private enum MusicBridge {
         switch action {
         case "play":
             player.play()
-            return .ok(L10n.l("music_play_started"))
+            return .ok(String(localized: "music_play_started"))
         case "pause":
             player.pause()
-            return .ok(L10n.l("music_pause_done"))
+            return .ok(String(localized: "music_pause_done"))
         case "toggle":
             let paused = player.playbackState == .playing
             if paused { player.pause() } else { player.play() }
-            return .ok(L10n.l("music_toggle_done") + (paused ? L10n.l("music_state_paused") : L10n.l("music_state_playing")))
+            return .ok(String(localized: "music_toggle_done") + (paused ? String(localized: "music_state_paused") : String(localized: "music_state_playing")))
         case "next":
             player.skipToNextItem()
-            return .ok(L10n.l("music_next_done"))
+            return .ok(String(localized: "music_next_done"))
         case "previous":
             player.skipToPreviousItem()
-            return .ok(L10n.l("music_previous_done"))
+            return .ok(String(localized: "music_previous_done"))
         case "volume":
             // iOS 没有公开的「设置系统音量」API，只读是可为、写入不可为
-            if level != nil { return .fail(L10n.l("music_volume_readonly")) }
+            if level != nil { return .fail(String(localized: "music_volume_readonly")) }
             let value = AVAudioSession.sharedInstance().outputVolume
-            return .ok(L10n.l("music_volume_label") + String(format: "%.0f%%", value * 100))
+            return .ok(String(localized: "music_volume_label") + String(format: "%.0f%%", value * 100))
         default:
             return nowPlaying()
         }
@@ -161,37 +161,37 @@ private enum MusicBridge {
     static func nowPlaying() -> MusicOutcome {
         let info = MPNowPlayingInfoCenter.default().nowPlayingInfo
         guard let info, !info.isEmpty else {
-            return .ok(L10n.l("music_no_track") + L10n.l("music_state_label") + stateName(player.playbackState))
+            return .ok(String(localized: "music_no_track") + String(localized: "music_state_label") + stateName(player.playbackState))
         }
-        var lines: [String] = [L10n.l("music_now_playing_header")]
+        var lines: [String] = [String(localized: "music_now_playing_header")]
         if let title = info[MPMediaItemPropertyTitle] as? String, !title.isEmpty {
-            lines.append(L10n.l("music_title_label") + title)
+            lines.append(String(localized: "music_title_label") + title)
         }
         if let artist = info[MPMediaItemPropertyArtist] as? String, !artist.isEmpty {
-            lines.append(L10n.l("music_artist_label") + artist)
+            lines.append(String(localized: "music_artist_label") + artist)
         }
         if let album = info[MPMediaItemPropertyAlbumTitle] as? String, !album.isEmpty {
-            lines.append(L10n.l("music_album_label") + album)
+            lines.append(String(localized: "music_album_label") + album)
         }
         if let elapsed = info[MPNowPlayingInfoPropertyElapsedPlaybackTime] as? Double,
            let total = info[MPMediaItemPropertyPlaybackDuration] as? Double, total > 0 {
-            lines.append(L10n.l("music_progress_label") + clock(elapsed) + " / " + clock(total))
+            lines.append(String(localized: "music_progress_label") + clock(elapsed) + " / " + clock(total))
         }
-        lines.append(L10n.l("music_state_label") + stateName(player.playbackState))
+        lines.append(String(localized: "music_state_label") + stateName(player.playbackState))
         return .ok(lines.joined(separator: "\n"))
     }
 
     // MARK: 媒体库搜索
 
     static func search(query: String, type: String?, limit: Int?) async -> MusicOutcome {
-        guard await ensureLibraryAccess() else { return .fail(L10n.l("music_denied")) }
+        guard await ensureLibraryAccess() else { return .fail(String(localized: "music_denied")) }
         let items = items(for: query, type: type)
-        guard !items.isEmpty else { return .ok(L10n.l("music_search_no_result") + query) }
+        guard !items.isEmpty else { return .ok(String(localized: "music_search_no_result") + query) }
         let cap = max(limit ?? 20, 1)
         let shown = Array(items.prefix(cap))
-        var lines: [String] = [L10n.l("music_search_header") + "\(shown.count)/\(items.count)"]
+        var lines: [String] = [String(localized: "music_search_header") + "\(shown.count)/\(items.count)"]
         for item in shown {
-            var parts = ["- " + (item.title ?? L10n.l("unknown"))]
+            var parts = ["- " + (item.title ?? String(localized: "unknown"))]
             if let artist = item.artist, !artist.isEmpty { parts.append(artist) }
             if let album = item.albumTitle, !album.isEmpty { parts.append(album) }
             lines.append(parts.joined(separator: " | "))
@@ -200,13 +200,13 @@ private enum MusicBridge {
     }
 
     static func playSearch(query: String, type: String?) async -> MusicOutcome {
-        guard await ensureLibraryAccess() else { return .fail(L10n.l("music_denied")) }
+        guard await ensureLibraryAccess() else { return .fail(String(localized: "music_denied")) }
         let items = items(for: query, type: type)
-        guard let first = items.first else { return .ok(L10n.l("music_search_no_result") + query) }
+        guard let first = items.first else { return .ok(String(localized: "music_search_no_result") + query) }
         // 命中不止一首时整批入队，符合「搜到什么就播什么」的直觉
         player.setQueue(with: MPMediaItemCollection(items: items))
         player.play()
-        return .ok(L10n.l("music_play_started") + "\n" + L10n.l("music_title_label") + (first.title ?? L10n.l("unknown")))
+        return .ok(String(localized: "music_play_started") + "\n" + String(localized: "music_title_label") + (first.title ?? String(localized: "unknown")))
     }
 
     // MARK: 授权
@@ -263,11 +263,11 @@ private enum MusicBridge {
 
     private static func stateName(_ state: MPMusicPlaybackState) -> String {
         switch state {
-        case .playing:     return L10n.l("music_state_playing")
-        case .paused:      return L10n.l("music_state_paused")
-        case .stopped:     return L10n.l("music_state_stopped")
-        case .interrupted: return L10n.l("music_state_interrupted")
-        default:           return L10n.l("unknown")
+        case .playing:     return String(localized: "music_state_playing")
+        case .paused:      return String(localized: "music_state_paused")
+        case .stopped:     return String(localized: "music_state_stopped")
+        case .interrupted: return String(localized: "music_state_interrupted")
+        default:           return String(localized: "unknown")
         }
     }
 

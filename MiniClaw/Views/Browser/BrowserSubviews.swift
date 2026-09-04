@@ -67,7 +67,7 @@ struct BrowserHistoryView: View {
     var body: some View {
         List {
             if items.isEmpty {
-                EmptyStateView(label: L10n.l("no_history_yet"), systemImage: "clock")
+                EmptyStateView(label: String(localized: "no_history_yet"), systemImage: "clock")
             }
             ForEach(items) { item in
                 Button(action: { onSelect(item.url) }) {
@@ -80,7 +80,7 @@ struct BrowserHistoryView: View {
                                 .lineLimit(1)
                                 .truncationMode(.tail)
                             if item.isCurrent {
-                                Text(L10n.l("current"))
+                                Text(String(localized: "current"))
                                     .font(.caption2)
                                     .padding(.horizontal, 6)
                                     .padding(.vertical, 2)
@@ -98,7 +98,7 @@ struct BrowserHistoryView: View {
                 }
             }
         }
-        .navigationTitle(L10n.l("history_records"))
+        .navigationTitle(String(localized: "history_records"))
         .navigationBarTitleDisplayMode(.inline)
     }
 }

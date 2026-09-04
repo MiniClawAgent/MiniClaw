@@ -11,42 +11,42 @@ struct ModelGroupEditView: View {
         Form {
             Section {
                 HStack {
-                    TextField(L10n.l("group_name"), text: $draftName)
-                    Button(L10n.l("save")) {
+                    TextField(String(localized: "group_name"), text: $draftName)
+                    Button(String(localized: "save")) {
                         saveGroupName()
                     }
                     .disabled(!canSaveGroupName)
                 }
             }
             Section {
-                Picker(L10n.l("routing_strategy"), selection: $group.strategy) {
-                    Text(L10n.l("failover_fallback")).tag("fallback")
-                    Text(L10n.l("load_balancing_loadbalance")).tag("loadBalance")
+                Picker(String(localized: "routing_strategy"), selection: $group.strategy) {
+                    Text(String(localized: "failover_fallback")).tag("fallback")
+                    Text(String(localized: "load_balancing_loadbalance")).tag("loadBalance")
                 }
-                Picker(L10n.l("degradation_strategy"), selection: $group.fallbackStrategy) {
-                    Text(L10n.l("on_decline_only_limited")).tag("limited")
-                    Text(L10n.l("downgrade_even_on_transient_errors_always")).tag("always")
+                Picker(String(localized: "degradation_strategy"), selection: $group.fallbackStrategy) {
+                    Text(String(localized: "on_decline_only_limited")).tag("limited")
+                    Text(String(localized: "downgrade_even_on_transient_errors_always")).tag("always")
                 }
-                Picker(L10n.l("default_thinking_level"), selection: $group.defaultThinkingLevel) {
-                    Text(L10n.l("off")).tag("off")
-                    Text(L10n.l("level_low_display")).tag("low")
-                    Text(L10n.l("level_medium_display")).tag("medium")
-                    Text(L10n.l("high_high")).tag("high")
-                    Text(L10n.l("ultra_high")).tag("xhigh")
-                    Text(L10n.l("maximum_value")).tag("max")
-                    Text(L10n.l("extreme_ultra")).tag("ultra")
+                Picker(String(localized: "default_thinking_level"), selection: $group.defaultThinkingLevel) {
+                    Text(String(localized: "off")).tag("off")
+                    Text(String(localized: "level_low_display")).tag("low")
+                    Text(String(localized: "level_medium_display")).tag("medium")
+                    Text(String(localized: "high_high")).tag("high")
+                    Text(String(localized: "ultra_high")).tag("xhigh")
+                    Text(String(localized: "maximum_value")).tag("max")
+                    Text(String(localized: "extreme_ultra")).tag("ultra")
                 }
                 Stepper(value: $group.contextLimitTokens, in: 0...200000, step: 1000) {
-                    Text(group.contextLimitTokens == 0 ? L10n.l("context_limit_native_window") : String(format: L10n.l("context_limit_tokens"), "\(group.contextLimitTokens)"))
+                    Text(group.contextLimitTokens == 0 ? String(localized: "context_limit_native_window") : String(format: String(localized: "context_limit_tokens"), "\(group.contextLimitTokens)"))
                 }
             } header: {
-                Text(L10n.l("routing_and_fallback_aligned_with_spec_9_2_2"))
+                Text(String(localized: "routing_and_fallback_aligned_with_spec_9_2_2"))
             } footer: {
-                Text(L10n.l("a_context_limit_of_0_means_using_the_model_s_native_window_size"))
+                Text(String(localized: "a_context_limit_of_0_means_using_the_model_s_native_window_size"))
             }
             Section {
                 if group.entries.isEmpty {
-                    Text(L10n.l("no_models_added_yet"))
+                    Text(String(localized: "no_models_added_yet"))
                         .foregroundStyle(.secondary)
                 } else {
                     ForEach($group.entries) { $entry in
@@ -64,7 +64,7 @@ struct ModelGroupEditView: View {
                             }
                             Spacer()
                             if !isEntryAvailable(entry) {
-                                Text(L10n.l("unavailable"))
+                                Text(String(localized: "unavailable"))
                                     .font(.caption2)
                                     .foregroundStyle(.secondary)
                             }
@@ -81,12 +81,12 @@ struct ModelGroupEditView: View {
                 }
             } header: {
                 HStack {
-                    Text(L10n.l("model_id_list"))
+                    Text(String(localized: "model_id_list"))
                     Spacer()
                     Button {
                         withAnimation { editMode = (editMode == .active) ? .inactive : .active }
                     } label: {
-                        Label(editMode == .active ? L10n.l("done") : L10n.l("sort"), systemImage: editMode == .active ? "checkmark" : "arrow.up.arrow.down")
+                        Label(editMode == .active ? String(localized: "done") : String(localized: "sort"), systemImage: editMode == .active ? "checkmark" : "arrow.up.arrow.down")
                             .font(.caption.weight(.semibold))
                     }
                     .textCase(nil)
@@ -94,7 +94,7 @@ struct ModelGroupEditView: View {
                     Button {
                         showingModelPicker = true
                     } label: {
-                        Label(L10n.l("add"), systemImage: "plus")
+                        Label(String(localized: "add"), systemImage: "plus")
                             .font(.caption.weight(.semibold))
                     }
                     .textCase(nil)
@@ -102,15 +102,15 @@ struct ModelGroupEditView: View {
                 }
             } footer: {
                 if availableModels.isEmpty {
-                    Text(L10n.l("fetch_models_from_a_provider_first"))
+                    Text(String(localized: "fetch_models_from_a_provider_first"))
                 } else {
-                    Text(L10n.l("tap_sort_to_enter_edit_mode_and_drag_to_adjust_priority_swipe_left_on_a_row_to_remove_a_model_the_list_order_is_the_failover_limited_attempt_order_earlier_entries_are_tried_first_and_only_on_failure_does_it_move_down_the_list"))
+                    Text(String(localized: "tap_sort_to_enter_edit_mode_and_drag_to_adjust_priority_swipe_left_on_a_row_to_remove_a_model_the_list_order_is_the_failover_limited_attempt_order_earlier_entries_are_tried_first_and_only_on_failure_does_it_move_down_the_list"))
                 }
             }
         }
         .scrollContentBackground(.hidden)
         .background(ThemeBackground(slot: .settings))
-        .navigationTitle(L10n.l("edit_group"))
+        .navigationTitle(String(localized: "edit_group"))
         .navigationBarTitleDisplayMode(.inline)
         .environment(\.editMode, $editMode)
         .onAppear {
@@ -271,14 +271,14 @@ private struct ModelGroupModelPicker: View {
             }
             .scrollContentBackground(.hidden)
             .background(ThemeBackground(slot: .settings))
-            .navigationTitle(L10n.l("add_model"))
+            .navigationTitle(String(localized: "add_model"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button(L10n.l("cancel")) { dismiss() }
+                    Button(String(localized: "cancel")) { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button(L10n.l("add")) {
+                    Button(String(localized: "add")) {
                         onAdd(selectedModelIds)
                         dismiss()
                     }

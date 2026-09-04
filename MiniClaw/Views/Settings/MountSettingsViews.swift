@@ -13,17 +13,17 @@ struct MountSettingsView: View {
             if mounts.isEmpty {
                 Section {
                     VStack(alignment: .leading, spacing: 6) {
-                        Text(L10n.l("no_mounted_folders_yet"))
+                        Text(String(localized: "no_mounted_folders_yet"))
                             .font(.body)
                             .foregroundStyle(.secondary)
-                        Text(L10n.l("tap_add_mount_folder_below_then_choose_a_folder_from_the_files_app"))
+                        Text(String(localized: "tap_add_mount_folder_below_then_choose_a_folder_from_the_files_app"))
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
                     .padding(.vertical, 4)
                 }
             } else {
-                Section(L10n.l("mounted")) {
+                Section(String(localized: "mounted")) {
                     ForEach(mounts) { mount in
                         mountRow(mount)
                     }
@@ -37,16 +37,16 @@ struct MountSettingsView: View {
                 } label: {
                     HStack {
                         Image(systemName: "plus.circle.fill")
-                        Text(L10n.l("add_mount_folder"))
+                        Text(String(localized: "add_mount_folder"))
                     }
                 }
             } footer: {
-                Text(L10n.l("select_a_folder_via_the_ios_files_app_to_mount_into_miniclaw_read_only_by_default_the_agent_can_read_its_contents_via_var_miniclaw_mounts_name_to_let_the_agent_write_enable_the_allow_write_switch_on_that_mount_writes_are_persisted_to_the_external_folder_so_please_be_careful_mount_info_remains_valid_after_the_app_restarts"))
+                Text(String(localized: "select_a_folder_via_the_ios_files_app_to_mount_into_miniclaw_read_only_by_default_the_agent_can_read_its_contents_via_var_miniclaw_mounts_name_to_let_the_agent_write_enable_the_allow_write_switch_on_that_mount_writes_are_persisted_to_the_external_folder_so_please_be_careful_mount_info_remains_valid_after_the_app_restarts"))
             }
         }
         .scrollContentBackground(.hidden)
         .background(ThemeBackground(slot: .settings))
-        .navigationTitle(L10n.l("mounts"))
+        .navigationTitle(String(localized: "mounts"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             if !mounts.isEmpty {
@@ -61,13 +61,13 @@ struct MountSettingsView: View {
             handleImport(result)
         }
         .alert(
-            L10n.l("mount_failed"),
+            String(localized: "mount_failed"),
             isPresented: Binding(
                 get: { errorMessage != nil },
                 set: { if !$0 { errorMessage = nil } }
             )
         ) {
-            Button(L10n.l("ok"), role: .cancel) { errorMessage = nil }
+            Button(String(localized: "ok"), role: .cancel) { errorMessage = nil }
         } message: {
             Text(errorMessage ?? "")
         }
@@ -87,14 +87,14 @@ struct MountSettingsView: View {
                         Text(mount.name)
                             .font(.body)
                         if mount.isWritable {
-                            Text(L10n.l("writable"))
+                            Text(String(localized: "writable"))
                                 .font(.caption2)
                                 .padding(.horizontal, 5)
                                 .padding(.vertical, 1)
                                 .background(Color.green.opacity(0.15), in: Capsule())
                                 .foregroundStyle(.green)
                         } else {
-                            Text(L10n.l("read_only"))
+                            Text(String(localized: "read_only"))
                                 .font(.caption2)
                                 .padding(.horizontal, 5)
                                 .padding(.vertical, 1)
@@ -197,8 +197,8 @@ struct MountDetailView: View {
             }
 
             // 权限：允许写入（默认开启，点击可禁止）
-            Section(L10n.l("permissions")) {
-                Toggle(L10n.l("allow_writing"), isOn: Binding(
+            Section(String(localized: "permissions")) {
+                Toggle(String(localized: "allow_writing"), isOn: Binding(
                     get: { mount.isWritable },
                     set: { setWritable($0) }
                 ))
@@ -206,11 +206,11 @@ struct MountDetailView: View {
 
             // 浏览文件：点「打开」以模态方式进入外部文件夹真实内容
             // （与另外两处文件管理器一致用 .sheet 呈现，避免「外层设置导航栈 + 内层 NavigationStack」嵌套导致首次 push 被弹回）
-            Section(L10n.l("browse_files")) {
+            Section(String(localized: "browse_files")) {
                 Button {
                     showBrowser = true
                 } label: {
-                    Label(L10n.l("open_action"), systemImage: "folder")
+                    Label(String(localized: "open_action"), systemImage: "folder")
                 }
             }
 
@@ -219,20 +219,20 @@ struct MountDetailView: View {
                 Button(role: .destructive) {
                     showUnmount = true
                 } label: {
-                    Label(L10n.l("uninstall"), systemImage: "eject.fill")
+                    Label(String(localized: "uninstall"), systemImage: "eject.fill")
                         .foregroundStyle(.red)
                 }
             }
         }
         .scrollContentBackground(.hidden)
         .background(ThemeBackground(slot: .settings))
-        .navigationTitle(L10n.l("mount_details"))
+        .navigationTitle(String(localized: "mount_details"))
         .navigationBarTitleDisplayMode(.inline)
-        .alert(L10n.l("confirm_unmounting_this_folder"), isPresented: $showUnmount) {
-            Button(L10n.l("uninstall"), role: .destructive) { performUnmount() }
-            Button(L10n.l("cancel"), role: .cancel) { }
+        .alert(String(localized: "confirm_unmounting_this_folder"), isPresented: $showUnmount) {
+            Button(String(localized: "uninstall"), role: .destructive) { performUnmount() }
+            Button(String(localized: "cancel"), role: .cancel) { }
     } message: {
-        Text(L10n.l("unmount") + mount.name + "」" + L10n.l("the_agent_will_no_longer_be_able_to_access_this_folder_via_the_virtual_path_files_inside_the_external_folder_itself_will_not_be_deleted"))
+        Text(String(localized: "unmount") + mount.name + "」" + String(localized: "the_agent_will_no_longer_be_able_to_access_this_folder_via_the_virtual_path_files_inside_the_external_folder_itself_will_not_be_deleted"))
     }
     .sheet(isPresented: $showBrowser) {
         MountFileBrowserView(mountName: mount.name, subPath: "")
@@ -240,7 +240,7 @@ struct MountDetailView: View {
 }
 
     private var permissionBadge: some View {
-        Text(mount.isWritable ? L10n.l("writable") : L10n.l("read_only"))
+        Text(mount.isWritable ? String(localized: "writable") : String(localized: "read_only"))
             .font(.caption2)
             .padding(.horizontal, 5)
             .padding(.vertical, 1)
@@ -301,8 +301,8 @@ struct MountFileBrowserView: View {
                         UnifiedFileBrowser(location: loc, path: $path)
                     }
             } else {
-                EmptyStateView(label: L10n.l("mount_unavailable"), systemImage: "tray",
-                           description: L10n.l("this_mount_is_currently_inaccessible_the_external_folder_may_have_been_removed_or_its_permission_revoked"))
+                EmptyStateView(label: String(localized: "mount_unavailable"), systemImage: "tray",
+                           description: String(localized: "this_mount_is_currently_inaccessible_the_external_folder_may_have_been_removed_or_its_permission_revoked"))
                 .navigationTitle(subPath.isEmpty ? mountName : (subPath as NSString).lastPathComponent)
                 .navigationBarTitleDisplayMode(.inline)
             }

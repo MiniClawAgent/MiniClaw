@@ -4,9 +4,6 @@ import Combine
 
 struct HomeView: View {
     @EnvironmentObject private var appState: AppState
-    /// 订阅界面语言单例：语言切换时 `current` 变化触发本视图重渲染，
-    /// 让首页所有 `L10n.tr` 文案（搜索栏、空状态、分组标题、菜单等）以新语言重新求值。
-    @ObservedObject private var l10n = L10n.shared
     /// 场景相位：从后台返回前台时主动重载列表（见下方 .onChange），
     /// 避免「切后台再回来列表空白」（@State 在挂起/回收期间被重置的情形）。
     @Environment(\.scenePhase) private var scenePhase
@@ -180,16 +177,16 @@ struct HomeView: View {
         .toolbar {
             if isSelectionMode {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button(L10n.l("cancel")) { exitSelectionMode() }
+                    Button(String(localized: "cancel")) { exitSelectionMode() }
                         .fontWeight(.medium)
                 }
                 ToolbarItem(placement: .principal) {
-                    Text("\(selectedSessionIDs.count) " + L10n.l("item_s_selected"))
+                    Text("\(selectedSessionIDs.count) " + String(localized: "item_s_selected"))
                         .font(.headline)
                         .fontWeight(.semibold)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button(selectedSessionIDs.count == sessions.count && !sessions.isEmpty ? L10n.l("deselect_all_action") : L10n.l("select_all_action")) {
+                    Button(selectedSessionIDs.count == sessions.count && !sessions.isEmpty ? String(localized: "deselect_all_action") : String(localized: "select_all_action")) {
                         if selectedSessionIDs.count == sessions.count && !sessions.isEmpty {
                             selectedSessionIDs.removeAll()
                         } else {
@@ -232,14 +229,14 @@ struct HomeView: View {
             #if ISH_ENABLED
             TerminalView()
             #else
-            UnavailablePlaceholder(title: L10n.l("terminal_unavailable"), message: L10n.l("the_current_build_does_not_include_the_ish_runtime"))
+            UnavailablePlaceholder(title: String(localized: "terminal_unavailable"), message: String(localized: "the_current_build_does_not_include_the_ish_runtime"))
             #endif
         }
         .sheet(isPresented: $showRootfsManager) {
             #if ISH_ENABLED
             RootfsManagerView()
             #else
-            UnavailablePlaceholder(title: L10n.l("rootfs_management_unavailable"), message: L10n.l("the_current_build_does_not_include_the_ish_runtime"))
+            UnavailablePlaceholder(title: String(localized: "rootfs_management_unavailable"), message: String(localized: "the_current_build_does_not_include_the_ish_runtime"))
             #endif
         }
         .sheet(isPresented: $appState.showSettings) {
@@ -247,10 +244,10 @@ struct HomeView: View {
                 SettingsView()
             }
         }
-        .alert(Text(L10n.l("edit_title")), isPresented: $showEditTitle) {
-            TextField(L10n.l("title"), text: $editingTitle)
-            Button(L10n.l("cancel"), role: .cancel) { editingSession = nil }
-            Button(L10n.l("save")) {
+        .alert(Text(String(localized: "edit_title")), isPresented: $showEditTitle) {
+            TextField(String(localized: "title"), text: $editingTitle)
+            Button(String(localized: "cancel"), role: .cancel) { editingSession = nil }
+            Button(String(localized: "save")) {
                 if let session = editingSession {
                     let trimmed = editingTitle.trimmingCharacters(in: .whitespacesAndNewlines)
                     if !trimmed.isEmpty {
@@ -266,15 +263,15 @@ struct HomeView: View {
                 editingSession = nil
             }
         } message: {
-            Text(L10n.l("enter_a_new_title_for_this_session"))
+            Text(String(localized: "enter_a_new_title_for_this_session"))
         }
         .confirmationDialog(
-            Text(L10n.l("delete_label_space") + "\(selectedSessionIDs.count)" + L10n.l("conversations")),
+            Text(String(localized: "delete_label_space") + "\(selectedSessionIDs.count)" + String(localized: "conversations")),
             isPresented: $showDeleteConfirm,
             titleVisibility: .visible
         ) {
-            Button(L10n.l("delete_action"), role: .destructive) { deleteSelected() }
-            Button(L10n.l("cancel"), role: .cancel) {}
+            Button(String(localized: "delete_action"), role: .destructive) { deleteSelected() }
+            Button(String(localized: "cancel"), role: .cancel) {}
         }
         .sheet(item: $sharePayload) { payload in
             ShareSheet(items: payload.urls as [Any])
@@ -366,7 +363,7 @@ struct HomeView: View {
             Spacer()
             ProgressView()
                 .controlSize(.large)
-            Text(L10n.l("loading_session"))
+            Text(String(localized: "loading_session"))
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
             Spacer()
@@ -384,16 +381,16 @@ struct HomeView: View {
                 .font(.system(size: 64))
                 .foregroundStyle(.secondary)
 
-            Text(L10n.l("welcome_to_miniclaw"))
+            Text(String(localized: "welcome_to_miniclaw"))
                 .font(.title2)
                 .fontWeight(.semibold)
 
-            Text(L10n.l("tap_the_bottom_left_button_to_start_a_new_session"))
+            Text(String(localized: "tap_the_bottom_left_button_to_start_a_new_session"))
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
 
             Button(action: { createNewSession() }) {
-                Label(L10n.l("start_new_session"), systemImage: "plus.circle.fill")
+                Label(String(localized: "start_new_session"), systemImage: "plus.circle.fill")
                     .font(.headline)
             }
             .buttonStyle(.borderedProminent)
@@ -425,7 +422,7 @@ struct HomeView: View {
                             .sessionCardListRow()
                     }
                 } header: {
-                    Text(L10n.l(item.group.label))
+                    Text(String(localized: String.LocalizationValue(item.group.label)))
                         .font(.footnote)
                         .fontWeight(.semibold)
                         .foregroundStyle(.secondary)
@@ -482,13 +479,13 @@ struct HomeView: View {
                     Button(role: .destructive) {
                         deleteSession(session)
                     } label: {
-                        Label(L10n.l("delete_action"), systemImage: "trash")
+                        Label(String(localized: "delete_action"), systemImage: "trash")
                     }
 
                     Button {
                         togglePin(session)
                     } label: {
-                        Label(session.isPinned ? L10n.l("unpin_action") : L10n.l("pin_action"), systemImage: session.isPinned ? "pin.slash.fill" : "pin.fill")
+                        Label(session.isPinned ? String(localized: "unpin_action") : String(localized: "pin_action"), systemImage: session.isPinned ? "pin.slash.fill" : "pin.fill")
                     }
                     .tint(.orange)
                 }
@@ -500,21 +497,21 @@ struct HomeView: View {
     private func contextMenuContent(for session: ChatSession) -> some View {
         Menu {
             Button("JSON") { generateExport(sessions: [session], as: .json) }
-            Button(L10n.l("text")) { generateExport(sessions: [session], as: .text) }
+            Button(String(localized: "text")) { generateExport(sessions: [session], as: .text) }
         } label: {
-            Label(L10n.l("export"), systemImage: "square.and.arrow.up")
+            Label(String(localized: "export"), systemImage: "square.and.arrow.up")
         }
         Button {
             editingSession = session
             editingTitle = session.title
             showEditTitle = true
         } label: {
-            Label(L10n.l("edit_title"), systemImage: "pencil")
+            Label(String(localized: "edit_title"), systemImage: "pencil")
         }
         Button {
             enterSelectionMode(preselect: [session.id])
         } label: {
-            Label(L10n.l("select"), systemImage: "checkmark.circle")
+            Label(String(localized: "select"), systemImage: "checkmark.circle")
         }
     }
 
@@ -611,7 +608,7 @@ struct HomeView: View {
     private var exportMenuButton: some View {
         Menu {
             Button("JSON") { exportSelectedSessions(as: .json) }
-            Button(L10n.l("text")) { exportSelectedSessions(as: .text) }
+            Button(String(localized: "text")) { exportSelectedSessions(as: .text) }
         } label: {
             circleShape(
                 systemImage: "square.and.arrow.up",
@@ -631,7 +628,7 @@ struct HomeView: View {
                 Image(systemName: "magnifyingglass")
                     .font(.system(size: 15))
                     .foregroundStyle(.secondary)
-                TextField(L10n.l("search_sessions"), text: $searchText)
+                TextField(String(localized: "search_sessions"), text: $searchText)
                     .textFieldStyle(.plain)
                     .submitLabel(.search)
                     .focused($searchFocused)
@@ -656,7 +653,7 @@ struct HomeView: View {
                     isSearching = false
                 }
             }) {
-                Text(L10n.l("cancel"))
+                Text(String(localized: "cancel"))
                     .font(.subheadline)
                     .fontWeight(.medium)
                     .foregroundStyle(.primary)
@@ -710,14 +707,14 @@ struct HomeView: View {
                 Button {
                     showTerminal = true
                 } label: {
-                    Label(L10n.l("terminal"), systemImage: "terminal")
+                    Label(String(localized: "terminal"), systemImage: "terminal")
                 }
                 .disabled(!alpineReady)
 
                 Button {
                     showRootfsManager = true
                 } label: {
-                    Label(L10n.l("rootfs_management"), systemImage: "folder")
+                    Label(String(localized: "rootfs_management"), systemImage: "folder")
                 }
             }
             #endif
@@ -727,7 +724,7 @@ struct HomeView: View {
                 BrowserController.shared.setManualSession()
                 showBrowserSheet = true
             } label: {
-                Label(L10n.l("browser"), systemImage: "globe")
+                Label(String(localized: "browser"), systemImage: "globe")
             }
         } label: {
             optionsButton

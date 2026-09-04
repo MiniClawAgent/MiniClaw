@@ -321,15 +321,15 @@ struct MarkdownContentView: View {
             case .audio:
                 AudioPlayerView(audioURL: mediaURL, title: alt)
             case .code:
-                fileCard(alt: alt, url: urlString, icon: "doc.text", label: L10n.l("code_files"), color: .blue)
+                fileCard(alt: alt, url: urlString, icon: "doc.text", label: String(localized: "code_files"), color: .blue)
             case .pdf:
-                fileCard(alt: alt, url: urlString, icon: "doc.richtext", label: L10n.l("pdf_document"), color: .red)
+                fileCard(alt: alt, url: urlString, icon: "doc.richtext", label: String(localized: "pdf_document"), color: .red)
             case .office:
-                fileCard(alt: alt, url: urlString, icon: "doc.fill", label: L10n.l("office_documents"), color: .orange)
+                fileCard(alt: alt, url: urlString, icon: "doc.fill", label: String(localized: "office_documents"), color: .orange)
             case .html:
-                fileCard(alt: alt, url: urlString, icon: "safari", label: L10n.l("web_files"), color: .teal)
+                fileCard(alt: alt, url: urlString, icon: "safari", label: String(localized: "web_files"), color: .teal)
             case .file:
-                fileCard(alt: alt, url: urlString, icon: "doc.fill", label: L10n.l("files"), color: .gray)
+                fileCard(alt: alt, url: urlString, icon: "doc.fill", label: String(localized: "files"), color: .gray)
             }
         } else {
             fallbackLabel(alt: alt, url: urlString, type: type)
@@ -379,7 +379,7 @@ struct MarkdownContentView: View {
                     .foregroundStyle(.secondary)
             }
             Spacer()
-            Button(L10n.l("preview")) {
+            Button(String(localized: "preview")) {
                 openFilePreview(urlString: urlString)
             }
             .font(.caption)

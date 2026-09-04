@@ -17,17 +17,17 @@ struct BrowserTool: AgentTool {
         type: "function",
         function: ToolSchema.FunctionDef(
             name: "browser",
-            description: L10n.l("browser_tool_desc"),
+            description: String(localized: "browser_tool_desc"),
             parameters: JSONSchema(
                 type: "object",
                 properties: [
                     "activity": JSONSchema.JSONProperty(
                         type: "string",
-                        description: L10n.l("param_skill_action_name")
+                        description: String(localized: "param_skill_action_name")
                     ),
                     "action": JSONSchema.JSONProperty(
                         type: "string",
-                        description: L10n.l("param_action_name"),
+                        description: String(localized: "param_action_name"),
                         enum: [
                             "navigate", "screenshot", "click", "type", "get_text", "get_readable",
                             "get_page_info", "get_backbone", "scroll", "scroll_and_collect",
@@ -38,10 +38,10 @@ struct BrowserTool: AgentTool {
                     ),
                     "params": JSONSchema.JSONProperty(
                         type: "object",
-                        description: L10n.l("param_browser_params_flat")
+                        description: String(localized: "param_browser_params_flat")
                     ),
-                    "tab_index": JSONSchema.JSONProperty(type: "integer", description: L10n.l("param_target_tab_index")),
-                    "tab_id": JSONSchema.JSONProperty(type: "integer", description: L10n.l("browser_tab_id_desc")),
+                    "tab_index": JSONSchema.JSONProperty(type: "integer", description: String(localized: "param_target_tab_index")),
+                    "tab_id": JSONSchema.JSONProperty(type: "integer", description: String(localized: "browser_tab_id_desc")),
                 ],
                 required: ["activity", "action"]
             )
@@ -50,7 +50,7 @@ struct BrowserTool: AgentTool {
 
     func execute(_ parameters: [String: Any]) async throws -> ToolResult {
         guard let action = parameters["action"] as? String else {
-            return ToolResult(success: false, text: L10n.l("err_missing_action"))
+            return ToolResult(success: false, text: String(localized: "err_missing_action"))
         }
 
         var params = parameters["params"] as? [String: Any] ?? [:]
@@ -68,7 +68,7 @@ struct BrowserTool: AgentTool {
             } else {
                 return ToolResult(
                     success: false,
-                    text: L10n.l("browser_need_params_url")
+                    text: String(localized: "browser_need_params_url")
                 )
             }
         }
@@ -83,7 +83,7 @@ struct BrowserTool: AgentTool {
         do {
             paramsData = try JSONSerialization.data(withJSONObject: params)
         } catch {
-            return ToolResult(success: false, text: String(format: L10n.l("browser_param_serialize_failed"), error.localizedDescription))
+            return ToolResult(success: false, text: String(format: String(localized: "browser_param_serialize_failed"), error.localizedDescription))
         }
 
         do {
@@ -93,7 +93,7 @@ struct BrowserTool: AgentTool {
             let result = try await BrowserController.shared.run(action: action, paramsData: paramsData, tabIndex: tabIndex, tabID: tabID, sessionID: scopeSessionID)
             return ToolResult(success: true, text: result)
         } catch {
-            return ToolResult(success: false, text: String(format: L10n.l("browser_action_failed"), action, error.localizedDescription))
+            return ToolResult(success: false, text: String(format: String(localized: "browser_action_failed"), action, error.localizedDescription))
         }
     }
 
@@ -115,7 +115,7 @@ struct BrowserTool: AgentTool {
         let trimmed = activity.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
 
-        let searchPrefixes = [L10n.l("search"), L10n.l("query_action"), L10n.l("find_action"), L10n.l("search_action")]
+        let searchPrefixes = [String(localized: "search"), String(localized: "query_action"), String(localized: "find_action"), String(localized: "search_action")]
         guard let prefix = searchPrefixes.first(where: { trimmed.hasPrefix($0) }) else {
             return nil
         }

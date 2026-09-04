@@ -4,9 +4,6 @@ import SwiftUI
 
 struct AppearanceSettingsView: View {
     @EnvironmentObject private var appState: AppState
-    /// 订阅界面语言单例：语言切换时 `current` 变化触发本视图重渲染，
-    /// 让所有 `L10n.tr` 文案（含语言 Picker 的「语言」标签、footer 说明等）以新语言重新求值。
-    @ObservedObject private var l10n = L10n.shared
     @State private var selection: ColorSchemePreference = .system
     @State private var chat: ChatSettings = SettingsStore.shared.settings.chat
     /// 订阅主题管理器：选用/清除背景主题时刷新选中勾与主题列表。
@@ -42,39 +39,27 @@ struct AppearanceSettingsView: View {
                     }
                 }
             } header: {
-                Text(L10n.l("appearance_mode"))
+                Text(String(localized: "appearance_mode"))
             } footer: {
-                Text(L10n.l("choose_light_dark_or_follow_system_settings_changes_apply_immediately"))
-            }
-
-            Section {
-                Picker(selection: $appState.appLanguage) {
-                    ForEach(AppLanguage.allCases) { lang in
-                        Text(lang.nativeName).tag(lang)
-                    }
-                } label: {
-                    Text(L10n.l("language"))
-                }
-            } footer: {
-                Text(L10n.l("change_the_interface_display_language_applies_immediately"))
+                Text(String(localized: "choose_light_dark_or_follow_system_settings_changes_apply_immediately"))
             }
 
             Section {
                 Picker(selection: $chat.codeBlockTheme) {
-                    Text(L10n.l("system")).tag("auto")
-                    Text(L10n.l("light")).tag("light")
-                    Text(L10n.l("dark")).tag("dark")
+                    Text(String(localized: "system")).tag("auto")
+                    Text(String(localized: "light")).tag("light")
+                    Text(String(localized: "dark")).tag("dark")
                 } label: {
-                    Text(L10n.l("code_block_theme"))
+                    Text(String(localized: "code_block_theme"))
                 }
             } header: {
-                Text(L10n.l("chat_display"))
+                Text(String(localized: "chat_display"))
             }
 
         }
         .scrollContentBackground(.hidden)
         .background(ThemeBackground(slot: .settings))
-        .navigationTitle(L10n.l("appearance"))
+        .navigationTitle(String(localized: "appearance"))
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
             selection = appState.colorSchemePreference
@@ -85,7 +70,7 @@ struct AppearanceSettingsView: View {
     }
 
     private func saveChat() {
-        SettingsStore.shared.set(chat, domain: .chat, summary: L10n.l("edit_appearance_chat_display"))
+        SettingsStore.shared.set(chat, domain: .chat, summary: String(localized: "edit_appearance_chat_display"))
     }
 
     // MARK: - 背景主题（theme 插件，唐唐 2026-08-30 定稿）
@@ -102,7 +87,7 @@ struct AppearanceSettingsView: View {
                     Image(systemName: "square.on.square")
                         .frame(width: 44, height: 32)
                         .background(Color(.tertiarySystemFill), in: RoundedRectangle(cornerRadius: 6))
-                    Text(L10n.l("background_theme_default"))
+                    Text(String(localized: "background_theme_default"))
                         .foregroundStyle(.primary)
                     Spacer()
                     if themeManager.activeThemeID == nil {
@@ -112,7 +97,7 @@ struct AppearanceSettingsView: View {
             }
 
             if themeManager.installedThemes().isEmpty {
-                Text(L10n.l("background_theme_empty_hint"))
+                Text(String(localized: "background_theme_empty_hint"))
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
@@ -138,9 +123,9 @@ struct AppearanceSettingsView: View {
                 }
             }
         } header: {
-            Text(L10n.l("background_theme"))
+            Text(String(localized: "background_theme"))
         } footer: {
-            Text(L10n.l("background_theme_footer"))
+            Text(String(localized: "background_theme_footer"))
         }
     }
 
@@ -170,17 +155,17 @@ struct AppearanceSettingsView: View {
 
     private func title(for pref: ColorSchemePreference) -> String {
         switch pref {
-        case .system: return L10n.l("system")
-        case .dark:   return L10n.l("dark")
-        case .light:  return L10n.l("light")
+        case .system: return String(localized: "system")
+        case .dark:   return String(localized: "dark")
+        case .light:  return String(localized: "light")
         }
     }
 
     private func subtitle(for pref: ColorSchemePreference) -> String {
         switch pref {
-        case .system: return L10n.l("match_ios_system_settings")
-        case .dark: return L10n.l("always_use_dark_interface")
-        case .light: return L10n.l("always_use_light_interface")
+        case .system: return String(localized: "match_ios_system_settings")
+        case .dark: return String(localized: "always_use_dark_interface")
+        case .light: return String(localized: "always_use_light_interface")
         }
     }
 }

@@ -20,7 +20,7 @@ struct SessionRowView: View {
         // 引用草稿刷新令牌：参数变化强制本行重算 hasDraft（读时计算）。
         let _ = draftRefreshID
         // 显示标题：默认占位标题（"新会话"）走 i18n（存量数据为中文默认值，显示层兜底本地化）。
-        let displayTitle = (session.title == "NewChat") ? L10n.l("new_chat_title") : session.title
+        let displayTitle = (session.title == "NewChat") ? String(localized: "new_chat_title") : session.title
         HStack(spacing: 12) {
             leadingView
 
@@ -176,7 +176,7 @@ struct SessionRowView: View {
             .padding(.horizontal, count >= 10 ? 5 : 0)
             .background(Color.secondary.opacity(0.12))
             .clipShape(Capsule())
-            .accessibilityLabel(String(format: L10n.l("messages"), NSNumber(value: count)))
+            .accessibilityLabel(String(format: String(localized: "messages"), NSNumber(value: count)))
     }
 
     /// SwiftData 关系数组不保证顺序，因此显式筛选并按 createdAt 取最后一条 智能体回复。
@@ -191,13 +191,13 @@ struct SessionRowView: View {
                 if $0.createdAt != $1.createdAt { return $0.createdAt < $1.createdAt }
                 return $0.id.uuidString < $1.id.uuidString
             })
-        else { return L10n.l("no_agent_reply_yet") }
+        else { return String(localized: "no_agent_reply_yet") }
 
         let preferred = last.previewText?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let body = !preferred.isEmpty
             ? preferred
             : last.content.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !body.isEmpty else { return L10n.l("no_agent_reply_yet") }
+        guard !body.isEmpty else { return String(localized: "no_agent_reply_yet") }
         return Self.stripLeadingThinking(body)
     }
 
@@ -213,25 +213,25 @@ struct SessionRowView: View {
                 if let end = trimmed.range(of: "</think>") {
                     result = String(trimmed[end.upperBound...]); continue
                 }
-                return L10n.l("no_agent_reply_yet")
+                return String(localized: "no_agent_reply_yet")
             }
             if trimmed.hasPrefix("<thinking>") {
                 if let end = trimmed.range(of: "</thinking>") {
                     result = String(trimmed[end.upperBound...]); continue
                 }
-                return L10n.l("no_agent_reply_yet")
+                return String(localized: "no_agent_reply_yet")
             }
             if trimmed.hasPrefix("【思考】") {
                 if let end = trimmed.range(of: "【/思考】") {
                     result = String(trimmed[end.upperBound...]); continue
                 }
-                return L10n.l("no_agent_reply_yet")
+                return String(localized: "no_agent_reply_yet")
             }
             if trimmed.hasPrefix("【深度思考】") {
                 // 该标记常不带闭标签：直接去掉标记前缀，剩下的若仅为思考残留则清空。
                 let rest = String(trimmed.dropFirst("【深度思考】".count))
                 if rest.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    return L10n.l("no_agent_reply_yet")
+                    return String(localized: "no_agent_reply_yet")
                 }
                 result = rest
                 continue
@@ -239,7 +239,7 @@ struct SessionRowView: View {
             break
         }
         let final = result.trimmingCharacters(in: .whitespacesAndNewlines)
-        return final.isEmpty ? L10n.l("no_agent_reply_yet") : final
+        return final.isEmpty ? String(localized: "no_agent_reply_yet") : final
     }
 
     /// 搜索时该行小字展示的内容：优先取「第一个命中关键字的消息」内容并就地高亮；

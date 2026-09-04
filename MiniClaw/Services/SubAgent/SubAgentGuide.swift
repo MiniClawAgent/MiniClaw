@@ -3,9 +3,9 @@ import Foundation
 /// 子代理使用引导文案：注入主引擎 system prompt 的 stable 段。
 /// 万能助手定位：不限定编程，面向查证/写作/规划等通用复杂任务。
 enum SubAgentGuide {
-    /// 固定引导段（profile 列表由调用方动态拼入，见 `withProfiles`）。i18n：整段走 L10n。
+    /// 固定引导段（profile 列表由调用方动态拼入，见 `withProfiles`）。i18n：整段经 String(localized:) 查 String Catalog。
     static var usageGuide: String {
-        L10n.l("subagent_usage_guide")
+        String(localized: "subagent_usage_guide")
     }
 
     /// 动态拼接角色列表后的完整引导段（stable 段注入用）。
@@ -13,9 +13,9 @@ enum SubAgentGuide {
     static func guideWithProfiles() -> String {
         let summaries = SubAgentProfileStore.shared.allSummaries()
         let list = summaries.isEmpty
-            ? L10n.l("general_assistant_role")
+            ? String(localized: "general_assistant_role")
             : summaries.map { "- \($0.displayName)（`\($0.name)`）：\($0.summary)" }.joined(separator: "\n")
-        return usageGuide + L10n.l("available_subagent_roles") + list
+        return usageGuide + String(localized: "available_subagent_roles") + list
     }
 
     /// 「当前会话的子代理」清单段（A 方案：注入易变段，缓存断点之后）。
@@ -26,17 +26,17 @@ enum SubAgentGuide {
         guard !records.isEmpty else { return nil }
         let lines = records.map { rec -> String in
             let idShort = String(rec.id.uuidString.prefix(8))
-            let role = rec.profile.map { String(format: L10n.l("subagent_role_label"), $0) } ?? L10n.l("role_general")
-            let focus = (rec.focus?.isEmpty == false) ? String(format: L10n.l("subagent_focus_label"), rec.focus!) : nil
-            let task = rec.info.task.isEmpty ? nil : String(format: L10n.l("subagent_recent_task"), String(rec.info.task.prefix(60)))
+            let role = rec.profile.map { String(format: String(localized: "subagent_role_label"), $0) } ?? String(localized: "role_general")
+            let focus = (rec.focus?.isEmpty == false) ? String(format: String(localized: "subagent_focus_label"), rec.focus!) : nil
+            let task = rec.info.task.isEmpty ? nil : String(format: String(localized: "subagent_recent_task"), String(rec.info.task.prefix(60)))
             let status: String
             switch rec.status {
-            case .running: status = L10n.l("status_running")
-            case .error: status = L10n.l("error_title")
-            case .completed: status = L10n.l("completed")
-            case .cancelled: status = L10n.l("cancelled")
+            case .running: status = String(localized: "status_running")
+            case .error: status = String(localized: "error_title")
+            case .completed: status = String(localized: "completed")
+            case .cancelled: status = String(localized: "cancelled")
             }
-            let parts = ["- `\(idShort)`（\(rec.info.name)）", role, focus, String(format: L10n.l("subagent_status_label"), status), task]
+            let parts = ["- `\(idShort)`（\(rec.info.name)）", role, focus, String(format: String(localized: "subagent_status_label"), status), task]
                 .compactMap { $0 }.joined(separator: " · ")
             return parts
         }

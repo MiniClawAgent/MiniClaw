@@ -73,7 +73,7 @@ struct SubagentChatView: View {
                     }
                 } else {
                     Spacer()
-                    ProgressView(L10n.l("preparing_subagent"))
+                    ProgressView(String(localized: "preparing_subagent"))
                         .foregroundStyle(.secondary)
                     Spacer()
                 }
@@ -137,7 +137,7 @@ struct SubagentChatView: View {
                 }
             }
             Spacer()
-            Button(L10n.l("done")) { dismiss() }
+            Button(String(localized: "done")) { dismiss() }
                 .font(.callout)
         }
         .padding(.horizontal, 16)
@@ -149,10 +149,10 @@ struct SubagentChatView: View {
 
     private func statusText(_ s: SubagentStatus) -> String {
         switch s {
-        case .running:    return L10n.l("processing_status")
-        case .error:      return L10n.l("error_title")
-        case .completed:  return L10n.l("completed")
-        case .cancelled:  return L10n.l("cancelled")
+        case .running:    return String(localized: "processing_status")
+        case .error:      return String(localized: "error_title")
+        case .completed:  return String(localized: "completed")
+        case .cancelled:  return String(localized: "cancelled")
         }
     }
 

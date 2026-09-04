@@ -49,16 +49,16 @@ struct StorageSettingsView: View {
         List {
             // 存储概览（真实扫描）
             Section {
-                StorageUsageRow(label: L10n.l("workspace"), size: fmt(overview.workspace), icon: "folder")
-                StorageUsageRow(label: L10n.l("attachments"), size: fmt(overview.attachments), icon: "photo")
-                StorageUsageRow(label: L10n.l("browser_cache"), size: fmt(overview.browserCache), icon: "globe")
-                StorageUsageRow(label: L10n.l("session_cache"), size: fmt(overview.sessionCache), icon: "clock.arrow.circlepath")
-                StorageUsageRow(label: L10n.l("runtime_logs"), size: fmt(overview.logs), icon: "doc.text")
-                StorageUsageRow(label: L10n.l("total"), size: fmt(overview.total), icon: "externaldrive", isTotal: true)
+                StorageUsageRow(label: String(localized: "workspace"), size: fmt(overview.workspace), icon: "folder")
+                StorageUsageRow(label: String(localized: "attachments"), size: fmt(overview.attachments), icon: "photo")
+                StorageUsageRow(label: String(localized: "browser_cache"), size: fmt(overview.browserCache), icon: "globe")
+                StorageUsageRow(label: String(localized: "session_cache"), size: fmt(overview.sessionCache), icon: "clock.arrow.circlepath")
+                StorageUsageRow(label: String(localized: "runtime_logs"), size: fmt(overview.logs), icon: "doc.text")
+                StorageUsageRow(label: String(localized: "total"), size: fmt(overview.total), icon: "externaldrive", isTotal: true)
             } header: {
-                Text(L10n.l("storage_overview"))
+                Text(String(localized: "storage_overview"))
             } footer: {
-                Text(L10n.l("real_disk_space_used_by_each_session_s_isolated_directory_and_the_shared_workspace"))
+                Text(String(localized: "real_disk_space_used_by_each_session_s_isolated_directory_and_the_shared_workspace"))
             }
 
             // 清理（均真实生效）
@@ -66,47 +66,47 @@ struct StorageSettingsView: View {
                 if isBusy {
                     HStack(spacing: 10) {
                         ProgressView()
-                        Text(L10n.l("processing_ellipsis")).foregroundStyle(.secondary)
+                        Text(String(localized: "processing_ellipsis")).foregroundStyle(.secondary)
                     }
                 } else {
-                    Button(L10n.l("clear_browser_cache")) { cleanBrowserCache() }
-                    Button(L10n.l("clear_session_cache")) { cleanSessionCache() }
-                    Button(L10n.l("clean_old_attachments")) { cleanOldAttachments() }
-                    Button(L10n.l("clear_all_data"), role: .destructive) { showClearConfirm = true }
+                    Button(String(localized: "clear_browser_cache")) { cleanBrowserCache() }
+                    Button(String(localized: "clear_session_cache")) { cleanSessionCache() }
+                    Button(String(localized: "clean_old_attachments")) { cleanOldAttachments() }
+                    Button(String(localized: "clear_all_data"), role: .destructive) { showClearConfirm = true }
                 }
             } header: {
-                Text(L10n.l("cleanup"))
+                Text(String(localized: "cleanup"))
             } footer: {
-                Text(L10n.l("clear_browser_cache_clears_web_caches_webkit_cache_urlcache_shared_browser_data_clear_session_cache_clears_rebuildable_cache_data_in_each_session_session_browser_data_subagent_runtime_records_without_affecting_conversation_content_clear_old_attachments_deletes_attachments_older_than_the_cleanup_period_clear_all_data_deletes_all_session_isolated_files_and_local_working_data_settings_models_and_skills_are_unaffected_run_logs_and_crash_logs_are_controlled_by_toggles_on_the_logs_page"))
+                Text(String(localized: "clear_browser_cache_clears_web_caches_webkit_cache_urlcache_shared_browser_data_clear_session_cache_clears_rebuildable_cache_data_in_each_session_session_browser_data_subagent_runtime_records_without_affecting_conversation_content_clear_old_attachments_deletes_attachments_older_than_the_cleanup_period_clear_all_data_deletes_all_session_isolated_files_and_local_working_data_settings_models_and_skills_are_unaffected_run_logs_and_crash_logs_are_controlled_by_toggles_on_the_logs_page"))
             }
 
             // 文件设置
             Section {
-                TextField(L10n.l("default_workspace_directory_name"), text: $files.defaultWorkspace)
+                TextField(String(localized: "default_workspace_directory_name"), text: $files.defaultWorkspace)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                 Stepper(value: $files.autoOffloadThresholdKB, in: 1...100) {
-                    Text(String(format: L10n.l("large_output_dump_threshold_kb"), "\(files.autoOffloadThresholdKB)"))
+                    Text(String(format: String(localized: "large_output_dump_threshold_kb"), "\(files.autoOffloadThresholdKB)"))
                 }
                     .onChange(of: files.autoOffloadThresholdKB) { _ in FileSystemManager.shared.ensureDefaultWorkspace() }
                 Stepper(value: $files.cleanupAttachmentsDays, in: 1...365) {
-                    Text(String(format: L10n.l("attachment_auto_cleanup_period_days"), "\(files.cleanupAttachmentsDays)"))
+                    Text(String(format: String(localized: "attachment_auto_cleanup_period_days"), "\(files.cleanupAttachmentsDays)"))
                 }
             } header: {
-                Text(L10n.l("files"))
+                Text(String(localized: "files"))
             } footer: {
-                Text(L10n.l("default_workspace_directory_name_the_shared_workspace_where_shell_file_tools_land_when_no_session_is_bound_under_var_miniclaw_large_output_offload_threshold_shell_output_exceeding_this_value_is_auto_offloaded_to_offloads_attachment_auto_cleanup_period_clean_old_attachments_uses_this_to_delete_expired_attachments"))
+                Text(String(localized: "default_workspace_directory_name_the_shared_workspace_where_shell_file_tools_land_when_no_session_is_bound_under_var_miniclaw_large_output_offload_threshold_shell_output_exceeding_this_value_is_auto_offloaded_to_offloads_attachment_auto_cleanup_period_clean_old_attachments_uses_this_to_delete_expired_attachments"))
             }
 
             // 会话占用列表
             Section {
                 if sessionRows.isEmpty {
-                    Text(L10n.l("no_sessions")).foregroundStyle(.secondary)
+                    Text(String(localized: "no_sessions")).foregroundStyle(.secondary)
                 } else {
                     ForEach(sessionRows) { row in
                         HStack(spacing: 10) {
                             VStack(alignment: .leading, spacing: 2) {
-                                Text(row.title.isEmpty ? L10n.l("untitled_session") : row.title)
+                                Text(row.title.isEmpty ? String(localized: "untitled_session") : row.title)
                                     .font(.body)
                                     .lineLimit(1)
                                 Text(row.updatedAt, style: .date)
@@ -121,43 +121,43 @@ struct StorageSettingsView: View {
                         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                             Button(role: .destructive) {
                                 pendingDeleteID = row.id
-                                pendingDeleteTitle = row.title.isEmpty ? L10n.l("untitled_session") : row.title
+                                pendingDeleteTitle = row.title.isEmpty ? String(localized: "untitled_session") : row.title
                                 showDeleteSessionConfirm = true
                             } label: {
-                                Label(L10n.l("delete_action"), systemImage: "trash")
+                                Label(String(localized: "delete_action"), systemImage: "trash")
                             }
                         }
                     }
                 }
             } header: {
-                Text(L10n.l("session_usage"))
+                Text(String(localized: "session_usage"))
             } footer: {
-                Text(L10n.l("lists_each_session_s_on_device_file_usage_workspace_attachments_browser_offloads_excluding_the_chat_history_itself_sorted_by_size_largest_first"))
+                Text(String(localized: "lists_each_session_s_on_device_file_usage_workspace_attachments_browser_offloads_excluding_the_chat_history_itself_sorted_by_size_largest_first"))
             }
         }
         .scrollContentBackground(.hidden)
         .background(ThemeBackground(slot: .settings))
-        .navigationTitle(L10n.l("storage"))
+        .navigationTitle(String(localized: "storage"))
         .navigationBarTitleDisplayMode(.inline)
         .onAppear(perform: reload)
         .refreshable { await reloadAsync() }
-        .alert(L10n.l("clear_all_data"), isPresented: $showClearConfirm) {
-            Button(L10n.l("cancel"), role: .cancel) {}
-            Button(L10n.l("clear"), role: .destructive) { clearAllData() }
+        .alert(String(localized: "clear_all_data"), isPresented: $showClearConfirm) {
+            Button(String(localized: "cancel"), role: .cancel) {}
+            Button(String(localized: "clear"), role: .destructive) { clearAllData() }
         } message: {
-            Text(L10n.l("this_will_delete_all_session_isolated_files_and_local_working_data_workspace_attachments_browser_dumps_logs_this_action_cannot_be_undone_settings_models_and_skills_are_unaffected"))
+            Text(String(localized: "this_will_delete_all_session_isolated_files_and_local_working_data_workspace_attachments_browser_dumps_logs_this_action_cannot_be_undone_settings_models_and_skills_are_unaffected"))
         }
-        .alert(L10n.l("cleanup_complete"), isPresented: $showCleanupResult) {
-            Button(L10n.l("ok"), role: .cancel) {}
+        .alert(String(localized: "cleanup_complete"), isPresented: $showCleanupResult) {
+            Button(String(localized: "ok"), role: .cancel) {}
         } message: {
             Text(cleanupMessage)
         }
-        .alert(L10n.l("delete_session"), isPresented: $showDeleteSessionConfirm) {
-            Button(L10n.l("cancel"), role: .cancel) {
+        .alert(String(localized: "delete_session"), isPresented: $showDeleteSessionConfirm) {
+            Button(String(localized: "cancel"), role: .cancel) {
                 pendingDeleteID = nil
                 pendingDeleteTitle = ""
             }
-            Button(L10n.l("delete_action"), role: .destructive) {
+            Button(String(localized: "delete_action"), role: .destructive) {
                 if let id = pendingDeleteID {
                     SessionManager.shared.deleteSession(id: id)
                     pendingDeleteID = nil
@@ -166,7 +166,7 @@ struct StorageSettingsView: View {
                 }
             }
         } message: {
-            Text(L10n.l("this_will_delete_the_session")) + Text("「\(pendingDeleteTitle)」") + Text(L10n.l("all_isolated_files_and_chat_history_freeing_the_storage_space_they_occupy_this_action_cannot_be_undone"))
+            Text(String(localized: "this_will_delete_the_session")) + Text("「\(pendingDeleteTitle)」") + Text(String(localized: "all_isolated_files_and_chat_history_freeing_the_storage_space_they_occupy_this_action_cannot_be_undone"))
         }
         .onChange(of: files) { _ in saveFiles() }
     }
@@ -249,7 +249,7 @@ struct StorageSettingsView: View {
             await BrowserController.shared.clearBrowserCaches()
             await MainActor.run {
                 isBusy = false
-                cleanupMessage = L10n.l("browser_cache_cleared")
+                cleanupMessage = String(localized: "browser_cache_cleared")
                 showCleanupResult = true
                 reload()
             }
@@ -275,7 +275,7 @@ struct StorageSettingsView: View {
             }
             DispatchQueue.main.async {
                 isBusy = false
-                cleanupMessage = L10n.l("session_cache_cleared")
+                cleanupMessage = String(localized: "session_cache_cleared")
                 showCleanupResult = true
                 reload()
             }
@@ -314,7 +314,7 @@ struct StorageSettingsView: View {
             }
             DispatchQueue.main.async {
                 isBusy = false
-                cleanupMessage = String(format: L10n.l("cleaned_of_old_attachments"), fmt(removed))
+                cleanupMessage = String(format: String(localized: "cleaned_of_old_attachments"), fmt(removed))
                 showCleanupResult = true
                 reload()
             }
@@ -338,7 +338,7 @@ struct StorageSettingsView: View {
             }
             DispatchQueue.main.async {
                 isBusy = false
-                cleanupMessage = L10n.l("all_local_data_cleared")
+                cleanupMessage = String(localized: "all_local_data_cleared")
                 showCleanupResult = true
                 reload()
             }
@@ -346,7 +346,7 @@ struct StorageSettingsView: View {
     }
 
     private func saveFiles() {
-        SettingsStore.shared.set(files, domain: .files, summary: L10n.l("edit_file_settings"))
+        SettingsStore.shared.set(files, domain: .files, summary: String(localized: "edit_file_settings"))
     }
 }
 

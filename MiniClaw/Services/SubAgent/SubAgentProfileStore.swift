@@ -58,8 +58,8 @@ final class SubAgentProfileStore: @unchecked Sendable {
         if loaded["general"] == nil && subs.isEmpty {
             loaded["general"] = SubAgentProfile(
                 name: "general",
-                displayName: L10n.l("subagent_general_display"),
-                summary: L10n.l("subagent_general_summary"),
+                displayName: String(localized: "subagent_general_display"),
+                summary: String(localized: "subagent_general_summary"),
                 systemPrompt: Self.fallbackGeneralPrompt
             )
         }
@@ -74,7 +74,7 @@ final class SubAgentProfileStore: @unchecked Sendable {
         defer { lock.unlock() }
         guard let name, !name.isEmpty, let p = profiles[name] else {
             return profiles["general"]
-                ?? SubAgentProfile(name: "general", displayName: L10n.l("subagent_general_display"), summary: "",
+                ?? SubAgentProfile(name: "general", displayName: String(localized: "subagent_general_display"), summary: "",
                                    systemPrompt: Self.fallbackGeneralPrompt)
         }
         return p
@@ -89,6 +89,6 @@ final class SubAgentProfileStore: @unchecked Sendable {
     }
 
     /// general 兜底提示词（跟随界面语言；数据目录无任何文件时保证子代理仍可用）。
-    /// 2026-08-29 修正：原先硬编码中文违反"提示词跟界面语言"决策，改走 L10n。
-    static var fallbackGeneralPrompt: String { L10n.l("subagent_fallback_prompt") }
+    /// 2026-08-29 修正：原先硬编码中文违反"提示词跟界面语言"决策，改走 String Catalog 查表。
+    static var fallbackGeneralPrompt: String { String(localized: "subagent_fallback_prompt") }
 }

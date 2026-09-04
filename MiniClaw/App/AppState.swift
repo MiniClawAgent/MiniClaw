@@ -24,9 +24,6 @@ final class AppState: ObservableObject {
         self.selectedModelId = container.selectedModelId
         // 从持久化设置载入外观初值（init 内赋值不触发 didSet，不会回写）。
         self.colorSchemePreference = ColorSchemePreference(rawValue: SettingsStore.shared.settings.appearance.colorSchemeRaw) ?? .system
-        // 从持久化设置载入界面语言初值（init 内赋值不触发 didSet，需显式同步 L10n）。
-        self.appLanguage = AppLanguage(rawValue: SettingsStore.shared.settings.appearance.appLanguageRaw) ?? .system
-        L10n.shared.setLanguage(self.appLanguage)
     }
 
     // MARK: - OAuth 支持
@@ -134,7 +131,7 @@ final class AppState: ObservableObject {
         case .none:
             break
         }
-        return resolveActiveEndpoint()?.model.resolvedName ?? L10n.l("no_model_configured")
+        return resolveActiveEndpoint()?.model.resolvedName ?? String(localized: "no_model_configured")
     }
 
     /// 是否存在当前聊天用途真正可执行的模型路由。
@@ -336,7 +333,7 @@ final class AppState: ObservableObject {
         if let name = selectionDisplayName(settings.session.mainModel) {
             return name
         }
-        return resolveActiveEndpoint()?.model.resolvedName ?? L10n.l("no_model_configured")
+        return resolveActiveEndpoint()?.model.resolvedName ?? String(localized: "no_model_configured")
     }
 
     private func selectionDisplayName(_ selection: ModelSelection) -> String? {
@@ -347,7 +344,7 @@ final class AppState: ObservableObject {
         case .group(let groupId):
             guard let group = settings.groups.first(where: { $0.id == groupId }) else { return nil }
             let name = group.name.trimmingCharacters(in: .whitespacesAndNewlines)
-            return name.isEmpty ? L10n.l("unnamed_group") : name
+            return name.isEmpty ? String(localized: "unnamed_group") : name
         case .model(let compositeKey):
             guard let candidate = resolveModelCandidate(compositeKey: compositeKey) else { return nil }
             return candidate.model.resolvedName
@@ -639,7 +636,7 @@ final class AppState: ObservableObject {
             target = SessionManager.shared.session(id: sid)
         }
         if target == nil {
-            let agent = queryValue("agent") ?? L10n.l("deep_link_task")
+            let agent = queryValue("agent") ?? String(localized: "deep_link_task")
             target = SessionManager.shared.createSession(title: agent, source: "deeplink")
         }
         guard let session = target else {
@@ -809,15 +806,15 @@ final class AppState: ObservableObject {
             if !imagePaths.isEmpty {
                 let fileList = imagePaths.map { ($0 as NSString).lastPathComponent }.joined(separator: ", ")
                 let pathList = imagePaths.joined(separator: "\", \"")
-                hints.append(String(format: L10n.l("vision_unsupported_hint"), imagePaths.count, fileList, pathList))
+                hints.append(String(format: String(localized: "vision_unsupported_hint"), imagePaths.count, fileList, pathList))
             }
             if !filePaths.isEmpty {
                 let fileList = filePaths.map { ($0 as NSString).lastPathComponent }.joined(separator: ", ")
                 let pathList = filePaths.joined(separator: "\", \"")
-                hints.append(String(format: L10n.l("files_unsupported_hint"), filePaths.count, fileList, pathList))
+                hints.append(String(format: String(localized: "files_unsupported_hint"), filePaths.count, fileList, pathList))
             }
             if !hints.isEmpty {
-                enrichedInput.append("\n\n" + L10n.l("sys_note_prefix") + hints.joined(separator: "\n"))
+                enrichedInput.append("\n\n" + String(localized: "sys_note_prefix") + hints.joined(separator: "\n"))
             }
         }
 
@@ -907,7 +904,7 @@ final class AppState: ObservableObject {
         case failed
         var errorDescription: String? {
             switch self {
-            case .failed: return L10n.l("the_agent_failed_or_was_interrupted")
+            case .failed: return String(localized: "the_agent_failed_or_was_interrupted")
             }
         }
     }
@@ -932,18 +929,6 @@ final class AppState: ObservableObject {
             guard oldValue != colorSchemePreference else { return }
             SettingsStore.shared.settings.appearance.colorSchemeRaw = colorSchemePreference.rawValue
             SettingsStore.shared.save()
-        }
-    }
-
-    // MARK: - 界面语言（持久化于 appearance.appLanguageRaw，切换即刷新 L10n）
-    /// 界面显示语言。存储属性：修改即触发 SwiftUI 重新求值刷新全部 L10n.tr，
-    /// `didSet` 负责落盘持久化并通知 L10n 单例切换当前语言。
-    @Published var appLanguage: AppLanguage = .system {
-        didSet {
-            guard oldValue != appLanguage else { return }
-            SettingsStore.shared.settings.appearance.appLanguageRaw = appLanguage.rawValue
-            SettingsStore.shared.save()
-            L10n.shared.setLanguage(appLanguage)
         }
     }
 }

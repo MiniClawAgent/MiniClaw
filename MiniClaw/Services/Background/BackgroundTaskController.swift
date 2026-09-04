@@ -66,7 +66,7 @@ final class BackgroundTaskController {
             for activity in Activity<MiniClawLiveActivityAttributes>.activities where activity.id == dupID {
             await activity.end(
             using: MiniClawLiveActivityAttributes.ContentState(
-            sessionTitle: "", progressText: L10n.l("ended"), phase: "completed"
+            sessionTitle: "", progressText: String(localized: "ended"), phase: "completed"
             ),
             dismissalPolicy: .immediate
             )
@@ -76,7 +76,7 @@ final class BackgroundTaskController {
             Task { @MainActor in
             await BackgroundTaskController.shared.updateActivity(sessionID: sid) { s in
             var c = s
-            c.progressText = L10n.l("thinking")
+            c.progressText = String(localized: "thinking")
             c.timeText = Self.nowString()
             c.phase = "running"
             c.status = "running"
@@ -94,7 +94,7 @@ final class BackgroundTaskController {
             for activity in Activity<MiniClawLiveActivityAttributes>.activities where activity.id == oldID {
             await activity.end(
             using: MiniClawLiveActivityAttributes.ContentState(
-            sessionTitle: "", progressText: L10n.l("ended"), phase: "completed"
+            sessionTitle: "", progressText: String(localized: "ended"), phase: "completed"
             ),
             dismissalPolicy: .immediate
             )
@@ -171,7 +171,7 @@ final class BackgroundTaskController {
             if success, let reply = lastReply, !reply.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             finishedText = String(reply.prefix(300))
             } else {
-            finishedText = success ? L10n.l("completed") : L10n.l("ended")
+            finishedText = success ? String(localized: "completed") : String(localized: "ended")
             }
             c.progressText = finishedText
             c.phase = success ? "completed" : "failed"
@@ -201,7 +201,7 @@ final class BackgroundTaskController {
         let state = MiniClawLiveActivityAttributes.ContentState(
             sessionIcon: icon,
             sessionTitle: title,
-            progressText: L10n.l("thinking"),
+            progressText: String(localized: "thinking"),
             timeText: Self.nowString(),
             phase: "running",
             status: "running"
@@ -214,7 +214,7 @@ final class BackgroundTaskController {
             )
             if let sid = sessionID { LiveActivityState.shared.liveActivities[sid] = activity }
         } catch {
-            AppLogger.shared.error(String(format: L10n.l("bg_liveactivity_failed"), String(describing: error)), category: "BG")
+            AppLogger.shared.error(String(format: String(localized: "bg_liveactivity_failed"), String(describing: error)), category: "BG")
         }
     }
 
@@ -242,7 +242,7 @@ final class BackgroundTaskController {
         if #available(iOS 16.1, *) {
             let state = MiniClawLiveActivityAttributes.ContentState(
             sessionTitle: "",
-            progressText: L10n.l("ended"),
+            progressText: String(localized: "ended"),
             phase: "completed"
             )
             await BackgroundTaskController.shared.endLiveActivity(sessionID: sessionID, state: state, dismissalPolicy: .immediate)
@@ -257,7 +257,7 @@ final class BackgroundTaskController {
         if #available(iOS 16.1, *) {
             for activity in Activity<MiniClawLiveActivityAttributes>.activities {
             await activity.end(
-            using: MiniClawLiveActivityAttributes.ContentState(sessionTitle: "", progressText: L10n.l("ended"), phase: "completed"),
+            using: MiniClawLiveActivityAttributes.ContentState(sessionTitle: "", progressText: String(localized: "ended"), phase: "completed"),
             dismissalPolicy: .immediate
             )
             }
@@ -291,7 +291,7 @@ final class BackgroundTaskController {
         if #available(iOS 16.1, *) {
             await BackgroundTaskController.shared.updateActivity(sessionID: sid) { s in
             var c = s
-            c.progressText = L10n.l("paused")
+            c.progressText = String(localized: "paused")
             c.timeText = Self.nowString()
             c.phase = "running"
             c.status = "paused"
@@ -312,7 +312,7 @@ final class BackgroundTaskController {
         if #available(iOS 16.1, *) {
             guard let act = BackgroundTaskController.shared.liveActivities(forSessionID: sid).first else { return }
             var c = act.contentState
-            c.progressText = L10n.l("stopped")
+            c.progressText = String(localized: "stopped")
             c.timeText = BackgroundTaskController.nowString()
             c.phase = "running"
             c.status = "stopped"
@@ -332,7 +332,7 @@ final class BackgroundTaskController {
             if #available(iOS 16.1, *) {
                 await BackgroundTaskController.shared.updateActivity(sessionID: sid) { s in
                     var c = s
-                    c.progressText = L10n.l("interrupted")
+                    c.progressText = String(localized: "interrupted")
                     c.timeText = Self.nowString()
                     c.phase = "failed"
                     c.status = "interrupted"
@@ -350,7 +350,7 @@ final class BackgroundTaskController {
     func armForIntent(sessionID: String?) {
         let bg = SettingsStore.shared.settings.background
         guard bg.backgroundRun else {
-            AppLogger.shared.info(L10n.l("intent_keepalive_skipped"), category: "Intent")
+            AppLogger.shared.info(String(localized: "intent_keepalive_skipped"), category: "Intent")
             return
         }
         startLocationIfNeeded()
@@ -360,7 +360,7 @@ final class BackgroundTaskController {
                 AgentRuntimeStatus.shared.setActive(title: title)
             }
         }
-        AppLogger.shared.info(L10n.l("intent_keepalive_armed"), category: "Intent")
+        AppLogger.shared.info(String(localized: "intent_keepalive_armed"), category: "Intent")
     }
 
     private func startLocationIfNeeded() {

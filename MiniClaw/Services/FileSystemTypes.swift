@@ -24,17 +24,17 @@ enum FileError: Error, LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .notFound(let path): return String(format: L10n.l("fs_file_not_found"), path)
-        case .binaryFileNotSupported(let path): return String(format: L10n.l("fs_binary_not_supported"), path)
-        case .stringNotFound(let str): return String(format: L10n.l("fs_string_not_found"), str)
-        case .writeFailed(let path): return String(format: L10n.l("fs_write_failed"), path)
-        case .absolutePathRequired(let path): return String(format: L10n.l("fs_absolute_path_required"), path)
-        case .pathEscapesRoot(let path): return String(format: L10n.l("fs_path_escapes_root"), path)
-        case .writeNotAllowed(let path): return String(format: L10n.l("fs_write_not_allowed"), path)
-        case .mountReadOnly(let name): return String(format: L10n.l("fs_mount_read_only"), name)
+        case .notFound(let path): return String(format: String(localized: "fs_file_not_found"), path)
+        case .binaryFileNotSupported(let path): return String(format: String(localized: "fs_binary_not_supported"), path)
+        case .stringNotFound(let str): return String(format: String(localized: "fs_string_not_found"), str)
+        case .writeFailed(let path): return String(format: String(localized: "fs_write_failed"), path)
+        case .absolutePathRequired(let path): return String(format: String(localized: "fs_absolute_path_required"), path)
+        case .pathEscapesRoot(let path): return String(format: String(localized: "fs_path_escapes_root"), path)
+        case .writeNotAllowed(let path): return String(format: String(localized: "fs_write_not_allowed"), path)
+        case .mountReadOnly(let name): return String(format: String(localized: "fs_mount_read_only"), name)
         case .invalidRange(let message): return message
-        case .unsupportedImage(let path): return String(format: L10n.l("fs_unsupported_image"), path)
-        case .sessionRequired(let path): return String(format: L10n.l("fs_session_required"), path)
+        case .unsupportedImage(let path): return String(format: String(localized: "fs_unsupported_image"), path)
+        case .sessionRequired(let path): return String(format: String(localized: "fs_session_required"), path)
         }
     }
 }

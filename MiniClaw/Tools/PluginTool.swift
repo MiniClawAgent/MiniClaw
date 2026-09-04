@@ -17,20 +17,20 @@ struct PluginTool: AgentTool {
         type: "function",
         function: ToolSchema.FunctionDef(
             name: "miniclaw_plugin",
-            description: L10n.l("miniclaw_plugin_tool_desc"),
+            description: String(localized: "miniclaw_plugin_tool_desc"),
             parameters: JSONSchema(
                 type: "object",
                 properties: [
                     "action": JSONSchema.JSONProperty(
                         type: "string",
-                        description: L10n.l("plugin_tool_param_action"),
+                        description: String(localized: "plugin_tool_param_action"),
                         enum: ["list", "install", "enable", "disable"]),
                     "path": JSONSchema.JSONProperty(
                         type: "string",
-                        description: L10n.l("plugin_tool_param_path")),
+                        description: String(localized: "plugin_tool_param_path")),
                     "id": JSONSchema.JSONProperty(
                         type: "string",
-                        description: L10n.l("plugin_tool_param_id")),
+                        description: String(localized: "plugin_tool_param_id")),
                 ],
                 required: ["action"]
             )
@@ -45,7 +45,7 @@ struct PluginTool: AgentTool {
 
     func execute(_ parameters: [String: Any]) async throws -> ToolResult {
         guard let action = parameters["action"] as? String else {
-            return ToolResult(success: false, text: L10n.l("plugin_tool_missing_action"))
+            return ToolResult(success: false, text: String(localized: "plugin_tool_missing_action"))
         }
         switch action {
         case "list": return list()
@@ -53,21 +53,21 @@ struct PluginTool: AgentTool {
         case "enable": return try await setState(parameters, enabled: true)
         case "disable": return try await setState(parameters, enabled: false)
         default:
-            return ToolResult(success: false, text: L10n.l("plugin_tool_unknown_action") + " \(action)")
+            return ToolResult(success: false, text: String(localized: "plugin_tool_unknown_action") + " \(action)")
         }
     }
 
     // MARK: - list
 
     private func list() -> ToolResult {
-        var lines: [String] = [L10n.l("plugin_tool_list_header")]
+        var lines: [String] = [String(localized: "plugin_tool_list_header")]
         for dir in FileSystemManager.shared.allPluginDirectories() {
             guard let data = try? Data(contentsOf: dir.appendingPathComponent("plugin.json")),
                   let m = try? JSONDecoder().decode(PluginManifest.self, from: data)
             else { continue }
             let key = m.name.isEmpty ? dir.lastPathComponent : m.name
             let enabled = SettingsStore.shared.settings.skillEnabledStates[key] ?? m.enabledByDefault
-            let state = enabled ? L10n.l("plugin_tool_state_enabled") : L10n.l("plugin_tool_state_disabled")
+            let state = enabled ? String(localized: "plugin_tool_state_enabled") : String(localized: "plugin_tool_state_disabled")
             lines.append("- \(key) [\(m.type)] v\(m.version) — \(state)（id: \(dir.lastPathComponent)）")
         }
         return ToolResult(success: true, text: lines.joined(separator: "\n"))
@@ -77,24 +77,24 @@ struct PluginTool: AgentTool {
 
     private func install(_ parameters: [String: Any]) async throws -> ToolResult {
         guard let rawPath = parameters["path"] as? String, !rawPath.isEmpty else {
-            return ToolResult(success: false, text: L10n.l("plugin_tool_missing_path"))
+            return ToolResult(success: false, text: String(localized: "plugin_tool_missing_path"))
         }
         let url = try FileSystemManager.shared.resolveAgentPath(rawPath, sessionID: currentSessionID)
         guard FileManager.default.fileExists(atPath: url.path) else {
-            return ToolResult(success: false, text: L10n.l("plugin_tool_path_not_found") + " \(rawPath)")
+            return ToolResult(success: false, text: String(localized: "plugin_tool_path_not_found") + " \(rawPath)")
         }
 
         // 确认开关（通用设置 → 默认行为，默认开）：弹窗请求用户批准。
         if SettingsStore.shared.settings.defaults.aiPluginInstallRequiresConfirmation {
             let title = await MainActor.run {
                 currentSessionID.flatMap { SessionManager.shared.session(id: $0)?.title }
-                    ?? L10n.l("unknown_session")
+                    ?? String(localized: "unknown_session")
             }
-            let summary = L10n.l("plugin_tool_confirm_summary") + " \(url.lastPathComponent)"
+            let summary = String(localized: "plugin_tool_confirm_summary") + " \(url.lastPathComponent)"
             let approved = await ToolConfirmationBridge.shared.request(
                 toolName: name, summary: summary,
                 sessionID: currentSessionID ?? UUID(), sessionTitle: title)
-            guard approved else { return ToolResult(success: false, text: L10n.l("plugin_tool_install_denied")) }
+            guard approved else { return ToolResult(success: false, text: String(localized: "plugin_tool_install_denied")) }
         }
 
         let result = await MainActor.run { SkillManager.shared.importSkillFile(from: url) }
@@ -117,12 +117,12 @@ struct PluginTool: AgentTool {
 
         var text = result.message
         if !result.imported.isEmpty {
-            text += "\n" + String(format: L10n.l("plugin_tool_installed_and_enabled"), result.imported.joined(separator: ", "))
+            text += "\n" + String(format: String(localized: "plugin_tool_installed_and_enabled"), result.imported.joined(separator: ", "))
             if !enabledNames.isEmpty {
-                text += "\n" + L10n.l("plugin_tool_enabled_list") + " " + enabledNames.joined(separator: ", ")
+                text += "\n" + String(localized: "plugin_tool_enabled_list") + " " + enabledNames.joined(separator: ", ")
             }
             if !result.skipped.isEmpty {
-                text += "\n" + L10n.l("plugin_tool_skipped_same_id") + " " + result.skipped.joined(separator: ", ")
+                text += "\n" + String(localized: "plugin_tool_skipped_same_id") + " " + result.skipped.joined(separator: ", ")
             }
         }
         return ToolResult(success: true, text: text)
@@ -132,7 +132,7 @@ struct PluginTool: AgentTool {
 
     private func setState(_ parameters: [String: Any], enabled: Bool) async throws -> ToolResult {
         guard let id = parameters["id"] as? String, !id.isEmpty else {
-            return ToolResult(success: false, text: L10n.l("plugin_tool_missing_id"))
+            return ToolResult(success: false, text: String(localized: "plugin_tool_missing_id"))
         }
         // setEnabled 的键是 manifest.name（空则目录名）；用户/AI 传 id 或 name 均可。
         let dirs = FileSystemManager.shared.allPluginDirectories()
@@ -144,16 +144,16 @@ struct PluginTool: AgentTool {
                 return m.name == id
             })
         else {
-            return ToolResult(success: false, text: L10n.l("plugin_tool_unknown_id") + " \(id)")
+            return ToolResult(success: false, text: String(localized: "plugin_tool_unknown_id") + " \(id)")
         }
         guard let data = try? Data(contentsOf: dir.appendingPathComponent("plugin.json")),
               let m = try? JSONDecoder().decode(PluginManifest.self, from: data)
         else {
-            return ToolResult(success: false, text: L10n.l("plugin_tool_unknown_id") + " \(id)")
+            return ToolResult(success: false, text: String(localized: "plugin_tool_unknown_id") + " \(id)")
         }
         let key = m.name.isEmpty ? dir.lastPathComponent : m.name
         await MainActor.run { SkillManager.shared.setEnabled(key, enabled) }
-        let verb = enabled ? L10n.l("plugin_tool_enabled_done") : L10n.l("plugin_tool_disabled_done")
+        let verb = enabled ? String(localized: "plugin_tool_enabled_done") : String(localized: "plugin_tool_disabled_done")
         return ToolResult(success: true, text: verb + " \(key)")
     }
 }

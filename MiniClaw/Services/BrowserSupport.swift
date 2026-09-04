@@ -24,9 +24,9 @@ enum SearchEngine: String, CaseIterable, Identifiable {
     var displayName: String {
         switch self {
         case .bing: return "Bing"
-        case .sogou: return L10n.l("search_sogou")
-        case .so360: return L10n.l("search_360")
-        case .baidu: return L10n.l("search_baidu")
+        case .sogou: return String(localized: "search_sogou")
+        case .so360: return String(localized: "search_360")
+        case .baidu: return String(localized: "search_baidu")
         case .google: return "Google"
         case .duckduckgo: return "DuckDuckGo"
         }

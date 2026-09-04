@@ -356,7 +356,7 @@ class OpenAIProviderAdapter: LLMProviderAdapter, @unchecked Sendable {
         let merged = volatileParts.joined(separator: "\n\n")
         // 追加为消息流末尾的独立 user 消息:不触碰任何历史消息,前缀保持不变。
         // 加显式标注防止模型把它误读为「用户最新输入」(末尾 user 有强指令语义)。
-        let annotated = String(format: L10n.l("env_snapshot_note"), merged)
+        let annotated = String(format: String(localized: "env_snapshot_note"), merged)
         result.append(ChatCompletionMessage(role: "user", content: annotated))
         return result
     }
@@ -391,14 +391,14 @@ class OpenAIProviderAdapter: LLMProviderAdapter, @unchecked Sendable {
         let fallback = message ?? body
         switch statusCode {
         case 401, 403:
-            return .providerRejected(fallback.isEmpty ? L10n.l("err_auth_failed") : fallback)
+            return .providerRejected(fallback.isEmpty ? String(localized: "err_auth_failed") : fallback)
         case 429:
             return .rateLimited
         case 400:
-            return .providerRejected(fallback.isEmpty ? L10n.l("err_request_rejected") : fallback)
+            return .providerRejected(fallback.isEmpty ? String(localized: "err_request_rejected") : fallback)
         default:
             if statusCode >= 500 {
-                return .providerRejected(String(format: L10n.l("err_server_error"), statusCode, String(fallback.prefix(300))))
+                return .providerRejected(String(format: String(localized: "err_server_error"), statusCode, String(fallback.prefix(300))))
             }
             return nil
         }

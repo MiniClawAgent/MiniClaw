@@ -28,7 +28,7 @@ final class SessionManager: ObservableObject {
         let loaded = SQLiteStore.shared.loadSessions()
         sessions = loaded
         objectWillChange.send()
-        AppLogger.shared.info(String(format: L10n.l("sessionmanager_loaded"), loaded.count), category: "Session")
+        AppLogger.shared.info(String(format: String(localized: "sessionmanager_loaded"), loaded.count), category: "Session")
     }
 
     /// 写盘(SQLite 串行落库)。failure 时由 SQLiteStore 记录日志(不静默)。
@@ -52,7 +52,7 @@ final class SessionManager: ObservableObject {
 
     // MARK: - CRUD(保持原方法签名)
 
-    func createSession(title: String = L10n.l("new_chat_title"), model: String = L10n.l("not_configured"), agentName: String = "MiniClaw", source: String = "app") -> ChatSession? {
+    func createSession(title: String = String(localized: "new_chat_title"), model: String = String(localized: "not_configured"), agentName: String = "MiniClaw", source: String = "app") -> ChatSession? {
         let session = ChatSession(
             title: title,
             modelName: model,

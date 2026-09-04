@@ -193,30 +193,30 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
             .map { "- `\($0.name)`：\($0.displayName)（\($0.summary)）" }
             .joined(separator: "\n")
         let profileDescription = profileList.isEmpty
-            ? L10n.l("param_subagent_role_default")
-            : String(format: L10n.l("loop_subagent_roles"), profileList)
+            ? String(localized: "param_subagent_role_default")
+            : String(format: String(localized: "loop_subagent_roles"), profileList)
         return ToolSchema(
             type: "function",
             function: ToolSchema.FunctionDef(
                 name: Self.subagentToolName,
-                description: L10n.l("dispatch_subagent_tool_desc"),
+                description: String(localized: "dispatch_subagent_tool_desc"),
                 parameters: JSONSchema(
                     type: "object",
                     properties: [
-                        "task": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_subtask_desc_independent")),
-                        "focus": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_subagent_focus_label")),
+                        "task": JSONSchema.JSONProperty(type: "string", description: String(localized: "param_subtask_desc_independent")),
+                        "focus": JSONSchema.JSONProperty(type: "string", description: String(localized: "param_subagent_focus_label")),
                         "profile": JSONSchema.JSONProperty(type: "string", description: profileDescription),
-                        "subagent_id": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_subagent_id_reuse")),
+                        "subagent_id": JSONSchema.JSONProperty(type: "string", description: String(localized: "param_subagent_id_reuse")),
                         "tasks": JSONSchema.JSONProperty(
                             type: "array",
-                            description: String(format: L10n.l("loop_parallel_tasks_desc"), maxParallelSubagents),
+                            description: String(format: String(localized: "loop_parallel_tasks_desc"), maxParallelSubagents),
                             items: JSONSchema(
                                 type: "object",
                                 properties: [
-                                    "task": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_subtask_desc")),
-                                    "focus": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_focus_label")),
-                                    "profile": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_subagent_role_inherit")),
-                                    "subagent_id": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_reuse_subagent_id"))
+                                    "task": JSONSchema.JSONProperty(type: "string", description: String(localized: "param_subtask_desc")),
+                                    "focus": JSONSchema.JSONProperty(type: "string", description: String(localized: "param_focus_label")),
+                                    "profile": JSONSchema.JSONProperty(type: "string", description: String(localized: "param_subagent_role_inherit")),
+                                    "subagent_id": JSONSchema.JSONProperty(type: "string", description: String(localized: "param_reuse_subagent_id"))
                                 ],
                                 required: ["task"]
                             )
@@ -235,7 +235,7 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
             type: "function",
             function: ToolSchema.FunctionDef(
                 name: Self.closeSubagentToolName,
-                description: L10n.l("close_subagent_tool_desc"),
+                description: String(localized: "close_subagent_tool_desc"),
                 parameters: CloseSubagentTool.schema
             )
         )
@@ -541,7 +541,7 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
             iterations += 1
             // 安全阀：避免模型不断调工具导致无限循环
             if iterations > 50 {
-                AppLogger.shared.error(String(format: L10n.l("loop_infinite_safety"), iterations), category: "Agent", subsystem: "AgentLoop")
+                AppLogger.shared.error(String(format: String(localized: "loop_infinite_safety"), iterations), category: "Agent", subsystem: "AgentLoop")
                 break
             }
 
@@ -559,7 +559,7 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
             while endpointIndex < routingPlan.endpoints.count && !passSucceeded {
                 guard await !state.isCancelled() else { return }
                 let endpoint = routingPlan.endpoints[endpointIndex]
-                AppLogger.shared.info(String(format: L10n.l("loop_router_candidate"), endpointIndex + 1, routingPlan.endpoints.count, endpoint.modelName))
+                AppLogger.shared.info(String(format: String(localized: "loop_router_candidate"), endpointIndex + 1, routingPlan.endpoints.count, endpoint.modelName))
                 let llmClient = LLMClient(
                     endpointURL: endpoint.url,
                     apiKey: endpoint.apiKey,
@@ -681,7 +681,7 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
                     let pausedNow = await state.isPausedRequested()
                     let cancelledNow = await state.isCancelled()
                     if reached, !pausedNow, !cancelledNow {
-                        AppLogger.shared.warn(String(format: L10n.l("loop_retry_notice"), retryCount, maxRetries, lastErr.localizedDescription), category: "Agent", subsystem: "AgentLoop")
+                        AppLogger.shared.warn(String(format: String(localized: "loop_retry_notice"), retryCount, maxRetries, lastErr.localizedDescription), category: "Agent", subsystem: "AgentLoop")
                         do {
                             // 等待 3s 或手动重试信号（点击指示器重试按钮立即重试）。
                             try await waitRetryInterval()
@@ -792,8 +792,8 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
                           collectedToolCalls.isEmpty,
                           shouldTryNextEndpoint(after: error, fallbackStrategy: endpoint.fallbackStrategy),
                           endpointIndex + 1 < routingPlan.endpoints.count {
-                    AppLogger.shared.info(String(format: L10n.l("loop_router_fallback"), endpoint.fallbackStrategy, error.localizedDescription))
-                    AppLogger.shared.warn(String(format: L10n.l("loop_model_fallback"), endpoint.fallbackStrategy, error.localizedDescription), category: "Agent", subsystem: "ModelRouter")
+                    AppLogger.shared.info(String(format: String(localized: "loop_router_fallback"), endpoint.fallbackStrategy, error.localizedDescription))
+                    AppLogger.shared.warn(String(format: String(localized: "loop_model_fallback"), endpoint.fallbackStrategy, error.localizedDescription), category: "Agent", subsystem: "ModelRouter")
                     endpointIndex += 1
                     emitRouteChange(routingPlan.endpoints[endpointIndex].displayName)
                 } else {
@@ -807,7 +807,7 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
 
             if let error = passError, !passSucceeded {
                 await state.markStopped()
-                AppLogger.shared.error(String(format: L10n.l("loop_model_final_failed"), error.localizedDescription), category: "Agent", subsystem: "AgentLoop")
+                AppLogger.shared.error(String(format: String(localized: "loop_model_final_failed"), error.localizedDescription), category: "Agent", subsystem: "AgentLoop")
                 if let sid = sessionID { AgentTaskStore.shared.clear(sessionID: sid) }
                 emitError(error)
                 return
@@ -845,21 +845,21 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
                     messages.append(ChatCompletionMessage(role: "assistant", content: streamedText, reasoningContent: streamedReasoning.isEmpty ? nil : streamedReasoning))
                     lengthContinuationRounds += 1
                     if lengthContinuationRounds <= 3 {
-                        messages.append(ChatCompletionMessage(role: "user", content: L10n.l("continue_reply_hint")))
-                        AppLogger.shared.warn(String(format: L10n.l("loop_reply_continuation"), fr, lengthContinuationRounds), category: "Agent", subsystem: "AgentLoop")
+                        messages.append(ChatCompletionMessage(role: "user", content: String(localized: "continue_reply_hint")))
+                        AppLogger.shared.warn(String(format: String(localized: "loop_reply_continuation"), fr, lengthContinuationRounds), category: "Agent", subsystem: "AgentLoop")
                         continue
                     }
-                    AppLogger.shared.warn(L10n.l("loop_continuation_limit"), category: "Agent", subsystem: "AgentLoop")
+                    AppLogger.shared.warn(String(localized: "loop_continuation_limit"), category: "Agent", subsystem: "AgentLoop")
                 } else if let fr = lastFinishReason, fr == "tool_calls" {
                     // 缺工具自愈：意图调工具但流格式漏发有效 tool_call，注入一次自愈提示，最多 1 轮。
                     messages.append(ChatCompletionMessage(role: "assistant", content: streamedText.isEmpty ? nil : streamedText))
                     missingToolRecoveryRounds += 1
                     if missingToolRecoveryRounds <= 1 {
-                        messages.append(ChatCompletionMessage(role: "user", content: L10n.l("sys_tool_calls_mismatch")))
-                        AppLogger.shared.warn(String(format: L10n.l("loop_missing_tool_recover"), missingToolRecoveryRounds), category: "Agent", subsystem: "AgentLoop")
+                        messages.append(ChatCompletionMessage(role: "user", content: String(localized: "sys_tool_calls_mismatch")))
+                        AppLogger.shared.warn(String(format: String(localized: "loop_missing_tool_recover"), missingToolRecoveryRounds), category: "Agent", subsystem: "AgentLoop")
                         continue
                     }
-                    AppLogger.shared.warn(L10n.l("tool_call_recovery_limited"), category: "Agent", subsystem: "AgentLoop")
+                    AppLogger.shared.warn(String(localized: "tool_call_recovery_limited"), category: "Agent", subsystem: "AgentLoop")
                 }
             }
 
@@ -885,9 +885,9 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
             // 连续两轮只收到空名/未知工具时立即熔断。call id 每轮都会变化，不能按 id 计数；
             // 这是服务端流格式残缺/不兼容，不应继续追加备注无限请求模型。
             if validToolCalls.isEmpty && consecutiveInvalidToolRounds >= 2 {
-                let names = invalidToolCalls.map { $0.function.name.isEmpty ? L10n.l("empty_name") : $0.function.name }.joined(separator: "、")
-                let visibleMessage = String(format: L10n.l("loop_unrecognized_tools"), names)
-                AppLogger.shared.error(String(format: L10n.l("loop_invalid_tool_fuse"), consecutiveInvalidToolRounds, names), category: "Agent", subsystem: "AgentLoop")
+                let names = invalidToolCalls.map { $0.function.name.isEmpty ? String(localized: "empty_name") : $0.function.name }.joined(separator: "、")
+                let visibleMessage = String(format: String(localized: "loop_unrecognized_tools"), names)
+                AppLogger.shared.error(String(format: String(localized: "loop_invalid_tool_fuse"), consecutiveInvalidToolRounds, names), category: "Agent", subsystem: "AgentLoop")
                 emitToken(visibleMessage)
                 if let sid = sessionID { AgentTaskStore.shared.clear(sessionID: sid) }
                 await state.markStopped()
@@ -916,10 +916,10 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
             // 无效工具调用：不写入 assistant.tool_calls（避免空名进入 API 请求），
             // 改为追加一条 user 备注，让模型知道并重新发起正确调用或改用文字回答。
             if !invalidToolCalls.isEmpty {
-                let names = invalidToolCalls.map { $0.function.name.isEmpty ? L10n.l("empty_name") : $0.function.name }.joined(separator: "、")
-                let note = String(format: L10n.l("loop_invalid_tool_hint"), invalidToolCalls.count, names)
+                let names = invalidToolCalls.map { $0.function.name.isEmpty ? String(localized: "empty_name") : $0.function.name }.joined(separator: "、")
+                let note = String(format: String(localized: "loop_invalid_tool_hint"), invalidToolCalls.count, names)
                 messages.append(ChatCompletionMessage(role: "user", content: note))
-                AppLogger.shared.warn(String(format: L10n.l("loop_invalid_tool_note"), names), category: "Agent", subsystem: "AgentLoop")
+                AppLogger.shared.warn(String(format: String(localized: "loop_invalid_tool_note"), names), category: "Agent", subsystem: "AgentLoop")
             }
 
             // 仅为有效工具调用执行并追加 tool 结果，下一轮继续问模型。
@@ -953,8 +953,8 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
                 }
             }
             if let reason = breakerBreakReason {
-                AppLogger.shared.error(String(format: L10n.l("loop_idle_circuit"), reason), category: "Agent", subsystem: "AgentLoop")
-                let visibleMessage = String(format: L10n.l("loop_idle_loop"), reason)
+                AppLogger.shared.error(String(format: String(localized: "loop_idle_circuit"), reason), category: "Agent", subsystem: "AgentLoop")
+                let visibleMessage = String(format: String(localized: "loop_idle_loop"), reason)
                 emitToken(visibleMessage)
                 if let sid = sessionID { AgentTaskStore.shared.clear(sessionID: sid) }
                 await state.markStopped()
@@ -962,10 +962,10 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
                 return
             }
             if let reason = breakerWarnReason {
-                AppLogger.shared.warn(String(format: L10n.l("loop_idle_warning"), reason), category: "Agent", subsystem: "AgentLoop")
+                AppLogger.shared.warn(String(format: String(localized: "loop_idle_warning"), reason), category: "Agent", subsystem: "AgentLoop")
                 messages.append(ChatCompletionMessage(
                     role: "user",
-                    content: String(format: L10n.l("loop_idle_system_hint"), reason)
+                    content: String(format: String(localized: "loop_idle_system_hint"), reason)
                 ))
             }
 
@@ -981,12 +981,12 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
             }
             if toolCallsSinceOutput >= Self.convergenceToolCallBudget, !convergenceHintInjected {
                 convergenceHintInjected = true
-                let hint = String(format: L10n.l("loop_no_output_hint"), toolCallsSinceOutput)
-                    + L10n.l("search_give_up_hint")
-                    + L10n.l("read_subagent_result_suffix")
-                    + L10n.l("ask_user_hint")
+                let hint = String(format: String(localized: "loop_no_output_hint"), toolCallsSinceOutput)
+                    + String(localized: "search_give_up_hint")
+                    + String(localized: "read_subagent_result_suffix")
+                    + String(localized: "ask_user_hint")
                 messages.append(ChatCompletionMessage(role: "user", content: hint))
-                AppLogger.shared.warn(String(format: L10n.l("loop_search_converge"), toolCallsSinceOutput), category: "Agent", subsystem: "AgentLoop")
+                AppLogger.shared.warn(String(format: String(localized: "loop_search_converge"), toolCallsSinceOutput), category: "Agent", subsystem: "AgentLoop")
             }
 
             var trippedFailureCircuit: (name: String, result: ToolResult)?
@@ -1007,7 +1007,7 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
                     failedToolCallCounts[signature] = count
                     if count >= 2 {
                         trippedFailureCircuit = (tc.function.name, result)
-                        AppLogger.shared.error(String(format: L10n.l("loop_repeat_fail_fuse"), tc.function.name, count), category: "Agent", subsystem: "AgentLoop")
+                        AppLogger.shared.error(String(format: String(localized: "loop_repeat_fail_fuse"), tc.function.name, count), category: "Agent", subsystem: "AgentLoop")
                         break
                     }
                 }
@@ -1024,7 +1024,7 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
             }
 
             if let tripped = trippedFailureCircuit {
-                let visibleMessage = String(format: L10n.l("loop_tool_fail_fuse"), tripped.name, tripped.result.text)
+                let visibleMessage = String(format: String(localized: "loop_tool_fail_fuse"), tripped.name, tripped.result.text)
                 emitToken(visibleMessage)
                 if let sid = sessionID { AgentTaskStore.shared.clear(sessionID: sid) }
                 await state.markStopped()
@@ -1246,7 +1246,7 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
         guard !isSubagentEngine else { return }
         guard let sid = sessionID else { return }
         guard await state.keepRunning() else {
-            AppLogger.shared.info(String(format: L10n.l("loop_checkpoint_skipped"), status.rawValue), category: "Agent", subsystem: "Checkpoint")
+            AppLogger.shared.info(String(format: String(localized: "loop_checkpoint_skipped"), status.rawValue), category: "Agent", subsystem: "Checkpoint")
             return
         }
         let task = AgentTask(
@@ -1446,7 +1446,7 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
             session.compactAnchorID = anchorID
             session.compactSummary = summary
             if let idx = session.messages.firstIndex(where: { $0.id == anchorID }) {
-                let indicator = ChatMessage(role: .system, content: L10n.l("auto_compact_indicator"))
+                let indicator = ChatMessage(role: .system, content: String(localized: "auto_compact_indicator"))
                 indicator.session = session
                 // UI 按 createdAt 排序(Bridge/消息列表),createdAt 设为锚点消息前一刻,
                 // 指示器显示在锚点上方而非会话末尾(2026-08-13 review)。
@@ -1473,7 +1473,7 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
     ) async -> (messages: [ChatCompletionMessage], anchorID: UUID?, summary: String)? {
         // systemMsg 只取真正的稳定段,排除历史摘要 system 消息(header 前缀)——否则
         // systemStable 为空且已有摘要时,摘要会被当 systemMsg 吞掉,压缩结果出现两条摘要(2026-08-13 review)。
-        let header = L10n.l("history_summary_header")
+        let header = String(localized: "history_summary_header")
         let systemMsg = messages.first { $0.role == "system" && !($0.content?.asText ?? "").hasPrefix(header) }
         let rest = Array(messages.dropFirst()) // 去掉最前的 system（若存在）
         let userIndices = rest.indices.filter { rest[$0].role == "user" }
@@ -1497,7 +1497,7 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
             modelId: modelId
         )
         guard !summary.isEmpty else {
-            AppLogger.shared.warn(L10n.l("err_compress_empty"), category: "Agent", subsystem: "Context")
+            AppLogger.shared.warn(String(localized: "err_compress_empty"), category: "Agent", subsystem: "Context")
             return nil
         }
 
@@ -1505,7 +1505,7 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
         if let systemMsg { result.append(systemMsg) }
         result.append(ChatCompletionMessage(
             role: "system",
-            content: L10n.l("history_summary_header") + summary
+            content: String(localized: "history_summary_header") + summary
         ))
         result.append(contentsOf: recent)
         // 锚点 = 切分点消息在 history 中的对应 session 消息。
@@ -1520,11 +1520,11 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
     /// 压缩指令尾部（唯一新增的 user 消息）：消息体（被压缩区）已逐字回放在它之前，
     /// 指令只负责说明任务。这样摘要请求的前缀与主请求逐字节一致，可命中服务端热缓存。
     private func buildSummaryInstructionTail(compressionRules: String) -> String {
-        var instruction = L10n.l("compress_prompt_zh")
+        var instruction = String(localized: "compress_prompt_zh")
         let customRules = compressionRules
             .trimmingCharacters(in: .whitespacesAndNewlines)
         if !customRules.isEmpty {
-            instruction += String(format: L10n.l("loop_extra_compress"), customRules)
+            instruction += String(format: String(localized: "loop_extra_compress"), customRules)
         }
         return instruction
     }
@@ -1682,7 +1682,7 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
     private func operationSummary(toolName: String, arguments: String) -> String {
         guard let data = arguments.data(using: .utf8),
               let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            return String(format: L10n.l("loop_calling_tool"), toolName)
+            return String(format: String(localized: "loop_calling_tool"), toolName)
         }
         let lower = toolName.lowercased()
         let pick: (String...) -> String? = { keys in
@@ -1693,32 +1693,32 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
         }
         // 浏览器 / 网络
         if lower.contains("browser") || lower.contains("web") || lower.contains("search") || lower.contains("url") {
-            if let q = pick("query", "search", "keyword", "q") { return String(format: L10n.l("loop_searching"), String(q.prefix(24))) }
+            if let q = pick("query", "search", "keyword", "q") { return String(format: String(localized: "loop_searching"), String(q.prefix(24))) }
             if let u = pick("url", "link", "href") {
-                if let host = URL(string: u)?.host { return String(format: L10n.l("loop_opening"), host) }
-                return String(format: L10n.l("loop_opening"), String(u.prefix(24)))
+                if let host = URL(string: u)?.host { return String(format: String(localized: "loop_opening"), host) }
+                return String(format: String(localized: "loop_opening"), String(u.prefix(24)))
             }
         }
         // 终端 / 命令执行
-        if let c = pick("command", "cmd", "code", "script", "expression") { return String(format: L10n.l("loop_executing"), String(c.prefix(24))) }
+        if let c = pick("command", "cmd", "code", "script", "expression") { return String(format: String(localized: "loop_executing"), String(c.prefix(24))) }
         // 文件读取 / 写入 / 编辑
         if let p = pick("path", "file", "filename", "file_path", "target") {
-            let verb = lower.contains("read") ? L10n.l("read_action") : (lower.contains("write") || lower.contains("edit") || lower.contains("create")) ? L10n.l("write_action") : L10n.l("files")
+            let verb = lower.contains("read") ? String(localized: "read_action") : (lower.contains("write") || lower.contains("edit") || lower.contains("create")) ? String(localized: "write_action") : String(localized: "files")
             return "\(verb) \(String(p.prefix(28)))"
         }
         // 通用：取第一个有意义的字符串字段
         for (_, v) in dict {
-            if let s = v as? String, !s.isEmpty { return String(format: L10n.l("loop_calling_tool_detail"), toolName, String(s.prefix(24))) }
+            if let s = v as? String, !s.isEmpty { return String(format: String(localized: "loop_calling_tool_detail"), toolName, String(s.prefix(24))) }
         }
-        return String(format: L10n.l("loop_calling_tool"), toolName)
+        return String(format: String(localized: "loop_calling_tool"), toolName)
     }
 
     private func executeTool(_ tc: ToolCall) async -> ToolResult {
         let rawName = tc.function.name.trimmingCharacters(in: .whitespacesAndNewlines)
         // 防御：name 为空或未注册时直接返回明确错误，不抛异常导致循环中断
         guard !rawName.isEmpty else {
-            AppLogger.shared.error(String(format: L10n.l("loop_empty_fn_rejected"), tc.id), category: "Agent", subsystem: "ToolRouter")
-            return ToolResult(success: false, text: L10n.l("err_tool_call_no_name"))
+            AppLogger.shared.error(String(format: String(localized: "loop_empty_fn_rejected"), tc.id), category: "Agent", subsystem: "ToolRouter")
+            return ToolResult(success: false, text: String(localized: "err_tool_call_no_name"))
         }
         // 子代理调度：拦截保留工具名，派生子代理并同步等待其返回，作为本工具结果回传父循环。
         // 硬深度守卫：不依赖 schema 剔除（模型可能幻觉输出旧工具名），执行前校验深度上限，
@@ -1727,7 +1727,7 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
             // 子代理恒可用（无用户总开关）；此处仅做深度递归守卫
             //（模型幻觉直调时兜底，schema 剔除 + 引导段已控制常规路径）。
             guard AgentLoopHelpers.canDispatchSubagents(subagentEngine: isSubagentEngine, depth: subagentDepth) else {
-                return ToolResult(success: false, text: String(format: L10n.l("loop_subagent_depth_error"), AgentLoopHelpers.maxSubagentDepth))
+                return ToolResult(success: false, text: String(format: String(localized: "loop_subagent_depth_error"), AgentLoopHelpers.maxSubagentDepth))
             }
             return await spawnSubagent(toolCall: tc)
         }
@@ -1735,16 +1735,16 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
         // 子代理可能幻觉直调旧工具名，若放行会误删兄弟子代理并销毁其浏览器上下文）。
         if rawName == Self.closeSubagentToolName {
             guard !isSubagentEngine else {
-                return ToolResult(success: false, text: L10n.l("err_subagent_no_close_perm"))
+                return ToolResult(success: false, text: String(localized: "err_subagent_no_close_perm"))
             }
             let closeArgs: [String: Any] = (try? JSONSerialization.jsonObject(
                 with: Data(tc.function.arguments.utf8)
             ) as? [String: Any]) ?? [:]
             guard let subagentID = CloseSubagentTool.parseSubagentID(closeArgs) else {
-                return ToolResult(success: false, text: L10n.l("err_close_subagent_need_id"))
+                return ToolResult(success: false, text: String(localized: "err_close_subagent_need_id"))
             }
             guard let parentSID = sessionID else {
-                return ToolResult(success: false, text: L10n.l("err_engine_no_session"))
+                return ToolResult(success: false, text: String(localized: "err_engine_no_session"))
             }
             let (ok, text) = await SubagentLifecycle.close(sessionID: parentSID, subagentID: subagentID, cancel: { [weak self] id in
                 self?.cancelSubagent(subagentID: id)
@@ -1758,7 +1758,7 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
             // 按类别分组列出可用工具，帮助模型快速定位正确工具名
             let sortedNames = registeredNames.sorted()
             let toolList = sortedNames.joined(separator: "、")
-            return ToolResult(success: false, text: String(format: L10n.l("loop_unknown_tool"), rawName, toolList))
+            return ToolResult(success: false, text: String(format: String(localized: "loop_unknown_tool"), rawName, toolList))
         }
 
         // ── 工具调用前确认：开启时在执行前请求用户批准 ──
@@ -1773,7 +1773,7 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
              SettingsStore.shared.settings.defaults.confirmBeforeToolCall)
         }
         if !isSubagentEngine, confirmEnabled, !autoApproved {
-            let title = await MainActor.run { SessionManager.shared.session(id: sid)?.title ?? L10n.l("unknown_session") }
+            let title = await MainActor.run { SessionManager.shared.session(id: sid)?.title ?? String(localized: "unknown_session") }
             let approved = await ToolConfirmationBridge.shared.request(
                 toolName: rawName,
                 summary: operationSummary(toolName: rawName, arguments: tc.function.arguments),
@@ -1781,24 +1781,24 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
                 sessionTitle: title
             )
             if !approved {
-                AppLogger.shared.info(String(format: L10n.l("loop_tool_rejected"), rawName), category: "Agent", subsystem: "ToolRouter")
-                return ToolResult(success: false, text: String(format: L10n.l("loop_tool_rejected_error"), rawName))
+                AppLogger.shared.info(String(format: String(localized: "loop_tool_rejected"), rawName), category: "Agent", subsystem: "ToolRouter")
+                return ToolResult(success: false, text: String(format: String(localized: "loop_tool_rejected_error"), rawName))
             }
         }
 
         // 后台 Live Activity 进度更新：进入真实执行阶段时刷新（子代理引擎不污染父 LA）。
         if !isSubagentEngine {
             Task { @MainActor in
-                await BackgroundTaskController.shared.agentDidProgress(String(format: L10n.l("loop_calling_tool_colon"), rawName), sessionID: sessionID?.uuidString)
+                await BackgroundTaskController.shared.agentDidProgress(String(format: String(localized: "loop_calling_tool_colon"), rawName), sessionID: sessionID?.uuidString)
             }
         }
 
         // ── 取消/暂停快速路径：执行前先检查，避免进入可能挂起的工具 ──
         if await state.isCancelled() {
-            return ToolResult(success: false, text: L10n.l("err_user_cancelled"))
+            return ToolResult(success: false, text: String(localized: "err_user_cancelled"))
         }
         if await state.isPausedRequested() {
-            return ToolResult(success: false, text: L10n.l("err_user_paused"))
+            return ToolResult(success: false, text: String(localized: "err_user_paused"))
         }
 
         let startedAt = Date()
@@ -1835,18 +1835,18 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
         // deliverOnMain（main.async，FIFO）回到主线程，不影响界面刷新，也不再同步等待主线程。
         let execTask: Task<ToolResult, Never> = Task.detached(priority: .userInitiated) { [weak self] in
             guard let self else {
-                return ToolResult(success: false, text: L10n.l("err_engine_released"))
+                return ToolResult(success: false, text: String(localized: "err_engine_released"))
             }
             // 若 pause/cancel 在 Task 创建与赋值之间触发，此处快速退出。
             guard !Task.isCancelled else {
-                return ToolResult(success: false, text: L10n.l("err_user_paused_cancelled"))
+                return ToolResult(success: false, text: String(localized: "err_user_paused_cancelled"))
             }
 
             do {
                 return try await withThrowingTaskGroup(of: ToolResult.self) { group in
                 group.addTask { [weak self] in
                     guard let self else {
-                        return ToolResult(success: false, text: L10n.l("err_engine_released"))
+                        return ToolResult(success: false, text: String(localized: "err_engine_released"))
                     }
                     // 在闭包内重建参数，避免捕获外部非 Sendable 的 [String:Any]。
                     let innerArgs: [String: Any]
@@ -1876,10 +1876,10 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
                 group.addTask {
                     do {
                         try await Task.sleep(nanoseconds: 120_000_000_000)
-                        return ToolResult(success: false, text: String(format: L10n.l("loop_tool_timeout"), rawName))
+                        return ToolResult(success: false, text: String(format: String(localized: "loop_tool_timeout"), rawName))
                     } catch {
                         // CancellationError → pause/cancel 触发，立即返回"中断"而非等工具跑完。
-                        return ToolResult(success: false, text: String(format: L10n.l("loop_tool_interrupted"), rawName))
+                        return ToolResult(success: false, text: String(format: String(localized: "loop_tool_interrupted"), rawName))
                     }
                 }
                 // 取第一个完成的结果（工具完成/失败 / 超时 / 用户取消），随后 cancelAll()
@@ -1888,13 +1888,13 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
                 // 却要等满 120s 循环才拿到结果（表现为"模型硬等到 120 秒限制才继续回复"）。
                 guard let first = try await group.next() else {
                     group.cancelAll()
-                    return ToolResult(success: false, text: L10n.l("err_tool_abnormal_interrupt"))
+                    return ToolResult(success: false, text: String(localized: "err_tool_abnormal_interrupt"))
                 }
                 group.cancelAll()
                 return first
             }
             } catch {
-                return ToolResult(success: false, text: L10n.l("err_tool_interrupted"))
+                return ToolResult(success: false, text: String(localized: "err_tool_interrupted"))
             }
         }
         // [Fix 2026-08-11 并发工具崩溃] 按 callID 注册到集合(NSLock 保护):
@@ -1933,7 +1933,7 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
     /// 模型选择（P1-3）：优先使用「子代理模型」槽位（`subagentRoutingPlan`），未配置时沿用父引擎路由。
     private func spawnSubagent(toolCall tc: ToolCall) async -> ToolResult {
         guard let parentPlan = routingPlan else {
-            return ToolResult(success: false, text: L10n.l("err_subagent_no_route"))
+            return ToolResult(success: false, text: String(localized: "err_subagent_no_route"))
         }
         let childPlan = subagentRoutingPlan ?? parentPlan
 
@@ -1945,7 +1945,7 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
 
         let specs = AgentSubagentParsing.parseSubagentSpecs(from: args)
         guard !specs.isEmpty else {
-            return ToolResult(success: false, text: L10n.l("err_dispatch_need_task"))
+            return ToolResult(success: false, text: String(localized: "err_dispatch_need_task"))
         }
 
         let parentSessionID = self.sessionID ?? UUID()
@@ -1963,7 +1963,7 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
             for (idx, spec) in limited.enumerated() {
                 group.addTask { [weak self] in
                     guard let self else {
-                        return (idx, SubagentRunResult(id: UUID(), name: L10n.l("subagents"), body: L10n.l("engine_released"), ok: false))
+                        return (idx, SubagentRunResult(id: UUID(), name: String(localized: "subagents"), body: String(localized: "engine_released"), ok: false))
                     }
                     let r = await self.runSubagent(spec: spec, parentSessionID: parentSessionID, plan: childPlan)
                     return (idx, r)
@@ -1975,10 +1975,10 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
             return collected.sorted { $0.0 < $1.0 }.map(\.1)
         }
 
-        var text = String(format: L10n.l("loop_parallel_all_done"), limited.count)
+        var text = String(format: String(localized: "loop_parallel_all_done"), limited.count)
         text += results.map(\.rendered).joined(separator: "\n\n")
         if dropped > 0 {
-            text += String(format: L10n.l("loop_parallel_dropped"), specs.count, maxParallelSubagents, dropped)
+            text += String(format: String(localized: "loop_parallel_dropped"), specs.count, maxParallelSubagents, dropped)
         }
         return ToolResult(success: true, text: text)
     }
@@ -1989,8 +1989,8 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
         guard Self.subagentSlotCounter.acquire(limit: maxGlobalParallelSubagents) else {
             return SubagentRunResult(
                 id: UUID(),
-                name: L10n.l("subagents"),
-                body: String(format: L10n.l("loop_parallel_global_limit"), maxGlobalParallelSubagents),
+                name: String(localized: "subagents"),
+                body: String(format: String(localized: "loop_parallel_global_limit"), maxGlobalParallelSubagents),
                 ok: false
             )
         }
@@ -2031,7 +2031,7 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
             emitSubagentEvent(.taskAdded(rec.info, task))
         } else {
             subID = UUID()
-            subName = (spec.focus?.isEmpty == false) ? String(format: L10n.l("loop_subagent_focus"), spec.focus!) : L10n.l("subagents")
+            subName = (spec.focus?.isEmpty == false) ? String(format: String(localized: "loop_subagent_focus"), spec.focus!) : String(localized: "subagents")
             baseFocus = spec.focus
             baseHistory = []
             recProfile = nil
@@ -2053,10 +2053,10 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
         }()
         let thinkingDisplay: String = {
             switch childThinking {
-            case "off": return L10n.l("no_thinking")
-            case "low": return L10n.l("level_low")
-            case "high": return L10n.l("high")
-            default: return L10n.l("default")
+            case "off": return String(localized: "no_thinking")
+            case "low": return String(localized: "level_low")
+            case "high": return String(localized: "high")
+            default: return String(localized: "default")
             }
         }()
         if !modelDisplay.isEmpty {
@@ -2137,7 +2137,7 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
         emitSubagentEvent(cancelled ? .cancelled(info) : .finished(info))
 
         let summary = collector.value.trimmingCharacters(in: .whitespacesAndNewlines)
-        return SubagentRunResult(id: subID, name: subName, body: summary.isEmpty ? L10n.l("subagent_no_content") : summary, ok: !summary.isEmpty)
+        return SubagentRunResult(id: subID, name: subName, body: summary.isEmpty ? String(localized: "subagent_no_content") : summary, ok: !summary.isEmpty)
     }
 
     /// 构造一个子代理子引擎（方案 C：不长期持有活实例，复用前重建并用历史续接上下文）。

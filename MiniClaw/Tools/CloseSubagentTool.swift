@@ -13,7 +13,7 @@ enum CloseSubagentTool {
         properties: [
             "subagent_id": JSONSchema.JSONProperty(
                 type: "string",
-                description: L10n.l("param_close_subagent_id_required")
+                description: String(localized: "param_close_subagent_id_required")
             )
         ],
         required: ["subagent_id"]

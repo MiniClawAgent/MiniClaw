@@ -21,7 +21,7 @@ struct TerminalView: View {
     @State private var lines: [TerminalLine] = []
     @State private var input: String = ""
     @State private var isRunning: Bool = false
-    @State private var bootState: String = L10n.l("detecting")
+    @State private var bootState: String = String(localized: "detecting")
     /// 当前终端绑定的会话；nil = 共享区（fs_context=0）
     @State private var boundSessionID: UUID?
     @FocusState private var inputFocused: Bool
@@ -42,11 +42,11 @@ struct TerminalView: View {
     }
 
     private var boundSessionTitle: String {
-        guard let id = boundSessionID else { return L10n.l("shared_area") }
+        guard let id = boundSessionID else { return String(localized: "shared_area") }
         if let found = sessions.first(where: { $0.id == id })?.title { return found }
         // 查询未命中：若是打开终端时传入的当前会话（可能尚未持久化），用传入标题
         if id == initialSessionID, let title = initialSessionTitle { return title }
-        return L10n.l("deleted_sessions")
+        return String(localized: "deleted_sessions")
     }
 
     /// 当前绑定对应的 fs_context 真实值（0 = 共享区 / 未绑定）。
@@ -63,7 +63,7 @@ struct TerminalView: View {
                 HStack(spacing: 6) {
                     Image(systemName: MiniClawiSHIsBooted() ? "checkmark.circle.fill" : "hourglass")
                         .foregroundStyle(MiniClawiSHIsBooted() ? .green : .orange)
-                    Text(L10n.l("alpine_runtime_label") + bootState)
+                    Text(String(localized: "alpine_runtime_label") + bootState)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     Spacer()
@@ -73,9 +73,9 @@ struct TerminalView: View {
                             switchBinding(to: nil)
                         } label: {
                             if boundSessionID == nil {
-                                Label(L10n.l("shared_area"), systemImage: "checkmark")
+                                Label(String(localized: "shared_area"), systemImage: "checkmark")
                             } else {
-                                Text(L10n.l("shared_area"))
+                                Text(String(localized: "shared_area"))
                             }
                         }
                         if !sessions.isEmpty {
@@ -126,7 +126,7 @@ struct TerminalView: View {
                                 Text("$")
                                     .font(.system(.caption, design: .monospaced))
                                     .foregroundStyle(.green)
-                                TextField(L10n.l("enter_a_command_here_press_enter_to_run"), text: $input)
+                                TextField(String(localized: "enter_a_command_here_press_enter_to_run"), text: $input)
                                     .font(.system(.caption, design: .monospaced))
                                     .foregroundStyle(.white)
                                     .textInputAutocapitalization(.never)
@@ -150,19 +150,19 @@ struct TerminalView: View {
                     .onTapGesture { inputFocused = true }
                 }
             }
-            .navigationTitle(Text(L10n.l("terminal")))
+            .navigationTitle(Text(String(localized: "terminal")))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button {
                         lines.removeAll()
                     } label: {
-                        Label(L10n.l("clear_screen"), systemImage: "trash")
+                        Label(String(localized: "clear_screen"), systemImage: "trash")
                     }
                     .disabled(isRunning)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button(L10n.l("done")) { dismiss() }
+                    Button(String(localized: "done")) { dismiss() }
                 }
             }
             .task {
@@ -186,22 +186,22 @@ struct TerminalView: View {
         if let id = boundSessionID {
             let ctx = SessionFileRouter.shared.fsContext(for: id) // 查询即注册（含建目录）
             let hostDir = SessionFileRouter.shared.sessionHostDirectory(for: id).path
-            lines.append(TerminalLine(text: String(format: L10n.l("terminal_banner_bound"), boundSessionTitle)))
+            lines.append(TerminalLine(text: String(format: String(localized: "terminal_banner_bound"), boundSessionTitle)))
             lines.append(TerminalLine(text: "[session.id = \(id.uuidString)]"))
-            lines.append(TerminalLine(text: String(format: L10n.l("terminal_banner_fs_context"), ctx)))
-            lines.append(TerminalLine(text: String(format: L10n.l("terminal_banner_host"), hostDir)))
+            lines.append(TerminalLine(text: String(format: String(localized: "terminal_banner_fs_context"), ctx)))
+            lines.append(TerminalLine(text: String(format: String(localized: "terminal_banner_host"), hostDir)))
         } else {
-            lines.append(TerminalLine(text: L10n.l("terminal_banner_shared")))
+            lines.append(TerminalLine(text: String(localized: "terminal_banner_shared")))
         }
     }
 
     private func refreshBootState() {
         switch MiniClawiSHGetBootState() {
-        case .booted:     bootState = L10n.l("started")
-        case .prewarming: bootState = L10n.l("prewarming_in_background")
-        case .failed:     bootState = L10n.l("launch_failed")
-        case .idle:       bootState = L10n.l("not_started")
-        @unknown default: bootState = L10n.l("unknown")
+        case .booted:     bootState = String(localized: "started")
+        case .prewarming: bootState = String(localized: "prewarming_in_background")
+        case .failed:     bootState = String(localized: "launch_failed")
+        case .idle:       bootState = String(localized: "not_started")
+        @unknown default: bootState = String(localized: "unknown")
         }
     }
 
@@ -238,12 +238,12 @@ struct TerminalView: View {
                 }
                 if result.exitCode != 0 {
                     await MainActor.run {
-                        lines.append(TerminalLine(text: String(format: L10n.l("terminal_exit_code"), result.exitCode), isError: true))
+                        lines.append(TerminalLine(text: String(format: String(localized: "terminal_exit_code"), result.exitCode), isError: true))
                     }
                 }
             } catch {
                 await MainActor.run {
-                    lines.append(TerminalLine(text: String(format: L10n.l("execution_error"), error.localizedDescription), isError: true))
+                    lines.append(TerminalLine(text: String(format: String(localized: "execution_error"), error.localizedDescription), isError: true))
                 }
             }
             await MainActor.run {

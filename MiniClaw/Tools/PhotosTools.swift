@@ -51,24 +51,24 @@ struct ApplePhotosTool: AgentTool {
         type: "function",
         function: ToolSchema.FunctionDef(
             name: "apple-photos",
-            description: L10n.l("photos_tool_desc"),
+            description: String(localized: "photos_tool_desc"),
             parameters: JSONSchema(
                 type: "object",
                 properties: [
                     "action": JSONSchema.JSONProperty(
                         type: "string",
-                        description: L10n.l("op_photo_actions"),
+                        description: String(localized: "op_photo_actions"),
                         enum: ["list", "get", "save"]
                     ),
-                    "asset_id": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_asset_id")),
-                    "path": JSONSchema.JSONProperty(type: "string", description: L10n.l("image_path_save_param")),
-                    "album": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_album_name")),
+                    "asset_id": JSONSchema.JSONProperty(type: "string", description: String(localized: "param_asset_id")),
+                    "path": JSONSchema.JSONProperty(type: "string", description: String(localized: "image_path_save_param")),
+                    "album": JSONSchema.JSONProperty(type: "string", description: String(localized: "param_album_name")),
                     "media_type": JSONSchema.JSONProperty(
                         type: "string",
-                        description: L10n.l("param_media_type"),
+                        description: String(localized: "param_media_type"),
                         enum: ["all", "image", "video"]
                     ),
-                    "limit": JSONSchema.JSONProperty(type: "integer", description: L10n.l("param_return_limit")),
+                    "limit": JSONSchema.JSONProperty(type: "integer", description: String(localized: "param_return_limit")),
                 ],
                 required: ["action"]
             )
@@ -77,14 +77,14 @@ struct ApplePhotosTool: AgentTool {
 
     func execute(_ parameters: [String: Any]) async throws -> ToolResult {
         guard let action = parameters["action"] as? String else {
-            throw ToolError.invalidParameters(L10n.l("err_missing_action"))
+            throw ToolError.invalidParameters(String(localized: "err_missing_action"))
         }
         switch action {
         case "list": return await listAssets(parameters)
         case "get":  return await exportAsset(parameters)
         case "save": return await saveAsset(parameters)
         default:
-            return ToolResult(success: false, text: L10n.l("photos_unknown_action") + action)
+            return ToolResult(success: false, text: String(localized: "photos_unknown_action") + action)
         }
     }
 }
@@ -105,14 +105,14 @@ extension ApplePhotosTool {
     private func exportAsset(_ parameters: [String: Any]) async -> ToolResult {
         guard await Self.ensureReadAccess() else { return Self.denied() }
         guard let id = Self.string(parameters["asset_id"]) else {
-            return ToolResult(success: false, text: L10n.l("photos_need_asset_id"))
+            return ToolResult(success: false, text: String(localized: "photos_need_asset_id"))
         }
 
         let raw: Data
         switch await PhotosBridge.payload(id: id) {
-        case .notFound: return ToolResult(success: false, text: L10n.l("photos_not_found"))
-        case .notImage: return ToolResult(success: false, text: L10n.l("photos_video_unsupported"))
-        case .failed:   return ToolResult(success: false, text: L10n.l("photos_export_failed"))
+        case .notFound: return ToolResult(success: false, text: String(localized: "photos_not_found"))
+        case .notImage: return ToolResult(success: false, text: String(localized: "photos_video_unsupported"))
+        case .failed:   return ToolResult(success: false, text: String(localized: "photos_export_failed"))
         case .data(let data): raw = data
         }
 
@@ -134,22 +134,22 @@ extension ApplePhotosTool {
             try payload.write(to: file)
             let kb = payload.count / 1024
             return ToolResult(success: true,
-                              text: L10n.l("photos_exported") + file.path + "\n"
-                                  + L10n.l("size_label") + "\(kb)" + L10n.l("unit_kb") + "\n"
-                                  + L10n.l("photos_next_hint"))
+                              text: String(localized: "photos_exported") + file.path + "\n"
+                                  + String(localized: "size_label") + "\(kb)" + String(localized: "unit_kb") + "\n"
+                                  + String(localized: "photos_next_hint"))
         } catch {
-            return ToolResult(success: false, text: L10n.l("photos_export_failed") + error.localizedDescription)
+            return ToolResult(success: false, text: String(localized: "photos_export_failed") + error.localizedDescription)
         }
     }
 
     private func saveAsset(_ parameters: [String: Any]) async -> ToolResult {
         guard await Self.ensureWriteAccess() else { return Self.denied() }
         guard let rawPath = Self.string(parameters["path"]) else {
-            return ToolResult(success: false, text: L10n.l("photos_need_path"))
+            return ToolResult(success: false, text: String(localized: "photos_need_path"))
         }
         let url = Self.resolve(rawPath)
         guard FileManager.default.fileExists(atPath: url.path) else {
-            return ToolResult(success: false, text: L10n.l("photos_file_missing") + rawPath)
+            return ToolResult(success: false, text: String(localized: "photos_file_missing") + rawPath)
         }
         let isVideo = Self.videoExtensions.contains(url.pathExtension.lowercased())
 
@@ -162,14 +162,14 @@ extension ApplePhotosTool {
                     PHAssetChangeRequest.creationRequestForAssetFromImage(atFileURL: url)
                 }
             }
-            return ToolResult(success: true, text: L10n.l("photos_saved"))
+            return ToolResult(success: true, text: String(localized: "photos_saved"))
         } catch {
-            return ToolResult(success: false, text: L10n.l("photos_save_failed") + error.localizedDescription)
+            return ToolResult(success: false, text: String(localized: "photos_save_failed") + error.localizedDescription)
         }
     }
 
     private static func denied() -> ToolResult {
-        ToolResult(success: false, text: L10n.l("photos_denied"))
+        ToolResult(success: false, text: String(localized: "photos_denied"))
     }
 }
 
@@ -191,7 +191,7 @@ private enum PhotosBridge {
         let result: PHFetchResult<PHAsset>
         if let albumName {
             guard let collection = album(named: albumName) else {
-                return .fail(L10n.l("photos_album_not_found") + albumName)
+                return .fail(String(localized: "photos_album_not_found") + albumName)
             }
             result = PHAsset.fetchAssets(in: collection, options: options)
         } else {
@@ -202,8 +202,8 @@ private enum PhotosBridge {
             }
         }
 
-        guard result.count > 0 else { return .ok(L10n.l("photos_empty")) }
-        var lines: [String] = [L10n.l("photos_list_header") + "\(result.count)"]
+        guard result.count > 0 else { return .ok(String(localized: "photos_empty")) }
+        var lines: [String] = [String(localized: "photos_list_header") + "\(result.count)"]
         // 用下标遍历而非 enumerateObjects：后者的闭包会捕获可变局部变量，
         // 在严格并发下会触发「跨隔离域可变捕获」的诊断。
         for i in 0..<result.count { lines.append(describe(result.object(at: i))) }
@@ -247,16 +247,16 @@ private enum PhotosBridge {
     }
 
     private static func describe(_ asset: PHAsset) -> String {
-        let kind = asset.mediaType == .video ? L10n.l("media_video") : L10n.l("media_image")
+        let kind = asset.mediaType == .video ? String(localized: "media_video") : String(localized: "media_image")
         var parts = ["- \(kind) | \(asset.pixelWidth)x\(asset.pixelHeight)"]
         if let d = asset.creationDate { parts.append(EventDateParser.shortString(from: d)) }
         if let loc = asset.location {
             let lat = String(format: "%.4f", loc.coordinate.latitude)
             let lng = String(format: "%.4f", loc.coordinate.longitude)
-            parts.append(L10n.l("place_label") + "\(lat),\(lng)")
+            parts.append(String(localized: "place_label") + "\(lat),\(lng)")
         }
-        if asset.isFavorite { parts.append(L10n.l("photos_favorite")) }
-        parts.append(L10n.l("id_label") + asset.localIdentifier)
+        if asset.isFavorite { parts.append(String(localized: "photos_favorite")) }
+        parts.append(String(localized: "id_label") + asset.localIdentifier)
         return parts.joined(separator: " | ")
     }
 }

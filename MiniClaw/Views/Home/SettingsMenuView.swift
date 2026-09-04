@@ -8,44 +8,44 @@ struct SettingsMenuView: View {
         NavigationStack {
             List {
                 Section {
-                    MenuRow(icon: "brain.head.profile", color: .purple, title: L10n.l("agent")) {
+                    MenuRow(icon: "brain.head.profile", color: .purple, title: String(localized: "agent")) {
                         dismiss()
                         appState.navigationPath.append("settings")
                     }
 
-                    MenuRow(icon: "slider.horizontal.3", color: .blue, title: L10n.l("management")) {
+                    MenuRow(icon: "slider.horizontal.3", color: .blue, title: String(localized: "management")) {
                         dismiss()
                         appState.navigationPath.append("settings")
                     }
 
-                    MenuRow(icon: "externaldrive", color: .green, title: L10n.l("storage")) {
+                    MenuRow(icon: "externaldrive", color: .green, title: String(localized: "storage")) {
                         dismiss()
                         appState.navigationPath.append("settings")
                     }
                 }
 
                 Section {
-                    MenuRow(icon: "doc.text.magnifyingglass", color: .gray, title: L10n.l("logs")) {
+                    MenuRow(icon: "doc.text.magnifyingglass", color: .gray, title: String(localized: "logs")) {
                         dismiss()
                         appState.navigationPath.append("settings")
                     }
 
-                    MenuRow(icon: "info.circle", color: .teal, title: L10n.l("about_miniclaw_app")) {
+                    MenuRow(icon: "info.circle", color: .teal, title: String(localized: "about_miniclaw_app")) {
                         dismiss()
                         appState.navigationPath.append("settings")
                     }
 
-                    MenuRow(icon: "envelope", color: .orange, title: L10n.l("feedback")) {
+                    MenuRow(icon: "envelope", color: .orange, title: String(localized: "feedback")) {
                         dismiss()
                         appState.navigationPath.append("settings")
                     }
                 }
             }
-            .navigationTitle(Text(L10n.l("settings")))
+            .navigationTitle(Text(String(localized: "settings")))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button(L10n.l("done")) { dismiss() }
+                    Button(String(localized: "done")) { dismiss() }
                 }
             }
         }

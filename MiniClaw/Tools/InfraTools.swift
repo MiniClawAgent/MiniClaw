@@ -18,12 +18,12 @@ struct MiniClawOpenTool: AgentTool {
         type: "function",
         function: ToolSchema.FunctionDef(
             name: "miniclaw-open",
-            description: L10n.l("internal_routing_desc"),
+            description: String(localized: "internal_routing_desc"),
             parameters: JSONSchema(
                 type: "object",
                 properties: [
-                    "target": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_route_target"), enum: nil),
-                    "path": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_file_path_or_url")),
+                    "target": JSONSchema.JSONProperty(type: "string", description: String(localized: "param_route_target"), enum: nil),
+                    "path": JSONSchema.JSONProperty(type: "string", description: String(localized: "param_file_path_or_url")),
                 ],
                 required: ["target"]
             )
@@ -32,12 +32,12 @@ struct MiniClawOpenTool: AgentTool {
 
     func execute(_ parameters: [String: Any]) async throws -> ToolResult {
         guard let target = parameters["target"] as? String else {
-            throw ToolError.invalidParameters(L10n.l("err_missing_target"))
+            throw ToolError.invalidParameters(String(localized: "err_missing_target"))
         }
 
         if target == "browser" {
             let url = parameters["path"] as? String ?? "https://www.baidu.com"
-            return ToolResult(success: true, text: String(format: L10n.l("infra_open_url"), url))
+            return ToolResult(success: true, text: String(format: String(localized: "infra_open_url"), url))
         } else if target.hasPrefix("file:") {
             let rawPath = String(target.dropFirst(5))
             // 将 /var/MiniClaw/ 虚拟路径通过 FileSystemManager 解析为真实 host 路径
@@ -50,14 +50,14 @@ struct MiniClawOpenTool: AgentTool {
                 resolvedURL = URL(fileURLWithPath: rawPath)
             }
             guard let url = resolvedURL else {
-                return ToolResult(success: false, text: String(format: L10n.l("infra_path_parse_failed"), rawPath))
+                return ToolResult(success: false, text: String(format: String(localized: "infra_path_parse_failed"), rawPath))
             }
             let exists = FileManager.default.fileExists(atPath: url.path)
-            return ToolResult(success: exists, text: exists ? String(format: L10n.l("infra_file_accessible"), url.path) : String(format: L10n.l("infra_file_not_found"), rawPath))
+            return ToolResult(success: exists, text: exists ? String(format: String(localized: "infra_file_accessible"), url.path) : String(format: String(localized: "infra_file_not_found"), rawPath))
         } else if target.hasPrefix("settings:") {
-            return ToolResult(success: true, text: String(format: L10n.l("infra_navigated_settings"), target))
+            return ToolResult(success: true, text: String(format: String(localized: "infra_navigated_settings"), target))
         } else {
-            return ToolResult(success: false, text: String(format: L10n.l("infra_unsupported_target"), target))
+            return ToolResult(success: false, text: String(format: String(localized: "infra_unsupported_target"), target))
         }
     }
 }
@@ -70,15 +70,15 @@ struct MiniClawModelUseTool: AgentTool {
         type: "function",
         function: ToolSchema.FunctionDef(
             name: "miniclaw-model-use",
-            description: L10n.l("model_use_tool_desc"),
+            description: String(localized: "model_use_tool_desc"),
             parameters: JSONSchema(
                 type: "object",
                 properties: [
-                    "prompt": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_submodel_prompt")),
-                    "model_id": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_model_id")),
-                    "system_prompt": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_system_prompt")),
-                    "temperature": JSONSchema.JSONProperty(type: "number", description: L10n.l("param_temperature")),
-                    "max_tokens": JSONSchema.JSONProperty(type: "integer", description: L10n.l("param_max_tokens")),
+                    "prompt": JSONSchema.JSONProperty(type: "string", description: String(localized: "param_submodel_prompt")),
+                    "model_id": JSONSchema.JSONProperty(type: "string", description: String(localized: "param_model_id")),
+                    "system_prompt": JSONSchema.JSONProperty(type: "string", description: String(localized: "param_system_prompt")),
+                    "temperature": JSONSchema.JSONProperty(type: "number", description: String(localized: "param_temperature")),
+                    "max_tokens": JSONSchema.JSONProperty(type: "integer", description: String(localized: "param_max_tokens")),
                 ],
                 required: ["prompt"]
             )
@@ -86,7 +86,7 @@ struct MiniClawModelUseTool: AgentTool {
     )
 
     func execute(_ parameters: [String: Any]) async throws -> ToolResult {
-        return ToolResult(success: false, text: L10n.l("not_implemented_model_use"))
+        return ToolResult(success: false, text: String(localized: "not_implemented_model_use"))
     }
 }
 
@@ -106,14 +106,14 @@ struct MiniClawBrowserUseTool: AgentTool {
         type: "function",
         function: ToolSchema.FunctionDef(
             name: "miniclaw-browser-use",
-            description: L10n.l("browser_tool_desc"),
+            description: String(localized: "browser_tool_desc"),
             parameters: JSONSchema(
                 type: "object",
                 properties: [
-                    "activity": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_skill_action_hint")),
-                    "action": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_browser_actions")),
-                    "params": JSONSchema.JSONProperty(type: "object", description: L10n.l("param_browser_params")),
-                    "tab_index": JSONSchema.JSONProperty(type: "integer", description: L10n.l("param_tab_index")),
+                    "activity": JSONSchema.JSONProperty(type: "string", description: String(localized: "param_skill_action_hint")),
+                    "action": JSONSchema.JSONProperty(type: "string", description: String(localized: "param_browser_actions")),
+                    "params": JSONSchema.JSONProperty(type: "object", description: String(localized: "param_browser_params")),
+                    "tab_index": JSONSchema.JSONProperty(type: "integer", description: String(localized: "param_tab_index")),
                 ],
                 required: ["activity", "action"]
             )
@@ -142,13 +142,13 @@ struct MiniClawDebugTool: AgentTool {
         type: "function",
         function: ToolSchema.FunctionDef(
             name: "miniclaw-debug",
-            description: L10n.l("debug_tool_desc"),
+            description: String(localized: "debug_tool_desc"),
             parameters: JSONSchema(
                 type: "object",
                 properties: [
-                    "action": JSONSchema.JSONProperty(type: "string", description: L10n.l("op_debug_actions"), enum: ["view_tree", "sandbox_files", "memory_logs", "screenshot", "app_state", "disk_usage"]),
-                    "path": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_sandbox_path")),
-                    "max_depth": JSONSchema.JSONProperty(type: "integer", description: L10n.l("param_max_recursion_depth")),
+                    "action": JSONSchema.JSONProperty(type: "string", description: String(localized: "op_debug_actions"), enum: ["view_tree", "sandbox_files", "memory_logs", "screenshot", "app_state", "disk_usage"]),
+                    "path": JSONSchema.JSONProperty(type: "string", description: String(localized: "param_sandbox_path")),
+                    "max_depth": JSONSchema.JSONProperty(type: "integer", description: String(localized: "param_max_recursion_depth")),
                 ],
                 required: ["action"]
             )
@@ -157,7 +157,7 @@ struct MiniClawDebugTool: AgentTool {
 
     func execute(_ parameters: [String: Any]) async throws -> ToolResult {
         guard let action = parameters["action"] as? String else {
-            throw ToolError.invalidParameters(L10n.l("err_missing_action"))
+            throw ToolError.invalidParameters(String(localized: "err_missing_action"))
         }
 
         let fs = FileSystemManager.shared
@@ -176,7 +176,7 @@ struct MiniClawDebugTool: AgentTool {
             }
             let depth = (parameters["max_depth"] as? Int) ?? 2
             let listing = listDirectory(at: base, maxDepth: depth, currentDepth: 0, prefix: "")
-            return ToolResult(success: true, text: listing.isEmpty ? L10n.l("empty_directory") : listing)
+            return ToolResult(success: true, text: listing.isEmpty ? String(localized: "empty_directory") : listing)
 
         case "memory_logs":
             let dir = fs.memoryDir
@@ -184,7 +184,7 @@ struct MiniClawDebugTool: AgentTool {
                 .filter { $0.pathExtension == "md" }
                 .sorted { $0.lastPathComponent > $1.lastPathComponent } ?? []
             if files.isEmpty {
-                return ToolResult(success: true, text: L10n.l("no_memory_logs"))
+                return ToolResult(success: true, text: String(localized: "no_memory_logs"))
             }
             let list = files.map { url in
                 let size = (try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
@@ -196,8 +196,8 @@ struct MiniClawDebugTool: AgentTool {
             let root = fs.miniClawRoot
             let keys: [URLResourceKey] = [.volumeTotalCapacityKey, .volumeAvailableCapacityKey]
             let values = try? root.resourceValues(forKeys: Set(keys))
-            let total = values?.volumeTotalCapacity.map { ByteCountFormatter.string(fromByteCount: Int64($0), countStyle: .file) } ?? L10n.l("unknown")
-            let free = values?.volumeAvailableCapacity.map { ByteCountFormatter.string(fromByteCount: Int64($0), countStyle: .file) } ?? L10n.l("unknown")
+            let total = values?.volumeTotalCapacity.map { ByteCountFormatter.string(fromByteCount: Int64($0), countStyle: .file) } ?? String(localized: "unknown")
+            let free = values?.volumeAvailableCapacity.map { ByteCountFormatter.string(fromByteCount: Int64($0), countStyle: .file) } ?? String(localized: "unknown")
             return ToolResult(success: true, text: """
             MiniClaw 根目录: \(root.path)
             文件系统总容量: \(total)
@@ -206,20 +206,20 @@ struct MiniClawDebugTool: AgentTool {
 
         case "disk_usage":
             let usage = ByteCountFormatter.string(fromByteCount: Int64(diskUsage(at: fs.miniClawRoot)), countStyle: .file)
-            return ToolResult(success: true, text: String(format: L10n.l("infra_usage"), usage))
+            return ToolResult(success: true, text: String(format: String(localized: "infra_usage"), usage))
 
         case "view_tree", "screenshot":
-            return ToolResult(success: false, text: String(format: L10n.l("infra_not_implemented"), action))
+            return ToolResult(success: false, text: String(format: String(localized: "infra_not_implemented"), action))
 
         default:
-            return ToolResult(success: false, text: String(format: L10n.l("infra_unsupported_action"), action))
+            return ToolResult(success: false, text: String(format: String(localized: "infra_unsupported_action"), action))
         }
     }
 
     private func listDirectory(at path: String, maxDepth: Int, currentDepth: Int, prefix: String) -> String {
         guard currentDepth <= maxDepth else { return "" }
         let fm = FileManager.default
-        guard let items = try? fm.contentsOfDirectory(atPath: path) else { return String(format: L10n.l("infra_prefix_unreadable"), prefix) }
+        guard let items = try? fm.contentsOfDirectory(atPath: path) else { return String(format: String(localized: "infra_prefix_unreadable"), prefix) }
         var result = ""
         for item in items.sorted() {
             let full = (path as NSString).appendingPathComponent(item)

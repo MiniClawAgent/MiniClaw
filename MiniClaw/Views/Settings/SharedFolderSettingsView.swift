@@ -10,7 +10,7 @@ struct SharedFolderSettingsView: View {
 
     var body: some View {
         List {
-            Section(L10n.l("shared_folders")) {
+            Section(String(localized: "shared_folders")) {
                 ForEach(sharedFolders, id: \.self) { folder in
                     HStack {
                         Image(systemName: "folder.fill")
@@ -26,20 +26,20 @@ struct SharedFolderSettingsView: View {
                 Button(action: {}) {
                     HStack {
                         Image(systemName: "plus.circle.fill")
-                        Text(L10n.l("add_shared_folder"))
+                        Text(String(localized: "add_shared_folder"))
                     }
                 }
             }
 
             Section {
-                Text(L10n.l("files_in_the_shared_folder_persist_across_sessions_both_the_agent_and_shell_can_read_and_write_them"))
+                Text(String(localized: "files_in_the_shared_folder_persist_across_sessions_both_the_agent_and_shell_can_read_and_write_them"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
         }
         .scrollContentBackground(.hidden)
         .background(ThemeBackground(slot: .settings))
-        .navigationTitle(L10n.l("shared_folders"))
+        .navigationTitle(String(localized: "shared_folders"))
         .navigationBarTitleDisplayMode(.inline)
     }
 }

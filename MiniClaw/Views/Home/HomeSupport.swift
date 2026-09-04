@@ -14,12 +14,12 @@ enum SessionGroup: String, CaseIterable, Hashable {
 
     var label: String {
         switch self {
-        case .pinned: L10n.l("pin")
-        case .today: L10n.l("today")
-        case .yesterday: L10n.l("yesterday")
-        case .thisWeek: L10n.l("this_week")
-        case .thisMonth: L10n.l("this_month")
-        case .earlier: L10n.l("earlier")
+        case .pinned: String(localized: "pin")
+        case .today: String(localized: "today")
+        case .yesterday: String(localized: "yesterday")
+        case .thisWeek: String(localized: "this_week")
+        case .thisMonth: String(localized: "this_month")
+        case .earlier: String(localized: "earlier")
         }
     }
 
@@ -39,7 +39,7 @@ struct UnavailablePlaceholder: View {
                              description: message)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button(L10n.l("done")) { dismiss() }
+                    Button(String(localized: "done")) { dismiss() }
                 }
             }
         }

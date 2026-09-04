@@ -12,13 +12,13 @@ struct ShellExecuteTool: AgentTool {
         type: "function",
         function: ToolSchema.FunctionDef(
             name: "shell_execute",
-            description: L10n.l("shell_execute_tool_desc"),
+            description: String(localized: "shell_execute_tool_desc"),
             parameters: JSONSchema(
                 type: "object",
                 properties: [
-                    "command": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_shell_command")),
-                    "timeout": JSONSchema.JSONProperty(type: "integer", description: L10n.l("param_shell_timeout")),
-                    "delay": JSONSchema.JSONProperty(type: "integer", description: L10n.l("param_shell_delay")),
+                    "command": JSONSchema.JSONProperty(type: "string", description: String(localized: "param_shell_command")),
+                    "timeout": JSONSchema.JSONProperty(type: "integer", description: String(localized: "param_shell_timeout")),
+                    "delay": JSONSchema.JSONProperty(type: "integer", description: String(localized: "param_shell_delay")),
                 ],
                 required: ["command"]
             )
@@ -59,7 +59,7 @@ struct ShellExecuteTool: AgentTool {
                 effectiveCommand = "bash -lc " + Self.singleQuoteEscape(rawCommand)
             } else {
                 let names = hits.map { $0.rule }.joined(separator: "、")
-                bashReminder = String(format: L10n.l("core_bash_syntax_hint"), names)
+                bashReminder = String(format: String(localized: "core_bash_syntax_hint"), names)
             }
         }
 
@@ -74,7 +74,7 @@ struct ShellExecuteTool: AgentTool {
                 sessionID: currentSessionID
             )
             let output = result.stdout + (result.stderr.isEmpty ? "" : "\n[stderr]\n\(result.stderr)")
-            let full = output.isEmpty ? L10n.l("no_output") : output
+            let full = output.isEmpty ? String(localized: "no_output") : output
             let masked = maskSecrets(full, settings: settings)
             let thresholdBytes = settings.files.autoOffloadThresholdKB * 1024
             var final = FileSystemManager.shared.offloadIfLarge(masked, thresholdBytes: thresholdBytes, sessionID: currentSessionID)

@@ -330,7 +330,7 @@ enum MountError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .bookmarkFailed(let msg): return String(format: L10n.l("mount_bookmark_failed"), msg)
+        case .bookmarkFailed(let msg): return String(format: String(localized: "mount_bookmark_failed"), msg)
         }
     }
 }

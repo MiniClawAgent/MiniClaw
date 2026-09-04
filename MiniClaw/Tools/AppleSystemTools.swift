@@ -10,14 +10,14 @@ struct AppleNotificationTool: AgentTool {
         type: "function",
         function: ToolSchema.FunctionDef(
             name: "apple-notification",
-            description: L10n.l("send_local_notification"),
+            description: String(localized: "send_local_notification"),
             parameters: JSONSchema(
                 type: "object",
                 properties: [
-                    "title": JSONSchema.JSONProperty(type: "string", description: L10n.l("notification_title")),
-                    "body": JSONSchema.JSONProperty(type: "string", description: L10n.l("notification_body")),
-                    "delay_seconds": JSONSchema.JSONProperty(type: "integer", description: L10n.l("param_delay_seconds")),
-                    "sound": JSONSchema.JSONProperty(type: "string", description: L10n.l("sound_filename_param")),
+                    "title": JSONSchema.JSONProperty(type: "string", description: String(localized: "notification_title")),
+                    "body": JSONSchema.JSONProperty(type: "string", description: String(localized: "notification_body")),
+                    "delay_seconds": JSONSchema.JSONProperty(type: "integer", description: String(localized: "param_delay_seconds")),
+                    "sound": JSONSchema.JSONProperty(type: "string", description: String(localized: "sound_filename_param")),
                 ],
                 required: ["title", "body"]
             )
@@ -27,7 +27,7 @@ struct AppleNotificationTool: AgentTool {
     func execute(_ parameters: [String: Any]) async throws -> ToolResult {
         guard let title = parameters["title"] as? String,
               let body = parameters["body"] as? String else {
-            throw ToolError.invalidParameters(L10n.l("err_missing_title_body"))
+            throw ToolError.invalidParameters(String(localized: "err_missing_title_body"))
         }
         let delay = (parameters["delay_seconds"] as? Int) ?? 1
         let content = UNMutableNotificationContent()
@@ -38,9 +38,9 @@ struct AppleNotificationTool: AgentTool {
         let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: trigger)
         do {
             try await UNUserNotificationCenter.current().add(request)
-            return ToolResult(success: true, text: String(format: L10n.l("apple_notification_scheduled"), delay))
+            return ToolResult(success: true, text: String(format: String(localized: "apple_notification_scheduled"), delay))
         } catch {
-            return ToolResult(success: false, text: String(format: L10n.l("apple_notification_failed"), error.localizedDescription))
+            return ToolResult(success: false, text: String(format: String(localized: "apple_notification_failed"), error.localizedDescription))
         }
     }
 }
@@ -53,11 +53,11 @@ struct AppleOpenTool: AgentTool {
         type: "function",
         function: ToolSchema.FunctionDef(
             name: "apple-open",
-            description: L10n.l("apple_open_tool_desc"),
+            description: String(localized: "apple_open_tool_desc"),
             parameters: JSONSchema(
                 type: "object",
                 properties: [
-                    "url": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_url_schemes")),
+                    "url": JSONSchema.JSONProperty(type: "string", description: String(localized: "param_url_schemes")),
                 ],
                 required: ["url"]
             )
@@ -67,19 +67,19 @@ struct AppleOpenTool: AgentTool {
     func execute(_ parameters: [String: Any]) async throws -> ToolResult {
         guard let urlString = parameters["url"] as? String,
               let url = URL(string: urlString) else {
-            throw ToolError.invalidParameters(L10n.l("err_missing_url"))
+            throw ToolError.invalidParameters(String(localized: "err_missing_url"))
         }
         // http/https → 走内置浏览器，不跳 Safari
         if url.scheme?.lowercased() == "http" || url.scheme?.lowercased() == "https" {
             await MainActor.run { AppState.shared.pendingBrowserURL = url }
-            return ToolResult(success: true, text: String(format: L10n.l("apple_opened_inline"), urlString))
+            return ToolResult(success: true, text: String(format: String(localized: "apple_opened_inline"), urlString))
         }
         let canOpen: Bool = await MainActor.run { UIApplication.shared.canOpenURL(url) }
         guard canOpen else {
-            return ToolResult(success: false, text: String(format: L10n.l("apple_cannot_open"), urlString))
+            return ToolResult(success: false, text: String(format: String(localized: "apple_cannot_open"), urlString))
         }
         await MainActor.run { UIApplication.shared.open(url) }
-        return ToolResult(success: true, text: String(format: L10n.l("apple_opened"), urlString))
+        return ToolResult(success: true, text: String(format: String(localized: "apple_opened"), urlString))
     }
 }
 
@@ -91,11 +91,11 @@ struct SafariOpenTool: AgentTool {
         type: "function",
         function: ToolSchema.FunctionDef(
             name: "open-in-safari",
-            description: L10n.l("safari_open_tool_desc"),
+            description: String(localized: "safari_open_tool_desc"),
             parameters: JSONSchema(
                 type: "object",
                 properties: [
-                    "url": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_url_http")),
+                    "url": JSONSchema.JSONProperty(type: "string", description: String(localized: "param_url_http")),
                 ],
                 required: ["url"]
             )
@@ -105,14 +105,14 @@ struct SafariOpenTool: AgentTool {
     func execute(_ parameters: [String: Any]) async throws -> ToolResult {
         guard let urlString = parameters["url"] as? String,
               let url = URL(string: urlString) else {
-            throw ToolError.invalidParameters(L10n.l("err_missing_url"))
+            throw ToolError.invalidParameters(String(localized: "err_missing_url"))
         }
         let canOpen: Bool = await MainActor.run { UIApplication.shared.canOpenURL(url) }
         guard canOpen else {
-            return ToolResult(success: false, text: String(format: L10n.l("apple_cannot_open"), urlString))
+            return ToolResult(success: false, text: String(format: String(localized: "apple_cannot_open"), urlString))
         }
         await MainActor.run { UIApplication.shared.open(url) }
-        return ToolResult(success: true, text: String(format: L10n.l("apple_opened_safari"), urlString))
+        return ToolResult(success: true, text: String(format: String(localized: "apple_opened_safari"), urlString))
     }
 }
 
@@ -137,13 +137,13 @@ struct AppleSpeakTool: AgentTool {
         type: "function",
         function: ToolSchema.FunctionDef(
             name: "apple-speak",
-            description: L10n.l("tts_tool_desc"),
+            description: String(localized: "tts_tool_desc"),
             parameters: JSONSchema(
                 type: "object",
                 properties: [
-                    "text": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_text_to_speak")),
-                    "language": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_lang_code_en")),
-                    "rate": JSONSchema.JSONProperty(type: "number", description: L10n.l("param_speech_rate")),
+                    "text": JSONSchema.JSONProperty(type: "string", description: String(localized: "param_text_to_speak")),
+                    "language": JSONSchema.JSONProperty(type: "string", description: String(localized: "param_lang_code_en")),
+                    "rate": JSONSchema.JSONProperty(type: "number", description: String(localized: "param_speech_rate")),
                 ],
                 required: ["text"]
             )
@@ -152,7 +152,7 @@ struct AppleSpeakTool: AgentTool {
 
     func execute(_ parameters: [String: Any]) async throws -> ToolResult {
         guard let text = parameters["text"] as? String else {
-            throw ToolError.invalidParameters(L10n.l("err_missing_text"))
+            throw ToolError.invalidParameters(String(localized: "err_missing_text"))
         }
         let language = parameters["language"] as? String
         let rate = Float(parameters["rate"] as? Double ?? 0.5)
@@ -164,7 +164,7 @@ struct AppleSpeakTool: AgentTool {
             utterance.rate = max(0.0, min(1.0, rate))
             AVSpeechSynthesizer().speak(utterance)
         }
-        return ToolResult(success: true, text: String(format: L10n.l("apple_speaking"), text.count))
+        return ToolResult(success: true, text: String(format: String(localized: "apple_speaking"), text.count))
     }
 }
 

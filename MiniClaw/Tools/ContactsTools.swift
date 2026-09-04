@@ -44,23 +44,23 @@ struct AppleContactsTool: AgentTool {
         type: "function",
         function: ToolSchema.FunctionDef(
             name: "apple-contacts",
-            description: L10n.l("contacts_tool_desc"),
+            description: String(localized: "contacts_tool_desc"),
             parameters: JSONSchema(
                 type: "object",
                 properties: [
                     "action": JSONSchema.JSONProperty(
                         type: "string",
-                        description: L10n.l("op_contacts_actions"),
+                        description: String(localized: "op_contacts_actions"),
                         enum: ["search", "get", "create", "update", "delete"]
                     ),
-                    "query": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_contact_query")),
-                    "contact_id": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_contact_id")),
-                    "given_name": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_given_name")),
-                    "family_name": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_family_name")),
-                    "organization": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_organization")),
-                    "phone": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_phone_number")),
-                    "email": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_email_address")),
-                    "limit": JSONSchema.JSONProperty(type: "integer", description: L10n.l("param_result_limit")),
+                    "query": JSONSchema.JSONProperty(type: "string", description: String(localized: "param_contact_query")),
+                    "contact_id": JSONSchema.JSONProperty(type: "string", description: String(localized: "param_contact_id")),
+                    "given_name": JSONSchema.JSONProperty(type: "string", description: String(localized: "param_given_name")),
+                    "family_name": JSONSchema.JSONProperty(type: "string", description: String(localized: "param_family_name")),
+                    "organization": JSONSchema.JSONProperty(type: "string", description: String(localized: "param_organization")),
+                    "phone": JSONSchema.JSONProperty(type: "string", description: String(localized: "param_phone_number")),
+                    "email": JSONSchema.JSONProperty(type: "string", description: String(localized: "param_email_address")),
+                    "limit": JSONSchema.JSONProperty(type: "integer", description: String(localized: "param_result_limit")),
                 ],
                 required: ["action"]
             )
@@ -69,15 +69,15 @@ struct AppleContactsTool: AgentTool {
 
     func execute(_ parameters: [String: Any]) async throws -> ToolResult {
         guard let action = parameters["action"] as? String else {
-            throw ToolError.invalidParameters(L10n.l("err_missing_action"))
+            throw ToolError.invalidParameters(String(localized: "err_missing_action"))
         }
 
         switch action {
         case "search":
             let ok = await ContactsBridge.ensureAccess()
-            guard ok else { return ToolResult(success: false, text: L10n.l("contacts_denied")) }
+            guard ok else { return ToolResult(success: false, text: String(localized: "contacts_denied")) }
             guard let query = Self.string(parameters["query"]), !query.isEmpty else {
-                return ToolResult(success: false, text: L10n.l("contacts_need_query"))
+                return ToolResult(success: false, text: String(localized: "contacts_need_query"))
             }
             let outcome = await ContactsBridge.search(query: query,
                                                       limit: Self.int(parameters["limit"]))
@@ -85,43 +85,43 @@ struct AppleContactsTool: AgentTool {
 
         case "get":
             let ok = await ContactsBridge.ensureAccess()
-            guard ok else { return ToolResult(success: false, text: L10n.l("contacts_denied")) }
+            guard ok else { return ToolResult(success: false, text: String(localized: "contacts_denied")) }
             guard let id = Self.string(parameters["contact_id"]), !id.isEmpty else {
-                return ToolResult(success: false, text: L10n.l("contacts_need_id"))
+                return ToolResult(success: false, text: String(localized: "contacts_need_id"))
             }
             let outcome = await ContactsBridge.get(id: id)
             return ToolResult(success: outcome.success, text: outcome.text)
 
         case "create":
             let ok = await ContactsBridge.ensureAccess()
-            guard ok else { return ToolResult(success: false, text: L10n.l("contacts_denied")) }
+            guard ok else { return ToolResult(success: false, text: String(localized: "contacts_denied")) }
             let draft = Self.draft(from: parameters)
             guard draft.hasIdentity else {
-                return ToolResult(success: false, text: L10n.l("contacts_need_identity"))
+                return ToolResult(success: false, text: String(localized: "contacts_need_identity"))
             }
             let outcome = await ContactsBridge.create(draft)
             return ToolResult(success: outcome.success, text: outcome.text)
 
         case "update":
             let ok = await ContactsBridge.ensureAccess()
-            guard ok else { return ToolResult(success: false, text: L10n.l("contacts_denied")) }
+            guard ok else { return ToolResult(success: false, text: String(localized: "contacts_denied")) }
             guard let id = Self.string(parameters["contact_id"]), !id.isEmpty else {
-                return ToolResult(success: false, text: L10n.l("contacts_need_id"))
+                return ToolResult(success: false, text: String(localized: "contacts_need_id"))
             }
             let outcome = await ContactsBridge.update(id: id, draft: Self.draft(from: parameters))
             return ToolResult(success: outcome.success, text: outcome.text)
 
         case "delete":
             let ok = await ContactsBridge.ensureAccess()
-            guard ok else { return ToolResult(success: false, text: L10n.l("contacts_denied")) }
+            guard ok else { return ToolResult(success: false, text: String(localized: "contacts_denied")) }
             guard let id = Self.string(parameters["contact_id"]), !id.isEmpty else {
-                return ToolResult(success: false, text: L10n.l("contacts_need_id"))
+                return ToolResult(success: false, text: String(localized: "contacts_need_id"))
             }
             let outcome = await ContactsBridge.delete(id: id)
             return ToolResult(success: outcome.success, text: outcome.text)
 
         default:
-            return ToolResult(success: false, text: L10n.l("contacts_unknown_action") + action)
+            return ToolResult(success: false, text: String(localized: "contacts_unknown_action") + action)
         }
     }
 }
@@ -190,10 +190,10 @@ private enum ContactsBridge {
                 if found.count >= cap { stop.pointee = true }
             }
         } catch {
-            return .fail(L10n.l("contacts_read_failed") + error.localizedDescription)
+            return .fail(String(localized: "contacts_read_failed") + error.localizedDescription)
         }
-        guard !found.isEmpty else { return .ok(L10n.l("contacts_no_match") + query) }
-        var lines: [String] = [L10n.l("contacts_list_header") + "\(found.count)"]
+        guard !found.isEmpty else { return .ok(String(localized: "contacts_no_match") + query) }
+        var lines: [String] = [String(localized: "contacts_list_header") + "\(found.count)"]
         for c in found { lines.append(describe(c)) }
         return .ok(lines.joined(separator: "\n"))
     }
@@ -203,7 +203,7 @@ private enum ContactsBridge {
             let contact = try store.unifiedContact(withIdentifier: id, keysToFetch: fetchKeys)
             return .ok(describe(contact))
         } catch {
-            return .fail(L10n.l("contacts_read_failed") + error.localizedDescription)
+            return .fail(String(localized: "contacts_read_failed") + error.localizedDescription)
         }
     }
 
@@ -216,9 +216,9 @@ private enum ContactsBridge {
         request.add(contact, toContainerWithIdentifier: nil)
         do {
             try store.execute(request)
-            return .ok(L10n.l("contacts_created") + "\n" + describe(contact))
+            return .ok(String(localized: "contacts_created") + "\n" + describe(contact))
         } catch {
-            return .fail(L10n.l("contacts_save_failed") + error.localizedDescription)
+            return .fail(String(localized: "contacts_save_failed") + error.localizedDescription)
         }
     }
 
@@ -227,20 +227,20 @@ private enum ContactsBridge {
         do {
             existing = try store.unifiedContact(withIdentifier: id, keysToFetch: fetchKeys)
         } catch {
-            return .fail(L10n.l("contacts_not_found") + id)
+            return .fail(String(localized: "contacts_not_found") + id)
         }
         // 未统一的联系人对象不能用于保存，必须走 mutableCopy 转成可写副本
         guard let contact = existing.mutableCopy() as? CNMutableContact else {
-            return .fail(L10n.l("contacts_read_failed") + id)
+            return .fail(String(localized: "contacts_read_failed") + id)
         }
         apply(draft, to: contact)
         let request = CNSaveRequest()
         request.update(contact)
         do {
             try store.execute(request)
-            return .ok(L10n.l("contacts_updated") + "\n" + describe(contact))
+            return .ok(String(localized: "contacts_updated") + "\n" + describe(contact))
         } catch {
-            return .fail(L10n.l("contacts_save_failed") + error.localizedDescription)
+            return .fail(String(localized: "contacts_save_failed") + error.localizedDescription)
         }
     }
 
@@ -249,19 +249,19 @@ private enum ContactsBridge {
         do {
             existing = try store.unifiedContact(withIdentifier: id, keysToFetch: fetchKeys)
         } catch {
-            return .fail(L10n.l("contacts_not_found") + id)
+            return .fail(String(localized: "contacts_not_found") + id)
         }
         guard let contact = existing.mutableCopy() as? CNMutableContact else {
-            return .fail(L10n.l("contacts_read_failed") + id)
+            return .fail(String(localized: "contacts_read_failed") + id)
         }
         let name = displayName(of: existing)
         let request = CNSaveRequest()
         request.delete(contact)
         do {
             try store.execute(request)
-            return .ok(L10n.l("contacts_deleted") + name)
+            return .ok(String(localized: "contacts_deleted") + name)
         } catch {
-            return .fail(L10n.l("contacts_delete_failed") + error.localizedDescription)
+            return .fail(String(localized: "contacts_delete_failed") + error.localizedDescription)
         }
     }
 
@@ -314,13 +314,13 @@ private enum ContactsBridge {
     private static func describe(_ contact: CNContact) -> String {
         var parts = ["- " + displayName(of: contact)]
         let phones = contact.phoneNumbers.map { $0.value.stringValue }
-        if !phones.isEmpty { parts.append(L10n.l("phone_label") + phones.joined(separator: ", ")) }
+        if !phones.isEmpty { parts.append(String(localized: "phone_label") + phones.joined(separator: ", ")) }
         let emails = contact.emailAddresses.map { $0.value as String }
-        if !emails.isEmpty { parts.append(L10n.l("email_label") + emails.joined(separator: ", ")) }
+        if !emails.isEmpty { parts.append(String(localized: "email_label") + emails.joined(separator: ", ")) }
         if !contact.organizationName.isEmpty {
-            parts.append(L10n.l("org_label") + contact.organizationName)
+            parts.append(String(localized: "org_label") + contact.organizationName)
         }
-        parts.append(L10n.l("id_label") + contact.identifier)
+        parts.append(String(localized: "id_label") + contact.identifier)
         return parts.joined(separator: " | ")
     }
 
@@ -328,7 +328,7 @@ private enum ContactsBridge {
     private static func displayName(of contact: CNContact) -> String {
         let family = contact.familyName
         let given = contact.givenName
-        if family.isEmpty && given.isEmpty { return L10n.l("unnamed_contact") }
+        if family.isEmpty && given.isEmpty { return String(localized: "unnamed_contact") }
         let hasCJK = (family + given).unicodeScalars.contains { scalar in
             (0x4E00...0x9FFF).contains(scalar.value)
         }

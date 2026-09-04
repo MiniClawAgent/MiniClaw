@@ -114,7 +114,7 @@ final class AgentRunService {
             case .failure(let error):
                 store.updateDiscovery(id: server.id, toolCount: 0, error: error)
                 AppLogger.shared.error(
-                    String(format: L10n.l("agent_mcp_discover_failed"), server.name, error.localizedDescription),
+                    String(format: String(localized: "agent_mcp_discover_failed"), server.name, error.localizedDescription),
                     category: "MCP"
                 )
             case nil:
@@ -158,7 +158,7 @@ final class AgentRunService {
         let historyMessages = effective.suffix(historyHardCap)
         var history: [ChatCompletionMessage] = []
         if let summary = prefixSummary {
-            history.append(ChatCompletionMessage(role: "system", content: L10n.l("history_summary_header") + summary))
+            history.append(ChatCompletionMessage(role: "system", content: String(localized: "history_summary_header") + summary))
         }
         for m in historyMessages {
             let role = m.role == .user ? "user" : "assistant"
@@ -168,7 +168,7 @@ final class AgentRunService {
             // 从而略过用户最新消息（如强制发送的队列消息2）继续补全消息1。
             // 软暂停→继续的回复不会被打此标记（onPaused 不置 wasStopped/wasInterrupted），故不受影响。
             if m.role == .assistant, m.wasStopped == true || m.wasInterrupted {
-                content += L10n.l("sys_interrupted_reply_hint")
+                content += String(localized: "sys_interrupted_reply_hint")
             }
             // 2026-08-12 修复:思考内容不回灌上下文(与 ChatMessage 纪律注释一致)。
             // 历史 assistant 消息只取 content;当前轮内模型需要的 reasoning_content
@@ -255,7 +255,7 @@ final class AgentRunService {
                 let preview = String(runtime.streamingContent.prefix(30))
                 TaskPipController.shared.updateProgress(
                     sessionID: sessionID.uuidString,
-                    text: preview.isEmpty ? L10n.l("generating_ellipsis") : String(format: L10n.l("generating_format"), preview)
+                    text: preview.isEmpty ? String(localized: "generating_ellipsis") : String(format: String(localized: "generating_format"), preview)
                 )
                 // 节流：词元 先入缓冲，由 ~100ms 定时器批量刷入 streamingContent（约 10fps），
                 // 不再每 token 触发整页重绘；也不再每 令牌 写持久化对象（统一在终态落盘，见 onComplete 等）。
@@ -273,7 +273,7 @@ final class AgentRunService {
                 // 画中画启动时机(用户定 2026-08-08):AI 第一步行动(思考/回复)即开启
                 TaskPipController.shared.ensurePipIfRunning()
                 // PiP 悬浮窗实时进度：深度思考阶段
-                TaskPipController.shared.updateProgress(sessionID: sessionID.uuidString, text: L10n.l("deep_thinking_ellipsis"))
+                TaskPipController.shared.updateProgress(sessionID: sessionID.uuidString, text: String(localized: "deep_thinking_ellipsis"))
                 // 空/纯空白思考不产生垃圾段（多步 agent 循环里模型可能发空 reasoning_content 事件）。
                 let trimmed = piece.trimmingCharacters(in: .whitespacesAndNewlines)
                 guard !trimmed.isEmpty else { return }
@@ -373,7 +373,7 @@ final class AgentRunService {
                 // 终态清除消息级暂停标志：曾被暂停、续跑完成的回复不再残留「已暂停」横幅
                 // （该标志由 onPaused 落盘，终态不清除会在 runtime 销毁后经持久化值复活横幅）。
                 assistantMessage.isPaused = false
-                AppLogger.shared.info(String(format: L10n.l("agent_persist_oncomplete"), assistantMessage.content.count, assistantMessage.toolCalls.count, assistantMessage.reasoningSegments.count, assistantMessage.taskElapsedSeconds ?? -1), category: "Agent", subsystem: "Persist")
+                AppLogger.shared.info(String(format: String(localized: "agent_persist_oncomplete"), assistantMessage.content.count, assistantMessage.toolCalls.count, assistantMessage.reasoningSegments.count, assistantMessage.taskElapsedSeconds ?? -1), category: "Agent", subsystem: "Persist")
                 AppState.shared?.chatRuntimes[sessionID] = nil
                 // P1-4 升级：整轮 Agent 跑完（成功）后才回跳 x-success，并把回复文本交给等待中的快捷指令。
                 if let cb = deepLinkCallback { AppState.shared?.fireDeepLinkSuccess(cb.xSuccess, replyText: assistantMessage.content) }
@@ -421,9 +421,9 @@ final class AgentRunService {
                 runtime.commitReasoningBuffer()
                 // 重试耗尽（统一重试机制）：onError 紧随 exhausted 状态在同一 runloop 触发并
                 // 移除 runtime → 指示器消失，错误信息必须由文本承载，确保用户可见最终错误。
-                runtime.streamingContent += String(format: L10n.l("n_n_request_failed"), error.localizedDescription)
+                runtime.streamingContent += String(format: String(localized: "n_n_request_failed"), error.localizedDescription)
                 assistantMessage.content = runtime.streamingContent
-                AppLogger.shared.info(String(format: L10n.l("agent_persist_onerror"), assistantMessage.content.count, assistantMessage.toolCalls.count, assistantMessage.reasoningSegments.count), category: "Agent", subsystem: "Persist")
+                AppLogger.shared.info(String(format: String(localized: "agent_persist_onerror"), assistantMessage.content.count, assistantMessage.toolCalls.count, assistantMessage.reasoningSegments.count), category: "Agent", subsystem: "Persist")
                 // 失败也是终态：结算耗时（if nil 防用户停止路径已结算）。
                 if !runtime.taskTimingInvalid, assistantMessage.taskElapsedSeconds == nil {
                     assistantMessage.taskElapsedSeconds = runtime.taskSettle()
@@ -435,7 +435,7 @@ final class AgentRunService {
                 // 终态落盘前把仍在执行的工具标记「已中断」：否则落空结果文本且 wasInterrupted=false，
                 // 恢复后显示红色「失败」，与主动停止（黄色「已取消」）语义不一致。
                 for exec in runtime.streamingToolExecutions where exec.result == nil {
-                    exec.markInterrupted(text: L10n.l("interrupted"), at: Date())
+                    exec.markInterrupted(text: String(localized: "interrupted"), at: Date())
                 }
                 let toolEvents = runtime.streamingToolEvents
                 if !toolEvents.isEmpty {
@@ -533,7 +533,7 @@ final class AgentRunService {
                 if !runtime.taskTimingInvalid, assistantMessage.taskElapsedSeconds == nil {
                     assistantMessage.taskElapsedSeconds = runtime.taskSettle()
                 }
-                AppLogger.shared.info(String(format: L10n.l("agent_persist_oninterrupted"), assistantMessage.content.count, assistantMessage.toolCalls.count, assistantMessage.reasoningSegments.count), category: "Agent", subsystem: "Persist")
+                AppLogger.shared.info(String(format: String(localized: "agent_persist_oninterrupted"), assistantMessage.content.count, assistantMessage.toolCalls.count, assistantMessage.reasoningSegments.count), category: "Agent", subsystem: "Persist")
                 assistantMessage.reasoningSegments = runtime.streamingReasoningSegments
                 assistantMessage.reasoning = runtime.streamingReasoningSegments.map { $0.text }.joined(separator: "\n\n")
                 assistantMessage.isStreaming = false
@@ -541,7 +541,7 @@ final class AgentRunService {
                 // 终态落盘前把仍在执行的工具标记「已中断」：否则落空结果文本且 wasInterrupted=false，
                 // 恢复后显示红色「失败」，与主动停止（黄色「已取消」）语义不一致。
                 for exec in runtime.streamingToolExecutions where exec.result == nil {
-                    exec.markInterrupted(text: L10n.l("interrupted"), at: Date())
+                    exec.markInterrupted(text: String(localized: "interrupted"), at: Date())
                 }
                 let toolEvents = runtime.streamingToolEvents
                 if !toolEvents.isEmpty {

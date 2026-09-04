@@ -13,10 +13,10 @@ struct MarkdownFileViewer: View {
         NavigationStack {
             Group {
                 if isLoading {
-                    ProgressView(L10n.l("loading"))
+                    ProgressView(String(localized: "loading"))
                 } else if let errorMessage {
                     EmptyStateView(
-                        label: L10n.l("cannot_load_document"),
+                        label: String(localized: "cannot_load_document"),
                         systemImage: "doc.text.magnifyingglass",
                         description: errorMessage
                     )
@@ -31,7 +31,7 @@ struct MarkdownFileViewer: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button(L10n.l("close")) { dismiss() }
+                    Button(String(localized: "close")) { dismiss() }
                 }
             }
         }
@@ -46,7 +46,7 @@ struct MarkdownFileViewer: View {
         let url: URL
         if sourceURL.scheme?.lowercased() == "miniclaw" {
             guard let resolved = FileSystemManager.shared.resolveMiniClawResourceURL(sourceURL.absoluteString) else {
-                errorMessage = L10n.l("cannot_parse_link")
+                errorMessage = String(localized: "cannot_parse_link")
                 return
             }
             url = resolved
@@ -70,7 +70,7 @@ struct MarkdownFileViewer: View {
             let (data, _) = try await URLSession.shared.data(from: url)
             content = String(data: data, encoding: .utf8)
             if content == nil {
-                errorMessage = L10n.l("unable_to_decode_file_content")
+                errorMessage = String(localized: "unable_to_decode_file_content")
             }
         } catch {
             errorMessage = error.localizedDescription

@@ -55,32 +55,32 @@ struct AppleCalendarTool: AgentTool {
         type: "function",
         function: ToolSchema.FunctionDef(
             name: "apple-calendar",
-            description: L10n.l("calendar_tool_desc"),
+            description: String(localized: "calendar_tool_desc"),
             parameters: JSONSchema(
                 type: "object",
                 properties: [
                     "action": JSONSchema.JSONProperty(
                         type: "string",
-                        description: L10n.l("op_calendar_actions"),
+                        description: String(localized: "op_calendar_actions"),
                         enum: ["list", "calendars", "freebusy", "create", "update", "delete"]
                     ),
-                    "title": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_event_title")),
-                    "start_date": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_start_time")),
-                    "end_date": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_end_time")),
-                    "event_id": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_event_id")),
-                    "calendar_name": JSONSchema.JSONProperty(type: "string", description: L10n.l("calendar_name")),
-                    "notes": JSONSchema.JSONProperty(type: "string", description: L10n.l("note_label")),
-                    "location": JSONSchema.JSONProperty(type: "string", description: L10n.l("place_param")),
-                    "all_day": JSONSchema.JSONProperty(type: "boolean", description: L10n.l("param_all_day")),
-                    "range_days": JSONSchema.JSONProperty(type: "integer", description: L10n.l("param_query_days")),
-                    "limit": JSONSchema.JSONProperty(type: "integer", description: L10n.l("param_result_limit")),
-                    "occurrence_date": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_occurrence_date")),
-                    "recur": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_recur_freq"), enum: ["daily", "weekly", "monthly", "yearly"]),
-                    "recur_interval": JSONSchema.JSONProperty(type: "integer", description: L10n.l("param_recur_interval")),
-                    "recur_days": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_recur_days")),
-                    "recur_until": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_recur_until")),
-                    "recur_count": JSONSchema.JSONProperty(type: "integer", description: L10n.l("param_recur_count")),
-                    "clear_recur": JSONSchema.JSONProperty(type: "boolean", description: L10n.l("param_clear_recur")),
+                    "title": JSONSchema.JSONProperty(type: "string", description: String(localized: "param_event_title")),
+                    "start_date": JSONSchema.JSONProperty(type: "string", description: String(localized: "param_start_time")),
+                    "end_date": JSONSchema.JSONProperty(type: "string", description: String(localized: "param_end_time")),
+                    "event_id": JSONSchema.JSONProperty(type: "string", description: String(localized: "param_event_id")),
+                    "calendar_name": JSONSchema.JSONProperty(type: "string", description: String(localized: "calendar_name")),
+                    "notes": JSONSchema.JSONProperty(type: "string", description: String(localized: "note_label")),
+                    "location": JSONSchema.JSONProperty(type: "string", description: String(localized: "place_param")),
+                    "all_day": JSONSchema.JSONProperty(type: "boolean", description: String(localized: "param_all_day")),
+                    "range_days": JSONSchema.JSONProperty(type: "integer", description: String(localized: "param_query_days")),
+                    "limit": JSONSchema.JSONProperty(type: "integer", description: String(localized: "param_result_limit")),
+                    "occurrence_date": JSONSchema.JSONProperty(type: "string", description: String(localized: "param_occurrence_date")),
+                    "recur": JSONSchema.JSONProperty(type: "string", description: String(localized: "param_recur_freq"), enum: ["daily", "weekly", "monthly", "yearly"]),
+                    "recur_interval": JSONSchema.JSONProperty(type: "integer", description: String(localized: "param_recur_interval")),
+                    "recur_days": JSONSchema.JSONProperty(type: "string", description: String(localized: "param_recur_days")),
+                    "recur_until": JSONSchema.JSONProperty(type: "string", description: String(localized: "param_recur_until")),
+                    "recur_count": JSONSchema.JSONProperty(type: "integer", description: String(localized: "param_recur_count")),
+                    "clear_recur": JSONSchema.JSONProperty(type: "boolean", description: String(localized: "param_clear_recur")),
                 ],
                 required: ["action"]
             )
@@ -89,14 +89,14 @@ struct AppleCalendarTool: AgentTool {
 
     func execute(_ parameters: [String: Any]) async throws -> ToolResult {
         guard let action = parameters["action"] as? String else {
-            throw ToolError.invalidParameters(L10n.l("err_missing_action"))
+            throw ToolError.invalidParameters(String(localized: "err_missing_action"))
         }
 
         switch action {
         case "list", "calendars", "freebusy":
             // 查询也走同一道门：未授权时读到的是空数据，会误导模型以为用户没有日程。
             let ok = await EventKitAuthGate.shared.ensureAccess(to: .event)
-            guard ok else { return ToolResult(success: false, text: L10n.l("calendar_denied")) }
+            guard ok else { return ToolResult(success: false, text: String(localized: "calendar_denied")) }
             let outcome: CalendarOutcome
             switch action {
             case "list":
@@ -120,26 +120,26 @@ struct AppleCalendarTool: AgentTool {
         case "create", "update", "delete":
             // 写操作：先过授权门（只有这里才可能触发写权限弹窗）
             let ok = await EventKitAuthGate.shared.ensureAccess(to: .event)
-            guard ok else { return ToolResult(success: false, text: L10n.l("calendar_denied")) }
+            guard ok else { return ToolResult(success: false, text: String(localized: "calendar_denied")) }
             let outcome: CalendarOutcome
             switch action {
             case "create":
                 guard let title = Self.string(parameters["title"]), !title.isEmpty else {
-                    return ToolResult(success: false, text: L10n.l("calendar_need_title"))
+                    return ToolResult(success: false, text: String(localized: "calendar_need_title"))
                 }
                 var draft = Self.draft(from: parameters)
                 draft.title = title
                 outcome = await CalendarBridge.create(draft)
             case "update":
                 guard let id = Self.string(parameters["event_id"]), !id.isEmpty else {
-                    return ToolResult(success: false, text: L10n.l("calendar_need_event_id"))
+                    return ToolResult(success: false, text: String(localized: "calendar_need_event_id"))
                 }
                 outcome = await CalendarBridge.update(id: id,
                                                       draft: Self.draft(from: parameters),
                                                       occurrenceDate: Self.string(parameters["occurrence_date"]))
             default:
                 guard let id = Self.string(parameters["event_id"]), !id.isEmpty else {
-                    return ToolResult(success: false, text: L10n.l("calendar_need_event_id"))
+                    return ToolResult(success: false, text: String(localized: "calendar_need_event_id"))
                 }
                 outcome = await CalendarBridge.delete(id: id,
                                                       occurrenceDate: Self.string(parameters["occurrence_date"]))
@@ -147,7 +147,7 @@ struct AppleCalendarTool: AgentTool {
             return ToolResult(success: outcome.success, text: outcome.text)
 
         default:
-            return ToolResult(success: false, text: L10n.l("calendar_unknown_action") + action)
+            return ToolResult(success: false, text: String(localized: "calendar_unknown_action") + action)
         }
     }
 }
@@ -233,9 +233,9 @@ private enum CalendarBridge {
         let events = store.events(matching: predicate)
             .sorted { ($0.startDate ?? .distantPast) < ($1.startDate ?? .distantPast) }
 
-        guard !events.isEmpty else { return .ok(L10n.l("calendar_no_events")) }
+        guard !events.isEmpty else { return .ok(String(localized: "calendar_no_events")) }
         let shown = Array(events.prefix(max(limit ?? 50, 1)))
-        var lines: [String] = [L10n.l("calendar_list_header") + "\(shown.count)/\(events.count)"]
+        var lines: [String] = [String(localized: "calendar_list_header") + "\(shown.count)/\(events.count)"]
         for e in shown { lines.append(describe(e)) }
         return .ok(lines.joined(separator: "\n"))
     }
@@ -243,10 +243,10 @@ private enum CalendarBridge {
     /// 列出所有可用日历（含可写性），供 create / update 选目标。
     static func calendars() async -> CalendarOutcome {
         let all = store.calendars(for: .event)
-        guard !all.isEmpty else { return .ok(L10n.l("calendar_no_calendars")) }
-        var lines: [String] = [L10n.l("calendars_header")]
+        guard !all.isEmpty else { return .ok(String(localized: "calendar_no_calendars")) }
+        var lines: [String] = [String(localized: "calendars_header")]
         for c in all {
-            let writable = c.allowsContentModifications ? L10n.l("writable_yes") : L10n.l("writable_no")
+            let writable = c.allowsContentModifications ? String(localized: "writable_yes") : String(localized: "writable_no")
             lines.append("- \(c.title) [\(c.source.title)] \(writable)")
         }
         return .ok(lines.joined(separator: "\n"))
@@ -268,10 +268,10 @@ private enum CalendarBridge {
         let timed = all.filter { !$0.isAllDay }
         let allDay = all.filter(\.isAllDay)
 
-        var lines: [String] = [L10n.l("freebusy_range") + EventDateParser.shortString(from: start)
+        var lines: [String] = [String(localized: "freebusy_range") + EventDateParser.shortString(from: start)
                                + " → " + EventDateParser.shortString(from: end)]
         if !allDay.isEmpty {
-            lines.append(L10n.l("freebusy_allday") + allDay.map(\.title).joined(separator: "、"))
+            lines.append(String(localized: "freebusy_allday") + allDay.map(\.title).joined(separator: "、"))
         }
 
         let busy = merge(intervals: timed.compactMap { ev -> (Date, Date)? in
@@ -279,24 +279,24 @@ private enum CalendarBridge {
             return (s, e)
         })
         guard !busy.isEmpty else {
-            lines.append(L10n.l("freebusy_all_free"))
+            lines.append(String(localized: "freebusy_all_free"))
             return .ok(lines.joined(separator: "\n"))
         }
 
-        lines.append(L10n.l("freebusy_busy_header"))
+        lines.append(String(localized: "freebusy_busy_header"))
         for (s, e) in busy {
             lines.append("- " + EventDateParser.shortString(from: s) + " → " + EventDateParser.shortString(from: e))
         }
 
         let free = gaps(between: busy, from: start, to: end)
         if free.isEmpty {
-            lines.append(L10n.l("freebusy_no_gap"))
+            lines.append(String(localized: "freebusy_no_gap"))
         } else {
-            lines.append(L10n.l("freebusy_free_header"))
+            lines.append(String(localized: "freebusy_free_header"))
             for (s, e) in free {
                 let minutes = Int(e.timeIntervalSince(s) / 60)
                 lines.append("- " + EventDateParser.shortString(from: s) + " → " + EventDateParser.shortString(from: e)
-                             + " (" + "\(minutes)" + L10n.l("unit_minutes") + ")")
+                             + " (" + "\(minutes)" + String(localized: "unit_minutes") + ")")
             }
         }
         return .ok(lines.joined(separator: "\n"))
@@ -305,18 +305,18 @@ private enum CalendarBridge {
     // MARK: 写入
 
     static func create(_ draft: EventDraft) async -> CalendarOutcome {
-        guard let title = draft.title, !title.isEmpty else { return .fail(L10n.l("calendar_need_title")) }
-        guard let start = EventDateParser.parse(draft.start) else { return .fail(L10n.l("calendar_need_start")) }
+        guard let title = draft.title, !title.isEmpty else { return .fail(String(localized: "calendar_need_title")) }
+        guard let start = EventDateParser.parse(draft.start) else { return .fail(String(localized: "calendar_need_start")) }
         // 未给结束时间：普通事件默认 1 小时，全天事件默认当天结束
         let fallbackEnd = draft.allDay
             ? (Calendar.current.date(bySettingHour: 23, minute: 59, second: 59, of: start) ?? start)
             : start.addingTimeInterval(3600)
         // `?? fallbackEnd` 已经把 Optional 消掉了，这里不是可选绑定
         let end = EventDateParser.parse(draft.end, endOfDay: draft.allDay) ?? fallbackEnd
-        guard end > start else { return .fail(L10n.l("calendar_bad_range")) }
+        guard end > start else { return .fail(String(localized: "calendar_bad_range")) }
 
         guard let target = writableCalendar(name: draft.calendarName) else {
-            return .fail(L10n.l("calendar_no_calendars"))
+            return .fail(String(localized: "calendar_no_calendars"))
         }
         let spec: RecurrenceSpec?
         switch recurrence(from: draft) {
@@ -336,9 +336,9 @@ private enum CalendarBridge {
         if let spec { event.recurrenceRules = [spec.rule()] }
         do {
             try store.save(event, span: .thisEvent)
-            return .ok(L10n.l("calendar_created") + "\n" + describe(event))
+            return .ok(String(localized: "calendar_created") + "\n" + describe(event))
         } catch {
-            return .fail(L10n.l("calendar_save_failed") + error.localizedDescription)
+            return .fail(String(localized: "calendar_save_failed") + error.localizedDescription)
         }
     }
 
@@ -355,10 +355,10 @@ private enum CalendarBridge {
         let event: EKEvent
         if let occurrenceRaw = occurrenceDate {
             guard let occurrenceStart = EventDateParser.parse(occurrenceRaw) else {
-                return .fail(L10n.l("calendar_bad_occurrence"))
+                return .fail(String(localized: "calendar_bad_occurrence"))
             }
             guard let master = store.event(withIdentifier: id) else {
-                return .fail(L10n.l("calendar_event_not_found") + id)
+                return .fail(String(localized: "calendar_event_not_found") + id)
             }
             // 查询返回的是展开后的 occurrence（同一个 eventIdentifier 会出现多次）
             let spanStart = Calendar.current.date(byAdding: .day, value: -1, to: master.startDate ?? occurrenceStart) ?? occurrenceStart
@@ -367,29 +367,29 @@ private enum CalendarBridge {
             guard let hit = store.events(matching: predicate).first(where: { ev in
                 ev.eventIdentifier == id && ev.startDate == occurrenceStart
             }) else {
-                return .fail(L10n.l("calendar_occurrence_not_found"))
+                return .fail(String(localized: "calendar_occurrence_not_found"))
             }
             event = hit
         } else {
             guard let master = store.event(withIdentifier: id) else {
-                return .fail(L10n.l("calendar_event_not_found") + id)
+                return .fail(String(localized: "calendar_event_not_found") + id)
             }
             event = master
         }
 
         if let title = draft.title, !title.isEmpty { event.title = title }
         if let startRaw = draft.start {
-            guard let start = EventDateParser.parse(startRaw) else { return .fail(L10n.l("calendar_need_start")) }
+            guard let start = EventDateParser.parse(startRaw) else { return .fail(String(localized: "calendar_need_start")) }
             event.startDate = start
         }
         if let endRaw = draft.end {
             guard let end = EventDateParser.parse(endRaw, endOfDay: event.isAllDay) else {
-                return .fail(L10n.l("calendar_bad_range"))
+                return .fail(String(localized: "calendar_bad_range"))
             }
             event.endDate = end
         }
         if let start = event.startDate, let end = event.endDate, end <= start {
-            return .fail(L10n.l("calendar_bad_range"))
+            return .fail(String(localized: "calendar_bad_range"))
         }
         if let notes = draft.notes { event.notes = notes }
         if let location = draft.location { event.location = location }
@@ -401,23 +401,23 @@ private enum CalendarBridge {
         let span: EKSpan = occurrenceDate == nil ? .futureEvents : .thisEvent
         do {
             try store.save(event, span: span)
-            return .ok(L10n.l("calendar_updated") + "\n" + describe(event))
+            return .ok(String(localized: "calendar_updated") + "\n" + describe(event))
         } catch {
-            return .fail(L10n.l("calendar_save_failed") + error.localizedDescription)
+            return .fail(String(localized: "calendar_save_failed") + error.localizedDescription)
         }
     }
 
     static func delete(id: String, occurrenceDate: String?) async -> CalendarOutcome {
         guard let event = store.event(withIdentifier: id) else {
-            return .fail(L10n.l("calendar_event_not_found") + id)
+            return .fail(String(localized: "calendar_event_not_found") + id)
         }
         let title = event.title ?? ""
         let span: EKSpan = occurrenceDate == nil ? .futureEvents : .thisEvent
         do {
             try store.remove(event, span: span)
-            return .ok(L10n.l("calendar_deleted") + title)
+            return .ok(String(localized: "calendar_deleted") + title)
         } catch {
-            return .fail(L10n.l("calendar_delete_failed") + error.localizedDescription)
+            return .fail(String(localized: "calendar_delete_failed") + error.localizedDescription)
         }
     }
 
@@ -431,22 +431,22 @@ private enum CalendarBridge {
                                              days: r.days,
                                              until: r.until,
                                              count: r.count) else {
-            return .invalid(L10n.l("calendar_bad_recur"))
+            return .invalid(String(localized: "calendar_bad_recur"))
         }
         // 同时又给规则又要求清除，是自相矛盾——直接报错而不是猜优先级
-        if draft.clearRecur { return .invalid(L10n.l("calendar_recur_conflict")) }
+        if draft.clearRecur { return .invalid(String(localized: "calendar_recur_conflict")) }
         return .rule(spec)
     }
 
     /// 事件精简描述（list / create / update 共用同一形态，模型侧输出稳定）。
     private static func describe(_ e: EKEvent) -> String {
         let time = e.isAllDay
-            ? String(EventDateParser.string(from: e.startDate).prefix(10)) + " " + L10n.l("all_day_label")
+            ? String(EventDateParser.string(from: e.startDate).prefix(10)) + " " + String(localized: "all_day_label")
             : EventDateParser.shortString(from: e.startDate) + " → " + EventDateParser.shortString(from: e.endDate)
         var parts = ["- \(e.title ?? "") | \(time)"]
-        if let loc = e.location, !loc.isEmpty { parts.append(L10n.l("place_label") + loc) }
-        parts.append(L10n.l("calendar_label") + e.calendar.title)
-        parts.append(L10n.l("id_label") + e.eventIdentifier)
+        if let loc = e.location, !loc.isEmpty { parts.append(String(localized: "place_label") + loc) }
+        parts.append(String(localized: "calendar_label") + e.calendar.title)
+        parts.append(String(localized: "id_label") + e.eventIdentifier)
         return parts.joined(separator: " | ")
     }
 

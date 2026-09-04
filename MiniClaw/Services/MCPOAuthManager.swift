@@ -89,14 +89,14 @@ enum MCPOAuthError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .userCancelled: L10n.l("mcp_oauth_user_cancelled")
-        case .missingMetadata: L10n.l("mcp_oauth_missing_metadata")
-        case .http(let code, let body): L10n.l("mcp_oauth_http_error") + " (\(code)) \(body.prefix(160))"
-        case .noAuthorizationCode: L10n.l("mcp_oauth_no_code")
-        case .stateMismatch: L10n.l("mcp_oauth_state_mismatch")
-        case .loopbackFailure: L10n.l("mcp_oauth_loopback_failure")
-        case .sessionStartFailed: L10n.l("mcp_oauth_session_start_failed")
-        case .timeout: L10n.l("mcp_oauth_timeout")
+        case .userCancelled: String(localized: "mcp_oauth_user_cancelled")
+        case .missingMetadata: String(localized: "mcp_oauth_missing_metadata")
+        case .http(let code, let body): String(localized: "mcp_oauth_http_error") + " (\(code)) \(body.prefix(160))"
+        case .noAuthorizationCode: String(localized: "mcp_oauth_no_code")
+        case .stateMismatch: String(localized: "mcp_oauth_state_mismatch")
+        case .loopbackFailure: String(localized: "mcp_oauth_loopback_failure")
+        case .sessionStartFailed: String(localized: "mcp_oauth_session_start_failed")
+        case .timeout: String(localized: "mcp_oauth_timeout")
         }
     }
 }
@@ -479,7 +479,7 @@ final class MCPOAuthManager: NSObject, ObservableObject, SFSafariViewControllerD
         <!doctype html><html><head><meta charset="utf-8">\
         <meta name="viewport" content="width=device-width,initial-scale=1"></head>\
         <body style="font-family:-apple-system,sans-serif;text-align:center;padding-top:80px">\
-        <h2>\(L10n.l("mcp_oauth_loopback_done"))</h2></body></html>
+        <h2>\(String(localized: "mcp_oauth_loopback_done"))</h2></body></html>
         """
         let response = "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nConnection: close\r\nContent-Length: \(html.utf8.count)\r\n\r\n\(html)"
         connection.send(content: Data(response.utf8), completion: .contentProcessed { _ in

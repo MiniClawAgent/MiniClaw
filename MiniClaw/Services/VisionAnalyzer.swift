@@ -110,14 +110,14 @@ final class VisionAnalyzer: @unchecked Sendable {
         guard let imageData = try? Data(contentsOf: url),
               let image = UIImage(data: imageData) else {
             var result = VisionAnalysisResult()
-            result.error = String(format: L10n.l("vision_read_failed"), path)
+            result.error = String(format: String(localized: "vision_read_failed"), path)
             return result
         }
 
         var finalResult = VisionAnalysisResult()
         finalResult.imageSize = image.size
         guard let cgImage = image.cgImage else {
-            finalResult.error = L10n.l("vision_cgimage_failed")
+            finalResult.error = String(localized: "vision_cgimage_failed")
             return finalResult
         }
 

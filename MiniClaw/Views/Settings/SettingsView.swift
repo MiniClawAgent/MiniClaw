@@ -9,9 +9,6 @@ struct SettingsView: View {
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
         return "MiniClaw v\(version)"
     }
-    /// 订阅界面语言单例：语言切换时 `current` 变化触发本视图重渲染，
-    /// 让所有 `L10n.tr` 文案以新语言重新求值（替代旧的 .id() 整树重建方案）。
-    @ObservedObject private var l10n = L10n.shared
     @State private var navigateToGroups: Bool = false
     @State private var navigateToProviders: Bool = false
     @State private var navigateToEnvVars: Bool = false
@@ -25,7 +22,7 @@ struct SettingsView: View {
                 NavigationLink {
                     AgentSettingsGroupView()
                 } label: {
-                    SettingsRow(icon: "cat.fill", color: .orange, title: L10n.l("agent"), subtitle: L10n.l("settings_group_agent_sub"))
+                    SettingsRow(icon: "cat.fill", color: .orange, title: String(localized: "agent"), subtitle: String(localized: "settings_group_agent_sub"))
                 }
             }
 
@@ -33,7 +30,7 @@ struct SettingsView: View {
                 NavigationLink {
                     PluginsSettingsView()
                 } label: {
-                    SettingsRow(icon: "puzzlepiece.extension.fill", color: .blue, title: L10n.l("plugins"), subtitle: L10n.l("manage_extensible_plugin_packages"))
+                    SettingsRow(icon: "puzzlepiece.extension.fill", color: .blue, title: String(localized: "plugins"), subtitle: String(localized: "manage_extensible_plugin_packages"))
                 }
             }
 
@@ -41,7 +38,7 @@ struct SettingsView: View {
                 NavigationLink {
                     StorageSettingsGroupView()
                 } label: {
-                    SettingsRow(icon: "externaldrive.fill", color: .green, title: L10n.l("storage"), subtitle: L10n.l("settings_group_storage_sub"))
+                    SettingsRow(icon: "externaldrive.fill", color: .green, title: String(localized: "storage"), subtitle: String(localized: "settings_group_storage_sub"))
                 }
             }
 
@@ -49,7 +46,7 @@ struct SettingsView: View {
                 NavigationLink {
                     AppearanceSettingsView()
                 } label: {
-                    SettingsRow(icon: "circle.lefthalf.filled", color: .indigo, title: L10n.l("appearance"), subtitle: L10n.l("system_dark_light"))
+                    SettingsRow(icon: "circle.lefthalf.filled", color: .indigo, title: String(localized: "appearance"), subtitle: String(localized: "system_dark_light"))
                 }
             }
 
@@ -57,7 +54,7 @@ struct SettingsView: View {
                 NavigationLink {
                     GeneralSettingsGroupView()
                 } label: {
-                    SettingsRow(icon: "gearshape.2.fill", color: .gray, title: L10n.l("general_section"), subtitle: L10n.l("settings_group_general_sub"))
+                    SettingsRow(icon: "gearshape.2.fill", color: .gray, title: String(localized: "general_section"), subtitle: String(localized: "settings_group_general_sub"))
                 }
             }
 
@@ -65,7 +62,7 @@ struct SettingsView: View {
                 NavigationLink {
                     LogsView()
                 } label: {
-                    SettingsRow(icon: "doc.text.below.ecg", color: .blue, title: L10n.l("logs"), subtitle: L10n.l("runtime_logs_and_audit_logs"))
+                    SettingsRow(icon: "doc.text.below.ecg", color: .blue, title: String(localized: "logs"), subtitle: String(localized: "runtime_logs_and_audit_logs"))
                 }
             }
 
@@ -73,7 +70,7 @@ struct SettingsView: View {
                 NavigationLink {
                     AboutView()
                 } label: {
-                    SettingsRow(icon: "info.circle.fill", color: .teal, title: L10n.l("about_miniclaw_app"), subtitle: L10n.l("version_info_and_license"))
+                    SettingsRow(icon: "info.circle.fill", color: .teal, title: String(localized: "about_miniclaw_app"), subtitle: String(localized: "version_info_and_license"))
                 }
             }
 
@@ -103,7 +100,7 @@ struct SettingsView: View {
         // 无主题时组件回退系统背景（视觉与现状一致）。
         .scrollContentBackground(.hidden)
         .background(ThemeBackground(slot: .settings))
-        .navigationTitle(L10n.l("settings"))
+        .navigationTitle(String(localized: "settings"))
         .navigationBarTitleDisplayMode(.inline)
         .navigationDestination(isPresented: $navigateToGroups) {
             GroupsSettingsView()

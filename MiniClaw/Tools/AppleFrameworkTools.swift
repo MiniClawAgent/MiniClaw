@@ -25,7 +25,7 @@ import UserNotifications
 // MARK: - 11. apple-nfc (CoreNFC)
 
 // 注：apple-nfc 已整体移除（v1 用不上，且会额外索取 NFC 读取权限）。
-// 权限描述 `NFCReaderUsageDescription` 与 L10n 的 nfc 相关 key 一并摘除。
+// 权限描述 `NFCReaderUsageDescription` 与本地化表的 nfc 相关 key 一并摘除。
 
 // MARK: - 12. apple-nlp (NaturalLanguage)
 
@@ -35,12 +35,12 @@ struct AppleNLPTool: AgentTool {
         type: "function",
         function: ToolSchema.FunctionDef(
             name: "apple-nlp",
-            description: L10n.l("nlp_tool_desc"),
+            description: String(localized: "nlp_tool_desc"),
             parameters: JSONSchema(
                 type: "object",
                 properties: [
-                    "action": JSONSchema.JSONProperty(type: "string", description: L10n.l("op_nlp_actions"), enum: ["language", "detect_entities", "sentiment", "tokenize"]),
-                    "text": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_text_to_analyze")),
+                    "action": JSONSchema.JSONProperty(type: "string", description: String(localized: "op_nlp_actions"), enum: ["language", "detect_entities", "sentiment", "tokenize"]),
+                    "text": JSONSchema.JSONProperty(type: "string", description: String(localized: "param_text_to_analyze")),
                 ],
                 required: ["action", "text"]
             )
@@ -50,18 +50,18 @@ struct AppleNLPTool: AgentTool {
     func execute(_ parameters: [String: Any]) async throws -> ToolResult {
         guard let action = parameters["action"] as? String,
               let text = parameters["text"] as? String else {
-            throw ToolError.invalidParameters(L10n.l("err_missing_action_text"))
+            throw ToolError.invalidParameters(String(localized: "err_missing_action_text"))
         }
         switch action {
         case "language":
             let result: String = await MainActor.run {
                 let recognizer = NLLanguageRecognizer()
                 recognizer.processString(text)
-                let lang = recognizer.dominantLanguage?.rawValue ?? L10n.l("unknown")
+                let lang = recognizer.dominantLanguage?.rawValue ?? String(localized: "unknown")
                 let conf = recognizer.languageHypotheses(withMaximum: 3)
                     .map { "\($0.key.rawValue): \(String(format: "%.0f%%", $0.value * 100))" }
                     .joined(separator: ", ")
-                return String(format: L10n.l("apple_language"), lang, conf)
+                return String(format: String(localized: "apple_language"), lang, conf)
             }
             return ToolResult(success: true, text: result)
 
@@ -71,8 +71,8 @@ struct AppleNLPTool: AgentTool {
                 tagger.string = text
                 let (score, _) = tagger.tag(at: text.startIndex, unit: .paragraph, scheme: .sentimentScore)
                 let s = Double(score?.rawValue ?? "0") ?? 0
-                let label = s > 0.3 ? L10n.l("sentiment_positive") : (s < -0.3 ? L10n.l("sentiment_negative") : L10n.l("sentiment_neutral"))
-                return L10n.l("sentiment_label") + label + " (score: " + String(format: "%.2f", s) + ")"
+                let label = s > 0.3 ? String(localized: "sentiment_positive") : (s < -0.3 ? String(localized: "sentiment_negative") : String(localized: "sentiment_neutral"))
+                return String(localized: "sentiment_label") + label + " (score: " + String(format: "%.2f", s) + ")"
             }
             return ToolResult(success: true, text: result)
 
@@ -87,7 +87,7 @@ struct AppleNLPTool: AgentTool {
                 }
                 return t
             }
-            return ToolResult(success: true, text: String(format: L10n.l("tokenizer_result"), tokens.count, tokens.joined(separator: " | ")))
+            return ToolResult(success: true, text: String(format: String(localized: "tokenizer_result"), tokens.count, tokens.joined(separator: " | ")))
 
         case "detect_entities":
             let result: String = await MainActor.run {
@@ -101,13 +101,13 @@ struct AppleNLPTool: AgentTool {
                     }
                     return true
                 }
-                if entities.isEmpty { return L10n.l("no_named_entities") }
+                if entities.isEmpty { return String(localized: "no_named_entities") }
                 return entities.map { "\($0.key): \($0.value.joined(separator: ", "))" }.joined(separator: "\n")
             }
             return ToolResult(success: true, text: result)
 
         default:
-            return ToolResult(success: false, text: String(format: L10n.l("apple_unsupported_action"), action))
+            return ToolResult(success: false, text: String(format: String(localized: "apple_unsupported_action"), action))
         }
     }
 }

@@ -14,11 +14,11 @@ struct ReadImageTool: AgentTool {
         type: "function",
         function: ToolSchema.FunctionDef(
             name: "apple-image",
-            description: L10n.l("apple_image_tool_desc"),
+            description: String(localized: "apple_image_tool_desc"),
             parameters: JSONSchema(
                 type: "object",
                 properties: [
-                    "path": JSONSchema.JSONProperty(type: "string", description: L10n.l("image_path_param")),
+                    "path": JSONSchema.JSONProperty(type: "string", description: String(localized: "image_path_param")),
                 ],
                 required: ["path"]
             )
@@ -31,20 +31,20 @@ struct ReadImageTool: AgentTool {
 
     func execute(_ parameters: [String: Any]) async throws -> ToolResult {
         guard let path = parameters["path"] as? String else {
-            throw ToolError.invalidParameters(L10n.l("err_missing_path"))
+            throw ToolError.invalidParameters(String(localized: "err_missing_path"))
         }
 
         do {
             let url = try FileSystemManager.shared.imageURL(at: path, sessionID: currentSessionID)
             let imageData = try Data(contentsOf: url)
             guard let image = UIImage(data: imageData) else {
-                return ToolResult(success: false, text: String(format: L10n.l("core_image_decode_failed"), path))
+                return ToolResult(success: false, text: String(format: String(localized: "core_image_decode_failed"), path))
             }
             let base64 = imageData.base64EncodedString()
             let mimeType = mimeTypeFor(path: path)
             return ToolResult(
                 success: true,
-                text: String(format: L10n.l("core_image_read"), Int(image.size.width), Int(image.size.height)),
+                text: String(format: String(localized: "core_image_read"), Int(image.size.width), Int(image.size.height)),
                 data: ["base64": base64, "mime_type": mimeType]
             )
         } catch {
@@ -79,11 +79,11 @@ struct VisionAnalyzeTool: AgentTool {
         type: "function",
         function: ToolSchema.FunctionDef(
             name: "apple-vision",
-            description: L10n.l("apple_vision_tool_desc"),
+            description: String(localized: "apple_vision_tool_desc"),
             parameters: JSONSchema(
                 type: "object",
                 properties: [
-                    "path": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_image_path")),
+                    "path": JSONSchema.JSONProperty(type: "string", description: String(localized: "param_image_path")),
                 ],
                 required: ["path"]
             )
@@ -96,7 +96,7 @@ struct VisionAnalyzeTool: AgentTool {
 
     func execute(_ parameters: [String: Any]) async throws -> ToolResult {
         guard let path = parameters["path"] as? String, !path.isEmpty else {
-            throw ToolError.invalidParameters(L10n.l("err_missing_path"))
+            throw ToolError.invalidParameters(String(localized: "err_missing_path"))
         }
 
         // 尝试通过 FileSystemManager 解析路径（支持会话隔离路径）
@@ -112,7 +112,7 @@ struct VisionAnalyzeTool: AgentTool {
         let result = await VisionAnalyzer.shared.analyze(imageAt: resolvedPath)
 
         if let error = result.error {
-            return ToolResult(success: false, text: String(format: L10n.l("core_image_analysis_failed"), error))
+            return ToolResult(success: false, text: String(format: String(localized: "core_image_analysis_failed"), error))
         }
 
         // 返回格式化后的结构化文本（LLM 可直接阅读）

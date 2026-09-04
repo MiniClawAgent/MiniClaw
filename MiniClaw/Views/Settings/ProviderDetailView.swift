@@ -49,14 +49,14 @@ struct ProviderDetailView: View {
     var body: some View {
         Form {
             // 1. 标签
-            Section(L10n.l("tabs")) {
-                TextField(L10n.l("tabs"), text: $draft.label)
+            Section(String(localized: "tabs")) {
+                TextField(String(localized: "tabs"), text: $draft.label)
                 // API 兼容格式（不可编辑，仅显示）
                 HStack {
-                    Text(L10n.l("api_compatible_format"))
+                    Text(String(localized: "api_compatible_format"))
                         .foregroundStyle(.secondary)
                     Spacer()
-                    Text(L10n.l(draft.providerType.compatFormat))
+                    Text(String(localized: String.LocalizationValue(draft.providerType.compatFormat)))
                         .foregroundStyle(.tertiary)
                 }
                 .font(.subheadline)
@@ -65,23 +65,23 @@ struct ProviderDetailView: View {
             // 2. 凭证
             Section {
                 if draft.credentialType == "oauth" {
-                    Label(L10n.l("this_provider_uses_oauth_credentials_renew_automatically"), systemImage: "person.badge.key")
+                    Label(String(localized: "this_provider_uses_oauth_credentials_renew_automatically"), systemImage: "person.badge.key")
                         .font(.caption)
                 } else {
-                    SecureField(draft.keyAdded ? L10n.l("enter_a_new_key_to_replace") : "API Key", text: $apiKeyInput)
+                    SecureField(draft.keyAdded ? String(localized: "enter_a_new_key_to_replace") : "API Key", text: $apiKeyInput)
                 }
             } header: {
-                Text(L10n.l("credential_item"))
+                Text(String(localized: "credential_item"))
             } footer: {
                 if draft.keyAdded {
-                    Label(L10n.l("key_configured_cannot_be_read_back_after_writing_saving_with_it_blank_does_not_affect_the_existing_key_only_entering_a_new_value_will_overwrite_it"),
+                    Label(String(localized: "key_configured_cannot_be_read_back_after_writing_saving_with_it_blank_does_not_affect_the_existing_key_only_entering_a_new_value_will_overwrite_it"),
                           systemImage: "lock.fill")
                         .font(.caption)
                 }
             }
 
             // 3. 自定义 API 地址
-            Section(L10n.l("custom_api_url")) {
+            Section(String(localized: "custom_api_url")) {
                 TextField("https://...", text: $draft.customBaseURL)
                     .keyboardType(.URL)
                     .textInputAutocapitalization(.never)
@@ -89,19 +89,19 @@ struct ProviderDetailView: View {
             }
 
             // 3.5 自定义请求头（对接需附加请求头的中转网关）
-            Section(L10n.l("custom_headers")) {
+            Section(String(localized: "custom_headers")) {
                 if headerRows.isEmpty {
-                    Text(L10n.l("no_custom_headers_used_to_connect_to_relay_gateways_that_require_additional_request_headers_e_g_x_api_version_custom_auth"))
+                    Text(String(localized: "no_custom_headers_used_to_connect_to_relay_gateways_that_require_additional_request_headers_e_g_x_api_version_custom_auth"))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
                 ForEach($headerRows) { $row in
                     HStack(alignment: .top, spacing: 8) {
                         VStack(alignment: .leading, spacing: 4) {
-                            TextField(L10n.l("header_name"), text: $row.key)
+                            TextField(String(localized: "header_name"), text: $row.key)
                                 .textInputAutocapitalization(.never)
                                 .autocorrectionDisabled()
-                            TextField(L10n.l("header_value"), text: $row.value)
+                            TextField(String(localized: "header_value"), text: $row.value)
                                 .textInputAutocapitalization(.never)
                                 .autocorrectionDisabled()
                         }
@@ -122,14 +122,14 @@ struct ProviderDetailView: View {
                     headerRows.append(CustomHeaderRow(key: "", value: ""))
                     syncHeaders()
                 } label: {
-                    Label(L10n.l("add_custom_header"), systemImage: "plus")
+                    Label(String(localized: "add_custom_header"), systemImage: "plus")
                 }
             }
 
             // 4. API 格式（Gemini 不适用）
             if !isGemini {
-                Section(L10n.l("api_format")) {
-                    Picker(L10n.l("api_format"), selection: $draft.apiFormat) {
+                Section(String(localized: "api_format")) {
+                    Picker(String(localized: "api_format"), selection: $draft.apiFormat) {
                         ForEach(APIFormat.allCases) { format in
                             Text(format.rawValue).tag(format)
                         }
@@ -143,16 +143,16 @@ struct ProviderDetailView: View {
                 Section {
                     Toggle("Azure OpenAI", isOn: $draft.azureEnabled)
                 } footer: {
-                    Text(L10n.l("when_using_azure_openai_authentication_append_the_full_azure_endpoint_including_query_parameters_in_the_custom_api"))
+                    Text(String(localized: "when_using_azure_openai_authentication_append_the_full_azure_endpoint_including_query_parameters_in_the_custom_api"))
                 }
             }
 
             // 6. 状态（Gemini 不适用）
             if !isGemini {
                 Section {
-                    Toggle(L10n.l("enable_this_provider"), isOn: $draft.isEnabled)
+                    Toggle(String(localized: "enable_this_provider"), isOn: $draft.isEnabled)
                 } header: {
-                    Text(L10n.l("status"))
+                    Text(String(localized: "status"))
                 }
             }
 
@@ -164,7 +164,7 @@ struct ProviderDetailView: View {
             // 8. 删除 智能体服务商（草稿模式不显示）
             if !isDraft {
                 Section {
-                    Button(L10n.l("delete_provider"), role: .destructive) {
+                    Button(String(localized: "delete_provider"), role: .destructive) {
                         deleteProvider()
                     }
                 }
@@ -182,7 +182,7 @@ struct ProviderDetailView: View {
                                 ProgressView()
                                     .controlSize(.small)
                             } else {
-                                Text(L10n.l("save"))
+                                Text(String(localized: "save"))
                                     .fontWeight(.semibold)
                             }
                             Spacer()
@@ -194,14 +194,14 @@ struct ProviderDetailView: View {
         }
         .scrollContentBackground(.hidden)
         .background(ThemeBackground(slot: .settings))
-        .navigationTitle(isDraft ? L10n.l("add_provider_action") : (draft.label.isEmpty ? L10n.l("provider") : draft.label))
+        .navigationTitle(isDraft ? String(localized: "add_provider_action") : (draft.label.isEmpty ? String(localized: "provider") : draft.label))
         .navigationBarTitleDisplayMode(.inline)
         // 已添加（编辑）态：隐藏系统返回按钮，统一由右上角「保存」退出并落盘；草稿态保留返回键取消。
         .navigationBarBackButtonHidden(!isDraft)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 if !isDraft {
-                    Button(L10n.l("save")) {
+                    Button(String(localized: "save")) {
                         Task { await saveForExistingProvider() }
                     }
                 }
@@ -235,13 +235,13 @@ struct ProviderDetailView: View {
                 }
             }
         }
-        .confirmationDialog(L10n.l("save_api_key"), isPresented: $showKeyConfirm) {
-            Button(L10n.l("save")) {
+        .confirmationDialog(String(localized: "save_api_key"), isPresented: $showKeyConfirm) {
+            Button(String(localized: "save")) {
                 Task { await saveCredentialAndFetchModels() }
             }
-            Button(L10n.l("cancel"), role: .cancel) { }
+            Button(String(localized: "cancel"), role: .cancel) { }
         } message: {
-            Text(L10n.l("after_saving_the_api_key_is_written_to_local_storage_and_cannot_be_read_back_the_ui_shows_a_mask_config_get_returns_a_protected_message"))
+            Text(String(localized: "after_saving_the_api_key_is_written_to_local_storage_and_cannot_be_read_back_the_ui_shows_a_mask_config_get_returns_a_protected_message"))
         }
     }
 
@@ -265,7 +265,7 @@ struct ProviderDetailView: View {
                     .frame(width: 28, height: 28)
             }
             .buttonStyle(.plain)
-            .accessibilityLabel(isHidden ? L10n.l("show_model") : L10n.l("hidden_model"))
+            .accessibilityLabel(isHidden ? String(localized: "show_model") : String(localized: "hidden_model"))
         }
     }
 
@@ -283,13 +283,13 @@ struct ProviderDetailView: View {
             // 拉取失败：在「模型」位置提示用户检查密钥 / API 地址
             if let err = draft.modelFetchError, !err.isEmpty {
                 VStack(alignment: .leading, spacing: 6) {
-                    Label(L10n.l("model_fetch_failed"), systemImage: "exclamationmark.triangle.fill")
+                    Label(String(localized: "model_fetch_failed"), systemImage: "exclamationmark.triangle.fill")
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(.red)
                     Text(err)
                         .font(.footnote)
                         .foregroundStyle(.red)
-                    Text(L10n.l("check_that_the_key_credential_or_api_url_is_correct"))
+                    Text(String(localized: "check_that_the_key_credential_or_api_url_is_correct"))
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
@@ -301,9 +301,9 @@ struct ProviderDetailView: View {
             }
             if draft.models.isEmpty {
                 VStack(alignment: .leading, spacing: 10) {
-                    Text(L10n.l("no_models_yet"))
+                    Text(String(localized: "no_models_yet"))
                         .foregroundStyle(.secondary)
-                    Button(L10n.l("add_custom_model")) { showAddModel = true }
+                    Button(String(localized: "add_custom_model")) { showAddModel = true }
                 }
             } else {
                 let sortedModels = draft.models.sorted {
@@ -317,11 +317,11 @@ struct ProviderDetailView: View {
                     draft.models.removeAll { ids.contains($0.id) }
                     persist()
                 }
-                Button(L10n.l("add_custom_model")) { showAddModel = true }
+                Button(String(localized: "add_custom_model")) { showAddModel = true }
             }
         } header: {
             HStack {
-                Text(L10n.l("model_label"))
+                Text(String(localized: "model_label"))
                 Spacer()
                 Button {
                     Task { await refreshModels() }
@@ -481,7 +481,7 @@ struct ProviderDetailView: View {
             } catch {
                 // 仅当所有策略都失败（网络错误）才最终报错
                 if forceBearer == strategies.last {
-                    let msg = String(format: L10n.l("failed_to_fetch_models_network_or_request_error"), error.localizedDescription)
+                    let msg = String(format: String(localized: "failed_to_fetch_models_network_or_request_error"), error.localizedDescription)
                     modelFetchError = msg
                     draft.modelFetchError = msg
                 }
@@ -495,7 +495,7 @@ struct ProviderDetailView: View {
 
         guard let httpResponse = response as? HTTPURLResponse else {
             if modelFetchError == nil {
-                let msg = L10n.l("model_fetch_failed_no_valid_http_response_received")
+                let msg = String(localized: "model_fetch_failed_no_valid_http_response_received")
                 modelFetchError = msg
                 draft.modelFetchError = msg
             }
@@ -518,14 +518,14 @@ struct ProviderDetailView: View {
             // 2026-09-01 唐唐拍板：不再回退内置模型目录（已删除）。
             // 「Anthropic 兼容」代理普遍只代理 /v1/messages 而未实现 /v1/models，
             // 此处拉取失败属预期——用户可改用下方「添加自定义模型」手填模型 ID。
-            let msg = String(format: L10n.l("failed_to_fetch_models_http_1_2"), String(status), serverMsg.isEmpty ? "" : "： \(serverMsg)")
+            let msg = String(format: String(localized: "failed_to_fetch_models_http_1_2"), String(status), serverMsg.isEmpty ? "" : "： \(serverMsg)")
             modelFetchError = msg
             draft.modelFetchError = msg
             return
         }
 
         guard let models = parseModels(from: data), !models.isEmpty else {
-            let msg = L10n.l("failed_to_fetch_models_empty_response_please_confirm_the_provider_supports_the_v1_models_list_endpoint")
+            let msg = String(localized: "failed_to_fetch_models_empty_response_please_confirm_the_provider_supports_the_v1_models_list_endpoint")
             modelFetchError = msg
             draft.modelFetchError = msg
             return
@@ -628,7 +628,7 @@ struct ProviderDetailView: View {
         guard main != session.mainModel || secondary != session.secondaryModel else { return }
         SettingsStore.shared.update(
             domain: .session,
-            summary: L10n.l("auto_fill_primary_secondary_model")
+            summary: String(localized: "auto_fill_primary_secondary_model")
         ) { (settings: inout SessionSettings) in
             if settings.mainModel.isNone { settings.mainModel = main }
             if settings.secondaryModel.isNone { settings.secondaryModel = secondary }

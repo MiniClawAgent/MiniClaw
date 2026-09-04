@@ -94,7 +94,7 @@ private struct StatusIconView: View {
     private var resolved: String {
         if !status.isEmpty { return status }
         // 2026-08-12 修复:phase 由主 App 以英文常量写入(completed/failed/running),
-        // 消除跨 target 中文耦合(此前 case "完成"/"失败" 依赖 L10n 未翻译才碰巧命中)。
+        // 消除跨 target 中文耦合(此前 case "完成"/"失败" 依赖本地化未翻译才碰巧命中)。
         switch phase {
         case "completed": return "completed"
         case "failed": return "failed"

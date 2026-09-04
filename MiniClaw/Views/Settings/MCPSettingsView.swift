@@ -7,10 +7,10 @@ extension MCPTransport: Identifiable {
 
     var displayName: String {
         switch self {
-        case .auto: L10n.l("automatic")
+        case .auto: String(localized: "automatic")
         case .http: "Streamable HTTP"
         case .legacySSE: "Legacy SSE"
-        case .stdio: L10n.l("local_stdio")
+        case .stdio: String(localized: "local_stdio")
         }
     }
 
@@ -38,7 +38,7 @@ struct MCPSettingsView: View {
     var body: some View {
         List {
             Section {
-                Label(L10n.l("miniclaw_supports_remote_mcp_servers_over_http_sse_local_stdio_transport_is_only_available_on_macos_simulator_since_the_ios_sandbox_cannot_launch_local_processes"), systemImage: "network")
+                Label(String(localized: "miniclaw_supports_remote_mcp_servers_over_http_sse_local_stdio_transport_is_only_available_on_macos_simulator_since_the_ios_sandbox_cannot_launch_local_processes"), systemImage: "network")
                     .font(.callout)
                     .foregroundStyle(.secondary)
             }
@@ -46,15 +46,15 @@ struct MCPSettingsView: View {
             Section {
                 if store.servers.isEmpty {
                     EmptyStateView(
-                        label: L10n.l("no_server_added_yet"),
+                        label: String(localized: "no_server_added_yet"),
                         systemImage: "server.rack",
-                        description: L10n.l("after_adding_a_remote_mcp_endpoint_you_can_connect_and_load_tools")
+                        description: String(localized: "after_adding_a_remote_mcp_endpoint_you_can_connect_and_load_tools")
                     )
                 } else {
                     ForEach(store.servers) { server in
                         serverRow(server)
                             .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                                Button(L10n.l("delete_action"), role: .destructive) {
+                                Button(String(localized: "delete_action"), role: .destructive) {
                                     serverPendingDeletion = server
                                 }
                             }
@@ -69,7 +69,7 @@ struct MCPSettingsView: View {
                     } label: {
                         HStack {
                             Label(
-                                L10n.l("mcp_authorize_server_button") + pending.name,
+                                String(localized: "mcp_authorize_server_button") + pending.name,
                                 systemImage: "checkmark.shield"
                             )
                             Spacer()
@@ -82,7 +82,7 @@ struct MCPSettingsView: View {
                 }
             } header: {
                 HStack {
-                    Text(L10n.l("remote_server"))
+                    Text(String(localized: "remote_server"))
                     Spacer()
                     if isRefreshingAll {
                         ProgressView()
@@ -95,7 +95,7 @@ struct MCPSettingsView: View {
                             Image(systemName: "arrow.clockwise")
                         }
                         .disabled(store.servers.isEmpty)
-                        .accessibilityLabel(L10n.l("refresh_all_servers"))
+                        .accessibilityLabel(String(localized: "refresh_all_servers"))
                     }
                 }
             }
@@ -104,7 +104,7 @@ struct MCPSettingsView: View {
         }
         .scrollContentBackground(.hidden)
         .background(ThemeBackground(slot: .settings))
-        .navigationTitle(L10n.l("mcp"))
+        .navigationTitle(String(localized: "mcp"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
@@ -114,17 +114,17 @@ struct MCPSettingsView: View {
                     Button {
                         editorItem = MCPServerEditorItem(server: nil)
                     } label: {
-                        Label(L10n.l("add_mcp_server"), systemImage: "plus.circle")
+                        Label(String(localized: "add_mcp_server"), systemImage: "plus.circle")
                     }
                     Button {
                         exportedConfig = ExportedConfigItem(json: store.exportClaudeDesktopConfig(for: store.servers))
                     } label: {
-                        Label(L10n.l("export_claude_desktop_config"), systemImage: "square.and.arrow.up")
+                        Label(String(localized: "export_claude_desktop_config"), systemImage: "square.and.arrow.up")
                     }
                     Button {
                         showImportSheet = true
                     } label: {
-                        Label(L10n.l("import_claude_desktop_config_from_text"), systemImage: "square.and.arrow.down")
+                        Label(String(localized: "import_claude_desktop_config_from_text"), systemImage: "square.and.arrow.down")
                     }
                 } label: {
                     Image(systemName: "plus")
@@ -147,22 +147,22 @@ struct MCPSettingsView: View {
         // MCP OAuth 授权页已移除 sheet 挂载（2026-09-02 唐唐拍板：审核不允许 OAuth 走
         // WebView，现为 SFSafariViewController + loopback；授权由 MCPOAuthManager 直接触发）。
         .confirmationDialog(
-            L10n.l("delete_mcp_server_confirm"),
+            String(localized: "delete_mcp_server_confirm"),
             isPresented: Binding(
                 get: { serverPendingDeletion != nil },
                 set: { if !$0 { serverPendingDeletion = nil } }
             ),
             presenting: serverPendingDeletion
         ) { server in
-            Button(L10n.l("delete_action") + server.name, role: .destructive) {
+            Button(String(localized: "delete_action") + server.name, role: .destructive) {
                 removeServerWithPlugin(server)
                 serverPendingDeletion = nil
             }
-            Button(L10n.l("cancel"), role: .cancel) {
+            Button(String(localized: "cancel"), role: .cancel) {
                 serverPendingDeletion = nil
             }
         } message: { _ in
-            Text(L10n.l("the_server_configuration_and_its_saved_bearer_token_will_be_deleted_together_this_action_cannot_be_undone"))
+            Text(String(localized: "the_server_configuration_and_its_saved_bearer_token_will_be_deleted_together_this_action_cannot_be_undone"))
         }
         .sheet(item: $exportedConfig) { item in
             NavigationStack {
@@ -172,14 +172,14 @@ struct MCPSettingsView: View {
                         .padding()
                         .textSelection(.enabled)
                 }
-                .navigationTitle(L10n.l("claude_desktop_configuration"))
+                .navigationTitle(String(localized: "claude_desktop_configuration"))
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .topBarTrailing) {
-                        Button(L10n.l("copy_action")) { UIPasteboard.general.string = item.json }
+                        Button(String(localized: "copy_action")) { UIPasteboard.general.string = item.json }
                     }
                     ToolbarItem(placement: .cancellationAction) {
-                        Button(L10n.l("close")) { exportedConfig = nil }
+                        Button(String(localized: "close")) { exportedConfig = nil }
                     }
                 }
             }
@@ -190,13 +190,13 @@ struct MCPSettingsView: View {
                     do {
                         let configs = try store.importClaudeDesktopConfig(json)
                         guard !configs.isEmpty else {
-                            importMessage = L10n.l("no_server_entries_were_parsed")
+                            importMessage = String(localized: "no_server_entries_were_parsed")
                             return
                         }
                         for cfg in configs {
                             store.upsert(cfg, bearerToken: store.takeImportedBearerToken(for: cfg.id))
                         }
-                        importMessage = String(format: L10n.l("imported_servers"), "\(configs.count)")
+                        importMessage = String(format: String(localized: "imported_servers"), "\(configs.count)")
                         showImportSheet = false
                     } catch {
                         importMessage = error.localizedDescription
@@ -212,7 +212,7 @@ struct MCPSettingsView: View {
                 Section {
                     let disabled = session.disabledMCPServerIDs ?? []
                     if store.servers.isEmpty {
-                        Text(L10n.l("no_mcp_servers_configured"))
+                        Text(String(localized: "no_mcp_servers_configured"))
                             .foregroundStyle(.secondary)
                     }
                     ForEach(store.servers) { server in
@@ -227,18 +227,18 @@ struct MCPSettingsView: View {
                         ))
                         .disabled(!server.isEnabled)
                     }
-                    Text(L10n.l("disabled_servers_won_t_load_their_tools_in_this_session_other_sessions_are_unaffected_changes_take_effect_immediately_and_apply_on_the_next_conversation"))
+                    Text(String(localized: "disabled_servers_won_t_load_their_tools_in_this_session_other_sessions_are_unaffected_changes_take_effect_immediately_and_apply_on_the_next_conversation"))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 } header: {
-                    Text(L10n.l("mcp_session_exception_prefix") + session.title + L10n.l("close_paren"))
+                    Text(String(localized: "mcp_session_exception_prefix") + session.title + String(localized: "close_paren"))
                 }
             } else {
                 Section {
-                    Text(L10n.l("open_settings_within_a_session_to_disable_mcp_servers_per_session"))
+                    Text(String(localized: "open_settings_within_a_session_to_disable_mcp_servers_per_session"))
                         .foregroundStyle(.secondary)
                 } header: {
-                    Text(L10n.l("mcp_session_exception"))
+                    Text(String(localized: "mcp_session_exception"))
                 }
             }
         }
@@ -272,14 +272,14 @@ struct MCPSettingsView: View {
                     }
 
                     HStack(spacing: 6) {
-                        Text("\(server.lastToolCount) " + L10n.l("tool_count_suffix"))
+                        Text("\(server.lastToolCount) " + String(localized: "tool_count_suffix"))
                             .font(.caption)
                             .foregroundStyle(.secondary)
 
                         if let checkedAt = server.lastCheckedAt {
                             Text("·")
                                 .foregroundStyle(.tertiary)
-                            Text(L10n.l("last_checked_label") + checkedAt.formatted(date: .numeric, time: .shortened))
+                            Text(String(localized: "last_checked_label") + checkedAt.formatted(date: .numeric, time: .shortened))
                                 .font(.caption)
                                 .foregroundStyle(.tertiary)
                                 .lineLimit(1)
@@ -289,7 +289,7 @@ struct MCPSettingsView: View {
                             Image(systemName: "lock.fill")
                                 .font(.caption2)
                                 .foregroundStyle(.secondary)
-                                .accessibilityLabel(L10n.l("bearer_token_saved"))
+                                .accessibilityLabel(String(localized: "bearer_token_saved"))
                         }
                     }
 
@@ -307,7 +307,7 @@ struct MCPSettingsView: View {
             .buttonStyle(.plain)
 
             Toggle(
-                L10n.l("enable_label") + server.name,
+                String(localized: "enable_label") + server.name,
                 isOn: Binding(
                     get: { server.isEnabled },
                     set: { store.setEnabled($0, id: server.id) }
@@ -327,21 +327,21 @@ struct MCPSettingsView: View {
             Image(systemName: "circle.dashed")
                 .font(.footnote)
                 .foregroundStyle(.tertiary)
-                .accessibilityLabel(L10n.l("not_checked"))
+                .accessibilityLabel(String(localized: "not_checked"))
         case .connecting:
             ProgressView()
                 .controlSize(.small)
-                .accessibilityLabel(L10n.l("connecting"))
+                .accessibilityLabel(String(localized: "connecting"))
         case .connected:
             Image(systemName: "checkmark.circle.fill")
                 .font(.footnote)
                 .foregroundStyle(.green)
-                .accessibilityLabel(L10n.l("connected"))
+                .accessibilityLabel(String(localized: "connected"))
         case .failed:
             Image(systemName: "exclamationmark.circle.fill")
                 .font(.footnote)
                 .foregroundStyle(.red)
-                .accessibilityLabel(L10n.l("connection_failed"))
+                .accessibilityLabel(String(localized: "connection_failed"))
         }
     }
 
@@ -421,7 +421,7 @@ private struct ImportClaudeConfigView: View {
                     .autocorrectionDisabled()
                     .font(.system(.footnote, design: .monospaced))
             } header: {
-                Text(L10n.l("mcpservers_json"))
+                Text(String(localized: "mcpservers_json"))
             } footer: {
                 if let message {
                     Text(message)
@@ -436,9 +436,9 @@ private struct ImportClaudeConfigView: View {
                         text = pb
                     }
                 } label: {
-                    Label(L10n.l("paste_from_clipboard"), systemImage: "doc.on.clipboard")
+                    Label(String(localized: "paste_from_clipboard"), systemImage: "doc.on.clipboard")
                 }
-                Button(L10n.l("import")) {
+                Button(String(localized: "import")) {
                     onImport(text)
                 }
                 .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
@@ -446,11 +446,11 @@ private struct ImportClaudeConfigView: View {
         }
         .scrollContentBackground(.hidden)
         .background(ThemeBackground(slot: .settings))
-        .navigationTitle(L10n.l("import_claude_desktop_config"))
+        .navigationTitle(String(localized: "import_claude_desktop_config"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
-                Button(L10n.l("cancel")) { message = nil }
+                Button(String(localized: "cancel")) { message = nil }
             }
         }
     }
@@ -505,46 +505,46 @@ private struct MCPServerEditorView: View {
         Form {
             Section(
                 content: {
-                    TextField(L10n.l("name"), text: $name)
+                    TextField(String(localized: "name"), text: $name)
 
                     TextField("https://example.com/mcp", text: $endpointURL)
                         .keyboardType(.URL)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
 
-                    Picker(L10n.l("connection_method"), selection: $transport) {
+                    Picker(String(localized: "connection_method"), selection: $transport) {
                         ForEach(MCPTransport.allCases) { mode in
                             Text(mode.displayName).tag(mode)
                         }
                     }
 
-                    Toggle(L10n.l("enable_this_server"), isOn: $isEnabled)
+                    Toggle(String(localized: "enable_this_server"), isOn: $isEnabled)
                 },
-                header: { Text(L10n.l("server")) },
+                header: { Text(String(localized: "server")) },
                 footer: {
-                    Text(L10n.l("endpoint_must_be_an_http_or_https_address_http_can_be_used_for_local_development"))
+                    Text(String(localized: "endpoint_must_be_an_http_or_https_address_http_can_be_used_for_local_development"))
                 }
             )
 
             if transport.isLocalOnly {
                 Section {
-                    TextField(L10n.l("launch_command_e_g_npx_y_modelcontextprotocol_server_xxx"), text: $command)
+                    TextField(String(localized: "launch_command_e_g_npx_y_modelcontextprotocol_server_xxx"), text: $command)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
-                    TextField(L10n.l("arguments_space_separated"), text: $args)
+                    TextField(String(localized: "arguments_space_separated"), text: $args)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
 
                     if envRows.isEmpty {
-                        Text(L10n.l("no_environment_variables_added"))
+                        Text(String(localized: "no_environment_variables_added"))
                             .foregroundStyle(.secondary)
                     }
                     ForEach($envRows) { $row in
                         VStack(alignment: .leading, spacing: 6) {
-                            TextField(L10n.l("variable_name_e_g_api_key"), text: $row.key)
+                            TextField(String(localized: "variable_name_e_g_api_key"), text: $row.key)
                                 .textInputAutocapitalization(.never)
                                 .autocorrectionDisabled()
-                            SecureField(L10n.l("variable_value"), text: $row.value)
+                            SecureField(String(localized: "variable_value"), text: $row.value)
                                 .textInputAutocapitalization(.never)
                                 .autocorrectionDisabled()
                         }
@@ -555,18 +555,18 @@ private struct MCPServerEditorView: View {
                     Button {
                         envRows.append(MCPHeaderRow())
                     } label: {
-                        Label(L10n.l("add_environment_variable"), systemImage: "plus.circle.fill")
+                        Label(String(localized: "add_environment_variable"), systemImage: "plus.circle.fill")
                     }
                 } header: {
-                    Text(L10n.l("stdio_launch_arguments"))
+                    Text(String(localized: "stdio_launch_arguments"))
                 } footer: {
-                    Text(L10n.l("stdio_transport_is_only_available_on_macos_simulator_the_ios_sandbox_cannot_launch_local_processes_var_expansion_is_supported_in_command_and_arguments"))
+                    Text(String(localized: "stdio_transport_is_only_available_on_macos_simulator_the_ios_sandbox_cannot_launch_local_processes_var_expansion_is_supported_in_command_and_arguments"))
                 }
             }
 
             Section {
                 SecureField(
-                    server?.hasBearerToken == true ? L10n.l("enter_new_token_to_replace") : L10n.l("bearer_token_optional"),
+                    server?.hasBearerToken == true ? String(localized: "enter_new_token_to_replace") : String(localized: "bearer_token_optional"),
                     text: $bearerToken
                 )
                 .textInputAutocapitalization(.never)
@@ -575,41 +575,41 @@ private struct MCPServerEditorView: View {
 
                 if server?.hasBearerToken == true {
                     if removeSavedCredential {
-                        Label(L10n.l("saving_will_delete_the_saved_credentials"), systemImage: "trash")
+                        Label(String(localized: "saving_will_delete_the_saved_credentials"), systemImage: "trash")
                             .font(.footnote)
                             .foregroundStyle(.red)
 
-                        Button(L10n.l("keep_saved_credentials")) {
+                        Button(String(localized: "keep_saved_credentials")) {
                             removeSavedCredential = false
                         }
                     } else {
-                        Button(L10n.l("delete_saved_credentials_when_saving"), role: .destructive) {
+                        Button(String(localized: "delete_saved_credentials_when_saving"), role: .destructive) {
                             bearerToken = ""
                             removeSavedCredential = true
                         }
                     }
                 }
             } header: {
-                Text(L10n.l("credentials_item"))
+                Text(String(localized: "credentials_item"))
             } footer: {
                 if server?.hasBearerToken == true && !removeSavedCredential {
-                    Text(L10n.l("bearer_token_saved_securely_it_will_not_be_shown_here_leaving_it_blank_when_editing_means_keeping_the_original_token"))
+                    Text(String(localized: "bearer_token_saved_securely_it_will_not_be_shown_here_leaving_it_blank_when_editing_means_keeping_the_original_token"))
                 } else {
-                Text(L10n.l("the_token_is_used_only_for_the_authorization_request_header_its_content_is_not_shown_in_the_ui"))
+                Text(String(localized: "the_token_is_used_only_for_the_authorization_request_header_its_content_is_not_shown_in_the_ui"))
             }
         }
 
         Section {
             if headerRows.isEmpty {
-                Text(L10n.l("no_custom_headers_added"))
+                Text(String(localized: "no_custom_headers_added"))
                     .foregroundStyle(.secondary)
             }
             ForEach($headerRows) { $row in
                 VStack(alignment: .leading, spacing: 6) {
-                    TextField(L10n.l("header_name_e_g_x_api_key"), text: $row.key)
+                    TextField(String(localized: "header_name_e_g_x_api_key"), text: $row.key)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
-                    SecureField(L10n.l("header_value"), text: $row.value)
+                    SecureField(String(localized: "header_value"), text: $row.value)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                 }
@@ -621,12 +621,12 @@ private struct MCPServerEditorView: View {
             Button {
                 headerRows.append(MCPHeaderRow())
             } label: {
-                Label(L10n.l("add_request_header"), systemImage: "plus.circle.fill")
+                Label(String(localized: "add_request_header"), systemImage: "plus.circle.fill")
             }
         } header: {
-            Text(L10n.l("custom_headers"))
+            Text(String(localized: "custom_headers"))
         } footer: {
-            Text(L10n.l("custom_request_headers_e_g_x_api_key_are_sent_with_every_request_do_not_enter_authorization_here_there_is_a_separate_bearer_token_field_protocol_headers_such_as_content_type_accept_mcp_session_id_mcp_protocol_version_are_managed_by_the_system_and_any_settings_here_will_be_ignored"))
+            Text(String(localized: "custom_request_headers_e_g_x_api_key_are_sent_with_every_request_do_not_enter_authorization_here_there_is_a_separate_bearer_token_field_protocol_headers_such_as_content_type_accept_mcp_session_id_mcp_protocol_version_are_managed_by_the_system_and_any_settings_here_will_be_ignored"))
         }
 
         if let validationMessage {
@@ -639,7 +639,7 @@ private struct MCPServerEditorView: View {
 
             if server != nil {
                 Section {
-                    Button(L10n.l("delete_mcp_server_action"), role: .destructive) {
+                    Button(String(localized: "delete_mcp_server_action"), role: .destructive) {
                         showDeleteConfirmation = true
                     }
                 }
@@ -647,26 +647,26 @@ private struct MCPServerEditorView: View {
         }
         .scrollContentBackground(.hidden)
         .background(ThemeBackground(slot: .settings))
-        .navigationTitle(server == nil ? L10n.l("add_mcp_server") : L10n.l("edit_mcp_server"))
+        .navigationTitle(server == nil ? String(localized: "add_mcp_server") : String(localized: "edit_mcp_server"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
-                Button(L10n.l("cancel")) { dismiss() }
+                Button(String(localized: "cancel")) { dismiss() }
             }
             ToolbarItem(placement: .confirmationAction) {
-                Button(L10n.l("save")) { save() }
+                Button(String(localized: "save")) { save() }
                     .fontWeight(.semibold)
             }
         }
-        .confirmationDialog(L10n.l("delete_mcp_server_confirm"), isPresented: $showDeleteConfirmation) {
+        .confirmationDialog(String(localized: "delete_mcp_server_confirm"), isPresented: $showDeleteConfirmation) {
             if let server {
-                Button(L10n.l("delete_action") + server.name, role: .destructive) {
+                Button(String(localized: "delete_action") + server.name, role: .destructive) {
                     onDelete(server.id)
                 }
             }
-            Button(L10n.l("cancel"), role: .cancel) {}
+            Button(String(localized: "cancel"), role: .cancel) {}
         } message: {
-            Text(L10n.l("the_server_configuration_and_its_saved_bearer_token_will_be_deleted_together_this_action_cannot_be_undone"))
+            Text(String(localized: "the_server_configuration_and_its_saved_bearer_token_will_be_deleted_together_this_action_cannot_be_undone"))
         }
     }
 
@@ -676,17 +676,17 @@ private struct MCPServerEditorView: View {
         let trimmedCommand = command.trimmingCharacters(in: .whitespaces)
 
         guard !trimmedName.isEmpty else {
-            validationMessage = L10n.l("please_enter_the_server_name")
+            validationMessage = String(localized: "please_enter_the_server_name")
             return
         }
         if transport.isLocalOnly {
             guard !trimmedCommand.isEmpty else {
-                validationMessage = L10n.l("stdio_transport_requires_a_launch_command")
+                validationMessage = String(localized: "stdio_transport_requires_a_launch_command")
                 return
             }
         } else {
             guard isValidEndpoint(trimmedEndpoint) else {
-                validationMessage = L10n.l("please_enter_a_valid_http_or_https_endpoint_url")
+                validationMessage = String(localized: "please_enter_a_valid_http_or_https_endpoint_url")
                 return
             }
         }

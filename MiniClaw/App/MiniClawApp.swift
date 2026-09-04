@@ -7,7 +7,6 @@ struct MiniClawApp: App {
     /// 经此回调转交 completionHandler，由 BackgroundDownloader 在事件处理完后调用。
     @UIApplicationDelegateAdaptor(MiniClawAppDelegate.self) private var appDelegate
     @State private var appState = AppState()
-    @StateObject private var l10n = L10n.shared
 
     init() {
         // 早期置位 AppState.shared，缩短 AppIntent（Siri/快捷指令）在冷启动后
@@ -73,8 +72,6 @@ struct MiniClawApp: App {
         WindowGroup {
             ContentView()
                 .environmentObject(appState)
-                .environmentObject(l10n)
-                .environment(\.locale, l10n.current.locale)
                 .onChange(of: appState.colorSchemePreference) { _ in applyColorScheme() }
                 .task {
                     AppState.shared = appState
@@ -190,7 +187,7 @@ struct MiniClawApp: App {
         // 新建会话（桌面小组件「新建对话」快捷入口）：建一个空会话并直接进入。
         if host == "new" {
             Task { @MainActor in
-                if let s = SessionManager.shared.createSession(title: L10n.l("new_chat"), source: "widget") {
+                if let s = SessionManager.shared.createSession(title: String(localized: "new_chat"), source: "widget") {
                     appState.selectedSession = s
                 }
             }

@@ -35,7 +35,7 @@ final class SpeechController: @unchecked Sendable {
     func start() {
         guard recognitionTask == nil else { return }
         guard SFSpeechRecognizer.authorizationStatus() == .authorized else {
-            onError?(L10n.l("speech_recognition_is_not_authorized_please_enable_it_in_system_settings"))
+            onError?(String(localized: "speech_recognition_is_not_authorized_please_enable_it_in_system_settings"))
             return
         }
         // ── AVAudioSession 配置（必须在 GCD 主队列）──
@@ -48,7 +48,7 @@ final class SpeechController: @unchecked Sendable {
                 try session.setCategory(.record, mode: .measurement, options: .duckOthers)
                 try session.setActive(true, options: .notifyOthersOnDeactivation)
             } catch {
-                self.onError?(String(format: L10n.l("audio_session_configuration_failed"), error.localizedDescription))
+                self.onError?(String(format: String(localized: "audio_session_configuration_failed"), error.localizedDescription))
                 return
             }
             self.startAudioEngine()
@@ -78,14 +78,14 @@ final class SpeechController: @unchecked Sendable {
         do {
             try audioEngine.start()
         } catch {
-            onError?(String(format: L10n.l("unable_to_start_recording"), error.localizedDescription))
+            onError?(String(format: String(localized: "unable_to_start_recording"), error.localizedDescription))
             return
         }
         // 引擎已真正启动录音，标记 recording，使 stop() 与 UI 侧「松开麦克风」只在确有录音时才清理音频资源。
         recording = true
 
         guard let recognizer, recognizer.isAvailable else {
-            onError?(L10n.l("speech_recognition_is_not_supported_in_the_current_language"))
+            onError?(String(localized: "speech_recognition_is_not_supported_in_the_current_language"))
             stop()
             return
         }
@@ -148,7 +148,7 @@ final class SpeechController: @unchecked Sendable {
 final class SpeechViewModel: ObservableObject, @unchecked Sendable {
     @Published var recognizedText: String = ""
     @Published var isRecording: Bool = false
-    @Published var statusMessage: String = L10n.l("hold_the_microphone_to_start_speaking")
+    @Published var statusMessage: String = String(localized: "hold_the_microphone_to_start_speaking")
     @Published var canSend: Bool = false
     @Published var showPermissionAlert: Bool = false
     @Published var permissionAlertMessage: String = ""
@@ -159,7 +159,7 @@ final class SpeechViewModel: ObservableObject, @unchecked Sendable {
     func reset() {
         recognizedText = ""
         isRecording = false
-        statusMessage = L10n.l("hold_the_microphone_to_start_speaking")
+        statusMessage = String(localized: "hold_the_microphone_to_start_speaking")
         canSend = false
     }
 }

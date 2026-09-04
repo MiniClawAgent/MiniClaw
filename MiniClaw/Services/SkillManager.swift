@@ -76,7 +76,7 @@ final class SkillManager {
             }
             // 描述取值优先级：清单 description（规范来源）→ SKILL.md frontmatter（兼容第三方旧包）→ 无描述。
             let resolvedDesc = manifest.description.isEmpty
-                ? (fm.description.isEmpty ? L10n.l("skill_no_description") : fm.description)
+                ? (fm.description.isEmpty ? String(localized: "skill_no_description") : fm.description)
                 : manifest.description
             result.append(SkillPackage(
                 name: displayName,
@@ -268,7 +268,7 @@ final class SkillManager {
                 guard !fm.name.isEmpty else { continue }
                 let isOn = enabled[fm.name] ?? true
                 guard isOn, !fm.description.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { continue }
-                result.append(String(format: L10n.l("skill_meta_section"), fm.name, fm.description))
+                result.append(String(format: String(localized: "skill_meta_section"), fm.name, fm.description))
             }
             return result
         }.value
@@ -316,10 +316,10 @@ final class SkillManager {
         for name in names {
             guard let body = await loadSkillBody(named: name),
                   !body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { continue }
-            sections.append(String(format: L10n.l("skill_loaded_body_section"), name, body))
+            sections.append(String(format: String(localized: "skill_loaded_body_section"), name, body))
         }
         guard !sections.isEmpty else { return "" }
-        return L10n.l("skill_loaded_prompt") + sections.joined(separator: "\n\n")
+        return String(localized: "skill_loaded_prompt") + sections.joined(separator: "\n\n")
     }
 
     /// 读取指定 name 的技能正文。线程治理（2026-08-09）：后台读盘，不阻塞主线程。
@@ -485,23 +485,23 @@ final class SkillManager {
                 try ZipArchive.extract(at: url, into: tmp)
                 staging = tmp
             } catch {
-                result.message = String(format: L10n.l("skill_unzip_failed"), error.localizedDescription)
+                result.message = String(format: String(localized: "skill_unzip_failed"), error.localizedDescription)
                 return result
             }
         } else {
             // 单文件 SKILL.md 已弃用，更新也只接受 .mpk/.zip 压缩包。
-            result.message = String(format: L10n.l("skill_single_file_deprecated"), ext)
+            result.message = String(format: String(localized: "skill_single_file_deprecated"), ext)
             return result
         }
 
         guard let src = findPluginDirectories(in: staging).first else {
-            result.message = L10n.l("skill_no_plugin_dir")
+            result.message = String(localized: "skill_no_plugin_dir")
             return result
         }
         // 强制 plugin.json：id 必须匹配目标避免覆盖错插件；type 必须 = skill（更新流只服务技能详情页）。
         guard let parsed = Self.pluginIDAndType(from: src.appendingPathComponent("plugin.json")),
               parsed.id == directoryName, parsed.type == "skill" else {
-            result.message = L10n.l("skill_update_id_mismatch")
+            result.message = String(localized: "skill_update_id_mismatch")
             return result
         }
         let dest = fs.skillsDir.appendingPathComponent(directoryName)
@@ -509,9 +509,9 @@ final class SkillManager {
         do {
             try FileManager.default.copyItem(at: src, to: dest)
             result.imported.append(directoryName)
-            result.message = String(format: L10n.l("skill_updated"), directoryName)
+            result.message = String(format: String(localized: "skill_updated"), directoryName)
         } catch {
-            result.message = String(format: L10n.l("skill_update_failed"), error.localizedDescription)
+            result.message = String(format: String(localized: "skill_update_failed"), error.localizedDescription)
         }
         return result
     }
@@ -546,18 +546,18 @@ final class SkillManager {
                 try ZipArchive.extract(at: url, into: tmp)
                 staging = tmp
             } catch {
-                result.message = String(format: L10n.l("skill_unzip_failed"), error.localizedDescription)
+                result.message = String(format: String(localized: "skill_unzip_failed"), error.localizedDescription)
                 return result
             }
         } else {
             // 单文件 SKILL.md 已弃用：不再提供兼容导入，提示改用 .mpk。
-            result.message = String(format: L10n.l("skill_single_file_deprecated"), ext)
+            result.message = String(format: String(localized: "skill_single_file_deprecated"), ext)
             return result
         }
 
         let pluginDirs = findPluginDirectories(in: staging)
         if pluginDirs.isEmpty {
-            result.message = L10n.l("skill_no_plugin_in_file")
+            result.message = String(localized: "skill_no_plugin_in_file")
             return result
         }
 
@@ -588,7 +588,7 @@ final class SkillManager {
                     result.skipped.append(dirName)
                     continue
                 case -1:
-                    result.message = String(format: L10n.l("plugin_update_downgrade_rejected"), newVer, oldVer)
+                    result.message = String(format: String(localized: "plugin_update_downgrade_rejected"), newVer, oldVer)
                     continue
                 default:
                     break
@@ -654,12 +654,12 @@ final class SkillManager {
                     if let json = try? String(contentsOf: serversURL, encoding: .utf8) {
                         do {
                             let (added, updated) = try MCPConfigStore.shared.mergePluginServers(json, sourcePlugin: dirName)
-                            result.message = String(format: L10n.l("mcp_plugin_merge_result"), added, updated)
+                            result.message = String(format: String(localized: "mcp_plugin_merge_result"), added, updated)
                         } catch {
                             result.message = error.localizedDescription
                         }
                     } else {
-                        result.message = L10n.l("mcp_plugin_no_servers")
+                        result.message = String(localized: "mcp_plugin_no_servers")
                     }
                 }
             } catch {
@@ -673,12 +673,12 @@ final class SkillManager {
             refreshSubagentProfiles()
         }
         if result.imported.isEmpty && result.skipped.isEmpty {
-            result.message = result.message.isEmpty ? L10n.l("import_none") : result.message
+            result.message = result.message.isEmpty ? String(localized: "import_none") : result.message
         } else {
             var parts: [String] = []
-            if !result.imported.isEmpty { parts.append(String(format: L10n.l("import_done_list"), result.imported.joined(separator: "、"))) }
-            if !result.updated.isEmpty { parts.append(String(format: L10n.l("import_updated_list"), result.updated.joined(separator: "、"))) }
-            if !result.skipped.isEmpty { parts.append(String(format: L10n.l("import_skipped_list"), result.skipped.joined(separator: "、"))) }
+            if !result.imported.isEmpty { parts.append(String(format: String(localized: "import_done_list"), result.imported.joined(separator: "、"))) }
+            if !result.updated.isEmpty { parts.append(String(format: String(localized: "import_updated_list"), result.updated.joined(separator: "、"))) }
+            if !result.skipped.isEmpty { parts.append(String(format: String(localized: "import_skipped_list"), result.skipped.joined(separator: "、"))) }
             result.message = parts.joined(separator: "；")
         }
         return result

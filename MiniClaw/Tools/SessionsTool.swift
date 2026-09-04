@@ -18,22 +18,22 @@ struct SessionsTool: AgentTool {
             type: "function",
             function: ToolSchema.FunctionDef(
                 name: "sessions_cli",
-                description: L10n.l("sessions_tool_desc"),
+                description: String(localized: "sessions_tool_desc"),
                 parameters: JSONSchema(
                     type: "object",
                     properties: [
-                        "command": JSONSchema.JSONProperty(type: "string", description: L10n.l("subcommand_label"), enum: ["list", "get", "create", "delete", "update", "append", "messages", "search"]),
-                        "target": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_target_session"), enum: ["current", "explicit"]),
-                        "id": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_target_explicit_note")),
-                        "title": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_session_title")),
-                        "model": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_model_name")),
-                        "agentName": JSONSchema.JSONProperty(type: "string", description: L10n.l("agent_display_name_param")),
-                        "field": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_update_field_desc")),
-                        "value": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_update_value")),
-                        "role": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_append_role")),
-                        "content": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_message_content_or_keyword")),
-                        "keyword": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_search_keyword")),
-                        "limit": JSONSchema.JSONProperty(type: "integer", description: L10n.l("param_list_limit"))
+                        "command": JSONSchema.JSONProperty(type: "string", description: String(localized: "subcommand_label"), enum: ["list", "get", "create", "delete", "update", "append", "messages", "search"]),
+                        "target": JSONSchema.JSONProperty(type: "string", description: String(localized: "param_target_session"), enum: ["current", "explicit"]),
+                        "id": JSONSchema.JSONProperty(type: "string", description: String(localized: "param_target_explicit_note")),
+                        "title": JSONSchema.JSONProperty(type: "string", description: String(localized: "param_session_title")),
+                        "model": JSONSchema.JSONProperty(type: "string", description: String(localized: "param_model_name")),
+                        "agentName": JSONSchema.JSONProperty(type: "string", description: String(localized: "agent_display_name_param")),
+                        "field": JSONSchema.JSONProperty(type: "string", description: String(localized: "param_update_field_desc")),
+                        "value": JSONSchema.JSONProperty(type: "string", description: String(localized: "param_update_value")),
+                        "role": JSONSchema.JSONProperty(type: "string", description: String(localized: "param_append_role")),
+                        "content": JSONSchema.JSONProperty(type: "string", description: String(localized: "param_message_content_or_keyword")),
+                        "keyword": JSONSchema.JSONProperty(type: "string", description: String(localized: "param_search_keyword")),
+                        "limit": JSONSchema.JSONProperty(type: "integer", description: String(localized: "param_list_limit"))
                     ],
                     required: ["command"]
                 )
@@ -80,8 +80,8 @@ struct SessionsTool: AgentTool {
         }
 
         let failedPrefixes = [
-            L10n.l("unknown_command"), L10n.l("not_found"), L10n.l("missing_label"), L10n.l("err_create_session_failed"),
-            L10n.l("update_requires"), L10n.l("append_requires"), L10n.l("search_requires")
+            String(localized: "unknown_command"), String(localized: "not_found"), String(localized: "missing_label"), String(localized: "err_create_session_failed"),
+            String(localized: "update_requires"), String(localized: "append_requires"), String(localized: "search_requires")
         ]
         let success = !failedPrefixes.contains { output.hasPrefix($0) }
 
@@ -107,7 +107,7 @@ enum SessionsCLI {
         case "messages":return messages(id: id)
         case "search":  return search(keyword: keyword)
         default:
-            return String(format: L10n.l("sessions_unknown_command"), command)
+            return String(format: String(localized: "sessions_unknown_command"), command)
         }
     }
 
@@ -120,7 +120,7 @@ enum SessionsCLI {
     static func get(id: String?) -> String {
         guard let id, let uuid = UUID(uuidString: id),
               let s = SessionManager.shared.session(id: uuid) else {
-            return L10n.l("session_not_found_id") + (id ?? L10n.l("none"))
+            return String(localized: "session_not_found_id") + (id ?? String(localized: "none"))
         }
         var d = sessionToDict(s)
         d["messages"] = s.messages
@@ -131,30 +131,30 @@ enum SessionsCLI {
 
     static func create(title: String?, model: String?, agentName: String?) -> String {
         guard let s = SessionManager.shared.createSession(
-            title: title ?? L10n.l("new_chat_title"),
-            model: model ?? L10n.l("not_configured"),
+            title: title ?? String(localized: "new_chat_title"),
+            model: model ?? String(localized: "not_configured"),
             agentName: agentName ?? "MiniClaw"
         ) else {
-            return L10n.l("err_create_session_no_context")
+            return String(localized: "err_create_session_no_context")
         }
-        return L10n.l("session_created_header") + prettyJSON(sessionToDict(s))
+        return String(localized: "session_created_header") + prettyJSON(sessionToDict(s))
     }
 
     static func delete(id: String?) -> String {
         guard let id, let uuid = UUID(uuidString: id) else {
-            return L10n.l("err_missing_id")
+            return String(localized: "err_missing_id")
         }
         return SessionManager.shared.deleteSession(id: uuid)
-            ? String(format: L10n.l("sessions_deleted"), id)
-            : String(format: L10n.l("sessions_not_found"), id)
+            ? String(format: String(localized: "sessions_deleted"), id)
+            : String(format: String(localized: "sessions_not_found"), id)
     }
 
     static func update(id: String?, field: String?, value: String?) -> String {
         guard let id, let uuid = UUID(uuidString: id) else {
-            return L10n.l("err_missing_id")
+            return String(localized: "err_missing_id")
         }
         guard let field, let value else {
-            return L10n.l("err_update_need_field_value")
+            return String(localized: "err_update_need_field_value")
         }
         // icon / iconColor 字段：空字符串表示清除（回退默认），其余原样透传给 SessionManager。
         let iconValue: String? = (field == "icon" || field == "iconColor") ? value : nil
@@ -169,32 +169,32 @@ enum SessionsCLI {
         )
         if field == "icon" {
             return ok
-                ? (value.isEmpty ? String(format: L10n.l("sessions_icon_cleared"), id) : String(format: L10n.l("sessions_updated_icon"), id, value))
-                : String(format: L10n.l("sessions_not_found"), id)
+                ? (value.isEmpty ? String(format: String(localized: "sessions_icon_cleared"), id) : String(format: String(localized: "sessions_updated_icon"), id, value))
+                : String(format: String(localized: "sessions_not_found"), id)
         }
         if field == "iconColor" {
             return ok
-                ? (value.isEmpty ? String(format: L10n.l("sessions_iconcolor_cleared"), id) : String(format: L10n.l("sessions_updated_iconcolor"), id, value))
-                : String(format: L10n.l("sessions_not_found"), id)
+                ? (value.isEmpty ? String(format: String(localized: "sessions_iconcolor_cleared"), id) : String(format: String(localized: "sessions_updated_iconcolor"), id, value))
+                : String(format: String(localized: "sessions_not_found"), id)
         }
-        return ok ? String(format: L10n.l("sessions_updated_field"), id, field) : String(format: L10n.l("sessions_not_found_or_field"), id)
+        return ok ? String(format: String(localized: "sessions_updated_field"), id, field) : String(format: String(localized: "sessions_not_found_or_field"), id)
     }
 
     static func append(id: String?, role: String?, content: String?) -> String {
         guard let id, let uuid = UUID(uuidString: id) else {
-            return L10n.l("err_missing_id")
+            return String(localized: "err_missing_id")
         }
         guard let content, !content.isEmpty else {
-            return L10n.l("err_append_need_content")
+            return String(localized: "err_append_need_content")
         }
         let ok = SessionManager.shared.appendMessage(sessionId: uuid, role: role ?? "user", content: content)
-        return ok ? String(format: L10n.l("sessions_message_appended"), id) : String(format: L10n.l("sessions_not_found"), id)
+        return ok ? String(format: String(localized: "sessions_message_appended"), id) : String(format: String(localized: "sessions_not_found"), id)
     }
 
     static func messages(id: String?) -> String {
         guard let id, let uuid = UUID(uuidString: id),
               let s = SessionManager.shared.session(id: uuid) else {
-            return L10n.l("session_not_found_ws") + (id ?? L10n.l("none"))
+            return String(localized: "session_not_found_ws") + (id ?? String(localized: "none"))
         }
         let arr = s.messages
             .sorted { $0.createdAt < $1.createdAt }
@@ -204,7 +204,7 @@ enum SessionsCLI {
 
     static func search(keyword: String?) -> String {
         guard let keyword, !keyword.isEmpty else {
-            return L10n.l("err_search_need_keyword")
+            return String(localized: "err_search_need_keyword")
         }
         let results = SessionManager.shared.searchAllMessages(keyword: keyword)
         let arr = results.map { item -> [String: Any] in

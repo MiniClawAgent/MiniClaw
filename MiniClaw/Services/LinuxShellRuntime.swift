@@ -150,7 +150,7 @@ final class LinuxShellRuntime: ShellRuntime, @unchecked Sendable {
             let deployed = try deployedRootfsURL()
             guard let bundled = Bundle.main.url(forResource: "rootfs", withExtension: nil),
                   validateRootfs(at: bundled) else {
-                throw ShellError.invalidRootfs(L10n.l("shell_rootfs_missing_bin_sh"))
+                throw ShellError.invalidRootfs(String(localized: "shell_rootfs_missing_bin_sh"))
             }
 
             if validateRootfs(at: deployed) {
@@ -165,7 +165,7 @@ final class LinuxShellRuntime: ShellRuntime, @unchecked Sendable {
             do {
                 try fm.copyItem(at: bundled, to: staging)
                 guard validateRootfs(at: staging) else {
-                    throw ShellError.invalidRootfs(L10n.l("shell_rootfs_staging_invalid"))
+                    throw ShellError.invalidRootfs(String(localized: "shell_rootfs_staging_invalid"))
                 }
                 ensureResolvConf(at: staging)
 

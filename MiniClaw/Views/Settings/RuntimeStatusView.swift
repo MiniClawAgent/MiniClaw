@@ -21,25 +21,25 @@ struct RuntimeStatusView: View {
         List {
             if let s = snapshot {
                 // 分类一：运行状态
-                Section(L10n.l("running_status")) {
+                Section(String(localized: "running_status")) {
                     HStack {
-                        Text(L10n.l("installation_status"))
+                        Text(String(localized: "installation_status"))
                         Spacer()
                         if s.rootfsDeployed {
                             HStack(spacing: 4) {
                                 Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
-                                Text(L10n.l("installed"))
+                                Text(String(localized: "installed"))
                             }
                         } else {
                             HStack(spacing: 4) {
                                 Image(systemName: "xmark.circle.fill").foregroundStyle(.red)
-                                Text(L10n.l("not_installed"))
+                                Text(String(localized: "not_installed"))
                             }
                         }
                     }
                     if let p = s.rootfsPath {
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(L10n.l("path")).font(.subheadline).foregroundStyle(.secondary)
+                            Text(String(localized: "path")).font(.subheadline).foregroundStyle(.secondary)
                             Text(p)
                                 .font(.caption)
                                 .foregroundStyle(.primary)
@@ -48,7 +48,7 @@ struct RuntimeStatusView: View {
                     }
                     if let sz = s.rootfsSizeBytes {
                         HStack {
-                            Text(L10n.l("size"))
+                            Text(String(localized: "size"))
                             Spacer()
                             Text(ByteCountFormatter.string(fromByteCount: Int64(sz), countStyle: .file))
                                 .foregroundStyle(.secondary)
@@ -57,13 +57,13 @@ struct RuntimeStatusView: View {
                 }
 
                 // 分类二：浏览文件
-                Section(L10n.l("browse_files")) {
+                Section(String(localized: "browse_files")) {
                     Button {
                         showFileManager = true
                     } label: {
                         HStack(spacing: 6) {
                             Image(systemName: "folder")
-                            Text(L10n.l("go_to_rootfs_root_directory"))
+                            Text(String(localized: "go_to_rootfs_root_directory"))
                         }
                     }
                 }
@@ -85,9 +85,9 @@ struct RuntimeStatusView: View {
                         }
                     }
                 } header: {
-                    Text(L10n.l("mirror_source"))
+                    Text(String(localized: "mirror_source"))
                 } footer: {
-                    Text(L10n.l("switch_alpine_apk_python_pip_node_js_npm_mirrors_to_fix_install_failures_caused_by_slow_or_unstable_direct_connections"))
+                    Text(String(localized: "switch_alpine_apk_python_pip_node_js_npm_mirrors_to_fix_install_failures_caused_by_slow_or_unstable_direct_connections"))
                         .font(.caption2)
                 }
 
@@ -98,7 +98,7 @@ struct RuntimeStatusView: View {
                             Image(systemName: "arrow.triangle.2.circlepath.circle.fill")
                                 .foregroundStyle(.orange)
                                 .font(.system(size: 15, weight: .semibold))
-                            Text(L10n.l("reset_scheduled_will_complete_automatically_after_restarting_the_app"))
+                            Text(String(localized: "reset_scheduled_will_complete_automatically_after_restarting_the_app"))
                                 .font(.subheadline)
                                 .foregroundStyle(.primary)
                         }
@@ -108,7 +108,7 @@ struct RuntimeStatusView: View {
                             reinstallPending = false
                             Task { await refresh() }
                         } label: {
-                            Text(L10n.l("cancel_reset")).frame(maxWidth: .infinity)
+                            Text(String(localized: "cancel_reset")).frame(maxWidth: .infinity)
                         }
                     } else {
                         Button(role: .destructive) {
@@ -116,16 +116,16 @@ struct RuntimeStatusView: View {
                         } label: {
                             HStack(spacing: 6) {
                                 Image(systemName: "trash")
-                                Text(L10n.l("reset_rootfs_uninstall_and_reinstall"))
+                                Text(String(localized: "reset_rootfs_uninstall_and_reinstall"))
                             }
                             .frame(maxWidth: .infinity)
                         }
                     }
                 } header: {
-                    Text(L10n.l("action_menu"))
+                    Text(String(localized: "action_menu"))
                 } footer: {
                     if !reinstallPending {
-                        Text(L10n.l("restore_the_container_to_the_factory_alpine_image_this_clears_all_installed_software_and_changes_inside_the_container_and_automatically_redeploys_on_the_next_app_launch_terminal_state_will_sync_automatically_after_the_reset"))
+                        Text(String(localized: "restore_the_container_to_the_factory_alpine_image_this_clears_all_installed_software_and_changes_inside_the_container_and_automatically_redeploys_on_the_next_app_launch_terminal_state_will_sync_automatically_after_the_reset"))
                             .font(.caption2)
                     }
                 }
@@ -133,7 +133,7 @@ struct RuntimeStatusView: View {
                 Section {
                     HStack {
                         Spacer()
-                        ProgressView(L10n.l("reading_rootfs_status"))
+                        ProgressView(String(localized: "reading_rootfs_status"))
                         Spacer()
                     }
                 }
@@ -142,7 +142,7 @@ struct RuntimeStatusView: View {
         .scrollContentBackground(.hidden)
         .background(ThemeBackground(slot: .settings))
         .listStyle(.insetGrouped)
-        .navigationTitle(L10n.l("rootfs_management"))
+        .navigationTitle(String(localized: "rootfs_management"))
         .navigationBarTitleDisplayMode(.inline)
         .task { await refresh() }
         .refreshable { await refresh() }
@@ -150,24 +150,24 @@ struct RuntimeStatusView: View {
             #if ISH_ENABLED
             RootfsManagerView()
             #else
-            EmptyStateView(label: L10n.l("rootfs_management"), systemImage: "exclamationmark.triangle",
-                         description: L10n.l("the_current_build_does_not_include_ish"))
+            EmptyStateView(label: String(localized: "rootfs_management"), systemImage: "exclamationmark.triangle",
+                         description: String(localized: "the_current_build_does_not_include_ish"))
             #endif
         }
-        .alert(L10n.l("confirm_reset_rootfs"), isPresented: $showReinstallConfirm) {
-            Button(L10n.l("cancel"), role: .cancel) {}
-            Button(L10n.l("reset"), role: .destructive) {
+        .alert(String(localized: "confirm_reset_rootfs"), isPresented: $showReinstallConfirm) {
+            Button(String(localized: "cancel"), role: .cancel) {}
+            Button(String(localized: "reset"), role: .destructive) {
                 RootfsMaintenance.requestReinstall()
                 reinstallPending = true
                 showRestartNotice = true
             }
         } message: {
-            Text(L10n.l("this_operation_will_erase_all_installed_software_and_changes_inside_the_container_restoring_the_factory_alpine_image_it_cannot_be_undone_and_will_run_on_the_next_app_launch"))
+            Text(String(localized: "this_operation_will_erase_all_installed_software_and_changes_inside_the_container_restoring_the_factory_alpine_image_it_cannot_be_undone_and_will_run_on_the_next_app_launch"))
         }
-        .alert(L10n.l("reset_scheduled"), isPresented: $showRestartNotice) {
-            Button(L10n.l("got_it"), role: .cancel) {}
+        .alert(String(localized: "reset_scheduled"), isPresented: $showRestartNotice) {
+            Button(String(localized: "got_it"), role: .cancel) {}
         } message: {
-            Text(L10n.l("please_fully_quit_the_app_swipe_it_away_from_the_background_and_reopen_it_the_reinstall_will_complete_automatically_on_next_launch_and_the_terminal_state_will_sync_automatically"))
+            Text(String(localized: "please_fully_quit_the_app_swipe_it_away_from_the_background_and_reopen_it_the_reinstall_will_complete_automatically_on_next_launch_and_the_terminal_state_will_sync_automatically"))
         }
     }
 
@@ -220,7 +220,7 @@ struct MirrorDetailView: View {
             Section {
                 HStack(spacing: 6) {
                     Image(systemName: kind.icon)
-                    Text(L10n.l("current_mirror"))
+                    Text(String(localized: "current_mirror"))
                     Spacer()
                     Text(currentName)
                         .foregroundStyle(.secondary)
@@ -240,10 +240,10 @@ struct MirrorDetailView: View {
                     HStack(spacing: 6) {
                         if probing {
                             ProgressView().controlSize(.small)
-                            Text(L10n.l("testing_latency"))
+                            Text(String(localized: "testing_latency"))
                         } else {
                             Image(systemName: "antenna.radiowaves.left.and.right")
-                            Text(L10n.l("test_latency_of_all_mirrors"))
+                            Text(String(localized: "test_latency_of_all_mirrors"))
                         }
                     }
                 }
@@ -257,7 +257,7 @@ struct MirrorDetailView: View {
             }
 
             // 可用源列表：点击直接切换，行尾显示延迟 ms
-            Section(L10n.l("available_mirrors")) {
+            Section(String(localized: "available_mirrors")) {
                 ForEach(kind.mirrors) { entry in
                     Button {
                         apply(entry)
@@ -293,8 +293,8 @@ struct MirrorDetailView: View {
 
     /// 行尾延迟标注：可达显示 ms；失败(-1)显示「超时」；未探测过显示「未测试」。
     private func latencyText(for entry: MirrorEntry) -> String {
-        guard let ms = probeResults[entry.id] else { return L10n.l("not_tested") }
-        return ms < 0 ? L10n.l("timeout") : "\(ms)ms"
+        guard let ms = probeResults[entry.id] else { return String(localized: "not_tested") }
+        return ms < 0 ? String(localized: "timeout") : "\(ms)ms"
     }
 
     private func latencyColor(for entry: MirrorEntry) -> Color {
@@ -307,7 +307,7 @@ struct MirrorDetailView: View {
 
     /// 当前选中源名称（由 currentID 派生）。
     private var currentName: String {
-        kind.mirrors.first { $0.id == currentID }?.name ?? L10n.l("not_selected")
+        kind.mirrors.first { $0.id == currentID }?.name ?? String(localized: "not_selected")
     }
 
     /// 一键探测全部候选源，结果按延迟升序持久化。
@@ -319,10 +319,10 @@ struct MirrorDetailView: View {
         probeResults = MirrorManager.lastProbe(for: kind)
         if results.isEmpty {
             messageIsSuccess = false
-            message = L10n.l("all_mirrors_are_unreachable_check_your_network_and_try_again")
+            message = String(localized: "all_mirrors_are_unreachable_check_your_network_and_try_again")
         } else if let fastest = results.first {
             messageIsSuccess = true
-            message = String(format: L10n.l("test_complete_fastest_is_ms"), fastest.entry.name, "\(fastest.latencyMs)")
+            message = String(format: String(localized: "test_complete_fastest_is_ms"), fastest.entry.name, "\(fastest.latencyMs)")
         }
     }
 
@@ -332,10 +332,10 @@ struct MirrorDetailView: View {
             try MirrorManager.apply(kind, id: entry.id)
             currentID = entry.id
             messageIsSuccess = true
-            message = String(format: L10n.l("applied"), entry.name)
+            message = String(format: String(localized: "applied"), entry.name)
         } catch {
             messageIsSuccess = false
-            message = String(format: L10n.l("failed_to_apply"), error.localizedDescription)
+            message = String(format: String(localized: "failed_to_apply"), error.localizedDescription)
         }
     }
 }

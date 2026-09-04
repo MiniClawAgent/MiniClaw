@@ -397,7 +397,7 @@ struct MessageBubbleView: View {
                 HStack(spacing: 6) {
                     Image(systemName: "wrench.adjustable")
                         .font(.caption)
-                    Text(message.toolCallName ?? L10n.l("tool_calls"))
+                    Text(message.toolCallName ?? String(localized: "tool_calls"))
                         .font(.caption)
                         .fontWeight(.medium)
                 }

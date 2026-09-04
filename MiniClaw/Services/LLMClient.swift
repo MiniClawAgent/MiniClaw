@@ -145,7 +145,7 @@ final class LLMClient: @unchecked Sendable {
             )
         }
         // 工厂当前覆盖全部供应商;防御:未来新增未注册 case 时兜底报错而非静默。
-        onComplete(.failure(LLMError.providerRejected(String(format: L10n.l("err_provider_adapter_missing"), providerType.rawValue))))
+        onComplete(.failure(LLMError.providerRejected(String(format: String(localized: "err_provider_adapter_missing"), providerType.rawValue))))
         return nil
     }
 
@@ -473,13 +473,13 @@ enum LLMError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .encodingFailed: return L10n.l("llm_encoding_failed")
-        case .decodingFailed: return L10n.l("llm_decoding_failed")
-        case .noData: return L10n.l("llm_no_data")
-        case .invalidResponse(let statusCode): return String(format: L10n.l("llm_invalid_response"), statusCode)
-        case .rateLimited: return L10n.l("llm_rate_limited")
+        case .encodingFailed: return String(localized: "llm_encoding_failed")
+        case .decodingFailed: return String(localized: "llm_decoding_failed")
+        case .noData: return String(localized: "llm_no_data")
+        case .invalidResponse(let statusCode): return String(format: String(localized: "llm_invalid_response"), statusCode)
+        case .rateLimited: return String(localized: "llm_rate_limited")
         case .providerRejected(let message): return message
-        case .streamTruncated: return L10n.l("llm_stream_truncated")
+        case .streamTruncated: return String(localized: "llm_stream_truncated")
         }
     }
 }

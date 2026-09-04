@@ -33,7 +33,7 @@ struct ReasoningBlockView: View {
                     Image(systemName: "wand.and.stars")
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(.blue)
-                    Text(L10n.l("deep_thinking_label"))
+                    Text(String(localized: "deep_thinking_label"))
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(.blue)
                     if !text.isEmpty {
@@ -62,7 +62,7 @@ struct ReasoningBlockView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 0) {
                         if window.isTruncated {
-                            Text(String(format: L10n.l("showing_last_k_chars"), window.shownK, window.totalK))
+                            Text(String(format: String(localized: "showing_last_k_chars"), window.shownK, window.totalK))
                                 .font(.system(size: 11))
                                 .foregroundStyle(.secondary)
                                 .padding(.horizontal, 12)

@@ -250,7 +250,7 @@ struct CodeBlockView: View {
                 Button(action: copyCode) {
                     HStack(spacing: 4) {
                         Image(systemName: isCopied ? "checkmark" : "doc.on.doc")
-                        Text(isCopied ? L10n.l("copied") : L10n.l("copy_action"))
+                        Text(isCopied ? String(localized: "copied") : String(localized: "copy_action"))
                     }
                     .font(.caption)
                 }
@@ -425,7 +425,7 @@ struct FilePreviewView: View {
         ReadonlyLogTextView(text: textContent ?? "")
             .overlay(alignment: .topTrailing) {
             if isTruncated {
-                Text(L10n.l("file_too_large_truncated_for_preview"))
+                Text(String(localized: "file_too_large_truncated_for_preview"))
                     .font(.caption2)
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 8)
@@ -491,7 +491,7 @@ struct FilePreviewView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
-            Text(L10n.l("content_preview_is_not_supported_for_this_type_use_the_share_button_in_the_top_right_to_export"))
+            Text(String(localized: "content_preview_is_not_supported_for_this_type_use_the_share_button_in_the_top_right_to_export"))
                 .font(.caption)
                 .foregroundStyle(.tertiary)
                 .multilineTextAlignment(.center)

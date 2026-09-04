@@ -320,9 +320,9 @@ final class SubagentStore: ObservableObject {
             m.wasInterrupted = true
             m.isStreaming = false
             if m.text.isEmpty {
-                m.text = String(format: L10n.l("warning_symbol_format"), desc)
+                m.text = String(format: String(localized: "warning_symbol_format"), desc)
             } else {
-                m.text += String(format: L10n.l("warning_format_prefix"), desc)
+                m.text += String(format: String(localized: "warning_format_prefix"), desc)
             }
         }
         if var list = cards[sessionID], let idx = list.firstIndex(where: { $0.id == info.id }) {

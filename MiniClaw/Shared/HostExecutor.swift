@@ -118,7 +118,7 @@ public struct HostExecutor {
         do {
             try process.run()
         } catch {
-            return ExecutionResult(exitCode: -1, stdout: "", stderr: String(format: L10n.l("err_proc_start_failed"), error.localizedDescription), timedOut: false)
+            return ExecutionResult(exitCode: -1, stdout: "", stderr: String(format: String(localized: "err_proc_start_failed"), error.localizedDescription), timedOut: false)
         }
 
         // 超时控制：到点终止任务。
@@ -162,7 +162,7 @@ public struct HostExecutor {
         return ExecutionResult(
             exitCode: -1,
             stdout: "",
-            stderr: L10n.l("err_host_executor_ios"),
+            stderr: String(localized: "err_host_executor_ios"),
             timedOut: false
         )
     }

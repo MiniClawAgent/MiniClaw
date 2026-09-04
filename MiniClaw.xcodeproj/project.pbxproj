@@ -32,7 +32,6 @@
 		10E6F6227B6053C2089D65DF37117BD0 /* EnvVarModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B92C0E9DF0CC89A63E4D9C66A59572B /* EnvVarModels.swift */; };
 		12AAD16B19095AA5FE50D0C997BCF1B4 /* SubagentRuntimeRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28FF43DC6C5BEBDFEA105A9B94321657 /* SubagentRuntimeRegistry.swift */; };
 		12E8A4E27D68FDD3F56B27B465738BF6 /* syntax_extension.c in Sources */ = {isa = PBXBuildFile; fileRef = E85E3B31A71D783C4AEA33DBB19C32BD /* syntax_extension.c */; };
-		145A767DF3C06F9B022C3D26054822CE /* Localization.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6065C7C6411B6C464D35A6FB66B4140A /* Localization.swift */; };
 		149559A87BB6BA4EFF0C9BF0DD0A6DC7 /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3C51108C251813E5104C31E20FFFB39 /* ShareViewController.swift */; };
 		149F29CBDE229B3B8E114F2AFA611E6B /* SpeechTools.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35E09F3F0E5577323A0D81DC81F78CE7 /* SpeechTools.swift */; };
 		14E52438BEF3CFE8C2F24FD0ABFE437C /* ProviderDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F6C15294858F59F3FCC1939262C1A13 /* ProviderDetailView.swift */; };
@@ -589,7 +588,6 @@
 		5F7818C2B69F5946411184D19286A410 /* AnthropicOAuthManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnthropicOAuthManager.swift; sourceTree = "<group>"; };
 		5FF567BC53DFA24886146E9463531B53 /* xml.c */ = {isa = PBXFileReference; path = xml.c; sourceTree = "<group>"; };
 		6029D723E634E468D128AC8EA192F333 /* EnvVarsSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnvVarsSettingsView.swift; sourceTree = "<group>"; };
-		6065C7C6411B6C464D35A6FB66B4140A /* Localization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Localization.swift; sourceTree = "<group>"; };
 		6126C727330C11B38EFF23AD361D93B2 /* MTMathAtomFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MTMathAtomFactory.swift; sourceTree = "<group>"; };
 		61752417A4675A607393B59C5391C685 /* GeminiProviderAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeminiProviderAdapter.swift; sourceTree = "<group>"; };
 		619DD268671B0688A6059E140ECA13E6 /* MessageBubbleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageBubbleView.swift; sourceTree = "<group>"; };
@@ -1548,7 +1546,6 @@
 			children = (
 				C47F67F41AE44228FFEF8469211B2823 /* AppState.swift */,
 				2E45CE8DF7448E74974100E82F8D341E /* ContentView.swift */,
-				6065C7C6411B6C464D35A6FB66B4140A /* Localization.swift */,
 				2602773AB5A5F4ABBCEB2DEA5DE4D8D1 /* MiniClawApp.swift */,
 				CEF21A2F7135920086AC0413103DD6AE /* ModelRoutingModels.swift */,
 				130418F916D4087FA1A9721B517811F6 /* ProviderStore.swift */,
@@ -2004,7 +2001,6 @@
 				23C287CCD6045A6E8D734C199365B371 /* LLMProviderAdapter.swift in Sources */,
 				0AFBFABFE1458EC868049C31070FD8A1 /* LLMProviderFactory.swift in Sources */,
 				ACC1D353C5AEBD3551374668361C4D1B /* LinuxShellRuntime.swift in Sources */,
-				145A767DF3C06F9B022C3D26054822CE /* Localization.swift in Sources */,
 				5D09B2B43300977A2854E966EBA80957 /* LocationTools.swift in Sources */,
 				626AD2F8EF2EF649B88233CD48FE6C17 /* LogsSettingsViews.swift in Sources */,
 				40ACC26185986537BA6A55AB18F4CF60 /* MCPClient.swift in Sources */,

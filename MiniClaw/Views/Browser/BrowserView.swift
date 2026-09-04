@@ -152,7 +152,7 @@ struct BrowserView: View {
                             controller.uiClearHistory()
                             showHistory = false
                         } label: {
-                            Text(L10n.l("clear_browsing_history"))
+                            Text(String(localized: "clear_browsing_history"))
                         }
                         .disabled(controller.uiHistoryItems().isEmpty)
                     }
@@ -190,7 +190,7 @@ struct BrowserView: View {
                     // 用最接近的 cpu.fill（芯片）作为机器人/硬件图标。
                     Image(systemName: "cpu.fill")
                         .font(.body)
-                    Text(L10n.l("in_progress"))
+                    Text(String(localized: "in_progress"))
                         .font(.body)
                 }
                 .padding(.horizontal, 16)
@@ -246,15 +246,15 @@ struct BrowserView: View {
             HStack(spacing: 2) {
                 // 选项按钮（历史记录 / 前进 / 新标签 / 关闭标签 / 截图 / 设置 / 全屏 / 关闭浏览器）
                 Menu {
-                    Button(L10n.l("history_records")) { showHistory = true }
-                    Button(L10n.l("forward_action")) { controller.uiForward() }
+                    Button(String(localized: "history_records")) { showHistory = true }
+                    Button(String(localized: "forward_action")) { controller.uiForward() }
                         .disabled(!controller.canGoForward)
-                    Button(L10n.l("new_tab_action")) { _ = controller.uiAddTab() }
-                    Button(L10n.l("close_current_tab")) {
+                    Button(String(localized: "new_tab_action")) { _ = controller.uiAddTab() }
+                    Button(String(localized: "close_current_tab")) {
                         controller.uiCloseTab(index: controller.activeIndex)
                     }
                     .disabled(controller.tabInfos.count <= 1)
-                    Button(L10n.l("capture_full_page_share")) {
+                    Button(String(localized: "capture_full_page_share")) {
                         Task {
                             if let link = await controller.uiScreenshot(fullPage: true),
                                let local = controller.resolveResourceURL(link) {
@@ -263,9 +263,9 @@ struct BrowserView: View {
                             }
                         }
                     }
-                    Button(L10n.l("browser_settings")) { showBrowserSettings = true }
-                    Button(L10n.l("fullscreen_browse")) { isFullscreen = true }
-                    Button(L10n.l("close_browser"), role: .destructive) { dismiss() }
+                    Button(String(localized: "browser_settings")) { showBrowserSettings = true }
+                    Button(String(localized: "fullscreen_browse")) { isFullscreen = true }
+                    Button(String(localized: "close_browser"), role: .destructive) { dismiss() }
                 } label: {
                     Image(systemName: "ellipsis")
                         .font(.body.weight(.semibold))
@@ -274,7 +274,7 @@ struct BrowserView: View {
                         .contentShape(Rectangle())
                 }
 
-                TextField(L10n.l("enter_url_or_search"), text: $urlString, onEditingChanged: { editing in
+                TextField(String(localized: "enter_url_or_search"), text: $urlString, onEditingChanged: { editing in
                     isEditingURL = editing
                 })
                     .font(.body)
@@ -380,7 +380,7 @@ struct BrowserView: View {
                                     .font(.title2.weight(.semibold))
                                     .foregroundStyle(.secondary)
                             )
-                        Text(L10n.l("new_tab_action"))
+                        Text(String(localized: "new_tab_action"))
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -475,7 +475,7 @@ struct BrowserView: View {
     private func displayTabTitle(_ info: BrowserEngineAdapter.TabInfo) -> String {
         if !info.title.isEmpty { return info.title }
         if let host = URL(string: info.url)?.host { return host }
-        return L10n.l("new_tab_page")
+        return String(localized: "new_tab_page")
     }
 }
 

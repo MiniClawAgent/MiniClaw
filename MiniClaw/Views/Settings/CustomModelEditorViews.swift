@@ -28,27 +28,27 @@ struct CustomModelEditorView: View {
 
     var body: some View {
         Form {
-            Section(L10n.l("identifier")) {
+            Section(String(localized: "identifier")) {
                 HStack {
-                    Text(L10n.l("model_name"))
+                    Text(String(localized: "model_name"))
                         .foregroundStyle(.primary)
                     Spacer()
-                    TextField(L10n.l("display_name"), text: $draft.displayName)
+                    TextField(String(localized: "display_name"), text: $draft.displayName)
                         .multilineTextAlignment(.trailing)
                 }
                 if isNew {
-                    TextField(L10n.l("model_id"), text: $draft.modelId)
+                    TextField(String(localized: "model_id"), text: $draft.modelId)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                 } else {
-                    LabeledContent(L10n.l("model_id"), value: draft.modelId)
+                    LabeledContent(String(localized: "model_id"), value: draft.modelId)
                 }
-                LabeledContent(L10n.l("model_provider"), value: providerName)
+                LabeledContent(String(localized: "model_provider"), value: providerName)
             }
 
             Section {
                 HStack {
-                    Text(L10n.l("context_window"))
+                    Text(String(localized: "context_window"))
                     Spacer()
                     TextField(vendorContextText, value: contextLimitBinding, format: .number.grouping(.never))
                         .keyboardType(.numberPad)
@@ -58,7 +58,7 @@ struct CustomModelEditorView: View {
                         .frame(width: 140)
                 }
                 HStack {
-                    Text(L10n.l("max_output_tokens"))
+                    Text(String(localized: "max_output_tokens"))
                     Spacer()
                     TextField(vendorMaxOutputText, value: maxOutputBinding, format: .number.grouping(.never))
                         .keyboardType(.numberPad)
@@ -68,56 +68,56 @@ struct CustomModelEditorView: View {
                         .frame(width: 140)
                 }
                 if draft.deepThinking {
-                    LabeledContent(L10n.l("deep_thinking_label")) {
+                    LabeledContent(String(localized: "deep_thinking_label")) {
                         HStack(spacing: 4) {
                             Image(systemName: "checkmark.circle.fill")
-                            Text(L10n.l("support"))
+                            Text(String(localized: "support"))
                         }
                         .foregroundStyle(.green)
                     }
                 } else {
-                    LabeledContent(L10n.l("deep_thinking_label")) {
-                        Text(L10n.l("not_supported"))
+                    LabeledContent(String(localized: "deep_thinking_label")) {
+                        Text(String(localized: "not_supported"))
                             .foregroundStyle(.tertiary)
                     }
                 }
             } header: {
-                Text(L10n.l("features"))
+                Text(String(localized: "features"))
             } footer: {
-                Text(L10n.l("context_window_and_max_output_leave_blank_or_enter_0_to_use_the_provider_default_once_set_your_values_take_effect_and_actually_constrain_requests"))
+                Text(String(localized: "context_window_and_max_output_leave_blank_or_enter_0_to_use_the_provider_default_once_set_your_values_take_effect_and_actually_constrain_requests"))
             }
 
             Section {
-                Toggle(L10n.l("hidden_model"), isOn: hiddenBinding)
+                Toggle(String(localized: "hidden_model"), isOn: hiddenBinding)
             } header: {
-                Text(L10n.l("hide"))
+                Text(String(localized: "hide"))
             } footer: {
-                Text(L10n.l("once_hidden_this_model_will_not_appear_in_the_model_group_s_model_options_or_the_add_list"))
+                Text(String(localized: "once_hidden_this_model_will_not_appear_in_the_model_group_s_model_options_or_the_add_list"))
             }
 
             Section {
-                modalityRow(L10n.l("text_input"), supported: catalogSupportsInput("text"), toggle: $draft.inputText)
-                modalityRow(L10n.l("image_input"), supported: catalogSupportsInput("image"), toggle: $draft.inputImage)
-                modalityRow(L10n.l("audio_input"), supported: catalogSupportsInput("audio"), toggle: $draft.inputAudio)
-                modalityRow(L10n.l("video_input"), supported: catalogSupportsInput("video"), toggle: $draft.inputVideo)
+                modalityRow(String(localized: "text_input"), supported: catalogSupportsInput("text"), toggle: $draft.inputText)
+                modalityRow(String(localized: "image_input"), supported: catalogSupportsInput("image"), toggle: $draft.inputImage)
+                modalityRow(String(localized: "audio_input"), supported: catalogSupportsInput("audio"), toggle: $draft.inputAudio)
+                modalityRow(String(localized: "video_input"), supported: catalogSupportsInput("video"), toggle: $draft.inputVideo)
             } header: {
-                Text(L10n.l("input_modality"))
+                Text(String(localized: "input_modality"))
             } footer: {
-                Text(L10n.l("not_supported_means_the_model_profile_marks_this_model_as_lacking_that_input_capability_matching_attachments_are_skipped_when_sending_text_is_the_universal_baseline_and_is_on_by_default"))
+                Text(String(localized: "not_supported_means_the_model_profile_marks_this_model_as_lacking_that_input_capability_matching_attachments_are_skipped_when_sending_text_is_the_universal_baseline_and_is_on_by_default"))
             }
 
             Section {
-                modalityRow(L10n.l("text_output"), supported: catalogSupportsOutput("text"), toggle: $draft.outputText)
-                modalityRow(L10n.l("image_output"), supported: catalogSupportsOutput("image"), toggle: $draft.outputImage)
-                modalityRow(L10n.l("audio_output"), supported: catalogSupportsOutput("audio"), toggle: $draft.outputAudio)
+                modalityRow(String(localized: "text_output"), supported: catalogSupportsOutput("text"), toggle: $draft.outputText)
+                modalityRow(String(localized: "image_output"), supported: catalogSupportsOutput("image"), toggle: $draft.outputImage)
+                modalityRow(String(localized: "audio_output"), supported: catalogSupportsOutput("audio"), toggle: $draft.outputAudio)
             } header: {
-                Text(L10n.l("output_modality"))
+                Text(String(localized: "output_modality"))
             } footer: {
-                Text(L10n.l("models_that_only_support_text_output_are_marked_not_supported_here_so_you_can_tell_the_model_type_at_a_glance_text_is_the_universal_baseline_and_is_on_by_default"))
+                Text(String(localized: "models_that_only_support_text_output_are_marked_not_supported_here_so_you_can_tell_the_model_type_at_a_glance_text_is_the_universal_baseline_and_is_on_by_default"))
             }
 
             Section {
-                Button(L10n.l("test")) {
+                Button(String(localized: "test")) {
                     showingTestCard = true
                 }
                 .disabled(
@@ -125,23 +125,23 @@ struct CustomModelEditorView: View {
                     !provider.keyAdded
                 )
             } header: {
-                Text(L10n.l("test"))
+                Text(String(localized: "test"))
             } footer: {
                 if !provider.keyAdded {
-                    Text(L10n.l("you_must_save_the_provider_key_before_testing"))
+                    Text(String(localized: "you_must_save_the_provider_key_before_testing"))
                 } else {
-                    Text(L10n.l("send_a_simulated_message_and_measure_the_first_token_latency"))
+                    Text(String(localized: "send_a_simulated_message_and_measure_the_first_token_latency"))
                 }
             }
         }
         .scrollContentBackground(.hidden)
         .background(ThemeBackground(slot: .settings))
         .simultaneousGesture(TapGesture().onEnded { fieldFocused = false })
-        .navigationTitle(isNew ? L10n.l("add_model") : L10n.l("model_settings"))
+        .navigationTitle(isNew ? String(localized: "add_model") : String(localized: "model_settings"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Button(L10n.l("save")) {
+                Button(String(localized: "save")) {
                     var saved = draft
                     let original = initial.displayName.trimmingCharacters(in: .whitespacesAndNewlines)
                     let current = saved.displayName.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -155,7 +155,7 @@ struct CustomModelEditorView: View {
             }
             ToolbarItemGroup(placement: .keyboard) {
                 Spacer()
-                Button(L10n.l("done")) { fieldFocused = false }
+                Button(String(localized: "done")) { fieldFocused = false }
             }
         }
         .sheet(isPresented: $showingTestCard) {
@@ -184,13 +184,13 @@ struct CustomModelEditorView: View {
     /// 上下文窗口输入框的占位文案：有厂商默认则展示，否则提示未知。
     private var vendorContextText: String {
         if let v = catalogEntry?.contextWindow, v > 0 { return v.formatted(.number.grouping(.never)) }
-        return L10n.l("unknown")
+        return String(localized: "unknown")
     }
 
     /// 最大输出输入框的占位文案。
     private var vendorMaxOutputText: String {
         if let v = catalogEntry?.maxOutputTokens, v > 0 { return v.formatted(.number.grouping(.never)) }
-        return L10n.l("provider_not_provided")
+        return String(localized: "provider_not_provided")
     }
 
     /// 上下文窗口上限（厂商默认）；档案未标注则不限。
@@ -254,7 +254,7 @@ struct CustomModelEditorView: View {
     private func modalityRow(_ title: String, supported: Bool?, toggle: Binding<Bool>) -> some View {
         if supported == false {
             LabeledContent(title) {
-                Text(L10n.l("not_supported"))
+                Text(String(localized: "not_supported"))
                     .foregroundStyle(.tertiary)
             }
         } else {
@@ -289,18 +289,18 @@ private struct ModelLatencyTestView: View {
                         .multilineTextAlignment(.center)
                 }
 
-                Button(status.isRunning ? L10n.l("testing") : L10n.l("start_test")) {
+                Button(status.isRunning ? String(localized: "testing") : String(localized: "start_test")) {
                     runTest()
                 }
                 .buttonStyle(.borderedProminent)
                 .disabled(status.isRunning)
             }
             .padding(28)
-            .navigationTitle(L10n.l("model_test"))
+            .navigationTitle(String(localized: "model_test"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
-                    Button(L10n.l("done")) { dismiss() }
+                    Button(String(localized: "done")) { dismiss() }
                 }
             }
             .onDisappear {
@@ -321,7 +321,7 @@ private struct ModelLatencyTestView: View {
                 let request = try makeTestRequest()
                 let (bytes, response) = try await URLSession.shared.bytes(for: request)
                 guard let http = response as? HTTPURLResponse else {
-                    status = .failed(L10n.l("invalid_response"))
+                    status = .failed(String(localized: "invalid_response"))
                     return
                 }
                 guard (200...299).contains(http.statusCode) else {
@@ -343,10 +343,10 @@ private struct ModelLatencyTestView: View {
                     status = .success(latency)
                     return
                 }
-                status = .failed(L10n.l("stream_ended_with_no_output"))
+                status = .failed(String(localized: "stream_ended_with_no_output"))
             } catch is CancellationError {
                 if case .running = status {
-                    status = .failed(L10n.l("test_canceled"))
+                    status = .failed(String(localized: "test_canceled"))
                 }
             } catch {
                 status = .failed(error.localizedDescription)
@@ -387,7 +387,7 @@ private struct ModelLatencyTestView: View {
         request.timeoutInterval = 60
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        let prompt = L10n.l("connectivity_probe_prompt")
+        let prompt = String(localized: "connectivity_probe_prompt")
         let body: [String: Any]
         switch provider.providerType {
         case .google:
@@ -506,17 +506,17 @@ private struct ModelLatencyTestView: View {
         }
         var title: String {
             switch self {
-            case .idle: return L10n.l("first_token_output_test")
-            case .running: return L10n.l("waiting_for_first_output")
-            case .success(let latency): return String(format: L10n.l("first_token_output_2fs"), latency)
-            case .failed: return L10n.l("test_failed")
+            case .idle: return String(localized: "first_token_output_test")
+            case .running: return String(localized: "waiting_for_first_output")
+            case .success(let latency): return String(format: String(localized: "first_token_output_2fs"), latency)
+            case .failed: return String(localized: "test_failed")
             }
         }
         var detail: String {
             switch self {
-            case .idle: return L10n.l("the_test_will_send_a_minimal_simulated_message_to_the_current_model")
-            case .running: return L10n.l("request_sent_measuring_the_first_valid_output")
-            case .success: return L10n.l("the_model_has_successfully_returned_its_first_valid_text")
+            case .idle: return String(localized: "the_test_will_send_a_minimal_simulated_message_to_the_current_model")
+            case .running: return String(localized: "request_sent_measuring_the_first_valid_output")
+            case .success: return String(localized: "the_model_has_successfully_returned_its_first_valid_text")
             case .failed(let message): return message
             }
         }
@@ -529,9 +529,9 @@ private struct ModelLatencyTestView: View {
 
         var errorDescription: String? {
             switch self {
-            case .invalidURL: return L10n.l("provider_request_url_invalid")
-            case .http(let code): return String(format: L10n.l("provider_returned_http"), String(code))
-            case .noOutput: return L10n.l("connection_ended_but_the_model_returned_no_valid_text")
+            case .invalidURL: return String(localized: "provider_request_url_invalid")
+            case .http(let code): return String(format: String(localized: "provider_returned_http"), String(code))
+            case .noOutput: return String(localized: "connection_ended_but_the_model_returned_no_valid_text")
             }
         }
     }

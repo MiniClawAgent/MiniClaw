@@ -182,10 +182,10 @@ final class ThemeManager: ObservableObject, @unchecked Sendable {
             guard ext == "jpg" || ext == "jpeg" || ext == "png" else { continue }
             let size = (try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
             if size > 2 * 1024 * 1024 {
-                return String(format: L10n.l("theme_import_image_too_large"), url.lastPathComponent)
+                return String(format: String(localized: "theme_import_image_too_large"), url.lastPathComponent)
             }
             if let dim = imageDimensions(at: url), max(dim.width, dim.height) > 3840 {
-                return String(format: L10n.l("theme_import_image_too_large"), url.lastPathComponent)
+                return String(format: String(localized: "theme_import_image_too_large"), url.lastPathComponent)
             }
         }
         return nil

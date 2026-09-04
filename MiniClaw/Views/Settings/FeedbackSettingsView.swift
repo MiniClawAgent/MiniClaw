@@ -11,31 +11,31 @@ struct FeedbackView: View {
 
     var body: some View {
         Form {
-            Section(L10n.l("feedback_type")) {
-                Picker(L10n.l("type"), selection: $feedbackType) {
-                    Text(L10n.l("bug_report")).tag("bug")
-                    Text(L10n.l("feature_suggestion")).tag("feature")
-                    Text(L10n.l("usage_improvements")).tag("improvement")
-                    Text(L10n.l("others")).tag("other")
+            Section(String(localized: "feedback_type")) {
+                Picker(String(localized: "type"), selection: $feedbackType) {
+                    Text(String(localized: "bug_report")).tag("bug")
+                    Text(String(localized: "feature_suggestion")).tag("feature")
+                    Text(String(localized: "usage_improvements")).tag("improvement")
+                    Text(String(localized: "others")).tag("other")
                 }
             }
 
-            Section(L10n.l("detailed_description")) {
+            Section(String(localized: "detailed_description")) {
                 TextEditor(text: $feedbackContent)
                     .frame(minHeight: 150)
             }
 
             Section {
-                Toggle(L10n.l("include_daily_memory"), isOn: $includeLogs)
+                Toggle(String(localized: "include_daily_memory"), isOn: $includeLogs)
             } footer: {
-                Text(L10n.l("logs_help_developers_quickly_pinpoint_issues"))
+                Text(String(localized: "logs_help_developers_quickly_pinpoint_issues"))
             }
 
             Section {
                 Button(action: {}) {
                     HStack {
                         Spacer()
-                        Label(L10n.l("submit_feedback"), systemImage: "paperplane.fill")
+                        Label(String(localized: "submit_feedback"), systemImage: "paperplane.fill")
                             .fontWeight(.semibold)
                         Spacer()
                     }
@@ -45,7 +45,7 @@ struct FeedbackView: View {
         }
         .scrollContentBackground(.hidden)
         .background(ThemeBackground(slot: .settings))
-        .navigationTitle(L10n.l("feedback"))
+        .navigationTitle(String(localized: "feedback"))
         .navigationBarTitleDisplayMode(.inline)
     }
 }

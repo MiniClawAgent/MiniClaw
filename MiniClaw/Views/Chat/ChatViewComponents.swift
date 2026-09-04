@@ -180,7 +180,7 @@ struct ContextRingIndicator: View {
         }
         .frame(width: 27, height: 27)
         .contentShape(Circle())
-        .accessibilityLabel(unlimited ? L10n.l("unlimited_context_window") : L10n.l("context_usage_format") + String(format: "%d%%", Int(ratio * 100)))
+        .accessibilityLabel(unlimited ? String(localized: "unlimited_context_window") : String(localized: "context_usage_format") + String(format: "%d%%", Int(ratio * 100)))
     }
 }
 
@@ -232,7 +232,7 @@ struct PendingMessageBubble: View {
             HStack(spacing: 3) {
                 Image(systemName: "hourglass")
                     .font(.system(size: 9))
-                Text(L10n.l("queued_tap_the_left_button_to_stop_and_send_immediately"))
+                Text(String(localized: "queued_tap_the_left_button_to_stop_and_send_immediately"))
                     .font(.caption2)
             }
             .foregroundStyle(.secondary)
@@ -254,20 +254,20 @@ struct ModelWarningBannerView: View {
                 Image(systemName: "exclamationmark.triangle.fill")
                     .foregroundStyle(.orange)
                     .font(.title3)
-                Text(L10n.l("no_model_connected"))
+                Text(String(localized: "no_model_connected"))
                     .font(.subheadline)
                     .fontWeight(.semibold)
                 Spacer()
             }
 
-            Text(L10n.l("connect_a_model_first_to_start_chatting_go_to_providers_add_one_and_fill_in_the_api_key"))
+            Text(String(localized: "connect_a_model_first_to_start_chatting_go_to_providers_add_one_and_fill_in_the_api_key"))
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
 
             Button(action: onConfigure) {
                 HStack(spacing: 6) {
-                    Text(L10n.l("go_to_configure_models"))
+                    Text(String(localized: "go_to_configure_models"))
                         .fontWeight(.medium)
                     Image(systemName: "arrow.up.right.square")
                 }

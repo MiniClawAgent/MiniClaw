@@ -233,7 +233,7 @@ final class BrowserController: NSObject, ObservableObject {
         let fm = FileSystemManager.shared
         let name = URL(fileURLWithPath: filePath).lastPathComponent
         guard let data = try? Data(contentsOf: URL(fileURLWithPath: filePath)) else {
-            return fallbackText + String(format: L10n.l("browser_artifact_read_failed"), filePath)
+            return fallbackText + String(format: String(localized: "browser_artifact_read_failed"), filePath)
         }
         return try await persistEngineArtifact(data: data, preferredName: name, sessionID: sessionID, fallbackText: fallbackText)
     }
@@ -244,9 +244,9 @@ final class BrowserController: NSObject, ObservableObject {
         do {
             try fm.writeAutomaticData(at: "/var/MiniClaw/browser/\(safeName)", data: data,
                                       actor: .browserAutomatic, sessionID: sessionID)
-            return fallbackText + String(format: L10n.l("browser_artifact_saved"), safeName, safeName)
+            return fallbackText + String(format: String(localized: "browser_artifact_saved"), safeName, safeName)
         } catch {
-            return fallbackText + String(format: L10n.l("browser_artifact_save_failed"), error.localizedDescription)
+            return fallbackText + String(format: String(localized: "browser_artifact_save_failed"), error.localizedDescription)
         }
     }
 
@@ -259,7 +259,7 @@ final class BrowserController: NSObject, ObservableObject {
         // 用户已取消托管（点「取消托管」按钮或手动操作过浏览器）：智能体的浏览器操作立即被拒，
         // 工具返回错误文本给模型，模型据此停止操作浏览器。
         guard !agentControlRevoked else {
-            throw ToolError.executionFailed(L10n.l("err_browser_user_took_over"))
+            throw ToolError.executionFailed(String(localized: "err_browser_user_took_over"))
         }
         // 串行门：浏览器工具在引擎侧被并发调用（如一次回复里同时开两个标签页），
         // 此处串行化，避免并行写坏 scopedSessionID / activeIndex / tabs 等共享状态导致死锁或转圈。
@@ -268,7 +268,7 @@ final class BrowserController: NSObject, ObservableObject {
         // 取消可能在排队期间发生：进入临界区后复查一次，
         // 拒绝「取消时已排队、随后才轮到」的并发调用（防用户要点 N 次取消才能挡住 N 个调用）。
         guard !agentControlRevoked else {
-            throw ToolError.executionFailed(L10n.l("err_browser_user_took_over"))
+            throw ToolError.executionFailed(String(localized: "err_browser_user_took_over"))
         }
         markAgentOperating()
         defer { scheduleAgentOperationEnd() }
@@ -347,7 +347,7 @@ final class BrowserController: NSObject, ObservableObject {
         tabInfos = tabs.enumerated().map { (i, tab) in
             TabInfo(
                 id: tab.id,
-                title: tab.title.isEmpty ? (tab.webView.url?.absoluteString ?? L10n.l("new_tab_page")) : tab.title,
+                title: tab.title.isEmpty ? (tab.webView.url?.absoluteString ?? String(localized: "new_tab_page")) : tab.title,
                 url: tab.webView.url?.absoluteString ?? ""
             )
         }
@@ -446,7 +446,7 @@ final class BrowserController: NSObject, ObservableObject {
     /// 达到标签上限时返回 nil（由调用方忽略弹窗）。
     func openPopupTab(urlString: String?, configuration: WKWebViewConfiguration? = nil) -> WKWebView? {
         guard tabs.count < BrowserController.maxTabs else {
-            AppLogger.shared.info(String(format: L10n.l("bc_popup_ignored_tab_limit"), BrowserController.maxTabs), category: "Browser", subsystem: "Browser")
+            AppLogger.shared.info(String(format: String(localized: "bc_popup_ignored_tab_limit"), BrowserController.maxTabs), category: "Browser", subsystem: "Browser")
             return nil
         }
         let idx = tabs.count
@@ -571,7 +571,7 @@ final class BrowserController: NSObject, ObservableObject {
             resolvedIndex = idx
         } else if let tabID, let uuid = UUID(uuidString: tabID) {
             guard let idx = tabs.firstIndex(where: { $0.id == uuid }) else {
-                throw ToolError.invalidParameters(L10n.l("err_tab_id_stale"))
+                throw ToolError.invalidParameters(String(localized: "err_tab_id_stale"))
             }
             resolvedIndex = idx
         }
@@ -599,7 +599,7 @@ final class BrowserController: NSObject, ObservableObject {
         case "set_cookies":        return try await setCookies(params)
         case "wait_for_dom_stable":return try await waitForDomStable(params, tabIndex: resolvedIndex)
         default:
-            throw ToolError.invalidParameters(String(format: L10n.l("bc_unknown_action"), action))
+            throw ToolError.invalidParameters(String(format: String(localized: "bc_unknown_action"), action))
         }
     }
 
@@ -607,7 +607,7 @@ final class BrowserController: NSObject, ObservableObject {
 
     private func navigate(action params: [String: Any], tabIndex: Int?, applyDesktopUA: Bool = false) async throws -> String {
         guard let raw = params["url"] as? String, !raw.isEmpty else {
-            throw ToolError.invalidParameters(L10n.l("err_navigate_need_url"))
+            throw ToolError.invalidParameters(String(localized: "err_navigate_need_url"))
         }
         // 寻址（P1-B 修复）：显式 tabIndex 越界 → 报错引导（绝不静默重建幽灵标签）；
         // 未指定时用当前激活标签（空标签组兜底创建 0 号）。
@@ -615,7 +615,7 @@ final class BrowserController: NSObject, ObservableObject {
         if let tabIndex {
             // self. 前缀：局部变量 tab 会遮蔽同名方法 tab(at:)
             guard let t = self.tab(at: tabIndex) else {
-                throw ToolError.invalidParameters(L10n.l("err_tab_stale"))
+                throw ToolError.invalidParameters(String(localized: "err_tab_stale"))
             }
             tab = t
         } else {
@@ -627,15 +627,15 @@ final class BrowserController: NSObject, ObservableObject {
         ensureHosted(tab)
 
         guard !raw.lowercased().hasPrefix("miniclaw://") else {
-            throw ToolError.invalidParameters(L10n.l("err_miniclaw_deeplink_not_for_browser"))
+            throw ToolError.invalidParameters(String(localized: "err_miniclaw_deeplink_not_for_browser"))
         }
         guard !raw.hasPrefix("file://"), !raw.hasPrefix("/") else {
-            throw ToolError.invalidParameters(L10n.l("err_browser_url_only"))
+            throw ToolError.invalidParameters(String(localized: "err_browser_url_only"))
         }
         let loadURLString = normalizeURL(raw)
 
         guard let url = URL(string: loadURLString) else {
-            throw ToolError.invalidParameters(String(format: L10n.l("bc_invalid_url"), raw))
+            throw ToolError.invalidParameters(String(format: String(localized: "bc_invalid_url"), raw))
         }
 
         tab.navResolved = false
@@ -667,7 +667,7 @@ final class BrowserController: NSObject, ObservableObject {
     }
 
     private func screenshot(tabIndex: Int?, fullPage: Bool) async throws -> String {
-        guard let tab = tab(at: tabIndex) else { throw ToolError.invalidParameters(L10n.l("err_tab_stale")) }
+        guard let tab = tab(at: tabIndex) else { throw ToolError.invalidParameters(String(localized: "err_tab_stale")) }
         ensureHosted(tab)
         // 等一帧确保渲染
         try? await Task.sleep(nanoseconds: 200_000_000)
@@ -718,7 +718,7 @@ final class BrowserController: NSObject, ObservableObject {
                 divisor *= 2
             }
             guard let d = downsampled else {
-                throw ToolError.executionFailed(L10n.l("err_screenshot_encode_failed"))
+                throw ToolError.executionFailed(String(localized: "err_screenshot_encode_failed"))
             }
             return d
         }.value
@@ -734,7 +734,7 @@ final class BrowserController: NSObject, ObservableObject {
     }
 
     private func click(_ params: [String: Any], tabIndex: Int?) async throws -> String {
-        guard let tab = tab(at: tabIndex) else { throw ToolError.invalidParameters(L10n.l("err_tab_stale")) }
+        guard let tab = tab(at: tabIndex) else { throw ToolError.invalidParameters(String(localized: "err_tab_stale")) }
         if let x = params["x"] as? Double, let y = params["y"] as? Double {
             let script = """
             (function(){
@@ -748,7 +748,7 @@ final class BrowserController: NSObject, ObservableObject {
             return try await js(tab, script)
         }
         guard let selector = params["selector"] as? String else {
-            throw ToolError.invalidParameters(L10n.l("err_click_need_selector"))
+            throw ToolError.invalidParameters(String(localized: "err_click_need_selector"))
         }
         let sel = jsStringLiteral(selector)
         let script = """
@@ -764,12 +764,12 @@ final class BrowserController: NSObject, ObservableObject {
     }
 
     private func typeText(_ params: [String: Any], tabIndex: Int?) async throws -> String {
-        guard let tab = tab(at: tabIndex) else { throw ToolError.invalidParameters(L10n.l("err_tab_stale")) }
+        guard let tab = tab(at: tabIndex) else { throw ToolError.invalidParameters(String(localized: "err_tab_stale")) }
         guard let selector = params["selector"] as? String else {
-            throw ToolError.invalidParameters(L10n.l("err_type_need_selector"))
+            throw ToolError.invalidParameters(String(localized: "err_type_need_selector"))
         }
         guard let text = params["text"] as? String else {
-            throw ToolError.invalidParameters(L10n.l("err_type_need_text"))
+            throw ToolError.invalidParameters(String(localized: "err_type_need_text"))
         }
         let sel = jsStringLiteral(selector)
         let txt = jsStringLiteral(text)
@@ -793,7 +793,7 @@ final class BrowserController: NSObject, ObservableObject {
     }
 
     private func getText(_ params: [String: Any], tabIndex: Int?) async throws -> String {
-        guard let tab = tab(at: tabIndex) else { throw ToolError.invalidParameters(L10n.l("err_tab_stale")) }
+        guard let tab = tab(at: tabIndex) else { throw ToolError.invalidParameters(String(localized: "err_tab_stale")) }
         guard let selector = params["selector"] as? String, !selector.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             // 模型想取「整页文本内容」却漏传 selector：降级为整页可读正文提取，
             // 避免 get_text 缺参直接报错导致重试，与 get_readable 等价。
@@ -805,7 +805,7 @@ final class BrowserController: NSObject, ObservableObject {
     }
 
     private func getReadable(_ params: [String: Any], tabIndex: Int?) async throws -> String {
-        guard let tab = tab(at: tabIndex) else { throw ToolError.invalidParameters(L10n.l("err_tab_stale")) }
+        guard let tab = tab(at: tabIndex) else { throw ToolError.invalidParameters(String(localized: "err_tab_stale")) }
         let maxLen = params["max_length"] as? Int ?? 8000
         let script = """
         (function(){
@@ -819,16 +819,16 @@ final class BrowserController: NSObject, ObservableObject {
         // 空白 + 仍在加载 → 明确提示，避免把空/旧页面当结果（曾导致检索空转）。
         if text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             if tab.webView.isLoading {
-                return L10n.l("err_page_loading")
+                return String(localized: "err_page_loading")
             }
-            return L10n.l("err_page_empty")
+            return String(localized: "err_page_empty")
         }
-        if text.count > maxLen { return String(text.prefix(maxLen)) + L10n.l("truncated_marker") }
+        if text.count > maxLen { return String(text.prefix(maxLen)) + String(localized: "truncated_marker") }
         return text
     }
 
     private func getPageInfo(_ params: [String: Any], tabIndex: Int?) async throws -> String {
-        guard let tab = tab(at: tabIndex) else { throw ToolError.invalidParameters(L10n.l("err_tab_stale")) }
+        guard let tab = tab(at: tabIndex) else { throw ToolError.invalidParameters(String(localized: "err_tab_stale")) }
         let script = """
         (function(){
           var m = document.querySelector('meta[name="description"]');
@@ -845,7 +845,7 @@ final class BrowserController: NSObject, ObservableObject {
     }
 
     private func getBackbone(_ params: [String: Any], tabIndex: Int?) async throws -> String {
-        guard let tab = tab(at: tabIndex) else { throw ToolError.invalidParameters(L10n.l("err_tab_stale")) }
+        guard let tab = tab(at: tabIndex) else { throw ToolError.invalidParameters(String(localized: "err_tab_stale")) }
         let script = """
         (function(){
           function walk(node, depth){
@@ -868,7 +868,7 @@ final class BrowserController: NSObject, ObservableObject {
     }
 
     private func scroll(_ params: [String: Any], tabIndex: Int?) async throws -> String {
-        guard let tab = tab(at: tabIndex) else { throw ToolError.invalidParameters(L10n.l("err_tab_stale")) }
+        guard let tab = tab(at: tabIndex) else { throw ToolError.invalidParameters(String(localized: "err_tab_stale")) }
         // element 参数：滚动到指定元素（比 window.scrollTo 更精确，配合可滚动容器自动定位）
         if let element = params["element"] as? String, !element.isEmpty {
             let sel = jsStringLiteral(element)
@@ -908,7 +908,7 @@ final class BrowserController: NSObject, ObservableObject {
     }
 
     private func scrollAndCollect(_ params: [String: Any], tabIndex: Int?) async throws -> String {
-        guard let tab = tab(at: tabIndex) else { throw ToolError.invalidParameters(L10n.l("err_tab_stale")) }
+        guard let tab = tab(at: tabIndex) else { throw ToolError.invalidParameters(String(localized: "err_tab_stale")) }
         let maxRounds = min(params["max_rounds"] as? Int ?? 12, 30)
         let selector = params["selector"] as? String
         let sel = selector.map { jsStringLiteral($0) } ?? "document.body"
@@ -940,13 +940,13 @@ final class BrowserController: NSObject, ObservableObject {
     }
 
     private func executeJS(_ params: [String: Any], tabIndex: Int?) async throws -> String {
-        guard let tab = tab(at: tabIndex) else { throw ToolError.invalidParameters(L10n.l("err_tab_stale")) }
+        guard let tab = tab(at: tabIndex) else { throw ToolError.invalidParameters(String(localized: "err_tab_stale")) }
         guard let rawScript = params["script"] as? String else {
-            throw ToolError.invalidParameters(L10n.l("err_execute_js_need_script"))
+            throw ToolError.invalidParameters(String(localized: "err_execute_js_need_script"))
         }
         let trimmed = rawScript.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
-            throw ToolError.invalidParameters(L10n.l("err_execute_js_empty"))
+            throw ToolError.invalidParameters(String(localized: "err_execute_js_empty"))
         }
 
         // WKWebView.evaluateJavaScript 直接执行的是脚本程序，顶层 `return` 属于非法语法。
@@ -963,15 +963,15 @@ final class BrowserController: NSObject, ObservableObject {
         } catch {
             let nsError = error as NSError
             throw ToolError.executionFailed(
-                String(format: L10n.l("bc_js_failed"), nsError.domain, nsError.code, error.localizedDescription)
+                String(format: String(localized: "bc_js_failed"), nsError.domain, nsError.code, error.localizedDescription)
             )
         }
     }
 
     private func findElements(_ params: [String: Any], tabIndex: Int?) async throws -> String {
-        guard let tab = tab(at: tabIndex) else { throw ToolError.invalidParameters(L10n.l("err_tab_stale")) }
+        guard let tab = tab(at: tabIndex) else { throw ToolError.invalidParameters(String(localized: "err_tab_stale")) }
         guard let selector = params["selector"] as? String else {
-            throw ToolError.invalidParameters(L10n.l("err_find_elements_need_selector"))
+            throw ToolError.invalidParameters(String(localized: "err_find_elements_need_selector"))
         }
         let sel = jsStringLiteral(selector)
         let limit = params["limit"] as? Int ?? 20
@@ -999,9 +999,9 @@ final class BrowserController: NSObject, ObservableObject {
     }
 
     private func hover(_ params: [String: Any], tabIndex: Int?) async throws -> String {
-        guard let tab = tab(at: tabIndex) else { throw ToolError.invalidParameters(L10n.l("err_tab_stale")) }
+        guard let tab = tab(at: tabIndex) else { throw ToolError.invalidParameters(String(localized: "err_tab_stale")) }
         guard let selector = params["selector"] as? String else {
-            throw ToolError.invalidParameters(L10n.l("err_hover_need_selector"))
+            throw ToolError.invalidParameters(String(localized: "err_hover_need_selector"))
         }
         let sel = jsStringLiteral(selector)
         let script = """
@@ -1017,7 +1017,7 @@ final class BrowserController: NSObject, ObservableObject {
     }
 
     private func setUserAgent(_ params: [String: Any], tabIndex: Int?) async throws -> String {
-        guard let tab = tab(at: tabIndex) else { throw ToolError.invalidParameters(L10n.l("err_tab_stale")) }
+        guard let tab = tab(at: tabIndex) else { throw ToolError.invalidParameters(String(localized: "err_tab_stale")) }
         let ua: String
         if let preset = params["preset"] as? String {
             ua = preset == "mobile" ? BrowserActionHelpers.mobileUA : BrowserActionHelpers.desktopUA
@@ -1028,25 +1028,25 @@ final class BrowserController: NSObject, ObservableObject {
         }
         tab.webView.customUserAgent = ua
         rebuildTabInfos()
-        return String(format: L10n.l("bc_ua_set"), String(ua.prefix(60)))
+        return String(format: String(localized: "bc_ua_set"), String(ua.prefix(60)))
     }
 
     private func setViewport(_ params: [String: Any], tabIndex: Int?) async throws -> String {
-        guard let tab = tab(at: tabIndex) else { throw ToolError.invalidParameters(L10n.l("err_tab_stale")) }
+        guard let tab = tab(at: tabIndex) else { throw ToolError.invalidParameters(String(localized: "err_tab_stale")) }
         let w = params["width"] as? Double ?? 1024
         let h = params["height"] as? Double ?? 768
         tab.webView.frame = CGRect(x: tab.webView.frame.origin.x, y: 0, width: CGFloat(w), height: CGFloat(h))
-        return String(format: L10n.l("bc_viewport_set"), Int(w), Int(h))
+        return String(format: String(localized: "bc_viewport_set"), Int(w), Int(h))
     }
 
     private func fetchResource(_ params: [String: Any]) async throws -> String {
         guard let raw = params["url"] as? String else {
-            throw ToolError.invalidParameters(L10n.l("err_fetch_need_url"))
+            throw ToolError.invalidParameters(String(localized: "err_fetch_need_url"))
         }
-        guard let url = URL(string: raw) else { throw ToolError.invalidParameters(L10n.l("err_invalid_url")) }
+        guard let url = URL(string: raw) else { throw ToolError.invalidParameters(String(localized: "err_invalid_url")) }
 
         let filename = url.lastPathComponent
-        DownloadProgressTracker.shared.start(label: filename.isEmpty ? L10n.l("download_files") : filename)
+        DownloadProgressTracker.shared.start(label: filename.isEmpty ? String(localized: "download_files") : filename)
 
         let data: Data
         do {
@@ -1076,7 +1076,7 @@ final class BrowserController: NSObject, ObservableObject {
 
     private func newTab(_ params: [String: Any]) async throws -> String {
         guard tabs.count < BrowserController.maxTabs else {
-            throw ToolError.executionFailed(String(format: L10n.l("bc_tab_limit"), BrowserController.maxTabs))
+            throw ToolError.executionFailed(String(format: String(localized: "bc_tab_limit"), BrowserController.maxTabs))
         }
         let idx = tabs.count
         _ = ensureTab(at: idx)
@@ -1086,26 +1086,26 @@ final class BrowserController: NSObject, ObservableObject {
         }
         // P1-A 修复：await 导航期间标签可能被用户关闭 → 越界守卫（曾直接 tabs[idx] 崩溃）。
         guard tabs.indices.contains(idx) else {
-            throw ToolError.executionFailed(String(format: L10n.l("bc_tab_closed_loading"), idx))
+            throw ToolError.executionFailed(String(format: String(localized: "bc_tab_closed_loading"), idx))
         }
         // P3-2 修复：不抢用户当前高亮（智能体后续用 tab_id/tab_index 显式操作新标签即可）。
         rebuildTabInfos()
         // 附加目标页面状态（requested/url/error），模型可立即判断新标签是否加载成功。
         let summary = targetURL.isEmpty ? "" : pageInfoJSON(tabs[idx], requested: targetURL)
-        return String(format: L10n.l("bc_tab_created"), idx, tabs.count) + (summary.isEmpty ? "" : "\n" + summary)
+        return String(format: String(localized: "bc_tab_created"), idx, tabs.count) + (summary.isEmpty ? "" : "\n" + summary)
     }
 
     private func closeTab(_ params: [String: Any]) async throws -> String {
         let idx = params["index"] as? Int ?? activeIndex
         guard tabs.indices.contains(idx), tabs.count > 1 else {
-            throw ToolError.executionFailed(L10n.l("err_cannot_close_tab"))
+            throw ToolError.executionFailed(String(localized: "err_cannot_close_tab"))
         }
         let tab = tabs.remove(at: idx)
         stopObserving(tab)
         tab.webView.removeFromSuperview()
         if activeIndex >= tabs.count { activeIndex = tabs.count - 1 }
         rebuildTabInfos()
-        return String(format: L10n.l("bc_tab_closed"), idx, tabs.count)
+        return String(format: String(localized: "bc_tab_closed"), idx, tabs.count)
     }
 
     private func listTabs() -> String {
@@ -1143,7 +1143,7 @@ final class BrowserController: NSObject, ObservableObject {
             if let lastReinject = lastReinjectAt,
                Date().timeIntervalSince(lastReinject) < reinjectMinInterval {
                 backupCookies = []
-                AppLogger.shared.info(L10n.l("cookiekeeper_logout_detected"), category: "Browser", subsystem: "Browser")
+                AppLogger.shared.info(String(localized: "cookiekeeper_logout_detected"), category: "Browser", subsystem: "Browser")
                 return
             }
             guard reinjectCount < reinjectMax else {
@@ -1155,7 +1155,7 @@ final class BrowserController: NSObject, ObservableObject {
             for c in backupCookies {
                 await store.setCookie(c)
             }
-            AppLogger.shared.info(String(format: L10n.l("bc_cookiekeeper_reinject"), backupCookies.count, reinjectCount), category: "Browser", subsystem: "Browser")
+            AppLogger.shared.info(String(format: String(localized: "bc_cookiekeeper_reinject"), backupCookies.count, reinjectCount), category: "Browser", subsystem: "Browser")
             return
         }
         if !all.isEmpty { backupCookies = all }
@@ -1163,7 +1163,7 @@ final class BrowserController: NSObject, ObservableObject {
 
     private func getCookies(_ params: [String: Any]) async throws -> String {
         guard let raw = params["url"] as? String, let url = URL(string: raw) else {
-            throw ToolError.invalidParameters(L10n.l("err_get_cookies_need_url"))
+            throw ToolError.invalidParameters(String(localized: "err_get_cookies_need_url"))
         }
         let store = activeContext.cookieStore
         let all = await store.allCookies()
@@ -1175,10 +1175,10 @@ final class BrowserController: NSObject, ObservableObject {
 
     private func setCookies(_ params: [String: Any]) async throws -> String {
         guard let raw = params["url"] as? String, let url = URL(string: raw) else {
-            throw ToolError.invalidParameters(L10n.l("err_set_cookies_need_url"))
+            throw ToolError.invalidParameters(String(localized: "err_set_cookies_need_url"))
         }
         guard let name = params["name"] as? String, let value = params["value"] as? String else {
-            throw ToolError.invalidParameters(L10n.l("err_set_cookies_need_name_value"))
+            throw ToolError.invalidParameters(String(localized: "err_set_cookies_need_name_value"))
         }
         var props: [HTTPCookiePropertyKey: Any] = [
             .name: name,
@@ -1190,14 +1190,14 @@ final class BrowserController: NSObject, ObservableObject {
             props[.expires] = Date().addingTimeInterval(expires * 86400)
         }
         guard let cookie = HTTPCookie(properties: props) else {
-            throw ToolError.executionFailed(L10n.l("err_cookie_build_failed"))
+            throw ToolError.executionFailed(String(localized: "err_cookie_build_failed"))
         }
         await activeContext.cookieStore.setCookie(cookie)
-        return String(format: L10n.l("bc_cookie_set"), name)
+        return String(format: String(localized: "bc_cookie_set"), name)
     }
 
     private func waitForDomStable(_ params: [String: Any], tabIndex: Int?) async throws -> String {
-        guard let tab = tab(at: tabIndex) else { throw ToolError.invalidParameters(L10n.l("err_tab_stale")) }
+        guard let tab = tab(at: tabIndex) else { throw ToolError.invalidParameters(String(localized: "err_tab_stale")) }
         let timeout = params["timeout"] as? Int ?? 15
         let deadline = Date().addingTimeInterval(Double(timeout))
         var lastState = "unknown"
@@ -1247,7 +1247,7 @@ final class BrowserController: NSObject, ObservableObject {
 
             timeoutTask = DispatchWorkItem {
                 finish(.failure(ToolError.executionFailed(
-                    String(format: L10n.l("bc_js_timeout"), Int(timeoutSeconds))
+                    String(format: String(localized: "bc_js_timeout"), Int(timeoutSeconds))
                 )))
             }
             if let t = timeoutTask {
@@ -1298,7 +1298,7 @@ final class BrowserController: NSObject, ObservableObject {
             }
 
             timeoutTask = DispatchWorkItem {
-                finish(.failure(ToolError.executionFailed(L10n.l("err_screenshot_timeout"))))
+                finish(.failure(ToolError.executionFailed(String(localized: "err_screenshot_timeout"))))
             }
             if let t = timeoutTask {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 20, execute: t)
@@ -1310,7 +1310,7 @@ final class BrowserController: NSObject, ObservableObject {
                 } else if let error {
                     finish(.failure(error))
                 } else {
-                    finish(.failure(ToolError.executionFailed(L10n.l("err_screenshot_failed"))))
+                    finish(.failure(ToolError.executionFailed(String(localized: "err_screenshot_failed"))))
                 }
             }
         }
@@ -1328,7 +1328,7 @@ final class BrowserController: NSObject, ObservableObject {
         if let err = tab.navFailedError { dict["error"] = err }
         // 导航超时：明确告知模型，避免把「加载中」中间态当成功继续空等。
         if tab.navTimedOut {
-            dict["error"] = L10n.l("err_navigation_timeout")
+            dict["error"] = String(localized: "err_navigation_timeout")
         }
         if let data = try? JSONSerialization.data(withJSONObject: dict),
            let json = String(data: data, encoding: .utf8) {
@@ -1338,7 +1338,7 @@ final class BrowserController: NSObject, ObservableObject {
         if let requested { fallback += ",\"requested\":\"\(requested)\"" }
         if let err = tab.navFailedError { fallback += ",\"error\":\"\(err)\"" }
         if tab.navTimedOut {
-            fallback += L10n.l("bc_nav_timeout_json")
+            fallback += String(localized: "bc_nav_timeout_json")
         }
         return fallback + "}"
     }

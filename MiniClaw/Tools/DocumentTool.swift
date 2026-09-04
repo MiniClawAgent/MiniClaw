@@ -9,14 +9,14 @@ struct ReadDocumentTool: AgentTool {
         type: "function",
         function: ToolSchema.FunctionDef(
             name: "read_document",
-            description: L10n.l("read_document_tool_desc"),
+            description: String(localized: "read_document_tool_desc"),
             parameters: JSONSchema(
                 type: "object",
                 properties: [
-                    "path": JSONSchema.JSONProperty(type: "string", description: L10n.l("param_file_abs_path")),
-                    "offset": JSONSchema.JSONProperty(type: "integer", description: L10n.l("param_start_line")),
-                    "limit": JSONSchema.JSONProperty(type: "integer", description: L10n.l("param_max_read_lines")),
-                    "tail": JSONSchema.JSONProperty(type: "integer", description: L10n.l("param_tail_lines")),
+                    "path": JSONSchema.JSONProperty(type: "string", description: String(localized: "param_file_abs_path")),
+                    "offset": JSONSchema.JSONProperty(type: "integer", description: String(localized: "param_start_line")),
+                    "limit": JSONSchema.JSONProperty(type: "integer", description: String(localized: "param_max_read_lines")),
+                    "tail": JSONSchema.JSONProperty(type: "integer", description: String(localized: "param_tail_lines")),
                 ],
                 required: ["path"]
             )
@@ -29,7 +29,7 @@ struct ReadDocumentTool: AgentTool {
 
     func execute(_ parameters: [String: Any]) async throws -> ToolResult {
         guard let path = parameters["path"] as? String, !path.isEmpty else {
-            throw ToolError.invalidParameters(L10n.l("err_missing_path"))
+            throw ToolError.invalidParameters(String(localized: "err_missing_path"))
         }
         let offset = parameters["offset"] as? Int
         let limit = parameters["limit"] as? Int
@@ -38,7 +38,7 @@ struct ReadDocumentTool: AgentTool {
         do {
             let url = try FileSystemManager.shared.resolveAgentPath(path, sessionID: currentSessionID)
             guard FileManager.default.fileExists(atPath: url.path) else {
-                return ToolResult(success: false, text: String(format: L10n.l("core_file_not_found"), path))
+                return ToolResult(success: false, text: String(format: String(localized: "core_file_not_found"), path))
             }
             let ext = url.pathExtension.lowercased()
             let text: String
@@ -46,7 +46,7 @@ struct ReadDocumentTool: AgentTool {
             case "pdf":
                 text = Self.extractPDFText(url)
                 if text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    return ToolResult(success: false, text: L10n.l("pdf_no_text"))
+                    return ToolResult(success: false, text: String(localized: "pdf_no_text"))
                 }
             case "txt", "md", "markdown", "json", "csv", "tsv", "log", "xml", "html", "htm",
                  "yaml", "yml", "swift", "py", "js", "ts", "java", "c", "cpp", "h", "hpp", "m", "mm",
@@ -55,17 +55,17 @@ struct ReadDocumentTool: AgentTool {
                 let raw = try String(contentsOf: url, encoding: .utf8)
                 text = Self.paginate(raw, offset: offset, limit: limit, tail: tail)
             case "docx", "xlsx", "pptx", "doc", "xls", "ppt":
-                return ToolResult(success: false, text: String(format: L10n.l("core_unsupported_office"), ext.uppercased()))
+                return ToolResult(success: false, text: String(format: String(localized: "core_unsupported_office"), ext.uppercased()))
             default:
                 // 兜底：尝试按 UTF-8 文本读取，失败则给出明确不支持提示。
                 if let raw = try? String(contentsOf: url, encoding: .utf8), !raw.isEmpty {
                     text = Self.paginate(raw, offset: offset, limit: limit, tail: tail)
                 } else {
-                    return ToolResult(success: false, text: String(format: L10n.l("core_unreadable_text"), ext))
+                    return ToolResult(success: false, text: String(format: String(localized: "core_unreadable_text"), ext))
                 }
             }
             let trimmed = text.count > 60_000
-                ? String(text.prefix(60_000)) + L10n.l("truncated_paging_hint")
+                ? String(text.prefix(60_000)) + String(localized: "truncated_paging_hint")
                 : text
             return ToolResult(success: true, text: trimmed)
         } catch {

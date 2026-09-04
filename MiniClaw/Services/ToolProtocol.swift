@@ -82,7 +82,7 @@ indirect enum JSONSchemaValue: Codable, Sendable, Equatable {
         else if let value = try? container.decode([JSONSchemaValue].self) { self = .array(value) }
         else if let value = try? container.decode([String: JSONSchemaValue].self) { self = .object(value) }
         else {
-            throw DecodingError.dataCorruptedError(in: container, debugDescription: L10n.l("err_unsupported_json_value"))
+            throw DecodingError.dataCorruptedError(in: container, debugDescription: String(localized: "err_unsupported_json_value"))
         }
     }
 
@@ -116,7 +116,7 @@ indirect enum JSONSchemaValue: Codable, Sendable, Equatable {
         case let value as [String: Any]:
             self = .object(try value.mapValues { try JSONSchemaValue(jsonObject: $0) })
         default:
-            throw ToolError.invalidParameters(String(format: L10n.l("tool_json_convert_failed"), String(describing: type(of: jsonObject))))
+            throw ToolError.invalidParameters(String(format: String(localized: "tool_json_convert_failed"), String(describing: type(of: jsonObject))))
         }
     }
 
@@ -182,7 +182,7 @@ final class ToolRouter {
             var properties = parameters.properties ?? [:]
             properties[activityParameterName] = JSONSchema.JSONProperty(
                 type: "string",
-                description: L10n.l("tool_indicator_desc")
+                description: String(localized: "tool_indicator_desc")
             )
 
             var required = parameters.required ?? []
@@ -221,7 +221,7 @@ enum ToolError: Error, LocalizedError {
     var errorDescription: String? {
         switch self {
         case .unknownTool(let name):
-            return String(format: L10n.l("tool_unknown"), name)
+            return String(format: String(localized: "tool_unknown"), name)
         case .executionFailed(let message), .invalidParameters(let message):
             return message
         }

@@ -38,13 +38,13 @@ struct DocumentView: View {
             .appendingPathComponent("AboutDocs", isDirectory: true)
             .appendingPathComponent(filename),
               FileManager.default.fileExists(atPath: url.path) else {
-            loadError = String(format: L10n.l("document_not_found"), filename)
+            loadError = String(format: String(localized: "document_not_found"), filename)
             return
         }
         do {
             content = try String(contentsOf: url, encoding: .utf8)
         } catch {
-            loadError = String(format: L10n.l("failed_to_read_document"), error.localizedDescription)
+            loadError = String(format: String(localized: "failed_to_read_document"), error.localizedDescription)
         }
     }
 }
