@@ -211,7 +211,6 @@
 		914951ED93A60FE3455E2A45E4C903EE /* com.miniclaw.builtin.apigateway.mpk in Resources */ = {isa = PBXBuildFile; fileRef = EFE9292B97226BF8D2B6C74DFBB8F9B1 /* com.miniclaw.builtin.apigateway.mpk */; };
 		9165BB74342F79D1E6F8CFE564AC410B /* rootfs in Resources */ = {isa = PBXBuildFile; fileRef = 41869D0129D11922611582AA2D3901BE /* rootfs */; };
 		919DE7DA6FC57AF892AC99A65A98DF31 /* EquatableContextMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F478679C5ED6186F13B8AB3BFB2456B /* EquatableContextMenu.swift */; };
-		91B4DF1BFF4B9F131FEEA00B110FDC32 /* CollectionViewMessageListV3.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CFBBCC8DCFAC67D0178B08ADDB0BAC1 /* CollectionViewMessageListV3.swift */; };
 		91FCC54F0F69A22103055C8BB1761EC3 /* ModelEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BBCE839F170333B83E3BE461E27D7CA /* ModelEntry.swift */; };
 		9242184791F78ABD267F2F39A3984F77 /* houdini_html_u.c in Sources */ = {isa = PBXBuildFile; fileRef = BC45DEE45B2F047F1F4CBB55C1A43EA8 /* houdini_html_u.c */; };
 		933D8848D994CCCE1CC8014A043BCF18 /* ToolStreamingParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 62C990DAAF7BD1A4EBFD28FE319BE17E /* ToolStreamingParser.swift */; };
@@ -242,6 +241,7 @@
 		A62A5BB6212AC33B4D2EA70DFFFA2C8C /* MiniClawApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2602773AB5A5F4ABBCEB2DEA5DE4D8D1 /* MiniClawApp.swift */; };
 		A67F87586C9A3864888FA89E5A1D6956 /* SQLiteStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 09142C93CD35FCE44BDE9D03710B2A99 /* SQLiteStore.swift */; };
 		A8AEC1C97F189DEC768F3C39EC43C627 /* ScenePhaseMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 330221C4BDE012084F833D3E54445800 /* ScenePhaseMonitor.swift */; };
+		AA566675DB3C138363660D92027DEF5B /* MessageCollectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37F5CB186EF591A69F9D5D2DCF691D38 /* MessageCollectionView.swift */; };
 		AB5B839AF6E711BAB0F53E2F4C794423 /* TaskPipController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 855C12373D4AF12A82BA697795F94FE5 /* TaskPipController.swift */; };
 		ACC1D353C5AEBD3551374668361C4D1B /* LinuxShellRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = 446FDEFFEE82F2F70BCDD2FC659415F3 /* LinuxShellRuntime.swift */; };
 		AE08DEFBFD01AB264C2DEB65837565CF /* MiniClawBrowserJS.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4CCDB0B04645B6AA1BA3E7AB70CDB29 /* MiniClawBrowserJS.swift */; };
@@ -520,6 +520,7 @@
 		35251459BCF4180292EA1EA08A8AC961 /* 用户隐私政策.md */ = {isa = PBXFileReference; path = "用户隐私政策.md"; sourceTree = "<group>"; };
 		35E09F3F0E5577323A0D81DC81F78CE7 /* SpeechTools.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechTools.swift; sourceTree = "<group>"; };
 		36CB016B2EBACE9BAB7DD24E0E55215E /* ToolPluginManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolPluginManager.swift; sourceTree = "<group>"; };
+		37F5CB186EF591A69F9D5D2DCF691D38 /* MessageCollectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageCollectionView.swift; sourceTree = "<group>"; };
 		38861749215566C5E889093BAAFA8BAA /* ThemeBackground.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeBackground.swift; sourceTree = "<group>"; };
 		38AECAEC35878A9E1C0F05B5E534E321 /* ToolLoopBreaker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolLoopBreaker.swift; sourceTree = "<group>"; };
 		38C5D23EF7F146E05F8C8796C0A45929 /* MiniClawTabPool.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MiniClawTabPool.swift; sourceTree = "<group>"; };
@@ -593,7 +594,6 @@
 		6C56C8AF1CC52DB9AD9C8973C06B2B7A /* com.miniclaw.builtin.memory.mpk */ = {isa = PBXFileReference; path = com.miniclaw.builtin.memory.mpk; sourceTree = "<group>"; };
 		6C57B1B1D13EE54E496F7F5C546B69F0 /* MTConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MTConfig.swift; sourceTree = "<group>"; };
 		6C59FAE68187B233524F120CD8D240F4 /* ContextUsageEstimator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContextUsageEstimator.swift; sourceTree = "<group>"; };
-		6CFBBCC8DCFAC67D0178B08ADDB0BAC1 /* CollectionViewMessageListV3.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CollectionViewMessageListV3.swift; sourceTree = "<group>"; };
 		6D3CB996001168F6BF88870B4D021B5D /* 关于MiniClaw.md */ = {isa = PBXFileReference; path = "关于MiniClaw.md"; sourceTree = "<group>"; };
 		6F280901058859344DA1FE572DD22AE9 /* PluginTool.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PluginTool.swift; sourceTree = "<group>"; };
 		71ED55A2D5385FABE3D7B0FCE7169F44 /* MiniClawBrowserActions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MiniClawBrowserActions.swift; sourceTree = "<group>"; };
@@ -1475,12 +1475,12 @@
 				19B0048C951C320B2009B3F1BC4FE26C /* AssistantBlockView.swift */,
 				52DA349AB758509FF29A0F546CA75900 /* ChatMessageViews.swift */,
 				C237998B78737D9A763059D16A3DA037 /* ChatModels.swift */,
-				6CFBBCC8DCFAC67D0178B08ADDB0BAC1 /* CollectionViewMessageListV3.swift */,
 				3F478679C5ED6186F13B8AB3BFB2456B /* EquatableContextMenu.swift */,
 				D67C9F916A01FD93803A2BFE98B7EF72 /* FontSettings.swift */,
 				B7C1DF3E89AE43D3FC187352C8856832 /* KaTeXRenderer.swift */,
 				F5251B578A483D30D7C656695192FB57 /* MarkdownPrepRegex.swift */,
 				112D81A4C474030294FC27507E498A2C /* MathRenderScheduler.swift */,
+				37F5CB186EF591A69F9D5D2DCF691D38 /* MessageCollectionView.swift */,
 				D3B856892C53609701658F7722C77318 /* MessageListInfrastructure.swift */,
 				992152DF6E17CEF21C517498C4786435 /* MessageListLayout.swift */,
 				71ED55A2D5385FABE3D7B0FCE7169F44 /* MiniClawBrowserActions.swift */,
@@ -1754,7 +1754,6 @@
 				001DDEBCF93B24E72C3F3403D48EF125 /* AssistantBlockView.swift in Sources */,
 				9759D4905CE648ADEDD7D69BB5E90CF1 /* ChatMessageViews.swift in Sources */,
 				D80988C4F37E1D5D513C84FD7A61DFBB /* ChatModels.swift in Sources */,
-				91B4DF1BFF4B9F131FEEA00B110FDC32 /* CollectionViewMessageListV3.swift in Sources */,
 				919DE7DA6FC57AF892AC99A65A98DF31 /* EquatableContextMenu.swift in Sources */,
 				240C59042D6458CCE364A81D29116A1B /* FontSettings.swift in Sources */,
 				F8CFFEB1F589768C3102F40FFA53F94E /* KaTeXRenderer.swift in Sources */,
@@ -1780,6 +1779,7 @@
 				027E1E3D7924DE76E6A7583702010ABE /* MathFont.swift in Sources */,
 				3318008C9DF2CD8DDB8BC35DAD48F3A5 /* MathImage.swift in Sources */,
 				E27434BD169802EBCD324E8F86CBB67A /* MathRenderScheduler.swift in Sources */,
+				AA566675DB3C138363660D92027DEF5B /* MessageCollectionView.swift in Sources */,
 				A14D33B1304EDBC737769426384992DD /* MessageListInfrastructure.swift in Sources */,
 				499DB48BC9B5970433759D2F315A5A7B /* MessageListLayout.swift in Sources */,
 				DB0A0B73DB405392AEF2E7DE3B4D287D /* MiniClawBrowserActions.swift in Sources */,

@@ -968,7 +968,7 @@ struct ChatView: View {
             if url.isFileURL {
                 fileURL = url
             } else {
-                fileURL = MiniClawKit.AIChatViewModel.resolveMiniClawURL(url)
+                fileURL = MiniClawKit.MessageListModel.resolveMiniClawURL(url)
             }
             guard let fileURL, FileManager.default.fileExists(atPath: fileURL.path) else { return }
             // 2026-08-12:系统预览(Quick Look)——图片/PDF/音视频/文档统一用系统原生预览
@@ -1069,7 +1069,7 @@ struct ChatView: View {
     /// 适配列表(移植组件,默认路径),miniclaw.debug.chatList 开启时使用)
 
     private var adaptedListContent: some View {
-        CollectionViewMessageListV3(
+        MessageCollectionView(
             vm: chatBridge.vm,
             inputFocused: isInputFocused,
             onRetryMessage: { messageID in retryMessage(messageID) },

@@ -102,13 +102,13 @@ struct ChatMessageRow: View {
     var onCompact: (() -> Void)?
     var onCopyScreenshot: (() -> Void)?
     /// Read this whole reply aloud from the start (clears any in-progress TTS).
-    /// Wired from AIChatView (which owns the view model). Disabled while the
+    /// Wired from ChatView (which owns the view model). Disabled while the
     /// message is still streaming to avoid fighting the live streaming TTS.
     var onReadAloud: (() -> Void)?
-    /// When set, presents the compact summary sheet outside the cell tree (V3).
-    /// Falls back to a local .sheet when nil (non-V3 / standalone usage).
+    /// When set, presents the compact summary sheet outside the cell tree.
+    /// Falls back to a local .sheet when nil.
     var onShowCompactSummary: ((String) -> Void)?
-    /// Triggers AIChatViewModel.revertCompact(). Wired from AIChatView so the
+    /// Triggers MessageListModel.revertCompact(). Wired from ChatView so the
     /// row + sheet stay free of view-model imports.
     var onRevertCompact: (() -> Void)?
     var browserPool: MiniClawTabPool?
@@ -551,7 +551,7 @@ struct ChatMessageRow: View {
                 }
         }
         // 2026-09-01 唐唐拍板：工具卡片浮层改由 ToolCardWindowPresenter 独立窗口承载
-        //（bridge.detailBlock → V3 sink → 窗口呈现），此处不再弹 sheet，避免双弹。
+        //（bridge.detailBlock → 列表 sink → 窗口呈现），此处不再弹 sheet，避免双弹。
     }
 
     @ViewBuilder
@@ -635,7 +635,7 @@ struct ChatMessageRow: View {
             Spacer()
 
             if autoRetryAttempt>0 {
-                Text("Retry in \(autoRetryCountdown)s (\(autoRetryAttempt)/\(AIChatViewModel.retryDelays.count))")
+                Text("Retry in \(autoRetryCountdown)s (\(autoRetryAttempt)/\(MessageListModel.retryDelays.count))")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.secondary)
                     .padding(.horizontal,12)

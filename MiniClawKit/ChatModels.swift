@@ -461,7 +461,7 @@ public enum KernelStatus: Equatable {
 
 extension AssistantBlock {
     /// [Fix 重进会话跳屏·根因] 为完成的 text block 预渲染 NSAttributedString,
-    /// 移植自 AIChatViewModel.cacheAttributedString(for:) 的等价逻辑:
+    /// 移植自 MessageListModel.cacheAttributedString(for:) 的等价逻辑:
     /// cachedMarkdown 持久化解析结果(复用避免重解析),cachedAttributedString 用
     /// 真实渲染引擎 MarkdownNSRenderer 生成最终字符串。
     ///

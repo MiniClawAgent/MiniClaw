@@ -273,7 +273,7 @@ public final class MiniClawTabPool: ObservableObject {
     private static let viewportWidthKey = "BrowserCustomViewportWidth"
     private static let viewportHeightKey = "BrowserCustomViewportHeight"
 
-    /// Session ID for disk persistence. Set by AIChatViewModel.
+    /// Session ID for disk persistence. Set by MessageListModel.
     public var sessionId: String? {
         didSet {
             if let sessionId,sessionId != oldValue {

@@ -6,7 +6,7 @@
 //  bar plus the full-screen sheet that shows tool arguments, streaming
 //  shell output, file edits/writes, browser snapshots, memory edits and
 //  image tools with full scrubbing and zoom. Extracted from
-//  AIChatView.swift so the chat view can focus on message layout.
+//  ChatView.swift so the chat view can focus on message layout.
 //
 
 import Combine
@@ -134,9 +134,9 @@ struct ToolLiveSheet: View {
 
     /// 快照桥（主会话 cell 传入）：观察其 objectWillChange，结果快照更新时浮层实时重绘
     /// （2026-09-02 修复「执行中打开浮层看不到结果」——原实现为 init 值拷贝，不随更新）。
-    var snapshotBridge: CellStateBridgeV2? = nil
+    var snapshotBridge: CellStateBridge? = nil
     @State private var snapshotTick = 0
-    init(toolBlocks: [AssistantBlock],initialIdx: Int,toolSnapshots: [ToolSnapshotItem] = [],snapshotBridge: CellStateBridgeV2? = nil,browserPool: MiniClawTabPool?,
+    init(toolBlocks: [AssistantBlock],initialIdx: Int,toolSnapshots: [ToolSnapshotItem] = [],snapshotBridge: CellStateBridge? = nil,browserPool: MiniClawTabPool?,
          onBrowserTakeover: (() -> Void)? = nil,onTakeoverDone: (() -> Void)? = nil,
          browserContentProvider: ((URL?) -> AnyView)? = nil,
          onClose: (() -> Void)? = nil, hidesSwitchRow: Bool = false,

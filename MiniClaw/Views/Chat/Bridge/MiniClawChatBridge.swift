@@ -5,7 +5,7 @@ import MiniClawKit
 
 // MARK: - 数据桥(2026-08-09)
 // 把 MiniClaw 会话数据(SwiftData 消息 + runtime 流式状态)桥接进
-// 移植消息列表组件所需的 AIChatViewModel。宿主(ChatView)在
+// 移植消息列表组件所需的 MessageListModel。宿主(ChatView)在
 // 数据变化点调用 refresh(),内部按内容指纹节流,避免流式高频重建。
 
 @MainActor
@@ -14,7 +14,7 @@ final class MiniClawChatBridge: ObservableObject {
     /// 适配列表直接消费的视图模型。注入 BrowserEngineAdapter 的共享标签池,
     /// 让浏览器工具指示器能打开真实引擎 WebView(BrowserSheetView),不再落入
     /// 空桩 ISHTerminalView(2026-08-10 修复:浏览器工具白屏)。
-    let vm = MiniClawKit.AIChatViewModel(browserTabPool: BrowserEngineAdapter.shared.pool(for: nil))
+    let vm = MiniClawKit.MessageListModel(browserTabPool: BrowserEngineAdapter.shared.pool(for: nil))
 
     private weak var session: ChatSession?
     private weak var appState: AppState?
@@ -47,7 +47,7 @@ final class MiniClawChatBridge: ObservableObject {
         // 2026-08-12 治本:附件缩略图/媒体缓存按会话目录解析,必须设置 activeSessionId
         // (Kit 的 TileImage/miniClawMediaCacheKey 据此定位 Documents/MiniClaw-Sessions/<sid>/;
         // 此前宿主从不设置 → 缩略图 guard 直接 return,图片附件显示空白)。
-        AIChatViewModel.activeSessionId = session.id.uuidString
+        MessageListModel.activeSessionId = session.id.uuidString
         // 浏览器工具指示器用的标签池必须是会话级池(与引擎工具执行同一对象):
         // 注入 sharedPool 会让工具导航的 tab 落在会话级池、指示器打开的是空池
         // → "No Page"(2026-08-10 修复)。attach 时按 session.id 取会话级池。

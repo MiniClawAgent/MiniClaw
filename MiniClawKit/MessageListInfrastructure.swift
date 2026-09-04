@@ -2,9 +2,8 @@
 //  MessageListInfrastructure.swift
 //  MiniClawApp
 //
-//  Shared types for the V3 collection-view-based chat message list.
-//  These types were originally defined in the now-removed V1 and V2
-//  message list implementations; V3 still depends on them while
+//  Shared types for the collection-view-based chat message list.
+//  Shared infrastructure types used by the message list.
 //  SelectableMarkdownView / MarkdownRenderView walk the view hierarchy
 //  looking for `NoAnimationCollectionView` and `SelfSizingCell`.
 //
@@ -42,7 +41,7 @@ public enum MessageListItem: Hashable, @unchecked Sendable {
 
 /// A plain UICollectionViewCell that correctly reports its preferred size
 /// for UIHostingConfiguration content with custom layouts.
-final class CellStateBridgeV2: ObservableObject {
+final class CellStateBridge: ObservableObject {
     @Published var isActiveMessage: Bool = false
     @Published var commandStartTime: Date?
     @Published var onStop: (() -> Void)?
@@ -80,7 +79,7 @@ public final class MessageListViewController: UIViewController {
     public var collectionView: UICollectionView!
     public var messageListLayout: MessageListLayout!
     /// 关联的 Coordinator(键盘高度等运行时状态读取,2026-08-11 新增)。
-    public weak var messageListCoordinator: CollectionViewMessageListV3.Coordinator?
+    public weak var messageListCoordinator: MessageCollectionView.Coordinator?
 
     public override func viewDidLoad() {
         super.viewDidLoad()
@@ -189,7 +188,7 @@ public final class MessageListViewController: UIViewController {
 // MARK: - Cell State Bridge
 
 /// Per-message bridge. Shared across header/blocks/footer of the same message.
-/// Name is kept as `CellStateBridgeV2` for historical reasons — V3 still uses it
+/// Cell state bridge: per-message published state driving list cells.
 /// verbatim as the ObservedObject across its bridged cell views.
 final class NoAnimationCollectionView: UICollectionView {
     /// Set to true while a diffable data source snapshot is being applied.
@@ -883,7 +882,7 @@ class SelfSizingCell: UICollectionViewCell {
             return attrs
         }
         let elapsed = (CACurrentMediaTime()-start)*1000
-        let sinceAppear = (CFAbsoluteTimeGetCurrent()-AIChatViewModel.onAppearTimestamp)*1000
+        let sinceAppear = (CFAbsoluteTimeGetCurrent()-MessageListModel.onAppearTimestamp)*1000
         let idx = (superview as? UICollectionView)?.indexPath(for: self)?.item ?? -1
         // [ScrollStall] Only log measurements that actually cost time. Streaming
         // produces a height delta on every token, so the old "delta > 1pt"

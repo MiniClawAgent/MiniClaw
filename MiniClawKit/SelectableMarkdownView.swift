@@ -671,7 +671,7 @@ private final class InlineAudioController: NSObject,@unchecked Sendable {
         // Note: auto_play is NOT triggered here because InlineAudioController is
         // re-created every time the view renders (including when re-entering a
         // conversation). Auto-play on LLM response is handled by
-        // AIChatViewModel.triggerAutoPlayAudio() which only fires once at the end
+        // MessageListModel.triggerAutoPlayAudio() which only fires once at the end
         // of streaming.
         if let fileURL {
             Task.detached(priority: .userInitiated) { [weak self] in
@@ -1083,7 +1083,7 @@ struct SelectableMarkdownTheme {
 }
 
 /// Renders markdown blocks into an NSAttributedString using a fresh MarkdownNSRenderer.
-/// Intended for one-shot rendering of completed messages (e.g. caching in AIChatViewModel).
+/// Intended for one-shot rendering of completed messages (e.g. caching in MessageListModel).
 func percentEncodePathSegmentIdempotent(_ seg: String) -> String {
     let decoded = seg.removingPercentEncoding ?? seg
     return decoded.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? seg
@@ -1109,13 +1109,13 @@ private func resolveMiniClawFileURLForNativeText(url: URL) -> URL? {
     // holdout, so double-encoded non-ASCII inline image names still failed here.
     // [T-ios-file-preview-stale-cache, completing T-fix-double-encoding 2026-06-01]
     let subPaths = MiniClawURLPathDecoding.subPathCandidates(for: url)
-    imgLogger.info("[MiniClawImage][Resolve] BEGIN url=\(url.absoluteString) host=\(host) subPaths=\(subPaths) activeSession=\(AIChatViewModel.activeSessionId ?? "nil")")
+    imgLogger.info("[MiniClawImage][Resolve] BEGIN url=\(url.absoluteString) host=\(host) subPaths=\(subPaths) activeSession=\(MessageListModel.activeSessionId ?? "nil")")
     let fm = FileManager.default
 
     // Primary: active session persistent storage
-    if let sid = AIChatViewModel.activeSessionId {
+    if let sid = MessageListModel.activeSessionId {
         for subPath in subPaths {
-            let persistURL = AIChatViewModel.miniClawPersistentBase
+            let persistURL = MessageListModel.miniClawPersistentBase
                 .appendingPathComponent(sid,isDirectory: true)
                 .appendingPathComponent(host,isDirectory: true)
                 .appendingPathComponent(subPath)
@@ -1134,7 +1134,7 @@ private func resolveMiniClawFileURLForNativeText(url: URL) -> URL? {
     // Global namespaces (not session-scoped)
     if host == "skills" {
         for subPath in subPaths {
-            let candidate = AIChatViewModel.miniClawSkillsPersistentDir.appendingPathComponent(subPath)
+            let candidate = MessageListModel.miniClawSkillsPersistentDir.appendingPathComponent(subPath)
             imgLogger.info("[MiniClawImage][Resolve] checking global skills path=\(candidate.path)")
             if fm.fileExists(atPath: candidate.path) {
                 let size = (try? fm.attributesOfItem(atPath: candidate.path)[.size] as? Int64) ?? -1
@@ -1144,7 +1144,7 @@ private func resolveMiniClawFileURLForNativeText(url: URL) -> URL? {
         }
     } else if host == "memory" {
         for subPath in subPaths {
-            let candidate = AIChatViewModel.miniClawMemoryPersistentDir.appendingPathComponent(subPath)
+            let candidate = MessageListModel.miniClawMemoryPersistentDir.appendingPathComponent(subPath)
             imgLogger.info("[MiniClawImage][Resolve] checking global memory path=\(candidate.path)")
             if fm.fileExists(atPath: candidate.path) {
                 let size = (try? fm.attributesOfItem(atPath: candidate.path)[.size] as? Int64) ?? -1
@@ -1997,7 +1997,7 @@ final class ImageAttachment: NSTextAttachment {
 /// images in the same assistant message.
 ///
 /// When `messageId` is set, we post a `MarkdownImageTapRouter.tappedNotification`
-/// and let `AIChatView` resolve the message → full gallery item list.
+/// and let `ChatView` resolve the message → full gallery item list.
 /// When `messageId` is nil (standalone preview, e.g. a markdown view outside
 /// a chat message), we fall back to the legacy single-image fullscreen
 /// preview so nothing breaks.
@@ -2636,8 +2636,8 @@ final class SelectableMarkdownTextView: UITextView,UIGestureRecognizerDelegate {
     }
 
     /// Append the currently-selected text to the active chat's input field
-    /// via the `chatInputAppendRequested` notification. AIChatView listens
-    /// and routes to `AIChatViewModel.appendToInputText`, which handles the
+    /// via the `chatInputAppendRequested` notification. ChatView listens
+    /// and routes to `MessageListModel.appendToInputText`, which handles the
     /// `<existing> <selected> ` / `<selected> ` formatting.
     @objc func addSelectionToChatInput(_ sender: Any?) {
         guard selectedRange.length>0,
@@ -5181,7 +5181,7 @@ private final class TableCellTextView: UITextView,UITextViewDelegate {
         VoiceOutputPlayer.shared.enqueueSegmented(text,sessionId: VoiceOutputPlayer.manualOwnerId)
     }
 
-    /// Menu-triggered read-aloud bypasses AIChatViewModel's reply-TTS flow, so
+    /// Menu-triggered read-aloud bypasses MessageListModel's reply-TTS flow, so
     /// mirror `readReplyFromStart`'s pre-flight here: force the global
     /// read-replies switch ON (runtime state + persisted pref, un-muting if
     /// needed) and push "reading" to the capsule — via the active chat VM when
@@ -5190,7 +5190,7 @@ private final class TableCellTextView: UITextView,UITextViewDelegate {
         let state = VoiceOutputState.shared
         if !state.isEnabled { state.isEnabled = true }   // didSet persists to prefs
         if state.isMuted { state.isMuted = false }
-        if let vm = state.activeController as? AIChatViewModel {
+        if let vm = state.activeController as? MessageListModel {
             vm.isReadingAloud = true
             vm.speechPaused = false
             vm.syncSpeechStateToGlobal(registerActive: true)
@@ -5202,7 +5202,7 @@ private final class TableCellTextView: UITextView,UITextViewDelegate {
 
     /// Same as SelectableMarkdownTextView.addSelectionToChatInput — posts a
     /// `chatInputAppendRequested` notification with the selected cell text.
-    /// AIChatView listens and routes to `AIChatViewModel.appendToInputText`.
+    /// ChatView listens and routes to `MessageListModel.appendToInputText`.
     @objc func addSelectionToChatInput(_ sender: Any?) {
         guard selectedRange.length>0,
               let range = Range(selectedRange,in: text) else { return }
@@ -5595,7 +5595,7 @@ struct SelectableMarkdownView: UIViewRepresentable {
     /// gestures route to a paged gallery of all markdown-embedded images in
     /// that message. Leave nil for standalone markdown rendering.
     var messageId: UUID?
-    /// Optional block identity for table slot-cache keying. In V3
+    /// Optional block identity for table slot-cache keying. In the list
     /// cell-per-block, each AssistantBlock has its own UUID — using it as
     /// the slot key guarantees uniqueness even when two tables in the same
     /// message have identical content.
@@ -5851,7 +5851,7 @@ struct SelectableMarkdownView: UIViewRepresentable {
         // Don't split once the message has finished streaming — the
         // presence of either a prebuilt `cachedAttributedString` or a
         // prebuilt `cachedContent` is the finalised-message signal sent
-        // by `AIChatViewModel.cacheAttributedString(for:)`. After that
+        // by `MessageListModel.cacheAttributedString(for:)`. After that
         // point cmark must see the full markdown so a trailing
         // un-terminated `|...|` final row (no trailing `\n`) is still
         // rendered as a real table row.
@@ -5918,7 +5918,7 @@ struct SelectableMarkdownView: UIViewRepresentable {
         let usedCache: Bool
         // [TablePathFix] When the prebuilt attributed string contains a
         // TableAttachment we must NOT use it — the cached path comes from
-        // `AIChatViewModel.cacheAttributedString(for:)` which uses a fresh
+        // `MessageListModel.cacheAttributedString(for:)` which uses a fresh
         // `MarkdownNSRenderer` each call and therefore creates a *new*
         // TableAttachment object every flush. During streaming this
         // detaches the live attachments from the coordinator's
@@ -6453,7 +6453,7 @@ struct SelectableMarkdownView: UIViewRepresentable {
         if useMeasureTextView {
             // [TablePathFix] When the prebuilt attributed string contains a
             // TableAttachment we must NOT use it — the cached path comes
-            // from `AIChatViewModel.cacheAttributedString(for:)` which uses
+            // from `MessageListModel.cacheAttributedString(for:)` which uses
             // a fresh `MarkdownNSRenderer` and creates new TableAttachment
             // objects every flush. During streaming this detaches live
             // attachments from the coordinator's `tableAttachmentCache`
@@ -7144,10 +7144,10 @@ struct SelectableMarkdownView: UIViewRepresentable {
     }
 }
 
-// MARK: - URL Resolution (bridged from AIChatView)
+// MARK: - URL Resolution (bridged from ChatView)
 
 /// Resolves a `miniclaw://` URL to a local file URL.
-/// Keeps resolution behavior aligned with AIChatView's miniclaw resolver.
+/// Keeps resolution behavior aligned with ChatView's miniclaw resolver.
 fileprivate final class MarkdownNSRenderer {
     private(set) var theme: SelectableMarkdownTheme
 
@@ -7692,7 +7692,7 @@ fileprivate final class MarkdownNSRenderer {
         //   (b) DIFFERS between two genuinely distinct tables in the same message.
         //
         // The old key was "messageId:tableIndex". `tableIndex` resets to 0 at the
-        // top of every `render(blocks:)` call — and in the V3 cell-per-block list
+        // top of every `render(blocks:)` call — and in the cell-per-block list
         // each assistant block (each table) is rendered by its OWN render() call,
         // so every table got tableIndex == 0. Two different tables in one message
         // therefore collided on "messageId:0", shared one attachment via Step 2,
@@ -7706,7 +7706,7 @@ fileprivate final class MarkdownNSRenderer {
         // same block (same render pass) always get distinct keys — even if
         // their content is byte-for-byte identical.
         //
-        // When blockId is available (V3 cell-per-block), include it to
+        // When blockId is available (cell-per-block list), include it to
         // also disambiguate tables across blocks that happen to share the
         // same tableIndex (e.g. each block's render() resets idx to 0).
         //

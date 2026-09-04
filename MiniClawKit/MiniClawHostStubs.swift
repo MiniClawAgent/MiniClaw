@@ -292,7 +292,7 @@ extension EnvironmentValues {
 
 // MARK: - 三件套依赖桩(2026-08-09 第四批)
 
-/// 调色板(原 AIChatView.ChatColors)
+/// 调色板(原 ChatView.ChatColors)
 struct ISHTerminalView: View {
     var sessionId: UUID?
     var showCloseButton: Bool = false
@@ -356,15 +356,15 @@ enum MarkdownImageTapRouter {
     }
 }
 
-// MARK: - VM 契约(AIChatViewModel 精简版,2026-08-10 重建)
+// MARK: - VM 契约(MessageListModel 精简版,2026-08-10 重建)
 // 列表组件消费的视图模型契约:宿主(MiniClawChatBridge)持有并驱动。
-// 按参考实现 AIChatViewModel 的列表相关接口裁剪,依赖宿主设施
+// 按参考实现 MessageListModel 的列表相关接口裁剪,依赖宿主设施
 // (SQLite/语音/图片压缩)的部分不在此。
 
 import Combine
 
 @MainActor
-public final class AIChatViewModel: ObservableObject {
+public final class MessageListModel: ObservableObject {
     @Published public var messages: [ChatMessage] = []
     @Published public var isProcessing = false
     @Published public var canResume = false
@@ -399,7 +399,7 @@ public final class AIChatViewModel: ObservableObject {
     /// 会话页 onAppear 时间戳(布局诊断用,CFAbsoluteTime 基准)
     public static let onAppearTimestamp: TimeInterval = CFAbsoluteTimeGetCurrent()
 
-    /// 自动重试延迟阶梯(秒,原版 AIChatViewModel+Fallback)
+    /// 自动重试延迟阶梯(秒,原版 MessageListModel+Fallback)
     public static let retryDelays = [3,5,10,15,30]
 
     public init(sessionId: String? = nil,browserTabPool: MiniClawTabPool? = nil) {
@@ -438,7 +438,7 @@ public final class AIChatViewModel: ObservableObject {
 }
 
 // MARK: - 路径/会话静态成员(宿主桥接:主工程 Documents/MiniClaw-Sessions)
-extension AIChatViewModel {
+extension MessageListModel {
     /// 当前活跃会话 id(宿主在 attach 时设置)
     nonisolated(unsafe) public static var activeSessionId: String?
 
@@ -627,11 +627,11 @@ public func miniClawMediaCacheKey(for source: String) -> String {
     let subPaths = MiniClawURLPathDecoding.subPathCandidates(for: url)
     let dirs: [URL]
     switch host {
-    case "memory": dirs = [AIChatViewModel.miniClawMemoryPersistentDir]
-    case "skills": dirs = [AIChatViewModel.miniClawSkillsPersistentDir]
+    case "memory": dirs = [MessageListModel.miniClawMemoryPersistentDir]
+    case "skills": dirs = [MessageListModel.miniClawSkillsPersistentDir]
     default:
-        if let sid = AIChatViewModel.activeSessionId {
-            dirs = [AIChatViewModel.miniClawPersistentBase
+        if let sid = MessageListModel.activeSessionId {
+            dirs = [MessageListModel.miniClawPersistentBase
                 .appendingPathComponent(sid,isDirectory: true)
                 .appendingPathComponent(host,isDirectory: true)]
         } else {
@@ -691,7 +691,7 @@ public final class VoiceOutputState {
     }
 }
 
-// MARK: - CompactSummarySheet(原版 AIChatView 组件,简化 SelectableTextView)
+// MARK: - CompactSummarySheet(原版 ChatView 组件,简化 SelectableTextView)
 public struct CompactSummarySheet: View {
     let summary: String
     var onRevert: (() -> Void)? = nil
@@ -917,10 +917,10 @@ private struct TileImage: View {
                   let host = url.host else { return }
             let subPaths = MiniClawURLPathDecoding.subPathCandidates(for: url)
             let base: URL? = {
-                if host == "memory" { return AIChatViewModel.miniClawMemoryPersistentDir }
-                if host == "skills" { return AIChatViewModel.miniClawSkillsPersistentDir }
-                guard let sid = AIChatViewModel.activeSessionId else { return nil }
-                return AIChatViewModel.miniClawPersistentBase
+                if host == "memory" { return MessageListModel.miniClawMemoryPersistentDir }
+                if host == "skills" { return MessageListModel.miniClawSkillsPersistentDir }
+                guard let sid = MessageListModel.activeSessionId else { return nil }
+                return MessageListModel.miniClawPersistentBase
                     .appendingPathComponent(sid,isDirectory: true)
                     .appendingPathComponent(host,isDirectory: true)
             }()
@@ -942,13 +942,13 @@ private struct TileImage: View {
 /// 由 MiniClawChatBridge 持有 VM,此处仅提供 get 接口)
 public final class ViewModelCache {
     public static let shared = ViewModelCache()
-    private var cache: [String: AIChatViewModel] = [:]
+    private var cache: [String: MessageListModel] = [:]
     public init() {}
-    public func get(for sid: String) -> AIChatViewModel? { cache[sid] }
-    public func set(_ vm: AIChatViewModel,for sid: String) { cache[sid] = vm }
+    public func get(for sid: String) -> MessageListModel? { cache[sid] }
+    public func set(_ vm: MessageListModel,for sid: String) { cache[sid] = vm }
 }
 
-extension AIChatViewModel {
+extension MessageListModel {
     /// 会话 workspace 目录(原版 miniclawWorkspacePersistentDir)
     nonisolated public static func miniClawWorkspacePersistentDir(for sid: String) -> URL {
         miniClawPersistentBase

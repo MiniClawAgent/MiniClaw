@@ -110,7 +110,7 @@ struct ToolCapsuleView: View {
     var browserPool: MiniClawTabPool?
     var toolSnapshots: [ToolSnapshotItem] = []
     /// 快照桥：透传给浮层（结果快照更新实时刷新）。
-    var snapshotBridge: CellStateBridgeV2? = nil
+    var snapshotBridge: CellStateBridge? = nil
     @Binding var detailBlock: AssistantBlock?
     @State private var dotsOn = false
     /// [T-tool-bg-suspended-hint] Drives the background-suspension info alert.
@@ -126,7 +126,7 @@ struct ToolCapsuleView: View {
     /// [T-ios-retry-hide-when-processing] Used to suppress the "Re-run From
     /// Here" long-press menu item while the agent loop is busy — tapping it
     /// mid-run would corrupt the in-flight processing state.
-    @EnvironmentObject private var vm: AIChatViewModel
+    @EnvironmentObject private var vm: MessageListModel
 
     /// Display text: prefer LLM-generated toolSummary, fall back to toolDescription.
     private var displayStr: String {
@@ -331,7 +331,7 @@ struct ToolCapsuleView: View {
                             // Re-run the whole assistant turn that owns this
                             // tool_use. Routed via notification so we don't have
                             // to thread a vm closure through the 4-layer cell
-                            // hosting chain — AIChatView's RerunFromToolBlockListener
+                            // hosting chain — ChatView's RerunFromToolBlockListener
                             // maps blockId → owning assistant msg → preceding user
                             // msg → vm.retryFromMessage.
                             NotificationCenter.default.post(
@@ -636,7 +636,7 @@ struct TypingIndicator: View {
 
     var body: some View {
         // The thinking-level badge that used to trail this indicator was
-        // removed — the nav-bar title (AIChatView.thinkingLevelBadge) is now
+        // removed — the nav-bar title (ChatView.thinkingLevelBadge) is now
         // the single place that shows and changes the thinking level, so a
         // duplicate here was redundant. ThinkingLevelSheetView is unchanged;
         // it's still presented from the nav-bar badge.
@@ -671,7 +671,7 @@ struct TypingIndicator: View {
 // MARK: - Thinking Level Sheet
 
 struct ChatInputAppendListener: ViewModifier {
-    let vm: AIChatViewModel
+    let vm: MessageListModel
     @Binding var inputFocused: Bool
 
     func body(content: Content) -> some View {
@@ -728,7 +728,7 @@ extension Notification.Name {
     static let thinkingBlockToggled = Notification.Name("thinkingBlockToggled")
     /// Posted when a long-press selection menu's "Add to Chat Input" action
     /// fires. userInfo["text"] is the selected text to append. The active
-    /// chat's AIChatView listens and forwards to `vm.appendToInputText`.
+    /// chat's ChatView listens and forwards to `vm.appendToInputText`.
     static let chatInputAppendRequested = Notification.Name("chatInputAppendRequested")
     /// Posted when an inline media attachment (image / video thumbnail /
     /// audio waveform) finishes async loading and its intrinsic content
@@ -739,14 +739,14 @@ extension Notification.Name {
     static let miniClawAttachmentSizeChanged = Notification.Name("miniClawAttachmentSizeChanged")
     /// Posted from a tool capsule's long-press menu "Re-run from here".
     /// userInfo["blockId"] is the AssistantBlock.id (UUID) of the tapped
-    /// tool_use. The active AIChatView listens, maps the block to its
+    /// tool_use. The active ChatView listens, maps the block to its
     /// owning assistant message, finds the preceding user message, and
     /// re-runs the agent loop from there. [T-ios-tool-bubble-longpress-menu]
     static let rerunFromToolBlock = Notification.Name("rerunFromToolBlock")
 }
 
 /// Listens for `.rerunFromToolBlock` and drives the re-run. Extracted into
-/// its own ViewModifier (like ChatInputAppendListener) to keep AIChatView's
+/// its own ViewModifier (like ChatInputAppendListener) to keep ChatView's
 /// body within the Swift type-checker budget. [T-ios-tool-bubble-longpress-menu]
 ///
 /// "Re-run from here" semantics (block boundary —
@@ -758,7 +758,7 @@ extension Notification.Name {
 /// target is the first block with nothing preceding it, that path degrades
 /// to a preceding-user-message truncation automatically.
 struct RerunFromToolBlockListener: ViewModifier {
-    let vm: AIChatViewModel
+    let vm: MessageListModel
 
     func body(content: Content) -> some View {
         content.onReceive(NotificationCenter.default.publisher(for: .rerunFromToolBlock)) { note in
@@ -770,12 +770,12 @@ struct RerunFromToolBlockListener: ViewModifier {
 }
 
 /// View-modifier wrapper around the `chatInputAppendRequested` listener.
-/// Extracted out of AIChatView.body because that body sits at the Swift
+/// Extracted out of ChatView.body because that body sits at the Swift
 /// type-checker's expression budget and inlining another `.onReceive` block
 /// trips the "compiler unable to type-check this expression in reasonable
 /// time" diagnostic.
 /// Listens for `.dismissAllImmersivePresentations` and calls the host
-/// view's clear method. Extracted into its own modifier so AIChatView's
+/// view's clear method. Extracted into its own modifier so ChatView's
 /// body type stays demangleable — adding the onReceive directly to body
 /// trips the Swift type-checker timeout (same class of issue as the
 /// 2026-04-17 inputBar / 2026-05-24 attachmentMenu blow-ups).
@@ -823,7 +823,7 @@ struct AssistantBlockView: View {
     var browserPool: MiniClawTabPool?
     var toolSnapshots: [ToolSnapshotItem] = []
     /// 快照桥（主会话 cell 传入）：透传给浮层，结果快照更新时浮层实时刷新。
-    var snapshotBridge: CellStateBridgeV2? = nil
+    var snapshotBridge: CellStateBridge? = nil
     @Binding var highlightedBlockId: UUID?
     @Binding var detailBlock: AssistantBlock?
     private var isHighlighted: Bool { highlightedBlockId == block.id }

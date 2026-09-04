@@ -3,9 +3,9 @@ import UIKit
 import Combine
 import UniformTypeIdentifiers
 
-private final class AssistantBlockCellV3: SelfSizingCell {}
-private final class WholeMessageCellV3: SelfSizingCell {}
-private struct BridgedAssistantHeaderV3: View {
+private final class AssistantBlockCell: SelfSizingCell {}
+private final class WholeMessageCell: SelfSizingCell {}
+private struct BridgedAssistantHeader: View {
     @ObservedObject var message: ChatMessage
     var maxWidth: CGFloat = 0
     @State private var soulMeta: SoulMetadata = SoulStore.cachedMetadata
@@ -33,10 +33,10 @@ private struct BridgedAssistantHeaderV3: View {
 }
 
 /// Single block within an assistant turn — text, tool capsule, or info.
-/// V3: No GeometryReader — UIKit self-sizing is the sole height source.
-extension CollectionViewMessageListV3 {
+/// No GeometryReader — UIKit self-sizing is the sole height source.
+extension MessageCollectionView {
 
-    /// Scroll mode: the only two states V3 needs.
+    /// Scroll mode: the only two states the list needs.
     public enum ScrollMode {
         /// Content growth pins offset to bottom. Self-sizing accepted normally.
         case autoScrolling
@@ -69,7 +69,7 @@ extension CollectionViewMessageListV3 {
         }
         #endif
 
-        // === Scroll mode (replaces V2's 6+ mechanisms) ===
+        // === Scroll mode（两态模型） ===
         public var scrollMode: ScrollMode = .autoScrolling {
             didSet {
                 // Mirror to the layout so its invalidationContext can glue the
@@ -95,7 +95,7 @@ extension CollectionViewMessageListV3 {
         private var snapshotMessages: [ChatMessage] = []
 
         // === Bridges ===
-        private var cellBridgeMap: [UUID: CellStateBridgeV2] = [:]
+        private var cellBridgeMap: [UUID: CellStateBridge] = [:]
 
         // === Height Measurement Cache ===
         /// Caches measureAttributedStringHeight results by NSAttributedString identity.
@@ -159,7 +159,7 @@ extension CollectionViewMessageListV3 {
 
         // === References ===
         private weak var viewController: MessageListViewController?
-        private weak var vm: AIChatViewModel?
+        private weak var vm: MessageListModel?
         private var dataSource: UICollectionViewDiffableDataSource<Section,MessageListItem>!
         private var subscriptions = Set<AnyCancellable>()
         private var contentSizeObservation: NSKeyValueObservation?
@@ -169,7 +169,7 @@ extension CollectionViewMessageListV3 {
 
         // MARK: - Setup
 
-        public func attach(to vc: MessageListViewController,vm: AIChatViewModel) {
+        public func attach(to vc: MessageListViewController,vm: MessageListModel) {
             self.viewController = vc
             self.vm = vm
             vc.messageListCoordinator = self
@@ -191,19 +191,19 @@ extension CollectionViewMessageListV3 {
             // in applySnapshot / configureCell, so layout positions don't shift.
             collectionView.isPrefetchingEnabled = false
 
-            let wholeReg = UICollectionView.CellRegistration<WholeMessageCellV3,MessageListItem> {
+            let wholeReg = UICollectionView.CellRegistration<WholeMessageCell,MessageListItem> {
                 [weak self] cell,indexPath,item in
                 self?.configureCell(cell,item: item,indexPath: indexPath)
             }
-            let headerReg = UICollectionView.CellRegistration<AssistantHeaderCellV3,MessageListItem> {
+            let headerReg = UICollectionView.CellRegistration<AssistantHeaderCell,MessageListItem> {
                 [weak self] cell,indexPath,item in
                 self?.configureCell(cell,item: item,indexPath: indexPath)
             }
-            let blockReg = UICollectionView.CellRegistration<AssistantBlockCellV3,MessageListItem> {
+            let blockReg = UICollectionView.CellRegistration<AssistantBlockCell,MessageListItem> {
                 [weak self] cell,indexPath,item in
                 self?.configureCell(cell,item: item,indexPath: indexPath)
             }
-            let footerReg = UICollectionView.CellRegistration<AssistantFooterCellV3,MessageListItem> {
+            let footerReg = UICollectionView.CellRegistration<AssistantFooterCell,MessageListItem> {
                 [weak self] cell,indexPath,item in
                 self?.configureCell(cell,item: item,indexPath: indexPath)
             }
@@ -402,7 +402,7 @@ extension CollectionViewMessageListV3 {
                 let bridge = getOrCreateBridge(for: message,in: messages)
                 cell.backgroundColor = .clear
                 let config = UIHostingConfiguration {
-                    BridgedWholeMessageV3(
+                    BridgedWholeMessage(
                         message: message,
                         bridge: bridge,
                         maxWidth: width
@@ -413,11 +413,11 @@ extension CollectionViewMessageListV3 {
                     .transaction { $0.disablesAnimations = true }
                     // UIHostingConfiguration creates an independent SwiftUI
                     // environment — it does NOT inherit EnvironmentObjects
-                    // from the outer AIChatView. Descendant views inside the
+                    // from the outer ChatView. Descendant views inside the
                     // cell (notably ToolCapsuleView, which reads
-                    // `@EnvironmentObject vm: AIChatViewModel` for its long-
+                    // `@EnvironmentObject vm: MessageListModel` for its long-
                     // press menu's `vm.isProcessing` check) would trigger
-                    // SwiftUI's "No ObservableObject of type AIChatViewModel
+                    // SwiftUI's "No ObservableObject of type MessageListModel
                     // found" fatal (EXC_BREAKPOINT) the moment the body
                     // evaluates — symptom: app crashes when waking from
                     // lock + tapping a session-complete notification, since
@@ -434,7 +434,7 @@ extension CollectionViewMessageListV3 {
                 let message = messages[msgIdx]
                 cell.backgroundColor = .clear
                 let config = UIHostingConfiguration {
-                    BridgedAssistantHeaderV3(message: message,maxWidth: width)
+                    BridgedAssistantHeader(message: message,maxWidth: width)
                         .transaction { $0.disablesAnimations = true }
                         .environmentObject(vm)
                 }.minSize(width: 0,height: 0).margins(.all,0)
@@ -453,7 +453,7 @@ extension CollectionViewMessageListV3 {
                 let bridge = getOrCreateBridge(for: message,in: messages)
                 cell.backgroundColor = .clear
                 let config = UIHostingConfiguration {
-                    BridgedAssistantBlockV3(
+                    BridgedAssistantBlock(
                         block: block,
                         message: message,
                         bridge: bridge,
@@ -470,7 +470,7 @@ extension CollectionViewMessageListV3 {
                 let bridge = getOrCreateBridge(for: message,in: messages)
                 cell.backgroundColor = .clear
                 let config = UIHostingConfiguration {
-                    BridgedAssistantFooterV3(
+                    BridgedAssistantFooter(
                         message: message,
                         bridge: bridge,
                         maxWidth: width
@@ -579,9 +579,9 @@ extension CollectionViewMessageListV3 {
         /// Subscriptions for bridge detailBlock → sheet presenter forwarding.
         private var bridgeSheetSubs: [UUID: AnyCancellable] = [:]
 
-        private func getOrCreateBridge(for message: ChatMessage,in messages: [ChatMessage]) -> CellStateBridgeV2 {
+        private func getOrCreateBridge(for message: ChatMessage,in messages: [ChatMessage]) -> CellStateBridge {
             if let existing = cellBridgeMap[message.id] { return existing }
-            let bridge = CellStateBridgeV2()
+            let bridge = CellStateBridge()
             cellBridgeMap[message.id] = bridge
             updateBridge(bridge,message: message,in: messages)
             // Forward detailBlock changes to the VC-level sheet presenter
@@ -613,7 +613,7 @@ extension CollectionViewMessageListV3 {
 
         // MARK: - Bridge Updates
 
-        private func updateBridge(_ bridge: CellStateBridgeV2,message: ChatMessage,in messages: [ChatMessage]) {
+        private func updateBridge(_ bridge: CellStateBridge,message: ChatMessage,in messages: [ChatMessage]) {
             guard let vm else { return }
             let isLast = message.id == messages.last?.id
             let isActive = isLast && vm.isProcessing
@@ -743,13 +743,13 @@ extension CollectionViewMessageListV3 {
 
         /// [T-ios-scrollbtn-vm-split] Re-point the coordinator at a NEW view
         /// model instance when SwiftUI hands the (reused) representable a
-        /// different AIChatViewModel for the same mounted chat view. All
+        /// different MessageListModel for the same mounted chat view. All
         /// Combine subscriptions live in bindViewModel and are keyed to the
         /// old instance — cancel them wholesale and re-subscribe, then push
         /// the current snapshot + scroll flags into the new VM so its
         /// isNearBottom/messages state reflects reality instead of the
         /// initial defaults nobody would otherwise ever update.
-        public func rebindViewModelIfNeeded(_ newVM: AIChatViewModel) {
+        public func rebindViewModelIfNeeded(_ newVM: MessageListModel) {
             if let current = vm,current === newVM { return }
             let hadOld = vm != nil
             #if DEBUG
@@ -773,7 +773,7 @@ extension CollectionViewMessageListV3 {
             syncScrollFlags()
         }
 
-        private func bindViewModel(_ vm: AIChatViewModel) {
+        private func bindViewModel(_ vm: MessageListModel) {
             // 1. Messages → snapshot
             //    Skip while isLoadingSession — binding 3 handles the post-load apply.
             //    This prevents a redundant apply when $messages and $isLoadingSession
@@ -1478,7 +1478,7 @@ extension CollectionViewMessageListV3 {
                     newRows.append(.assistantHeader(message.id))
                     // 按 timelineOrder 兜底排序(2026-08-10):渲染层不依赖数据源顺序,
                     // 保证重进会话/流式收敛后「思考→工具→正文」按真实发生顺序显示,
-                    // 即使 omCache 复用了流式中途的 blocks 也不会错序。
+                    // 即使块复用缓存复用了流式中途的 blocks 也不会错序。
                     let sortedBlocks = message.blocks.sorted {
                         if $0.timelineOrder != $1.timelineOrder { return $0.timelineOrder < $1.timelineOrder }
                         return $0.id.uuidString < $1.id.uuidString
@@ -1530,7 +1530,7 @@ extension CollectionViewMessageListV3 {
                     // prepare(). Hug ONLY when the footer shows the quiet
                     // meta/usage row (or nothing); error banner / resume banner
                     // / typing indicator keep the full itemSpacing (user report
-                    // 2026-07-21). Mirrors BridgedAssistantFooterV3's sections.
+                    // 2026-07-21). Mirrors BridgedAssistantFooter's sections.
                     var footerProminent = false
                     if case .assistantFooter(let footerMID) = item {
                         let footerMsg = messageIndex[footerMID].flatMap {
@@ -1648,7 +1648,7 @@ extension CollectionViewMessageListV3 {
                             let est = Self.estimateItemHeight(item,messages: messages,width: cvWidth)
                             layout.setEstimatedHeight(est,at: i)
                         case .readImageTool:
-                            // In V3 block cells, readImageTool renders as a
+                            // In block cells, readImageTool renders as a
                             // ToolCapsuleView (36pt), same as other tool types.
                             layout.setEstimatedHeight(36,at: i)
                         case .file:
@@ -1681,7 +1681,7 @@ extension CollectionViewMessageListV3 {
                         if let msg = messages.first(where: { $0.id == msgId }),
                            msg.role == .user {
                             // Real wrap is bounded by maxContentWidth (the
-                            // .frame(maxWidth:) on BridgedWholeMessageV3); using
+                            // .frame(maxWidth:) on BridgedWholeMessage); using
                             // the wider cvWidth would under-wrap → under-estimate
                             // on iPad. Use the effective width.
                             let effWidth = maxContentWidth>0 ? min(cvWidth,maxContentWidth) : cvWidth
@@ -1979,7 +1979,7 @@ extension CollectionViewMessageListV3 {
         /// Returns nil for attachment-only / empty text (caller falls back to the
         /// coarse estimate). Cached by content|width|fontsize.
         ///
-        /// Layout constants mirror AIChatView.userRow:
+        /// Layout constants mirror ChatView.userRow:
         ///   - font: .system(size: scaledMessage(16.5))
         ///   - bubble: .padding(.horizontal,14) .padding(.vertical,10)  → +20 height, -28 width
         ///   - row:   HStack { Spacer(minLength: 60); VStack(spacing:6){ attachments?; bubble } }
@@ -3741,9 +3741,9 @@ private struct SheetOverlayView: View {
     }
 }
 
-private final class AssistantFooterCellV3: SelfSizingCell {}
+private final class AssistantFooterCell: SelfSizingCell {}
 
-// MARK: - V3 Coordinator
+// MARK: - Coordinator
 
 private final class ToolSheetPresenter: ObservableObject {
     struct SheetData: Identifiable {
@@ -3774,10 +3774,10 @@ private final class CompactSummaryPresenter: ObservableObject {
 /// Transparent SwiftUI view that owns the .sheet() modifier.
 /// Installed as a child UIHostingController on MessageListViewController,
 /// outside any UIHostingConfiguration cell tree.
-private struct BridgedAssistantBlockV3: View {
+private struct BridgedAssistantBlock: View {
     @ObservedObject var block: AssistantBlock
     @ObservedObject var message: ChatMessage
-    @ObservedObject var bridge: CellStateBridgeV2
+    @ObservedObject var bridge: CellStateBridge
     var maxWidth: CGFloat
 
     private var blockAccessibilityId: String {
@@ -3824,7 +3824,7 @@ private struct BridgedAssistantBlockV3: View {
         .opacity(message.isCompactedHistory ? 0.5 : 1.0)
         .accessibilityIdentifier(blockAccessibilityId)
         // Context menu on zero-size overlay so it doesn't inflate self-sizing
-        // (same pattern as BridgedAssistantFooterV3).
+        // (same pattern as BridgedAssistantFooter).
         .overlay {
             Color.clear.frame(width: 0,height: 0)
                 .contextMenu {
@@ -3914,11 +3914,11 @@ private struct BridgedAssistantBlockV3: View {
 }
 
 /// Footer: typing indicator, error, resume banner, token usage.
-/// V3: No GeometryReader. Sheet moved to zero-size overlay to prevent
+/// No GeometryReader. Sheet moved to zero-size overlay to prevent
 /// inflated self-sizing from sheet-capable view modifiers.
-private struct BridgedAssistantFooterV3: View {
+private struct BridgedAssistantFooter: View {
     @ObservedObject var message: ChatMessage
-    @ObservedObject var bridge: CellStateBridgeV2
+    @ObservedObject var bridge: CellStateBridge
     var maxWidth: CGFloat
 
     // showUsage and usageContentVisible are on bridge, toggled by double-tap on block cells.
@@ -4068,7 +4068,7 @@ private struct BridgedAssistantFooterV3: View {
             }
             Spacer()
             if bridge.autoRetryAttempt>0 {
-                Text("Retry in \(bridge.autoRetryCountdown)s (\(bridge.autoRetryAttempt)/\(AIChatViewModel.retryDelays.count))")
+                Text("Retry in \(bridge.autoRetryCountdown)s (\(bridge.autoRetryAttempt)/\(MessageListModel.retryDelays.count))")
                     .font(.caption.weight(.semibold)).foregroundStyle(.secondary)
                     .padding(.horizontal,12).padding(.vertical,6)
                     .background(Color.secondary.opacity(0.12)).clipShape(Capsule())
@@ -4154,10 +4154,10 @@ private struct BridgedAssistantFooterV3: View {
 }
 
 /// Wraps the existing ChatMessageRow for user / compactDivider / systemInfo messages.
-/// V3: No GeometryReader.
-private struct BridgedWholeMessageV3: View {
+/// No GeometryReader.
+private struct BridgedWholeMessage: View {
     @ObservedObject var message: ChatMessage
-    @ObservedObject var bridge: CellStateBridgeV2
+    @ObservedObject var bridge: CellStateBridge
     var maxWidth: CGFloat
 
     var body: some View {
@@ -4188,8 +4188,8 @@ private struct BridgedWholeMessageV3: View {
 
 // MARK: - Per-type Cell Subclasses (enable correct reuse)
 
-public struct CollectionViewMessageListV3: UIViewControllerRepresentable {
-    @ObservedObject public var vm: AIChatViewModel
+public struct MessageCollectionView: UIViewControllerRepresentable {
+    @ObservedObject public var vm: MessageListModel
     public var inputFocused: Bool
     public var onRetryMessage: ((UUID) -> Void)?
     public var onRetryLast: (() -> Void)?
@@ -4207,7 +4207,7 @@ public struct CollectionViewMessageListV3: UIViewControllerRepresentable {
     public var floatingBarHeight: CGFloat
     public var inputBarHeight: CGFloat
 
-    public init(vm: AIChatViewModel,
+    public init(vm: MessageListModel,
                 inputFocused: Bool,
                 onRetryMessage: ((UUID) -> Void)? = nil,
                 onRetryLast: (() -> Void)? = nil,
@@ -4255,8 +4255,8 @@ public struct CollectionViewMessageListV3: UIViewControllerRepresentable {
         let coord = context.coordinator
         // [T-ios-scrollbtn-vm-split] The coordinator captured `vm` once in
         // makeUIViewController → attach. SwiftUI reuses this representable's
-        // platform VC (and coordinator) across AIChatView re-creations, so when
-        // the ViewModelCache hands the re-created view a NEW AIChatViewModel
+        // platform VC (and coordinator) across ChatView re-creations, so when
+        // the ViewModelCache hands the re-created view a NEW MessageListModel
         // instance for the same session, the coordinator kept driving the OLD
         // one: every isNearBottom write landed on a VM nothing was observing,
         // while the overlay's VM stayed at its initial isNearBottom=true — the
@@ -4373,7 +4373,7 @@ public struct CollectionViewMessageListV3: UIViewControllerRepresentable {
     enum Section { case main }
 }
 
-// MARK: - V3 Bridged Cell Views (no GeometryReader)
+// MARK: - Bridged Cell Views (no GeometryReader)
 
 /// Header: "✦ MiniClaw" label at the top of each assistant turn.
 /// Name comes from SOUL.md (user-editable in Soul Settings); the
@@ -4385,13 +4385,13 @@ extension Notification.Name {
     static let messageListNeedsResnapshot = Notification.Name("messageListNeedsResnapshot")
 }
 
-// MARK: - CollectionViewMessageListV3
+// MARK: - MessageCollectionView
 
-/// V3 message list: builds on V2's cell-per-block model but simplifies
-/// the scroll stability architecture:
+/// Message list: cell-per-block model with a simplified
+/// scroll stability architecture:
 ///
 /// - **Single height source**: UIKit self-sizing only (no GeometryReader)
 /// - **3-tier height resolution**: measured cache → precalc (NSAttributedString) → estimate
-/// - **2-state scroll model**: autoScrolling / userBrowsing (replaces V2's 6+ mechanisms)
+/// - **2-state scroll model**: autoScrolling / userBrowsing
 /// - **O(1) message lookup**: UUID index rebuilt on each snapshot
-private final class AssistantHeaderCellV3: SelfSizingCell {}
+private final class AssistantHeaderCell: SelfSizingCell {}

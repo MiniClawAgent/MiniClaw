@@ -2320,7 +2320,7 @@ extension MiniClawBrowserEngine: WKDownloadDelegate {
                 completionHandler(nil)
                 return
             }
-            let dir = AIChatViewModel.miniClawWorkspacePersistentDir(for: sid)
+            let dir = MessageListModel.miniClawWorkspacePersistentDir(for: sid)
             try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
 
             // Unique filename: name.ext, name-1.ext, name-2.ext, …
@@ -2585,7 +2585,7 @@ public final class MiniClawSchemeHandler: NSObject, WKURLSchemeHandler {
         let url = urlSchemeTask.request.url!
         logger.info("[MiniClawScheme] start \(url.absoluteString)")
 
-        guard let fileURL = AIChatViewModel.resolveMiniClawURL(url) else {
+        guard let fileURL = MessageListModel.resolveMiniClawURL(url) else {
             logger.warning("[MiniClawScheme] not found: \(url.absoluteString)")
             urlSchemeTask.didFailWithError(URLError(.fileDoesNotExist))
             return
@@ -2648,7 +2648,7 @@ public final class MiniClawSchemeHandler: NSObject, WKURLSchemeHandler {
 /// Session-scoped registry of native browser (WKDownload) file downloads.
 /// [T-browser-download-ux] Two consumers:
 ///
-///  1. **Chat UI** — `AIChatView` overlays a floating download card (icon +
+///  1. **Chat UI** — `ChatView` overlays a floating download card (icon +
 ///     live progress + tap-to-preview) driven by `entries`, replacing the old
 ///     "Downloading xxx…" systemInfo row in the message list.
 ///  2. **Agent loop** — browser_use tool results append `agentReport(for:)`
