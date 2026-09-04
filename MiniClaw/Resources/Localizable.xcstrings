@@ -6794,35 +6794,6 @@
         }
       }
     },
-    "browser_bound_to_this_session": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Browser (bound to this session)"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ブラウザ（このセッションにバインド）"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "브라우저(이 세션에 바인딩)"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "浏览器（绑定本会话）"
-          }
-        }
-      }
-    },
     "browser_cache": {
       "extractionState": "manual",
       "localizations": {
@@ -9864,35 +9835,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "收集页面列表"
-          }
-        }
-      }
-    },
-    "command_line_bound_to_this_session": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Command line (bound to this session)"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "コマンドライン（このセッションに紐づけ）"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "명령줄 (이 세션에 바인딩)"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "命令行（绑定本会话）"
           }
         }
       }

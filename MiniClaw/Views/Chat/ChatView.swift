@@ -610,7 +610,7 @@ struct ChatView: View {
                 Button {
                     showSessionTerminal = true
                 } label: {
-                    Label(L10n.l("command_line_bound_to_this_session"), systemImage: "terminal")
+                    Label(L10n.l("terminal"), systemImage: "terminal")
                 }
                 Button {
                     showSessionBrowser = true
