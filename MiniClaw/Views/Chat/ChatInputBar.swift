@@ -163,10 +163,10 @@ struct ChatInputBar: View {
                 SlashCommandOverlay(filter: slashFilter, commands: allSlashCommands) { cmd in
                     selectSlashCommand(cmd)
                 }
-                // 宽度对齐输入框（同样 16pt 横向边距）；底距 = barHeight(含 8pt 外层底距)
-                // → 菜单底边与输入框顶边之间恰好 8pt。
-                .padding(.horizontal, 16)
-                .padding(.bottom, barHeight)
+        // 宽度对齐输入框（同样 16pt 横向边距）；底距 = barHeight + 8：
+        // barHeight 含外层 8pt 底距，输入框顶边恰在 barHeight 处 → +8 使菜单与输入框间距恰 8pt。
+        .padding(.horizontal, 16)
+        .padding(.bottom, barHeight + 8)
                 .transition(.move(edge: .bottom).combined(with: .opacity))
                 .animation(.spring(response: 0.3, dampingFraction: 0.85), value: slashMenuVisible)
             }
