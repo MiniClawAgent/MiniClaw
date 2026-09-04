@@ -100,7 +100,7 @@
      ISHShellExecutionContext *ctx = [[ISHShellExecutionContext alloc] init];
      ctx.lineCallback = lineCallback;
      ctx.completion = completion;
-@@ -233,9 +268,36 @@
+@@ -233,9 +268,40 @@
      [envp_str appendString:@"\0"];
  
      const char *envp = envp_str.UTF8String;
@@ -112,6 +112,10 @@
 +    if (sessionFsContext != 0) {
 +        char guestRoot[MAX_PATH + 1];
 +        if (miniclaw_session_guest_root(sessionFsContext, guestRoot, sizeof(guestRoot))) {
++            // 路径翻译 hook（fakefs）按 current->group->fs_context 路由会话
++            // （fs/fake.c:273）——不设置它，hook 收到 0 会被 Swift 侧拒绝，
++            // /var/MiniClaw/sessions/<uuid> 的 stat/open 全部失败。
++            task->group->fs_context = sessionFsContext;
 +            struct statbuf stat;
 +            if (generic_statat(AT_PWD, guestRoot, &stat, true) < 0) {
 +                NSLog(@"ISHShellExecutor: session root stat failed: %s", guestRoot);
@@ -137,7 +141,7 @@
      if (err < 0) {
          current = saved_current;
          [ctx cleanup];
-@@ -246,6 +308,7 @@
+@@ -246,6 +312,7 @@
      // Get guest PID and start task
      ctx.guestPid = task->pid;
      ctx.result.pid = ctx.guestPid;
@@ -145,7 +149,7 @@
      task_start(task);
      current = saved_current;
  
-@@ -329,6 +392,7 @@
+@@ -329,6 +396,7 @@
  + (void)processDidExit:(NSNotification *)notification {
      int pid = [notification.userInfo[@"pid"] intValue];
      int exitCode = [notification.userInfo[@"code"] intValue];
@@ -153,7 +157,7 @@
  
      ISHShellExecutionContext *ctx;
      @synchronized(_activeExecutions) {
-@@ -340,15 +404,25 @@
+@@ -340,15 +408,29 @@
      if (ctx.isCompleted) return;
      ctx.isCompleted = YES;
  
@@ -179,6 +183,10 @@
 +        @synchronized (ctx.stderrBuffer) {
 +            ctx.result.errorOutput = [ctx.stderrBuffer copy];
 +        }
++        NSLog(@"[MiniClawTerm] completion out=%lu err=%lu exit=%d",
++              (unsigned long) ctx.result.output.length,
++              (unsigned long) ctx.result.errorOutput.length,
++              ctx.result.exitCode);
 +
          [ctx cleanup];
  
