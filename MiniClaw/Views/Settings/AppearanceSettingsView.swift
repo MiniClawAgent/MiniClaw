@@ -4,6 +4,8 @@ import SwiftUI
 
 /// 外观设置：仅保留背景主题（theme 插件选用）。外观模式与代码块主题已移除，
 /// 均默认跟随系统（唐唐 2026-09-05 决定）。
+/// 背景主题为双列封面卡片网格（唐唐 2026-09-05 定稿）：矩形封面 + 左下角主题名 +
+/// 名字下方渐变阴影遮罩；选中态 = 一圈边框 + 右上角绿色勾。
 struct AppearanceSettingsView: View {
     /// 订阅主题管理器：选用/清除背景主题时刷新选中勾与主题列表。
     @ObservedObject private var themeManager = ThemeManager.shared
@@ -18,54 +20,33 @@ struct AppearanceSettingsView: View {
         .navigationBarTitleDisplayMode(.inline)
     }
 
-    // MARK: - 背景主题（theme 插件，唐唐 2026-08-30 定稿）
+    // MARK: - 背景主题（theme 插件，唐唐 2026-08-30 定稿 / 09-05 重做卡片网格）
 
-    /// 背景主题选择区：系统默认 + 已装 theme 插件预设（缩略图 + 选中态）。
-    /// 显式选用 + 排他生效；未选用时三页保持系统默认背景。
+    /// 「系统默认」恒为首张卡片：清除选用即回退。
     private var backgroundThemeSection: some View {
         Section {
-            // 「系统默认」恒在首行：清除选用即回退。
-            Button {
-                themeManager.activeThemeID = nil
-            } label: {
-                HStack {
-                    Image(systemName: "square.on.square")
-                        .frame(width: 44, height: 32)
-                        .background(Color(.tertiarySystemFill), in: RoundedRectangle(cornerRadius: 6))
-                    Text(String(localized: "background_theme_default"))
-                        .foregroundStyle(.primary)
-                    Spacer()
-                    if themeManager.activeThemeID == nil {
-                        Image(systemName: "checkmark").foregroundStyle(Color.accentColor)
-                    }
+            LazyVGrid(columns: [GridItem(.flexible(), spacing: 14), GridItem(.flexible())],
+                      spacing: 14) {
+                themeCard(id: nil,
+                          name: String(localized: "background_theme_default"),
+                          imageURL: nil)
+                ForEach(themeManager.installedThemes(), id: \.pluginID) { theme in
+                    let file = theme.decl.fileName(for: .chat)
+                        ?? theme.decl.fileName(for: .home)
+                        ?? theme.decl.fileName(for: .settings)
+                    themeCard(id: theme.pluginID,
+                              name: theme.decl.name.isEmpty ? theme.pluginID : theme.decl.name,
+                              imageURL: file.map { ThemeManager.shared.imageURL(pluginID: theme.pluginID, fileName: $0) })
                 }
             }
+            .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+            .listRowSeparator(.hidden)
 
             if themeManager.installedThemes().isEmpty {
                 Text(String(localized: "background_theme_empty_hint"))
                     .font(.footnote)
                     .foregroundStyle(.secondary)
-            }
-
-            ForEach(themeManager.installedThemes(), id: \.pluginID) { theme in
-                Button {
-                    themeManager.activeThemeID = theme.pluginID
-                } label: {
-                    HStack {
-                        themeThumbnail(pluginID: theme.pluginID, decl: theme.decl)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(theme.decl.name.isEmpty ? theme.pluginID : theme.decl.name)
-                                .foregroundStyle(.primary)
-                            Text(theme.pluginID)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                        Spacer()
-                        if themeManager.activeThemeID == theme.pluginID {
-                            Image(systemName: "checkmark").foregroundStyle(Color.accentColor)
-                        }
-                    }
-                }
+                    .listRowSeparator(.hidden)
             }
         } header: {
             Text(String(localized: "background_theme"))
@@ -74,27 +55,54 @@ struct AppearanceSettingsView: View {
         }
     }
 
-    /// 主题缩略图：优先 chat 槽位，其次任一可用图，downsample 到小尺寸。
-    @ViewBuilder
-    private func themeThumbnail(pluginID: String, decl: ThemePackageDecl) -> some View {
-        let fileName = decl.fileName(for: .chat)
-            ?? decl.fileName(for: .home)
-            ?? decl.fileName(for: .settings)
-        if let fileName,
-           let small = smallThumbnail(url: ThemeManager.shared.imageURL(pluginID: pluginID, fileName: fileName)) {
-            Image(uiImage: small)
-                .resizable()
-                .aspectRatio(contentMode: .fill)
-                .frame(width: 44, height: 32)
-                .clipShape(RoundedRectangle(cornerRadius: 6))
-        } else {
-            Image(systemName: "photo")
-                .frame(width: 44, height: 32)
-                .background(Color(.tertiarySystemFill), in: RoundedRectangle(cornerRadius: 6))
+    /// 单张主题封面卡片：矩形封面（0.75 宽高比）+ 底部渐变阴影遮罩 + 左下角名字；
+    /// 选中态 = 强调色边框 + 右上角绿色勾。
+    private func themeCard(id: String?, name: String, imageURL: URL?) -> some View {
+        let selected = themeManager.activeThemeID == id
+        return Button {
+            themeManager.activeThemeID = id
+        } label: {
+            ZStack(alignment: .bottomLeading) {
+                // 封面
+                if let imageURL, let cover = ThemeManager.downsampledImage(at: imageURL, maxPixel: 600) {
+                    Image(uiImage: cover)
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                } else {
+                    ZStack {
+                        Color(.tertiarySystemFill)
+                        Image(systemName: "square.on.square")
+                            .font(.title2)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                // 名字下方的渐变阴影遮罩（保证白字可读）
+                LinearGradient(colors: [.clear, .black.opacity(0.55)],
+                               startPoint: .center, endPoint: .bottom)
+                Text(name)
+                    .font(.footnote.weight(.medium))
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+                    .padding(10)
+            }
+            .aspectRatio(0.75, contentMode: .fit)
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .overlay {
+                if selected {
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .strokeBorder(Color.accentColor, lineWidth: 3)
+                }
+            }
+            .overlay(alignment: .topTrailing) {
+                if selected {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.title3)
+                        .foregroundStyle(.white, .green)
+                        .padding(8)
+                }
+            }
         }
-    }
-
-    private func smallThumbnail(url: URL) -> UIImage? {
-        ThemeManager.downsampledImage(at: url, maxPixel: 132)
+        .buttonStyle(.plain)
+        .accessibilityLabel(Text(name))
     }
 }
