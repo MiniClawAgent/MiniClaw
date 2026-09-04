@@ -706,6 +706,9 @@ public final class MessageListLayout: UICollectionViewLayout {
     /// Use this for the actively streaming message whose height is changing.
     public func invalidateHeight(at index: Int) {
         heightCache.removeValue(forKey: index)
+        // 流式 cell 的 PLAF 短路优先返回 precalc（塌缩/旧估算高度）——不清它，
+        // 手术式失效（如思考块展开）后 PLAF 仍返回旧高度，展开内容被裁剪。
+        precalcHeights.removeValue(forKey: index)
         geometryReaderConfirmed.remove(index)
         // Belt-and-suspenders: also drop the
         // content-keyed memo for this index. The content-versioned key already
