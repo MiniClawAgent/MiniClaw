@@ -76,23 +76,17 @@ struct ChatInputBar: View {
     //  手势回调内直接调 AVAudioSession API → AudioSession RootQueue 断言失败）。
     @State private var shouldRequestMicPermission: Bool = false
 
+    // 输入栏自测高度：斜杠菜单覆盖层的底部偏移用（菜单悬浮在输入栏正上方，
+    // 不占布局空间 → 菜单出现时消息列表内容不被顶起）。
+    @State private var barHeight: CGFloat = 0
+
     // 语音面板：上滑打开 / 从顶部把手下滑关闭（非手指跟随式，避免拖拽实时改高度引发抖动）。
 
     var body: some View {
-        // ── 外层容器：斜杠命令菜单(上) + 输入栏本体(下)，菜单是输入框的兄弟节点 ──
+        // ── 外层容器：仅输入栏本体。斜杠命令菜单改为覆盖层（2026-09-05 用户要求）：
+        // 不再作为布局兄弟节点 → 菜单出现时输入栏高度不变、消息列表内容不再被顶起，
+        // 菜单直接覆盖在消息上方（独立 UI 层）。锚定输入栏顶部向上展开。
         VStack(alignment: .leading, spacing: 0) {
-            // 斜杠命令菜单：条件渲染在输入框正上方，与输入框同级、不重叠。
-            // 不加额外横向 padding → 与输入框等宽（同受外层 .horizontal,16 约束）；
-            // 底部留 10pt 间距，让菜单浮在输入框上方而非紧贴。
-            if slashMenuVisible {
-                SlashCommandOverlay(filter: slashFilter, commands: allSlashCommands) { cmd in
-                    selectSlashCommand(cmd)
-                }
-                .padding(.bottom, 10)
-                .transition(.move(edge: .bottom).combined(with: .opacity))
-                .animation(.spring(response: 0.3, dampingFraction: 0.85), value: slashMenuVisible)
-            }
-
             // ── 输入栏本体：附件预览 + 语音文字区(可选) + 操作行 ──
             // 发送按钮通过 overlay 绝对定位在容器右下角（不参与流式布局），
             // 这样无论上方 transcript area 如何展开，按钮在屏幕上的位置始终不变。
@@ -156,6 +150,24 @@ struct ChatInputBar: View {
         }
         .padding(.horizontal, 16)
         .padding(.bottom, 10)
+        // 自测高度（含 10pt 底距）：斜杠菜单覆盖层的底部偏移基准。
+        .onGeometryChange(for: CGFloat.self) { proxy in
+            proxy.size.height
+        } action: { barHeight = $0 }
+        // 斜杠命令菜单覆盖层：悬浮在输入栏正上方（不占布局空间），
+        // 出现时直接覆盖在消息内容上（独立 UI 层），消息列表不被顶起。
+        // 底部偏移 = 输入栏实测高度 → 菜单底边 = 输入栏视觉顶边，留 10pt 间距
+        // 由外层 .padding(.bottom,10) 天然提供。
+        .overlay(alignment: .bottom) {
+            if slashMenuVisible {
+                SlashCommandOverlay(filter: slashFilter, commands: allSlashCommands) { cmd in
+                    selectSlashCommand(cmd)
+                }
+                .padding(.bottom, barHeight)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .animation(.spring(response: 0.3, dampingFraction: 0.85), value: slashMenuVisible)
+            }
+        }
         .gesture(voiceOpenGesture)
         // ★ 权限请求解耦：手势只设标志，onChange 在视图更新周期中执行实际请求 ★
         .onChange(of: shouldRequestMicPermission) { newValue in

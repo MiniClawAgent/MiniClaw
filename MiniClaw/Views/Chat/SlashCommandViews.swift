@@ -45,15 +45,14 @@ struct SlashCommandOverlay: View {
     }
 
     /// 内置默认命令（toggle 状态占位，实际值由 ChatView 注入）。
+    /// 2026-09-05 清理：删除 /search /image /analyze /exec 四个死命令——它们此前
+    /// 仅回填文本前缀，发送侧无任何对应处理（sendMessage 原样透传给模型），
+    /// 属于「看起来能执行、实际无效果」的假命令；待未来赋予真实语义再回加。
     static let defaultCommands: [SlashCommandItem] = [
         SlashCommandItem(id: "clear", icon: "trash", title: "/clear", subtitle: "Clear all messages in this session", kind: .action),
         SlashCommandItem(id: "compact", icon: "arrow.up.arrow.down", title: "/compact", subtitle: "Compress conversation history into summary", kind: .action),
         SlashCommandItem(id: "memory", icon: "brain", title: "/memory", subtitle: "Writes off — tap to toggle", kind: .toggle(false)),
         SlashCommandItem(id: "thinking", icon: "wand.and.sparkles", title: "/thinking", subtitle: L10n.l("current_model_not_supported"), kind: .disabled(L10n.l("current_model_not_supported"))),
-        SlashCommandItem(id: "search", icon: "globe", title: "/search", subtitle: L10n.l("web_search"), kind: .insertText("/search ")),
-        SlashCommandItem(id: "image", icon: "photo", title: "/image", subtitle: L10n.l("image_generation"), kind: .insertText("/image ")),
-        SlashCommandItem(id: "analyze", icon: "doc.text", title: "/analyze", subtitle: L10n.l("file_analysis"), kind: .insertText("/analyze ")),
-        SlashCommandItem(id: "exec", icon: "terminal", title: "/exec", subtitle: L10n.l("run_command"), kind: .insertText("/exec ")),
     ]
 
     /// 按过滤关键词筛选命令：匹配命令名或副标题。
