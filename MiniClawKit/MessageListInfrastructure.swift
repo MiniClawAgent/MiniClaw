@@ -4,7 +4,7 @@
 //
 //  Shared types for the collection-view-based chat message list.
 //  Shared infrastructure types used by the message list.
-//  SelectableMarkdownView / MarkdownRenderView walk the view hierarchy
+//  MarkdownView / MarkdownRenderView walk the view hierarchy
 //  looking for `NoAnimationCollectionView` and `SelfSizingCell`.
 //
 
@@ -102,7 +102,7 @@ public final class MessageListViewController: UIViewController {
     /// collection view resizes to the new width but its dequeued cells stay
     /// at the previous-orientation width. Off-screen cells (including any
     /// cell hosting a TableAttachment) never get re-sized, so when the user
-    /// scrolls them back into view the SelectableMarkdownTextView is hosted
+    /// scrolls them back into view the MarkdownTextView is hosted
     /// at the old textContainer width and the rendered table frame stays
     /// at the pre-rotation column widths. Invalidating the collection view
     /// layout forces every cell to be re-measured at the new width during
@@ -160,12 +160,12 @@ public final class MessageListViewController: UIViewController {
     }
 
     /// Recursively walks `view`'s subview tree to find every
-    /// SelectableMarkdownTextView, then invalidates each TableAttachment in
+    /// MarkdownTextView, then invalidates each TableAttachment in
     /// its text storage so the column-width cache (keyed by portrait width)
     /// is dropped. Returns the number of TableAttachments reset.
     private static func invalidateTableAttachmentsInSubviews(of view: UIView) -> Int {
         var count = 0
-        if let tv = view as? SelectableMarkdownTextView,let storage = tv.textStorage as? NSTextStorage,storage.length>0 {
+        if let tv = view as? MarkdownTextView,let storage = tv.textStorage as? NSTextStorage,storage.length>0 {
             storage.enumerateAttribute(.attachment,in: NSRange(location: 0,length: storage.length),options: []) { value,range,_ in
                 if let table = value as? TableAttachment {
                     table.invalidateCachedLayoutForWidthChange()
@@ -393,7 +393,7 @@ final class NoAnimationCollectionView: UICollectionView {
         super.setContentOffset(contentOffset,animated: animated)
     }
 
-    /// Tracks whether a SelectableMarkdownTextView currently has an active text selection.
+    /// Tracks whether a MarkdownTextView currently has an active text selection.
     var hasActiveTextSelection: Bool = false
 
     // MARK: - Text-selection edge auto-scroll
@@ -438,7 +438,7 @@ final class NoAnimationCollectionView: UICollectionView {
     /// so the two fought each frame → flicker).
     private var selectionDragTouchPoint: CGPoint?
 
-    /// Called by the active SelectableMarkdownTextView while its selection-handle
+    /// Called by the active MarkdownTextView while its selection-handle
     /// drag is live (gesture `.began`/`.changed`). `touchPoint` is the current
     /// touch location in this collection view's coordinates. Starts the ticker
     /// (or keeps it alive) when the touch is in an edge zone; stops it otherwise.

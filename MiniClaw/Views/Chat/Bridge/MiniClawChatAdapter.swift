@@ -138,7 +138,7 @@ enum MiniClawChatAdapter {
 
     // MARK: - 文件引用拆分(块级渲染,消除行内附件黑边)
 
-    /// 媒体扩展名(图片/视频/音频),与 Kit SelectableMarkdownView 的
+    /// 媒体扩展名(图片/视频/音频),与 Kit MarkdownView 的
     /// nativeImageExts/nativeVideoExts/nativeAudioExts 保持一致。
     private static let mediaExts: Set<String> = [
         "png","jpg","jpeg","gif","webp","bmp","tiff","svg",

@@ -817,7 +817,7 @@ struct AssistantBlockView: View {
     var onTapBlank: ((CGPoint) -> Void)?
     var onCopyScreenshot: (() -> Void)?
     /// [T-selection-menu-tts] Selection-menu read-aloud hooks, plumbed
-    /// down to SelectableMarkdownView (nil for non-text or streaming contexts).
+    /// down to MarkdownView (nil for non-text or streaming contexts).
     var onReadAloud: (() -> Void)?
     var onSpeakText: ((String) -> Void)?
     var browserPool: MiniClawTabPool?
@@ -927,7 +927,7 @@ struct AssistantBlockView: View {
 
     @ViewBuilder
     private var textBlockView: some View {
-        SelectableMarkdownView(
+        MarkdownView(
             markdown: block.content,
             cachedContent: block.cachedMarkdown,
             cachedAttributedString: block.cachedAttributedString,

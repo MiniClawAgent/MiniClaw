@@ -12,7 +12,7 @@ extension MessageCollectionView.Coordinator {
         /// calling attachmentBounds() during layout, unlike boundingRect() which
         /// uses the attachment's 1×1px placeholder image.
         /// [T-ios-decel-inv-estimate-calibration] Measure with the REAL render
-        /// engine: an offscreen SelectableMarkdownTextView (MiniClawLayoutManager +
+        /// engine: an offscreen MarkdownTextView (MiniClawLayoutManager +
         /// 4/4 textContainerInset), exactly what the live cell hosts. The
         /// previous bare-NSLayoutManager measure drifted +4..+21pt on ~30% of
         /// blocks (multi-paragraph / emoji-heading content) — debug.measureCompare
@@ -49,7 +49,7 @@ extension MessageCollectionView.Coordinator {
         }
 
         /// Shared offscreen measurement text view (main-thread only).
-        static let measureTextView = SelectableMarkdownTextView()
+        static let measureTextView = MarkdownTextView()
 
         /// [T-ios-user-msg-estimate-tail-jitter] Accurate height for a USER
         /// message cell, measured with the SAME font / wrap width / paddings as
@@ -282,7 +282,7 @@ extension MessageCollectionView.Coordinator {
                         // height (±1pt). This is only a layout ESTIMATE, and the .text
                         // block's cachedAttributedString is attachment-free markdown
                         // text (attachments render as separate blocks), so it's safe.
-                        let textH = SelectableMarkdownView.ctFramesetterHeight(for: attrStr,width: textWidth)
+                        let textH = MarkdownView.ctFramesetterHeight(for: attrStr,width: textWidth)
                         // +12 = text view insets (8) + SwiftUI wrapper vertical
                         // padding (4). This CT path is the coarse prefetch
                         // fallback; the seed loop's precalc uses the exact

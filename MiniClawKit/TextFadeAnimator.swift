@@ -4,7 +4,7 @@
 //  Word-by-word fade-in animation for streaming Markdown output.
 //
 //  When the renderer appends new tokens to a message's textStorage via the
-//  `[AttachHotPath]` append-only fast path in SelectableMarkdownView, instead
+//  `[AttachHotPath]` append-only fast path in MarkdownView, instead
 //  of the new glyphs popping in instantly we fade each word from alpha 0 → 1
 //  with a small per-word stagger, producing a "ripple" reveal.
 //
@@ -23,7 +23,7 @@
 import UIKit
 
 /// Drives word-by-word alpha fade-in for newly appended text in an
-/// NSTextStorage. Lives on the SelectableMarkdownView Coordinator; one
+/// NSTextStorage. Lives on the MarkdownView Coordinator; one
 /// instance per on-screen textView.
 @MainActor
 final class TextFadeAnimator {
