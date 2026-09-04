@@ -767,6 +767,9 @@ struct ChatView: View {
                 thinkingLevels: availableThinkingLevels,
                 focused: $isInputFocused
             )
+            // zIndex：斜杠菜单覆盖层从输入栏向上溢出（覆盖消息与浮动条），
+            // 重叠区兄弟绘制顺序未定义 → 显式抬高输入栏层级，保证菜单压住头像条。
+            .zIndex(1)
             // 照 inputBar 测高:seed 首帧同步 + 380ms debounce + 320ms settle-confirm。
             // .global frame 的 height 不受键盘影响(键盘只改 Y),配合 onscreen 守卫。
             .onGeometryChange(for: CGRect.self) { proxy in

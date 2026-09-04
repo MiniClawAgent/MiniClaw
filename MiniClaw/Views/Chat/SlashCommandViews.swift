@@ -80,7 +80,10 @@ struct SlashCommandOverlay: View {
             }
         }
         // 默认只显示约 3.5 行高度，超出部分可上下滑动选择。
+        // fixedSize(v:true)：拒绝宿主 .overlay 传来的小高度提议（输入栏仅 ~66pt），
+        // 保持菜单自然高度（≤190），否则菜单被压扁成一行且被浮动条遮住。
         .frame(maxHeight: 190)
+        .fixedSize(horizontal: false, vertical: true)
         .padding(.vertical, 6)
         .background(.regularMaterial)
         .clipShape(RoundedRectangle(cornerRadius: 16))
