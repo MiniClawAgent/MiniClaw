@@ -100,11 +100,10 @@
      ISHShellExecutionContext *ctx = [[ISHShellExecutionContext alloc] init];
      ctx.lineCallback = lineCallback;
      ctx.completion = completion;
-@@ -233,9 +268,40 @@
-     [envp_str appendString:@"\0"];
+@@ -234,8 +269,39 @@
  
      const char *envp = envp_str.UTF8String;
-+
+ 
 +    // 会话文件隔离（MiniClaw 定制）：fsContext 非零时把新进程 cwd 切到会话根
 +    // /var/MiniClaw/sessions/<uuid>。路径经 Swift 侧 SessionFileRouter 桥接还原；
 +    // 内联 open_dir 逻辑（fs.c 的 open_dir 为 static）：stat 确认目录 + O_RDONLY 打开，
@@ -134,7 +133,7 @@
 +            NSLog(@"ISHShellExecutor: no session mapping for fsContext %llu", (unsigned long long) sessionFsContext);
 +        }
 +    }
- 
++
      // Execute
      err = do_execve(executable.UTF8String, fullArgs.count, argv_buf, envp);
 +    NSLog(@"[MiniClawTerm] do_execve err=%d", err);
@@ -191,3 +190,19 @@
          [ctx cleanup];
  
          // Call completion callback
+@@ -378,7 +460,14 @@
+     NSMutableString *lineBuffer = [NSMutableString string];
+     NSMutableString *outputBuffer = isStdErr ? ctx.stderrBuffer : ctx.stdoutBuffer;
+ 
+-    while (!ctx.isCompleted) {
++    // Drain until EOF（guest 进程树全部退出、写端关闭）或 fd 被清理（EBADF）。
++    // ⚠️ 不能以 isCompleted 作为循环退出条件：shell 的退出通知是同步投递的，
++    // 几乎总先于 reader 的下一轮 10ms 轮询到达——此时 pipe 里往往还有未读的
++    // 尾部输出，按 isCompleted 退出会把它们全部截断（瞬时长命令必现：
++    // `echo hi > a.txt && ls -la && cat a.txt` 只剩第一波 "total 4"）。
++    // 后背保护：processDidExit 的 100ms 宽限后 cleanup 关闭读端 → read 得
++    // EBADF → 走下面的错误分支退出（防 guest 遗留后台进程长期占用管道）。
++    while (true) {
+         ssize_t bytesRead = read(fd, buffer, sizeof(buffer) - 1);
+ 
+         if (bytesRead > 0) {
