@@ -63,29 +63,32 @@ struct AppearanceSettingsView: View {
             themeManager.activeThemeID = id
         } label: {
             ZStack(alignment: .bottomLeading) {
-                // 封面
-                if let imageURL, let cover = ThemeManager.downsampledImage(at: imageURL, maxPixel: 600) {
-                    Image(uiImage: cover)
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                } else {
-                    ZStack {
-                        Color(.tertiarySystemFill)
-                        Image(systemName: "square.on.square")
-                            .font(.title2)
-                            .foregroundStyle(.secondary)
+                // 固定宽高比底座：封面只做填充，不反向撑高卡片，保证所有卡片同高
+                Color.clear
+                    .aspectRatio(0.75, contentMode: .fit)
+                    .overlay {
+                        if let imageURL, let cover = ThemeManager.downsampledImage(at: imageURL, maxPixel: 600) {
+                            Image(uiImage: cover)
+                                .resizable()
+                                .aspectRatio(contentMode: .fill)
+                        } else {
+                            ZStack {
+                                Color(.tertiarySystemFill)
+                                Image(systemName: "square.on.square")
+                                    .font(.title2)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
                     }
-                }
                 // 名字下方的渐变阴影遮罩（保证白字可读）
-                LinearGradient(colors: [.clear, .black.opacity(0.55)],
-                               startPoint: .center, endPoint: .bottom)
+                LinearGradient(colors: [.clear, .black.opacity(0.8)],
+                               startPoint: UnitPoint(x: 0.5, y: 0.45), endPoint: .bottom)
                 Text(name)
                     .font(.footnote.weight(.medium))
                     .foregroundStyle(.white)
                     .lineLimit(1)
                     .padding(10)
             }
-            .aspectRatio(0.75, contentMode: .fit)
             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
             .overlay {
                 if selected {
