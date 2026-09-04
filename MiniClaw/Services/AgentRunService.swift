@@ -326,7 +326,10 @@ final class AgentRunService {
                     runtime.retryState = nil
                     runtime.taskStartOrResume()
                 }
-                exec.position = Int(runtime.streamingContent.count)
+                // 挂载位置含未提交缓冲：streamingContent 漏算 ~100ms 节流缓冲里的
+                // 轮末尾字（如句号），工具 position 少记尾包 → 尾字落入工具卡之后的
+                // 分段（与思考段锚点同族竞态，见 77b11e6）。
+                exec.position = Int(runtime.streamingContent.count + runtime.pendingText.count)
                 let order = runtime.nextTimelineOrder
                 runtime.nextTimelineOrder += 1
                 runtime.registerStreamingToolExecution(exec, order: Double(order))
