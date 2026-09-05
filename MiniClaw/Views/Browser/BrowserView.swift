@@ -4,7 +4,11 @@ import UIKit
 
 struct BrowserView: View {
     @Environment(\.dismiss) private var dismiss
-    @EnvironmentObject private var appState: AppState
+    /// 2026-09-05 修复：改用 AppState.shared 单例而非 @EnvironmentObject——
+        /// 本视图存在多条呈现路径（会话 sheet/子代理页/首页/独立 UIWindow 接管），
+        /// 部分路径无环境继承链（Mac 独立窗口实测致命：No ObservableObject of
+        /// type AppState found）。AppState.shared 启动即置位，与呈现路径解耦。
+        private var appState: AppState { AppState.shared }
     @StateObject private var controller = BrowserEngineAdapter.shared
 
     @State private var urlString: String = ""
