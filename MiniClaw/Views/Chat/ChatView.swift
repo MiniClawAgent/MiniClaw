@@ -1287,17 +1287,10 @@ struct ChatView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        .background {
-            // 已完成 = 绿色磨砂（材质上叠绿色薄层）；其余 = 常规材质
-            if sub.status == .completed {
-                Rectangle()
-                    .fill(.ultraThinMaterial)
-                    .overlay(Color.green.opacity(0.12))
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-            } else {
-                RoundedRectangle(cornerRadius: 12).fill(.ultraThinMaterial)
-            }
-        }
+        // 实底背景（唐唐 2026-09-05 定稿，对齐 OpenMinis pill 做法）：
+        // 不用 ultraThinMaterial 实时模糊——悬浮条 3 层 blur 在列表滚动时每帧重采样，
+        // 是「回到会话页翻历史整页抖动」的根因。已完成态用绿色实底表达。
+        .background(subagentCapsuleBackground(sub.status))
         .overlay {
             // 状态边框：仅出错/已取消保留，粗细对齐工具/思考指示器的 0.5pt 细线
             if let border = subagentCapsuleBorder(sub.status) {
@@ -1318,13 +1311,26 @@ struct ChatView: View {
         .accessibilityLabel(Text(sub.name))
     }
 
-    /// 胶囊卡状态边框颜色（nil = 无边框）。已完成不靠边框表达（绿磨砂背景承担）。
+    /// 胶囊卡状态边框颜色（nil = 无边框）。已完成不靠边框表达（绿实底承担）。
     private func subagentCapsuleBorder(_ status: SubagentStatus) -> Color? {
         switch status {
         case .error: return .red
         case .cancelled: return .gray
         case .completed, .running: return nil
         }
+    }
+
+    /// 胶囊卡实底背景：常规/运行中 = systemGray6（对齐 OpenMinis pill）；
+    /// 已完成 = 绿色实底（systemGray6 上叠绿调，保留完成态绿色语义，无实时模糊）。
+    private func subagentCapsuleBackground(_ status: SubagentStatus) -> some View {
+        Group {
+            if status == .completed {
+                Color(UIColor.systemGray6).overlay(Color.green.opacity(0.18))
+            } else {
+                Color(UIColor.systemGray6)
+            }
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 
 
