@@ -1713,6 +1713,23 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
         return String(format: String(localized: "loop_calling_tool"), toolName)
     }
 
+    /// 拦截早退类工具（dispatch/close_subagent）的执行生命周期补全：
+    /// 与通用路径一致地挂载占位 → 参数定稿 → 结果落定，让工具卡正常显示
+    /// 状态流转与耗时（2026-09-05 修复：此前早退绕过挂载，卡片回落
+    /// .shellTool(command:"") 空壳且状态永不收口）。
+    private func finalizeInterceptedToolExec(_ tc: ToolCall, result: ToolResult, startedAt: Date) {
+        let exec: ToolExecution
+        if let pending = pendingToolExecutions[tc.id] {
+            exec = pending
+        } else {
+            exec = ToolExecution(name: tc.function.name, callID: tc.id, startedAt: startedAt)
+            pendingToolExecutions[tc.id] = exec
+            emitToolExecutionBegin(exec)
+        }
+        exec.beginExecution(argsJSON: tc.function.arguments)
+        exec.finish(result, duration: Date().timeIntervalSince(startedAt))
+    }
+
     private func executeTool(_ tc: ToolCall) async -> ToolResult {
         let rawName = tc.function.name.trimmingCharacters(in: .whitespacesAndNewlines)
         // 防御：name 为空或未注册时直接返回明确错误，不抛异常导致循环中断
@@ -1720,6 +1737,12 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
             AppLogger.shared.error(String(format: String(localized: "loop_empty_fn_rejected"), tc.id), category: "Agent", subsystem: "ToolRouter")
             return ToolResult(success: false, text: String(localized: "err_tool_call_no_name"))
         }
+        // [ToolForensics] 取证（唐唐 2026-09-05，只进 Xcode 控制台不进 App 日志）：
+        // 前移到拦截之前，覆盖 shell_execute / dispatch_subagent / close_subagent 三者。
+        if rawName == "shell_execute" || rawName == Self.subagentToolName || rawName == Self.closeSubagentToolName {
+            NSLog("[ToolForensics] name=%@ callID=%@ rawArgs=%@", rawName, tc.id, tc.function.arguments)
+        }
+        let interceptedStartedAt = Date()
         // 子代理调度：拦截保留工具名，派生子代理并同步等待其返回，作为本工具结果回传父循环。
         // 硬深度守卫：不依赖 schema 剔除（模型可能幻觉输出旧工具名），执行前校验深度上限，
         // 触顶直接返回错误结果（模型收到明确提示），杜绝无限递归派发。
@@ -1727,29 +1750,41 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
             // 子代理恒可用（无用户总开关）；此处仅做深度递归守卫
             //（模型幻觉直调时兜底，schema 剔除 + 引导段已控制常规路径）。
             guard AgentLoopHelpers.canDispatchSubagents(subagentEngine: isSubagentEngine, depth: subagentDepth) else {
-                return ToolResult(success: false, text: String(format: String(localized: "loop_subagent_depth_error"), AgentLoopHelpers.maxSubagentDepth))
+                let result = ToolResult(success: false, text: String(format: String(localized: "loop_subagent_depth_error"), AgentLoopHelpers.maxSubagentDepth))
+                finalizeInterceptedToolExec(tc, result: result, startedAt: interceptedStartedAt)
+                return result
             }
-            return await spawnSubagent(toolCall: tc)
+            let result = await spawnSubagent(toolCall: tc)
+            finalizeInterceptedToolExec(tc, result: result, startedAt: interceptedStartedAt)
+            return result
         }
         // 关闭子代理：仅父引擎可调（schema 已剔除子代理引擎；执行级再兜底一次——
         // 子代理可能幻觉直调旧工具名，若放行会误删兄弟子代理并销毁其浏览器上下文）。
         if rawName == Self.closeSubagentToolName {
             guard !isSubagentEngine else {
-                return ToolResult(success: false, text: String(localized: "err_subagent_no_close_perm"))
+                let result = ToolResult(success: false, text: String(localized: "err_subagent_no_close_perm"))
+                finalizeInterceptedToolExec(tc, result: result, startedAt: interceptedStartedAt)
+                return result
             }
             let closeArgs: [String: Any] = (try? JSONSerialization.jsonObject(
                 with: Data(tc.function.arguments.utf8)
             ) as? [String: Any]) ?? [:]
             guard let subagentID = CloseSubagentTool.parseSubagentID(closeArgs) else {
-                return ToolResult(success: false, text: String(localized: "err_close_subagent_need_id"))
+                let result = ToolResult(success: false, text: String(localized: "err_close_subagent_need_id"))
+                finalizeInterceptedToolExec(tc, result: result, startedAt: interceptedStartedAt)
+                return result
             }
             guard let parentSID = sessionID else {
-                return ToolResult(success: false, text: String(localized: "err_engine_no_session"))
+                let result = ToolResult(success: false, text: String(localized: "err_engine_no_session"))
+                finalizeInterceptedToolExec(tc, result: result, startedAt: interceptedStartedAt)
+                return result
             }
             let (ok, text) = await SubagentLifecycle.close(sessionID: parentSID, subagentID: subagentID, cancel: { [weak self] id in
                 self?.cancelSubagent(subagentID: id)
             })
-            return ToolResult(success: ok, text: ok ? text : "Info: \(text)")
+            let result = ToolResult(success: ok, text: ok ? text : "Info: \(text)")
+            finalizeInterceptedToolExec(tc, result: result, startedAt: interceptedStartedAt)
+            return result
         }
         // 预检查：若 name 不在已注册工具列表中，立即返回错误并提示具体名称
         let registeredNames = toolRouter.allToolNames()
@@ -1804,12 +1839,6 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
         let startedAt = Date()
         // 危机定位标记：同步落盘（不依赖异步队列），卡死时日志里最后一条 ENTER 即指出卡在哪个工具。
         AppLogger.shared.crisisMark("TOOL ENTER: \(rawName)")
-        // [ToolForensics] 取证（唐唐 2026-09-05，只进 Xcode 控制台不进 App 日志）：
-        // 派发/关闭子代理时模型伴生空调 shell 调用，记录模型发来的原始参数 JSON
-        // 以确认到底是 {} / command 空串 / 命令放错字段，取证完成后移除本段。
-        if rawName == "shell_execute" || rawName == Self.subagentToolName || rawName == Self.closeSubagentToolName {
-            NSLog("[ToolForensics] name=%@ callID=%@ rawArgs=%@", rawName, tc.id, tc.function.arguments)
-        }
         // 直接引用架构：取/建执行上下文并挂载。参数流式期已挂载的命中注册表直接复用；
         // 非流式（无参数增量）场景在此首次创建。beginExecution 使参数定稿、状态转 running。
         let exec: ToolExecution

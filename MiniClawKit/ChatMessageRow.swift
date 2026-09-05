@@ -59,6 +59,8 @@ struct ChatMessageRow: View {
             switch block.kind {
             case .text:
                 if !block.content.isEmpty { partItems.append(block.content) }
+            case .subagentTool(let action):
+                if !action.isEmpty { partItems.append("Subagent: \(action)") }
             case .shellTool(let command):
                 let cmdStr = command.isEmpty ? block.toolDescription : command
                 var s = "$ \(cmdStr)"
@@ -624,7 +626,7 @@ struct ChatMessageRow: View {
             case .thinking: return true
             case .info: return true
             case .file: return true
-            case .shellTool,.fileReadTool,.fileWriteTool,.fileEditTool,.browserTool,.readImageTool,.memoryTool: return true
+            case .shellTool,.fileReadTool,.fileWriteTool,.fileEditTool,.browserTool,.readImageTool,.memoryTool,.subagentTool: return true
             }
         }
     }

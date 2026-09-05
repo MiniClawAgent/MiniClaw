@@ -153,6 +153,7 @@ struct ToolCapsuleView: View {
         case .browserTool: toolName = "browser_use"
         case .readImageTool: toolName = "read_image"
         case .memoryTool: toolName = "memory"
+        case .subagentTool: toolName = "subagent"
         case .text, .thinking, .info: toolName = "unknown"
         case .file: toolName = "file"
         }
@@ -870,6 +871,10 @@ struct AssistantBlockView: View {
                             toolSnapshots: toolSnapshots,snapshotBridge: snapshotBridge,detailBlock: $detailBlock)
         case .readImageTool:
             ToolCapsuleView(block: block, icon: "photo", accentColor: .purple,
+                            commandStartTime: commandStartTime,onStop: onStop,
+                            toolSnapshots: toolSnapshots,snapshotBridge: snapshotBridge,detailBlock: $detailBlock)
+        case .subagentTool:
+            ToolCapsuleView(block: block, icon: "person.2.fill", accentColor: .purple,
                             commandStartTime: commandStartTime,onStop: onStop,
                             toolSnapshots: toolSnapshots,snapshotBridge: snapshotBridge,detailBlock: $detailBlock)
         case .memoryTool:

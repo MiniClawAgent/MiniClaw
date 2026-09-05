@@ -364,6 +364,7 @@ final class MiniClawChatBridge: ObservableObject {
         case .text: return "x"
         case .thinking: return "t"
         case .shellTool: return "u"
+        case .subagentTool: return "u"
         case .fileReadTool: return "u"
         case .fileWriteTool: return "u"
         case .fileEditTool: return "u"

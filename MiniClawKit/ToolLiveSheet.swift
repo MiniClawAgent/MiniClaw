@@ -605,6 +605,8 @@ struct ToolLiveSheet: View {
             return "read_image(\(truncateParam(path)))"
         case .memoryTool(let action):
             return "\(truncateParam(action))"
+        case .subagentTool(let action):
+            return "subagent(\(truncateParam(action)))"
         case .info:
             return ""
         case .file:
@@ -626,6 +628,7 @@ struct ToolLiveSheet: View {
         case .browserTool: Image(systemName: "globe")
         case .readImageTool: Image(systemName: "photo")
         case .memoryTool: Image(systemName: "brain.head.profile")
+        case .subagentTool: Image(systemName: "person.2.fill")
         case .info: Image(systemName: "arrow.triangle.2.circlepath")
         case .text: Image(systemName: "text.alignleft")
         case .thinking: Image("ThinkingIcon")
@@ -1922,6 +1925,7 @@ struct ToolLiveSheet: View {
         case .browserTool: return "MiniClaw is using Browser"
         case .readImageTool: return "MiniClaw is reading Image"
         case .memoryTool: return "MiniClaw is using Memory"
+        case .subagentTool: return "MiniClaw is managing Subagents"
         case .info: return "MiniClaw"
         case .text: return "MiniClaw"
         case .thinking: return "MiniClaw"
@@ -1956,6 +1960,7 @@ struct ToolLiveSheet: View {
         case .browserTool: return .blue
         case .readImageTool: return .purple
         case .memoryTool: return .pink
+        case .subagentTool: return .purple
         case .info: return .secondary
         case .text: return .primary
         case .thinking: return .blue
@@ -2687,6 +2692,7 @@ private struct ToolPreviewThumbnail: View {
         case .browserTool: return .blue
         case .readImageTool: return .purple
         case .memoryTool: return .pink
+        case .subagentTool: return .purple
         case .info: return .secondary
         case .text: return .primary
         case .thinking: return .blue

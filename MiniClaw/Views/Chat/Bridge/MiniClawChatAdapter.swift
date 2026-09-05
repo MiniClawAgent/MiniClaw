@@ -260,6 +260,10 @@ enum MiniClawChatAdapter {
             return ""
         }
         switch name {
+        case "dispatch_subagent":
+            return .subagentTool(action: pick("focus", "task"))
+        case "close_subagent":
+            return .subagentTool(action: pick("subagent_id", "subagentID", "id"))
         case "shell_execute":
             return .shellTool(command: pick("command", "cmd", "code", "script", "expression"))
         case "file_read":
