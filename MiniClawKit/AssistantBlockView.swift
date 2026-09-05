@@ -953,7 +953,6 @@ struct AssistantBlockView: View {
 /// race during CATransaction flush (EXC_BAD_ACCESS at encode_colorspace).
 struct ShimmerOverlay: View {
     @Environment(\.colorScheme) private var colorScheme
-    @State private var offsetX: CGFloat = -1.0
 
     private var peakOpacity: CGFloat {
         colorScheme == .light ? 0.75 : 0.25
@@ -983,24 +982,25 @@ struct ShimmerOverlay: View {
     var body: some View {
         GeometryReader { geo in
             let diag = geo.size.width+geo.size.height
-            Rectangle()
-                .fill(
-                    LinearGradient(
-                        stops: stableStops,
-                        startPoint: UnitPoint(x: 0,y: 1),
-                        endPoint: UnitPoint(x: 1,y: 0)
+            // 2026-09-05 修复：repeatForever 动画在 Collection cell 离屏时被系统
+            // 暂停、回屏不恢复——手机上 pill 一旦离屏过，流光即永久消失（Mac 窗口
+            // 大 pill 常驻可见，故 Mac 上一直正常）。改为 TimelineView 按墙钟时间
+            // 计算光带位置：不依赖动画状态存活，任何时刻回屏自动继续。
+            TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { context in
+                let period = 2.8
+                let phase = context.date.timeIntervalSinceReferenceDate
+                    .truncatingRemainder(dividingBy: period) / period
+                Rectangle()
+                    .fill(
+                        LinearGradient(
+                            stops: stableStops,
+                            startPoint: UnitPoint(x: 0,y: 1),
+                            endPoint: UnitPoint(x: 1,y: 0)
+                        )
                     )
-                )
-                .frame(width: diag,height: geo.size.height)
-                .offset(x: offsetX*geo.size.width)
-                .onAppear {
-                    withAnimation(
-                        .linear(duration: 2.8)
-                        .repeatForever(autoreverses: false)
-                    ) {
-                        offsetX = 1.0
-                    }
-                }
+                    .frame(width: diag,height: geo.size.height)
+                    .offset(x: (-1.0 + phase * 2.0) * geo.size.width)
+            }
         }
         .clipped()
     }
