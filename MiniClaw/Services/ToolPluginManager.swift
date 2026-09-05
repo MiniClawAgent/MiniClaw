@@ -106,7 +106,9 @@ struct DeclarativeShellTool: AgentTool {
                 environment: environment,
                 workingDirectory: nil,
                 timeout: TimeInterval(definition.timeout),
-                onLine: nil,
+                // 2026-09-05：接过程流 reporter——插件 shell 工具的执行输出
+                // 与 shell_execute 同口径实时写入工具快照（此前 onLine: nil 全丢）。
+                onLine: { line, _ in ToolProgressScope.reporter?(line) },
                 sessionID: currentSessionID
             )
             let output = result.stdout + (result.stderr.isEmpty ? "" : "\n[stderr]\n\(result.stderr)")

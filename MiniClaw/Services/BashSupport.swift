@@ -36,7 +36,7 @@ enum BashSupport {
             environment: [:],
             workingDirectory: nil,
             timeout: 15,
-            onLine: nil,
+            onLine: { line, _ in ToolProgressScope.reporter?(line) },
             sessionID: nil
         ) else { return false }
         return r.stdout.contains("yes")
@@ -48,7 +48,7 @@ enum BashSupport {
             environment: [:],
             workingDirectory: nil,
             timeout: 180,
-            onLine: nil,
+            onLine: { line, _ in ToolProgressScope.reporter?(line) },
             sessionID: nil
         ) else { return false }
         return r.stdout.contains("OK")
