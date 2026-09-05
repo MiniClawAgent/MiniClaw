@@ -304,12 +304,21 @@ final class MiniClawChatBridge: ObservableObject {
                 cached.content = fresh.content
                 return cached
             }
-            // 终态消息(isStreaming == false):直接返回 fresh,走 buildBlocks 的
-            // timelineOrder 正确排序。不复用 cached——cached 可能是流式期间
-            // 「正文堆末尾/思考逆序」的中途状态,复用会让重进会话仍错序
-            // (2026-08-10 修复:重进会话排序混乱)。
-            bridgeCache[key] = fresh
-            return fresh
+            // 终态消息(isStreaming == false):**就地合并** fresh——blocks 整体替换为
+            // fresh 的(timelineOrder 正确排序,保留 2026-08-10 排序修复),但保留 cached
+            // 对象身份:footer 状态行/耗时绑定在 cached 上(@Published),换新对象会让
+            // 已绑定 cell 收不到变更,终态耗时/状态要重进会话才显示(2026-09-05 修复)。
+            cached.content = fresh.content
+            cached.blocks = fresh.blocks
+            cached.error = fresh.error
+            cached.usage = fresh.usage
+            cached.streamInterruptCount = fresh.streamInterruptCount
+            cached.isAwaitingModelResponse = fresh.isAwaitingModelResponse
+            cached.wasStopped = fresh.wasStopped
+            cached.wasInterrupted = fresh.wasInterrupted
+            cached.taskElapsedSeconds = fresh.taskElapsedSeconds
+            cached.attachments = fresh.attachments
+            return cached
         }
         bridgeCache[key] = fresh
         return fresh

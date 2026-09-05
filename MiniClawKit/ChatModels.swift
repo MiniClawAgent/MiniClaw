@@ -400,7 +400,7 @@ public final class ChatMessage: Identifiable,ObservableObject {
     /// 终态状态行（footer）桥接字段：已停止/已中断/任务耗时（宿主消息同步，2026-09-05）。
     @Published public var wasStopped: Bool = false
     @Published public var wasInterrupted: Bool = false
-    public var taskElapsedSeconds: Double?
+    @Published public var taskElapsedSeconds: Double?
     /// True when this message is queued but not yet injected into the agent loop.
     @Published public var isQueued = false
     /// True if this message is from the compacted history zone (read-only, no actions).

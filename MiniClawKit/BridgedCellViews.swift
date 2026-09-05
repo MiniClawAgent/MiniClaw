@@ -153,7 +153,34 @@ struct BridgedAssistantFooter: View {
 
     // showUsage and usageContentVisible are on bridge, toggled by double-tap on block cells.
 
+    /// 回复中指示器（唐唐 2026-09-05 定稿）：黄色圆内绿色呼吸点 +「回复中」，
+    /// 字号与其余状态行一致（caption）。
+    @State private var replyBreathing = false
+    private var replyingIndicator: some View {
+        HStack(spacing: 5) {
+            ZStack {
+                Circle()
+                    .fill(Color.yellow)
+                    .frame(width: 10, height: 10)
+                Circle()
+                    .fill(Color.green)
+                    .frame(width: 4, height: 4)
+                    .opacity(replyBreathing ? 1 : 0.2)
+            }
+            Text(String(localized: "replying"))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .padding(.top, 2)
+        .onAppear {
+            withAnimation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true)) {
+                replyBreathing = true
+            }
+        }
+    }
+
     /// 终态状态行（已完成/已停止/已中断 + 耗时后缀）。
+    /// 水平 12pt：与消息正文块（工具/文本块同衬距）对齐（唐唐 2026-09-05）。
     private func statusRow(icon: String, color: Color, key: LocalizedStringKey) -> some View {
         HStack(spacing: 5) {
             Image(systemName: icon)
@@ -168,6 +195,7 @@ struct BridgedAssistantFooter: View {
                     .foregroundStyle(.secondary)
             }
         }
+        .padding(.horizontal, 12)
         .padding(.top, 2)
     }
 
@@ -207,7 +235,7 @@ struct BridgedAssistantFooter: View {
             // 流式/等待首字 = 三点思考指示器；终态按 已停止/已中断/已完成 显示（含耗时）。
             // 错误（inlineError）与「已暂停」恢复横幅保留原有专属展示，不在此重复。
             if bridge.isActiveMessage && (!hasVisibleContent || message.isAwaitingModelResponse) {
-                TypingIndicator()
+                replyingIndicator
             } else if message.error == nil && !bridge.canResume {
                 if message.wasStopped {
                     statusRow(icon: "stop.circle.fill", color: .orange, key: "stopped")

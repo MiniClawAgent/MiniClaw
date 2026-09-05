@@ -636,11 +636,6 @@ struct TypingIndicator: View {
     }()
 
     var body: some View {
-        // The thinking-level badge that used to trail this indicator was
-        // removed — the nav-bar title (ChatView.thinkingLevelBadge) is now
-        // the single place that shows and changes the thinking level, so a
-        // duplicate here was redundant. ThinkingLevelSheetView is unchanged;
-        // it's still presented from the nav-bar badge.
         HStack(spacing: 0) {
             // 2026-09-05 本地化：hardcoded 英文 "is thinking" → thinking_suffix 键
             //（" 正在思考"，四语齐），与主 App AssistantStatusRow 同源。

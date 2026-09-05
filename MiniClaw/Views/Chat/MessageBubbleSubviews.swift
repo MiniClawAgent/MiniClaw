@@ -98,7 +98,6 @@ struct AssistantStatusRow: View {
 
     @State private var dotDimmed = false
     /// 三点弹跳（开源参考实现对齐：easeInOut 0.4s 错峰 0.15s，offset -3↔1）
-    @State private var dotOffsets: [Bool] = [false, false, false]
 
     var body: some View {
         if isPaused {
@@ -112,21 +111,21 @@ struct AssistantStatusRow: View {
             }
             .padding(.top, 2)
         } else if isStreaming {
-            // 开源参考实现对齐(2026-08-09)：TypingIndicator = "<名字> 正在思考" + 3 点弹跳
-            HStack(spacing: 0) {
-                Text(agentName + String(localized: "thinking_suffix"))
-                ForEach(0..<3, id: \.self) { i in
-                    Text(".")
-                        .offset(y: dotOffsets[i] ? -3 : 1)
-                        .onAppear {
-                            withAnimation(.easeInOut(duration: 0.4).repeatForever(autoreverses: true).delay(Double(i) * 0.15)) {
-                                dotOffsets[i] = true
-                            }
-                        }
+            // 2026-09-05 唐唐定稿：与主会话统一——黄色圆内绿色呼吸点 +「回复中」。
+            HStack(spacing: 5) {
+                ZStack {
+                    Circle()
+                        .fill(Color.yellow)
+                        .frame(width: 10, height: 10)
+                    Circle()
+                        .fill(Color.green)
+                        .frame(width: 4, height: 4)
+                        .opacity(replyDotDimmed ? 0.2 : 1)
                 }
+                Text(String(localized: "replying"))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
-            .font(.system(size: 15, weight: .medium))
-            .foregroundStyle(Color(.tertiaryLabel))
             .padding(.top, 2)
         } else if wasStopped {
             HStack(spacing: 5) {
