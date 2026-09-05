@@ -40,6 +40,8 @@ struct ChatView: View {
     /// 进入会话时先做一次本地估算兜底，随后由引擎的真值/校准估算持续刷新。
     @State private var contextSnapshot: ContextUsageSnapshot = .empty
     @State private var activeSubagentConversation: SubagentConversation? = nil
+    /// 长按胶囊待确认关闭的子代理（弹二次确认框；确认才走 SubagentLifecycle.close）。
+    @State private var pendingRemoveSubagent: SubagentCard? = nil
     @State private var lastMessageID: UUID?
     /// 上一个 isResponding 值(iOS16 onChange 单参版本的翻转检测缓存)。
     @State private var lastResponding: Bool = false
@@ -1226,9 +1228,47 @@ struct ChatView: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 6)
         }
+        // 长按关闭二次确认（唐唐 2026-09-05 要求）：确认才走统一关闭路径。
+        .confirmationDialog(
+            String(localized: "subagent_close_confirm_title"),
+            isPresented: Binding(
+                get: { pendingRemoveSubagent != nil },
+                set: { if !$0 { pendingRemoveSubagent = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button(String(localized: "subagent_close_button"), role: .destructive) {
+                if let sub = pendingRemoveSubagent { closeSubagent(sub) }
+                pendingRemoveSubagent = nil
+            }
+            Button(String(localized: "cancel"), role: .cancel) {
+                pendingRemoveSubagent = nil
+            }
+        } message: {
+            Text(String(localized: "subagent_close_confirm_message"))
+        }
+    }
+
+    /// 统一关闭入口（确认弹窗确认后调用）：与 智能体侧 close_subagent 同一条
+    /// SubagentLifecycle.close 路径（取消运行中引擎 → 移除复用记录 → 移除卡片与对话 →
+    /// 释放浏览器上下文）。
+    private func closeSubagent(_ sub: SubagentCard) {
+        _ = SubagentLifecycle.close(
+            sessionID: session.id,
+            subagentID: sub.id,
+            cancel: { [weak appState] id in
+                appState?.chatRuntimes[session.id]?.cancelSubagent(subagentID: id)
+            }
+        )
+        if activeSubagentConversation?.id == sub.id {
+            activeSubagentConversation = nil
+        }
     }
 
     /// 单张子代理胶囊卡。
+    /// 样式（唐唐 2026-09-05 定稿）：背景与排队消息一致（ultraThinMaterial 实心圆角框）；
+    /// 任务完成后背景改「绿色磨砂」（对齐思考/工具指示器完成态的绿），不改边框颜色；
+    /// 出错/已取消保留细边框（对齐工具指示器的 0.5pt 细线）。
     private func subagentCapsule(_ sub: SubagentCard) -> some View {
         HStack(spacing: 8) {
             // 首字母圆头像（紫色实心，白字）
@@ -1247,12 +1287,22 @@ struct ChatView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
+        .background {
+            // 已完成 = 绿色磨砂（材质上叠绿色薄层）；其余 = 常规材质
+            if sub.status == .completed {
+                Rectangle()
+                    .fill(.ultraThinMaterial)
+                    .overlay(Color.green.opacity(0.12))
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+            } else {
+                RoundedRectangle(cornerRadius: 12).fill(.ultraThinMaterial)
+            }
+        }
         .overlay {
-            // 状态边框：对齐工具指示器语义（成功=绿，出错=红，取消=灰）
+            // 状态边框：仅出错/已取消保留，粗细对齐工具/思考指示器的 0.5pt 细线
             if let border = subagentCapsuleBorder(sub.status) {
                 RoundedRectangle(cornerRadius: 12)
-                    .strokeBorder(border, lineWidth: 1.5)
+                    .strokeBorder(border, lineWidth: 0.5)
             }
         }
         .contentShape(RoundedRectangle(cornerRadius: 12))
@@ -1262,29 +1312,18 @@ struct ChatView: View {
             }
         }
         .onLongPressGesture {
-            // 长按删除：与 智能体侧 close_subagent 同一条统一路径
-            // （取消运行中引擎 → 移除复用记录 → 移除卡片与对话 → 释放浏览器上下文）。
-            _ = SubagentLifecycle.close(
-                sessionID: session.id,
-                subagentID: sub.id,
-                cancel: { [weak appState] id in
-                    appState?.chatRuntimes[session.id]?.cancelSubagent(subagentID: id)
-                }
-            )
-            if activeSubagentConversation?.id == sub.id {
-                activeSubagentConversation = nil
-            }
+            // 长按：弹二次确认（确认才走 closeSubagent 统一路径）
+            pendingRemoveSubagent = sub
         }
         .accessibilityLabel(Text(sub.name))
     }
 
-    /// 胶囊卡状态边框颜色（nil = 无边框）。
+    /// 胶囊卡状态边框颜色（nil = 无边框）。已完成不靠边框表达（绿磨砂背景承担）。
     private func subagentCapsuleBorder(_ status: SubagentStatus) -> Color? {
         switch status {
-        case .completed: return .green
         case .error: return .red
         case .cancelled: return .gray
-        case .running: return nil
+        case .completed, .running: return nil
         }
     }
 

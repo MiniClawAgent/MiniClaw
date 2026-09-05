@@ -60912,6 +60912,64 @@
           }
         }
       }
+    },
+    "subagent_close_confirm_title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Close Subagent"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "サブエージェントを閉じる"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "서브에이전트 닫기"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "关闭子代理"
+          }
+        }
+      }
+    },
+    "subagent_close_confirm_message": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This cancels the running engine and removes the subagent card and conversation history. This cannot be undone."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "実行中のエンジンをキャンセルし、サブエージェントのカードと会話履歴を削除します。この操作は取り消せません。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "실행 중인 엔진을 취소하고 서브에이전트 카드와 대화 기록을 제거합니다. 이 작업은 되돌릴 수 없습니다."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "将取消运行中的引擎，并移除该子代理的头像与对话记录，此操作不可撤销。"
+          }
+        }
+      }
     }
   },
   "version": "1.0"
