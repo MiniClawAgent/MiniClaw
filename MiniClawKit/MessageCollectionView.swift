@@ -1033,7 +1033,10 @@ extension MessageCollectionView {
                     // Only clear caches when items will actually change — prevents
                     // a duplicate dispatch from clearing caches that won't be rebuilt.
                     if let msgs = self.vm?.messages {
-                        self.viewController?.messageListLayout?.clearHeightCache()
+                        // 进程级 memo 保留（方案 C）：contentKey 跨会话稳定，
+                        // 重进会话种子直接命中实测高度 → 上滑零修正零抖动。
+                        // 字体变更走 reconfigureAllCells 全量清 memo。
+                        self.viewController?.messageListLayout?.clearHeightCache(keepingSharedMemo: true)
                         self.attrStringHeightCache.removeAll()
                         self.userBubbleHeightCache.removeAll()
                         // This is the authoritative post-load apply; it carries the

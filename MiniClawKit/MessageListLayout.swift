@@ -154,7 +154,19 @@ public final class MessageListLayout: UICollectionViewLayout {
     /// `invalidationContext`, so this cannot reintroduce the historical
     /// sizeThatFits→fillLayoutHole typesetter feedback loop (01939f73 /
     /// 34143a73). Cleared with the index caches on session change.
-    private var measuredHeightByContentKey: [String: (height: CGFloat,width: CGFloat)] = [:]
+    /// 进程级 content-keyed 实测高度 memo（2026-09-06 上滑抖动修复方案 C）。
+    /// ChatView 每次进出会话都重建 VC/Coordinator/Layout 实例，实例级 memo
+    /// 在「首页重进会话」场景必然死亡——而 contentKey（消息/块持久化 UUID +
+    /// 内容长度，text 块用确定性 ID）本就为跨会话稳定设计。提升为进程级后，
+    /// 重进会话的种子循环直接命中上次实测高度，全列表零修正、零抖动。
+    /// 失效路径：字体变更走 clearHeightCache(keepingSharedMemo: false) 全量清；
+    /// 宽度变化由 measuredHeight(forKey:width:) 的 ±1pt 门槛自然过滤；
+    /// 流式 cell 靠 configureCell 的 contentKey 置空 + invalidateHeight 显式
+    /// 逐键剔除，不会写入中途高度。footer（"f:" 前缀）仍永不写入。
+    /// 锁：PLAF 可能跑在二级 layout 线程，且会话切换瞬间新旧两个实例并存，
+    /// 静态字典必须互斥（沿用 streamingCellRanges 的 os_unfair_lock 模式）。
+    private static var _sharedMeasuredHeights: [String: (height: CGFloat,width: CGFloat)] = [:]
+    private static var _memoLock = os_unfair_lock_s()
 
     /// Index → content key for the current snapshot, set by the Coordinator
     /// during snapshot application. Lets `invalidationContext` (which only
@@ -704,7 +716,7 @@ public final class MessageListLayout: UICollectionViewLayout {
         // (thinking collapse, async image load, streaming re-measure) should not
         // leave a now-wrong memo that a later same-length edit could match.
         if let key = contentKeyByIndex[index] {
-            measuredHeightByContentKey.removeValue(forKey: key)
+            invalidateMemo(forKey: key)
         }
     }
 
@@ -776,8 +788,11 @@ public final class MessageListLayout: UICollectionViewLayout {
     /// Return the last real measured height for this content key IF it was
     /// measured at (approximately) the given width. Width-sensitive because a
     /// height measured in portrait is wrong after rotation / sidebar resize.
+    /// 进程级存储（方案 C）——跨 Layout 实例、跨会话存活。
     public func measuredHeight(forKey key: String,width: CGFloat) -> CGFloat? {
-        guard let entry = measuredHeightByContentKey[key],
+        os_unfair_lock_lock(&Self._memoLock)
+        defer { os_unfair_lock_unlock(&Self._memoLock) }
+        guard let entry = Self._sharedMeasuredHeights[key],
               abs(entry.width-width)<1 else { return nil }
         return entry.height
     }
@@ -804,20 +819,36 @@ public final class MessageListLayout: UICollectionViewLayout {
         // Footers are trivially cheap to self-size from the 4pt estimate, so
         // skipping the memo costs nothing.
         guard !key.hasPrefix("f:") else { return }
-        measuredHeightByContentKey[key] = (height: height,width: boundsWidth)
+        os_unfair_lock_lock(&Self._memoLock)
+        Self._sharedMeasuredHeights[key] = (height: height,width: boundsWidth)
+        os_unfair_lock_unlock(&Self._memoLock)
     }
 
     /// Drop a single memo entry — used to evict an actively-streaming cell's
     /// key so a stale mid-stream height can't be seeded onto it.
     public func invalidateMemo(forKey key: String) {
-        measuredHeightByContentKey.removeValue(forKey: key)
+        os_unfair_lock_lock(&Self._memoLock)
+        Self._sharedMeasuredHeights.removeValue(forKey: key)
+        os_unfair_lock_unlock(&Self._memoLock)
     }
 
-    /// Clear all cached heights (e.g., on session change).
-    public func clearHeightCache() {
+    /// Wipe the process-level memo (font-size change — memo heights are
+    /// font-dependent and their content keys carry no font fingerprint).
+    public static func clearSharedMemo() {
+        os_unfair_lock_lock(&_memoLock)
+        _sharedMeasuredHeights.removeAll()
+        os_unfair_lock_unlock(&_memoLock)
+    }
+
+    /// Clear per-instance cached heights (session change / reconfigure).
+    /// - Parameter keepingSharedMemo: 会话切换传 true —— 进程级 memo 的
+    /// contentKey 跨会话稳定（消息/块持久化 UUID），保留后重进会话种子
+    /// 直接命中实测高度，上滑零修正零抖动（2026-09-06 方案 C）。字体
+    /// 变更路径（reconfigureAllCells）保持默认 false，全量清 memo。
+    public func clearHeightCache(keepingSharedMemo: Bool = false) {
         heightEntries.removeAll()
         geometryReaderConfirmed.removeAll()
-        measuredHeightByContentKey.removeAll()
+        if !keepingSharedMemo { Self.clearSharedMemo() }
         contentKeyByIndex.removeAll()
         footerHugByIndex.removeAll()
     }

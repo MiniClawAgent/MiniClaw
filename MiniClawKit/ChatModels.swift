@@ -495,3 +495,23 @@ extension AssistantBlock {
         }
     }
 }
+
+extension ChatMessage {
+    /// footer 是否将渲染任何块内容（与 BridgedAssistantFooter.hasVisibleContent
+    /// 同口径：text 块需非空，其余任意块即算可见）。
+    var footerHasVisibleContent: Bool {
+        blocks.contains { block in
+            if case .text = block.kind { return !block.content.isEmpty }
+            return true
+        }
+    }
+
+    /// footer 是否会渲染终态 quiet 状态行（已完成/已停止/已中断 + 耗时）。
+    /// 与 BridgedAssistantFooter.body 的分支一一对应（error==nil 且非恢复态时，
+    /// 按 wasStopped/wasInterrupted/有可见内容三选一渲染 caption 状态行，~18pt）。
+    /// 种子循环用它把 footer 估高对齐渲染现实——4pt 种子 vs 18pt 实高是
+    /// 重进会话上滑抖动的主误差源（2026-09-06 修复方案 A）。
+    var footerShowsQuietStatusRow: Bool {
+        error == nil && (wasStopped || wasInterrupted || footerHasVisibleContent)
+    }
+}

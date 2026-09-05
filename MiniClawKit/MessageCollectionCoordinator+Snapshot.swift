@@ -260,6 +260,12 @@ extension MessageCollectionView.Coordinator {
                     // / typing indicator keep the full itemSpacing (user report
                     // 2026-07-21). Mirrors BridgedAssistantFooter's sections.
                     var footerProminent = false
+                    // 估高与 hug 解耦：hug 只看 prominent（视觉策略不变），
+                    // 估高按 footer 将渲染的形态取值——终态状态行/回复中指示器
+                    // 实际 ~18pt，errored/resume 横幅 ~44-56pt，空 footer ~0-4pt。
+                    // 固定 4pt 种子 vs 18pt 状态行 = 每条历史 AI 回复 +13~14pt
+                    // 系统性低估，是重进会话上滑抖动的主误差源（2026-09-06 方案 A）。
+                    var footerEstimate: CGFloat = 4
                     if case .assistantFooter(let footerMID) = item {
                         let footerMsg = messageIndex[footerMID].flatMap {
                             $0<messages.count ? messages[$0] : nil
@@ -271,6 +277,11 @@ extension MessageCollectionView.Coordinator {
                         let isActive = isTailMsg && vm.isProcessing
                         footerProminent = errored || canResumeFlag || isActive
                         layout.setFooterHug(!footerProminent,at: i)
+                        if errored || canResumeFlag {
+                            footerEstimate = 48
+                        } else if isActive || (footerMsg?.footerShowsQuietStatusRow ?? false) {
+                            footerEstimate = 18
+                        }
                     }
 
                     // 守卫语义 = 旧三字典的「仅实测高度跳过」。合并字典后
@@ -293,12 +304,11 @@ extension MessageCollectionView.Coordinator {
                         layout.setEstimatedHeight(28,at: i)
 
                     case .assistantFooter:
-                        // Prominent banners (error/resume/typing) measure
-                        // ~44-56pt; the quiet meta footer is ~0-4pt. Seeding
-                        // closer to the real height keeps the first-display
-                        // correction (and its scroll shift) small.
-                        // (footerProminent computed above, pre-guard.)
-                        layout.setEstimatedHeight(footerProminent ? 48 : 4,at: i)
+                        // Prominent banners (error/resume) measure
+                        // ~44-56pt; quiet status row / replying indicator
+                        // ~18pt; empty footer ~0-4pt. (footerEstimate
+                        // computed above, pre-guard.)
+                        layout.setEstimatedHeight(footerEstimate,at: i)
 
                     case .assistantBlock(let msgId,let blockId):
                         guard let msgIdx = messageIndex[msgId],msgIdx<messages.count else { continue }

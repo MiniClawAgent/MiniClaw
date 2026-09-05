@@ -206,14 +206,10 @@ struct BridgedAssistantFooter: View {
         return "\(sec)s"
     }
 
+    // 单一事实源在 ChatMessage.footerHasVisibleContent（种子循环同用，
+    // 防止渲染与估高两处判定漂移）。
     var hasVisibleContent: Bool {
-        message.blocks.contains { block in
-            switch block.kind {
-            case .text: return !block.content.isEmpty
-            case .info: return true
-            default: return true
-            }
-        }
+        message.footerHasVisibleContent
     }
 
     /// True when any of the footer's conditional sections will actually
