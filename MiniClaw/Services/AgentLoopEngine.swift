@@ -1797,7 +1797,17 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
                 subagentID = await prefixResolveSubagentID(closeArgs, sessionID: parentSID)
             }
             guard let subagentID else {
-                let result = ToolResult(success: false, text: String(localized: "err_close_subagent_need_id"))
+                // 失败文案附带存活清单（2026-09-05）：此前通用错误让模型以为格式错误，
+                // 对已关闭的子代理反复重试直至熔断——附上清单即打破循环。
+                let live = await MainActor.run {
+                    SubagentStore.shared.avatars(for: parentSID)
+                        .map { "`\($0.id.uuidString.prefix(8))`（\($0.name)）" }
+                        .joined(separator: "、")
+                }
+                let text = live.isEmpty
+                    ? String(localized: "err_close_subagent_need_id") + "\n" + String(localized: "err_close_subagent_none")
+                    : String(localized: "err_close_subagent_need_id") + "\n" + String(format: String(localized: "err_close_subagent_live_list"), live)
+                let result = ToolResult(success: false, text: text)
                 finalizeInterceptedToolExec(tc, result: result, startedAt: interceptedStartedAt)
                 return result
             }
