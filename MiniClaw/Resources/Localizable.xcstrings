@@ -8105,25 +8105,25 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "\"Clear browser cache\" clears web caches (WebKit cache, URLCache, shared browser data); \"Clear session cache\" clears rebuildable cache data in each session (session browser data, subagent runtime records) without affecting conversation content; \"Clear old attachments\" deletes attachments older than the cleanup period; \"Clear all data\" deletes all session-isolated files and local working data (settings, models, and skills are unaffected). Run logs and crash logs are controlled by toggles on the Logs page."
+            "value": "「Clear Browser Cache」clears web caches (WebKit cache, URLCache, shared browser data); 「Clear Session Browser Data」deletes browser data in each session's isolated directory (screenshots, downloads) — does not affect conversation content; 「Clean Old Attachments」deletes expired attachments based on the cleanup period; 「Clear All Data」deletes all session-isolated files and local working data (settings, models, and skills are unaffected). Run logs and crash logs are controlled by toggles on the Logs page."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "「ブラウザキャッシュをクリア」は Web キャッシュ（WebKit キャッシュ、URLCache、共有ブラウザデータ）を削除；「セッションキャッシュをクリア」は各セッション内の再構築可能なキャッシュ（セッションブラウザデータ、サブエージェント実行記録）を削除し、会話内容には影響しません；「古い添付をクリア」は期間を超えた添付ファイルを削除；「すべてのデータをクリア」はセッション分離ファイルとローカル作業データをすべて削除します（設定・モデル・スキルは影響を受けません）。実行ログとクラッシュログは「ログ」ページのスイッチで制御します。"
+            "value": "「ブラウザキャッシュをクリア」：ウェブキャッシュ（WebKit キャッシュ、URLCache、共有ブラウザデータ）を削除；「セッションブラウザデータをクリア」：各セッションの隔離ディレクトリ内のブラウザデータ（スクリーンショット、ダウンロードなど）を削除し、会話内容には影響しません；「古い添付ファイルをクリーンアップ」：クリーンアップ期間を超えた添付を削除；「すべてのデータを消去」：全セッション隔離ファイルとローカル作業データを削除します（設定・モデル・スキールは影響なし）。実行ログとクラッシュログは「ログ」ページのスイッチで制御されます。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "'브라우저 캐시 지우기'는 웹 캐시(WebKit 캐시, URLCache, 공유 브라우저 데이터)를 정리합니다. '세션 캐시 지우기'는 각 세션 내 재생성 가능한 캐시(세션 브라우저 데이터, 서브에이전트 실행 기록)를 정리하며 대화 내용에는 영향이 없습니다. '오래된 첨부 지우기'는 정리 주기를 초과한 첨부를 삭제합니다. '모든 데이터 지우기'는 모든 세션 분리 파일과 로컬 작업 데이터를 삭제합니다(설정, 모델, 스킬은 영향 없음). 실행 로그와 크래시 로그는 '로그' 페이지의 스위치로 제어합니다."
+            "value": "「브라우저 캐시 지우기」: 웹 캐시(WebKit 캐시, URLCache, 공유 브라우저 데이터)를 삭제합니다. 「세션 브라우저 데이터 지우기」: 각 세션 격리 디렉터리의 브라우저 데이터(스크린샷, 다운로드 등)를 삭제하며 대화 내용에는 영향을 주지 않습니다. 「오래된 첨부 파일 정리」: 정리 기간이 지난 첨부 파일을 삭제합니다. 「모든 데이터 지우기」: 모든 세션 격리 파일과 로컬 작업 데이터를 삭제합니다(설정, 모델, 스킬은 영향 없음). 실행 로그와 크래시 로그는 로그 페이지의 토글로 제어됩니다."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "「清理浏览器缓存」清理网页缓存（WebKit 缓存、URLCache、共享浏览器数据）；「清理会话缓存」清理各会话内可重建的缓存数据（会话浏览器数据、子代理运行期记录），不影响会话内容；「清理旧附件」删除超过清理周期的附件；「清除所有数据」删除全部会话隔离文件与本地工作数据（设置、模型与技能不受影响）。运行日志与崩溃日志由「日志」页的开关控制。"
+            "value": "「清理浏览器缓存」清理网页缓存（WebKit 缓存、URLCache、共享浏览器数据）；「清理会话浏览器数据」删除各会话隔离目录中的浏览器数据（截图/下载等），不影响会话内容；「清理旧附件」删除超过清理周期的附件；「清除所有数据」删除全部会话隔离文件与本地工作数据（设置、模型与技能不受影响）。运行日志与崩溃日志由「日志」页开关控制。"
           }
         }
       }
@@ -13064,25 +13064,25 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Default Workspace Directory Name: the shared workspace where Shell/file tools land when no session is bound (under /var/MiniClaw/). Large Output Offload Threshold: Shell output exceeding this value is auto-offloaded to offloads/. Attachment Auto-Cleanup Period: “Clean Old Attachments” uses this to delete expired attachments."
+            "value": "Default Workspace Directory Name: the shared workspace where Shell/file tools land when no session is bound (under /var/MiniClaw/). Large-output offload threshold: shell output exceeding this value is auto-offloaded to offloads/. \"Clean old attachments\" deletes expired attachments based on this many days."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "デフォルトワークスペース名：セッションが未バインドの場合に Shell/ファイルツールが出力する共有ワークスペースです（/var/MiniClaw/ 配下）。大出力オフロード閾値：これを超えた Shell 出力は自動的に offloads/ にオフロードされます。添付自動クリーンアップ周期：「古い添付をクリア」はこれに基づいて期限切れの添付を削除します。"
+            "value": "デフォルトワークスペース名：セッションが未バインドの場合に Shell/ファイルツールが出力する共有ワークスペースです（/var/MiniClaw/ 配下）。大出力オフロード閾値：これを超えた Shell 出力は自動的にオフロードされます。「古い添付ファイルをクリーンアップ」はこの日数に基づき期限切れの添付を削除します。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "기본 작업 공간 디렉터리 이름: 세션이 바인딩되지 않은 경우 Shell/파일 도구가 출력하는 공유 작업 공간입니다(/var/MiniClaw/ 아래). 대용량 출력 오프로드 임계값: 이 값을 초과하는 Shell 출력은 자동으로 offloads/에 오프로드됩니다. 첨부 자동 정리 주기: ‘오래된 첨부 지우기’는 이에 따라 만료된 첨부를 삭제합니다."
+            "value": "기본 작업 공간 디렉터리 이름: 세션이 바인딩되지 않은 경우 Shell/파일 도구가 출력하는 공유 작업 공간입니다(/var/MiniClaw/ 아래). 대용량 출력 오프로드 임계값: 이 값을 초과하는 Shell 출력은 자동으로 오프로드됩니다. \"오래된 첨부 파일 정리\"는 이 일수를 기준으로 만료된 첨부 파일을 삭제합니다."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "默认工作区目录名：无会话时 Shell/文件工具落地的共享工作区（位于 /var/MiniClaw/ 下）；大输出转存阈值：Shell 输出超过该值自动转存到 offloads/；附件自动清理周期：「清理旧附件」据此删除过期附件。"
+            "value": "默认工作区目录名：无会话时 Shell/文件工具落地的共享工作区（位于 /var/MiniClaw/ 下）；大输出转存阈值：Shell 输出超过该值自动转存到 offloads/；「清理旧附件」据此天数删除过期附件。"
           }
         }
       }
@@ -60966,6 +60966,35 @@
           "stringUnit": {
             "state": "translated",
             "value": "当前会话存活的子代理：%@"
+          }
+        }
+      }
+    },
+    "storage_used_total": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Used total"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "使用中合計"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "사용 중 합계"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已使用合计"
           }
         }
       }

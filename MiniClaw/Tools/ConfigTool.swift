@@ -460,7 +460,6 @@ struct ConfigTool: AgentTool {
         "files": [
             ("defaultWorkspace", "string", String(localized: "default_workspace_directory_name")),
             ("autoOffloadThresholdKB", "int", String(localized: "param_offload_threshold")),
-            ("cleanupAttachmentsDays", "int", String(localized: "param_attachment_cleanup_days")),
         ],
         "permissions": [
             ("miniclawConfigWrite", "bool", String(localized: "allow_config_write")),

@@ -47,14 +47,21 @@ struct StorageSettingsView: View {
 
     var body: some View {
         List {
-            // 存储概览（真实扫描）
+            // 存储概览（真实扫描，2026-09-05 改为 iOS 存储风格的柱状图 + 图例）
             Section {
-                StorageUsageRow(label: String(localized: "workspace"), size: fmt(overview.workspace), icon: "folder")
-                StorageUsageRow(label: String(localized: "attachments"), size: fmt(overview.attachments), icon: "photo")
-                StorageUsageRow(label: String(localized: "browser_cache"), size: fmt(overview.browserCache), icon: "globe")
-                StorageUsageRow(label: String(localized: "session_cache"), size: fmt(overview.sessionCache), icon: "clock.arrow.circlepath")
-                StorageUsageRow(label: String(localized: "runtime_logs"), size: fmt(overview.logs), icon: "doc.text")
-                StorageUsageRow(label: String(localized: "total"), size: fmt(overview.total), icon: "externaldrive", isTotal: true)
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack {
+                        Text(String(localized: "storage_overview"))
+                            .font(.headline)
+                        Spacer()
+                        Text(String(localized: "storage_used_total"))
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                    storageBar
+                    storageLegend
+                }
+                .padding(.vertical, 4)
             } header: {
                 Text(String(localized: "storage_overview"))
             } footer: {
@@ -89,9 +96,6 @@ struct StorageSettingsView: View {
                     Text(String(format: String(localized: "large_output_dump_threshold_kb"), "\(files.autoOffloadThresholdKB)"))
                 }
                     .onChange(of: files.autoOffloadThresholdKB) { _ in FileSystemManager.shared.ensureDefaultWorkspace() }
-                Stepper(value: $files.cleanupAttachmentsDays, in: 1...365) {
-                    Text(String(format: String(localized: "attachment_auto_cleanup_period_days"), "\(files.cleanupAttachmentsDays)"))
-                }
             } header: {
                 Text(String(localized: "files"))
             } footer: {
@@ -169,6 +173,58 @@ struct StorageSettingsView: View {
             Text(String(localized: "this_will_delete_the_session")) + Text("「\(pendingDeleteTitle)」") + Text(String(localized: "all_isolated_files_and_chat_history_freeing_the_storage_space_they_occupy_this_action_cannot_be_undone"))
         }
         .onChange(of: files) { _ in saveFiles() }
+    }
+
+    // MARK: - 存储概览柱状图（2026-09-05，iOS 存储风格）
+
+    /// 分类色板：工作区/附件/浏览器缓存/会话缓存/日志。
+    private var overviewSegments: [(color: Color, value: Int64)] {
+        [(Color.red, overview.workspace),
+         (Color.orange, overview.attachments),
+         (Color.yellow, overview.browserCache),
+         (Color.green, overview.sessionCache),
+         (Color.gray, overview.logs)]
+    }
+
+    /// 分段柱状条：各分类按占比着色。
+    private var storageBar: some View {
+        GeometryReader { geo in
+            let total = max(overview.total, 1)
+            HStack(spacing: 1) {
+                ForEach(overviewSegments.indices, id: \.self) { i in
+                    let seg = overviewSegments[i]
+                    if seg.value > 0 {
+                        Rectangle()
+                            .fill(seg.color)
+                            .frame(width: max(2, geo.size.width * CGFloat(seg.value) / CGFloat(total)))
+                    }
+                }
+            }
+            .frame(height: 14, alignment: .leading)
+        }
+        .frame(height: 14)
+        .clipShape(RoundedRectangle(cornerRadius: 7))
+    }
+
+    /// 图例：色点 + 标签（自动换行流式排布）。
+    private var storageLegend: some View {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 105), alignment: .leading)], alignment: .leading, spacing: 6) {
+            ForEach(overviewSegments.indices, id: \.self) { i in
+                let seg = overviewSegments[i]
+                HStack(spacing: 5) {
+                    Circle().fill(seg.color).frame(width: 8, height: 8)
+                    Text(legendLabel(i))
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+    }
+
+    private func legendLabel(_ i: Int) -> String {
+        [String(localized: "workspace"), String(localized: "attachments"),
+         String(localized: "browser_cache"), String(localized: "session_cache"),
+         String(localized: "runtime_logs")][i]
     }
 
     // MARK: - 存储扫描
@@ -266,11 +322,9 @@ struct StorageSettingsView: View {
             let base = SessionFileRouter.sessionsHostBase
             if let sessionDirs = try? fm.contentsOfDirectory(atPath: base.path) {
                 for s in sessionDirs where UUID(uuidString: s) != nil {
-                    let dir = base.appendingPathComponent(s)
-                    removeContents(of: dir.appendingPathComponent("browser"))
-                    if let sid = UUID(uuidString: s) {
-                        SQLiteStore.shared.deleteBlob(sessionID: sid, kind: .runtimeRecords)
-                    }
+                    // 仅清各会话的浏览器数据（截图/下载，可重建）；runtimeRecords
+                    // 不是缓存——子代理复用/关闭依赖它（2026-09-05 修复，不再删除）。
+                    removeContents(of: base.appendingPathComponent(s).appendingPathComponent("browser"))
                 }
             }
             DispatchQueue.main.async {

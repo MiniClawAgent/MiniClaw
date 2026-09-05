@@ -20,7 +20,12 @@ public final class MessageListLayout: UICollectionViewLayout {
     /// These are cheaper than full UIHostingConfiguration rendering but much more
     /// accurate than the single `estimatedItemHeight` constant, reducing the
     /// contentSize error that causes visible blank gaps during fast scrolling.
-    private var estimatedHeights: [Int: CGFloat] = [:]
+    /// 统一高度条目（2026-09-05 结构收口）：原 estimatedHeights/precalcHeights/heightCache
+    /// 三套并行「index→高度」字典合并为单一「index → 条目」，条目携带来源优先级
+    /// （measured > precalc > estimated），写入时低优先级不覆盖高优先级。
+    enum HeightSource: String { case measured, precalc, estimated }
+    struct HeightEntry { var height: CGFloat; var source: HeightSource }
+    private var heightEntries: [Int: HeightEntry] = [:]
 
     /// Pre-calculated heights from NSAttributedString.boundingRect() for completed
     /// text blocks. More accurate than estimatedHeights (within ~8px) but cheaper
@@ -30,14 +35,12 @@ public final class MessageListLayout: UICollectionViewLayout {
 
     public func setEstimatedHeight(_ height: CGFloat,at index: Int) {
         // Don't overwrite if we already have a real measured height.
-        guard heightCache[index] == nil else { return }
-        estimatedHeights[index] = height
+        setEntry(height, source: .estimated, at: index)
     }
 
     public func setPrecalcHeight(_ height: CGFloat,at index: Int) {
         // Don't overwrite if we already have a real measured height.
-        guard heightCache[index] == nil else { return }
-        precalcHeights[index] = height
+        setEntry(height, source: .precalc, at: index)
     }
 
     /// When true, ALL self-sizing invalidation is deferred (heights stored in
@@ -121,7 +124,12 @@ public final class MessageListLayout: UICollectionViewLayout {
     public var itemSpacing: CGFloat = 0
 
     /// Cached heights keyed by item index. Persists across invalidation cycles.
-    private var heightCache: [Int: CGFloat] = [:]
+    /// 写入条目：measured > precalc > estimated，低优先级不覆盖高优先级。
+    private func setEntry(_ height: CGFloat, source: HeightSource, at index: Int) {
+        let rank: (HeightSource) -> Int = { $0 == .measured ? 3 : $0 == .precalc ? 2 : 1 }
+        if let existing = heightEntries[index], rank(existing.source) > rank(source) { return }
+        heightEntries[index] = HeightEntry(height: height, source: source)
+    }
 
     /// Indices where GeometryReader has reported a precise height.
     /// When set, UIKit self-sizing (`preferredLayoutAttributesFitting`)
@@ -191,15 +199,7 @@ public final class MessageListLayout: UICollectionViewLayout {
             let ip = IndexPath(item: i,section: 0)
             let attrs = UICollectionViewLayoutAttributes(forCellWith: ip)
             let h: CGFloat
-            if let cached = heightCache[i] {
-                h = cached
-            } else if let precalc = precalcHeights[i] {
-                h = precalc
-            } else if let est = estimatedHeights[i] {
-                h = est
-            } else {
-                h = estimatedItemHeight
-            }
+            h = heightEntries[i]?.height ?? estimatedItemHeight
             attrs.frame = CGRect(x: 0,y: y,width: width,height: h)
             itemAttributes.append(attrs)
             y += h
@@ -243,7 +243,7 @@ public final class MessageListLayout: UICollectionViewLayout {
             note: String(format: "%.1fms", elapsed))
         #endif
         if elapsed >= 5 {
-            AppLogger(category: "ChatList.Stall").debug("[prepare] #\(Self.prepareCallCount) \(String(format: "%.1f", elapsed))ms items=\(itemCount) totalH=\(String(format: "%.0f", totalHeight)) cacheHits=\(self.heightCache.count) precalc=\(self.precalcHeights.count) est=\(self.estimatedHeights.count)")
+            AppLogger(category: "ChatList.Stall").debug("[prepare] #\(Self.prepareCallCount) \(String(format: "%.1f", elapsed))ms items=\(itemCount) totalH=\(String(format: "%.0f", totalHeight)) cacheHits=\(self.heightEntries.count)")
         }
     }
     /// Counter for prepare() calls — useful to see invalidate frequency
@@ -327,9 +327,9 @@ public final class MessageListLayout: UICollectionViewLayout {
         var aboveSum: CGFloat = 0,insideSum: CGFloat = 0,dropped = 0
         var detail: [String] = []
         for (idx,h) in deferredHeights {
-            let old = heightCache[idx] ?? precalcHeights[idx] ?? estimatedHeights[idx] ?? estimatedItemHeight
-            if heightCache[idx] == nil {
-                heightCache[idx] = h
+            let old = heightEntries[idx]?.height ?? estimatedItemHeight
+            if heightEntries[idx] == nil {
+                heightEntries[idx] = HeightEntry(height: h, source: .measured)
                 let delta = h-old
                 let frame = idx<itemAttributes.count ? itemAttributes[idx].frame : .zero
                 let pos: String
@@ -372,7 +372,7 @@ public final class MessageListLayout: UICollectionViewLayout {
         // scrolled-into-view cells render at correct size immediately
         // instead of being truncated to the estimated height.
         if deferSelfSizing {
-            let hasCached = heightCache[index] != nil
+            let hasCached = heightEntries[index]?.source == .measured
             if hasCached {
                 // Cell is growing (streaming text) — allow it through so the
                 // content doesn't overflow the frozen cell frame and overlap
@@ -403,7 +403,7 @@ public final class MessageListLayout: UICollectionViewLayout {
         let delta = abs(prefH-origH)
 
         let mustInvalidate: Bool
-        if heightCache[index] != nil {
+        if heightEntries[index]?.source == .measured {
             mustInvalidate = delta>2
         } else {
             mustInvalidate = delta>0.5
@@ -412,7 +412,7 @@ public final class MessageListLayout: UICollectionViewLayout {
         // old "> 20" gate fired ~once per token. Restrict to genuinely large
         // height jumps (image attachment placeholder→loaded, etc.).
         if mustInvalidate && delta>100 {
-            AppLogger(category: "ChatList.CellMetrics").info("[CellSizing] INVALIDATE idx=\(index) delta=\(String(format: "%.0f", delta)) est=\(String(format: "%.0f", origH)) → pref=\(String(format: "%.0f", prefH)) cached=\(heightCache[index] != nil)")
+            AppLogger(category: "ChatList.CellMetrics").info("[CellSizing] INVALIDATE idx=\(index) delta=\(String(format: "%.0f", delta)) est=\(String(format: "%.0f", origH)) → pref=\(String(format: "%.0f", prefH)) cached=\(heightEntries[index]?.source == .measured)")
         }
         // [Stall] Per-second invalidation summary keyed by idx —
         // identifies cells that flap (re-invalidate repeatedly during scroll).
@@ -452,12 +452,10 @@ public final class MessageListLayout: UICollectionViewLayout {
         // [SettleJitter] Capture the estimate source BEFORE the heightCache
         // write below overwrites it — attributes which estimator produced the
         // wrong height (pre = precalc/memo seed, est = coarse heuristic).
-        let estimateSrc = heightCache[index] != nil ? "cache"
-            : (precalcHeights[index] != nil ? "pre"
-            : (estimatedHeights[index] != nil ? "est" : "def"))
+        let estimateSrc = heightEntries[index].map { $0.source.rawValue + "!" } ?? "def"
 
         // Cache the new height. prepare() will use this to compute correct totalHeight.
-        heightCache[index] = newH
+        heightEntries[index] = HeightEntry(height: newH, source: .measured)
 
         // [SettleJitter] Evidence log (H2): a correction passing through DURING
         // deceleration gets NO contentOffsetAdjustment (the !isDecelerating
@@ -663,9 +661,7 @@ public final class MessageListLayout: UICollectionViewLayout {
             // too — otherwise prepare() uses stale heights from the old width,
             // producing an incorrect contentSize that prevents scroll-to-bottom
             // from reaching the true end.
-            self.heightCache.removeAll()
-            self.precalcHeights.removeAll()
-            self.estimatedHeights.removeAll()
+            self.heightEntries.removeAll()
             self.geometryReaderConfirmed.removeAll()
             self.lastSettledWidth = cv.bounds.width
             self.invalidateLayout()
@@ -684,31 +680,23 @@ public final class MessageListLayout: UICollectionViewLayout {
         }
 
         // Build the new cache by looking up each new item in the old cache.
-        var newCache: [Int: CGFloat] = [:]
-        var newEstimated: [Int: CGFloat] = [:]
-        var newPrecalc: [Int: CGFloat] = [:]
+        var newEntries: [Int: HeightEntry] = [:]
         var newConfirmed: Set<Int> = []
         for (newIndex,item) in newIds.enumerated() {
             if let oldIndex = oldIndexByItem[item] {
-                if let h = heightCache[oldIndex] { newCache[newIndex] = h }
-                if let h = precalcHeights[oldIndex] { newPrecalc[newIndex] = h }
-                if let h = estimatedHeights[oldIndex] { newEstimated[newIndex] = h }
+                if let entry = heightEntries[oldIndex] { newEntries[newIndex] = entry }
                 if geometryReaderConfirmed.contains(oldIndex) { newConfirmed.insert(newIndex) }
             }
         }
-        heightCache = newCache
-        precalcHeights = newPrecalc
-        estimatedHeights = newEstimated
+        heightEntries = newEntries
         geometryReaderConfirmed = newConfirmed
     }
 
     /// Invalidate the cached height for a specific item index, forcing re-measurement.
     /// Use this for the actively streaming message whose height is changing.
     public func invalidateHeight(at index: Int) {
-        heightCache.removeValue(forKey: index)
-        // 流式 cell 的 PLAF 短路优先返回 precalc（塌缩/旧估算高度）——不清它，
-        // 手术式失效（如思考块展开）后 PLAF 仍返回旧高度，展开内容被裁剪。
-        precalcHeights.removeValue(forKey: index)
+        // 统一条目：一次移除即完成原三字典的清空（measured/precalc/estimated 同源）。
+        heightEntries.removeValue(forKey: index)
         geometryReaderConfirmed.remove(index)
         // Belt-and-suspenders: also drop the
         // content-keyed memo for this index. The content-versioned key already
@@ -725,22 +713,22 @@ public final class MessageListLayout: UICollectionViewLayout {
     /// from what `preferredLayoutAttributesFitting` returned, bypassing
     /// the unreliable self-sizing cycle.
     public func setCachedHeight(_ height: CGFloat,at index: Int) {
-        heightCache[index] = height
+        heightEntries[index] = HeightEntry(height: height, source: .measured)
         geometryReaderConfirmed.insert(index)
     }
 
     /// Read the cached height for a specific item index, if any.
     public func cachedHeight(at index: Int) -> CGFloat? {
-        heightCache[index]
+        heightEntries[index]?.height
     }
 
     /// Check if a precalculated height exists for this index.
     public func precalcHeight(at index: Int) -> CGFloat? {
-        precalcHeights[index]
+        heightEntries[index]?.height
     }
 
     public func hasPrecalcHeight(at index: Int) -> Bool {
-        precalcHeights[index] != nil
+        heightEntries[index]?.source == .precalc
     }
 
     // MARK: - Content-keyed real-height memo
@@ -817,9 +805,7 @@ public final class MessageListLayout: UICollectionViewLayout {
 
     /// Clear all cached heights (e.g., on session change).
     public func clearHeightCache() {
-        heightCache.removeAll()
-        precalcHeights.removeAll()
-        estimatedHeights.removeAll()
+        heightEntries.removeAll()
         geometryReaderConfirmed.removeAll()
         measuredHeightByContentKey.removeAll()
         contentKeyByIndex.removeAll()
@@ -828,7 +814,7 @@ public final class MessageListLayout: UICollectionViewLayout {
 
     // MARK: - Diagnostics
 
-    public var debugCachedHeightCount: Int { heightCache.count }
+    public var debugCachedHeightCount: Int { heightEntries.count }
     public var debugPrecalcHeightCount: Int { precalcHeights.count }
 }
 
