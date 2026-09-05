@@ -35423,25 +35423,25 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "New Task: %@"
+            "value": "New Task: %@ (attachments %@)"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "新規タスク：%@"
+            "value": "新規タスク：%@（添付 %@）"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "새 작업: %@"
+            "value": "새 작업: %@ (첨부 %@)"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "新建任务：%@"
+            "value": "新建任务：%@（附件 %@）"
           }
         }
       }
@@ -49314,25 +49314,25 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Send %2$@ to %1$@"
+            "value": "Send %@ to %@ (attachments %@, wait for result %@)"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "%1$@ に %2$@ を送信"
+            "value": "%@ に %@ を送信（添付 %@、結果待機 %@）"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "%1$@에게 %2$@ 보내기"
+            "value": "%@에게 %@ 보내기(첨부 %@, 결과 대기 %@)"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "向 %1$@ 发送 %2$@"
+            "value": "向 %@ 会话发送 %@（附件 %@，等待结果 %@）"
           }
         }
       }

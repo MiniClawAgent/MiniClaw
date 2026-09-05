@@ -48,7 +48,11 @@ struct RunAgentTaskIntent: LiveActivityIntent, ProgressReportingIntent {
     var attachments: [IntentFile]?
 
     static var parameterSummary: some ParameterSummary {
+        // 摘要必须包含全部需要用户填写的参数：不在摘要里的参数，
+        // 快捷指令编辑器不渲染输入行（2026-09-05 修复：prompt 丢失导致无法输入）。
+        // 格式串占位符按构建器参数顺序一一对应。
         Summary("new_task_summary") {
+            \.$prompt
             \.$attachments
         }
     }
@@ -300,8 +304,12 @@ struct ContinueSessionIntent: LiveActivityIntent, ProgressReportingIntent {
 
     static var parameterSummary: some ParameterSummary {
         // 显式列出全部参数（含可选参数）：否则「附件/等待结果」会折叠进快捷指令的
-        // 隐藏区，用户看不到添加入口。
+        // 隐藏区，用户看不到添加入口。**session/message 同样必须在列**——缺失时
+        // 编辑器不渲染会话选择与消息输入行（2026-09-05 修复）。
+        // 占位符顺序与构建器参数顺序一一对应：session → message → attachments → waitForResult。
         Summary("send_summary") {
+            \.$session
+            \.$message
             \.$attachments
             \.$waitForResult
         }
