@@ -37,8 +37,15 @@ final class AppLogger: @unchecked Sendable {
     private let queue = DispatchQueue(label: "com.neartop.miniclaw.applogger")
     private let fileManager = FileManager.default
 
+    /// 独立计算（2026-09-05 修复）：路径与 FileSystemManager.miniClawRoot/logs 保持一致，
+    /// 但**不依赖 FSM 单例**——AppLogger 被 FSM.init 的清理路径同步调用，而
+    /// FSM.shared 的 dispatch_once 尚未完成时，logsDir 再回查 FSM.shared 会形成
+    /// 静态初始化重入死循环（Mac "Designed for iPad" 启动 EXC_BREAKPOINT 实锤；
+    /// dispatch_once_wait 死等栈已由帧走查抓到）。日志器必须零依赖自举。
     private var logsDir: URL {
-        FileSystemManager.shared.miniClawRoot.appendingPathComponent("logs", isDirectory: true)
+        let documents = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first!
+            ?? FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+        return documents.appendingPathComponent("MiniClaw/logs", isDirectory: true)
     }
 
     private let dateFormatter: DateFormatter = {
