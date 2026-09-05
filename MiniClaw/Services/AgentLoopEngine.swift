@@ -1804,6 +1804,12 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
         let startedAt = Date()
         // 危机定位标记：同步落盘（不依赖异步队列），卡死时日志里最后一条 ENTER 即指出卡在哪个工具。
         AppLogger.shared.crisisMark("TOOL ENTER: \(rawName)")
+        // [ToolForensics] 取证（唐唐 2026-09-05，只进 Xcode 控制台不进 App 日志）：
+        // 派发/关闭子代理时模型伴生空调 shell 调用，记录模型发来的原始参数 JSON
+        // 以确认到底是 {} / command 空串 / 命令放错字段，取证完成后移除本段。
+        if rawName == "shell_execute" || rawName == Self.subagentToolName || rawName == Self.closeSubagentToolName {
+            NSLog("[ToolForensics] name=%@ callID=%@ rawArgs=%@", rawName, tc.id, tc.function.arguments)
+        }
         // 直接引用架构：取/建执行上下文并挂载。参数流式期已挂载的命中注册表直接复用；
         // 非流式（无参数增量）场景在此首次创建。beginExecution 使参数定稿、状态转 running。
         let exec: ToolExecution
