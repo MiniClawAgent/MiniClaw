@@ -34,6 +34,7 @@ final class ToolExecution: @unchecked Sendable {
             toolStatus: .streaming(bytes: 0),
             toolUseId: callID
         )
+        block.commandStartedAt = startedAt
     }
 
     // MARK: - 参数流式（AI 正在生成参数）
@@ -120,6 +121,7 @@ final class ToolExecution: @unchecked Sendable {
         block.kind = MiniClawChatAdapter.toolKind(event.name, arguments: event.arguments)
         block.content = event.resultText
         block.toolDuration = event.duration ?? 0
+        block.commandStartedAt = event.timestamp
         // 还原中断态：wasInterrupted → .cancelled（黄色），与 .failed（红色）区分。
         block.toolStatus = event.wasInterrupted ? .cancelled : (event.success ? .success : .failed(message: ""))
     }

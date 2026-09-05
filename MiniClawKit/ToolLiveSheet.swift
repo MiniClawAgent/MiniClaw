@@ -1707,10 +1707,16 @@ struct ToolLiveSheet: View {
             // single step, so the timestamp lives here instead of on
             // every pill in the message list.
             let dur = block.toolDuration ?? currentSnapshot?.snapshot.duration
-            if dur != nil || block.toolStartTime != nil {
+            if dur != nil || block.toolStartTime != nil || (isRunningStatus && block.commandStartedAt != nil) {
                 VStack(alignment: .trailing,spacing: 1) {
                     if let dur {
+                        // 已完成：静态耗时。
                         Text(Self.formatDuration(dur))
+                            .font(.system(size: 11,design: .monospaced))
+                            .foregroundStyle(ChatColors.tertiaryText)
+                    } else if isRunningStatus, let started = block.commandStartedAt {
+                        // 运行中：实时计时（SwiftUI 自动每秒刷新，2026-09-05）。
+                        Text(timerInterval: started...Date.distantFuture, countsDown: false)
                             .font(.system(size: 11,design: .monospaced))
                             .foregroundStyle(ChatColors.tertiaryText)
                     }
@@ -1891,6 +1897,12 @@ struct ToolLiveSheet: View {
     }
 
     // MARK: - Helpers
+
+    /// 运行中（streaming/running）判定：实时计时列的显示条件之一。
+    private var isRunningStatus: Bool {
+        if case .streaming = block.toolStatus { return true }
+        return block.toolStatus == .running
+    }
 
     @ViewBuilder
     private var statusIcon: some View {

@@ -84,7 +84,7 @@ struct ShellExecuteTool: AgentTool {
         onLine: { line, _ in ToolProgressScope.reporter?(line) },
                 sessionID: currentSessionID
             )
-            let output = result.stdout + (result.stderr.isEmpty ? "" : "\n[stderr]\n\(result.stderr)")
+            let output = Self.foldCarriageReturns(result.stdout + (result.stderr.isEmpty ? "" : "\n[stderr]\n\(result.stderr)"))
             let full = output.isEmpty ? String(localized: "no_output") : output
             let masked = maskSecrets(full, settings: settings)
             let thresholdBytes = settings.files.autoOffloadThresholdKB * 1024
@@ -100,6 +100,23 @@ struct ShellExecuteTool: AgentTool {
         } catch {
             return ToolResult(success: false, text: error.localizedDescription)
         }
+    }
+
+    /// 折叠 \r 重绘序列（2026-09-05，对齐 OpenMinis 终态折叠）：
+    /// yt-dlp/apk 下载等工具用 \r 在同一行反复重绘进度，非 tty 管道下会原样
+    /// 捕获数百行冗余记录。按真实终端语义重放：\r 后的内容覆盖行内已有内容，
+    /// 每行只保留最终状态——与用户在屏幕上实际看到的完全一致。
+    private static func foldCarriageReturns(_ text: String) -> String {
+        guard text.contains("\r") else { return text }
+        var folded: [String] = []
+        for line in text.components(separatedBy: "\n") {
+            var final = ""
+            for part in line.components(separatedBy: "\r") {
+                final = part
+            }
+            folded.append(final)
+        }
+        return folded.joined(separator: "\n")
     }
 
     /// 单引号包裹命令（' 转义为 '\''），供 `bash -lc '...'` 包装使用。

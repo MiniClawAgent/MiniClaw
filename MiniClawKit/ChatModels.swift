@@ -274,6 +274,8 @@ public final class AssistantBlock: Identifiable,ObservableObject {
     }
     /// Status for tool blocks (nil for text blocks).
     @Published public var toolStatus: ToolBlockStatus?
+    /// 工具开始执行的时刻（运行中状态行的实时计时用；恢复路径取事件时间戳）。
+    @Published public var commandStartedAt: Date?
     /// Local file path for an image (e.g. browser screenshot).
     @Published public var imageFilePath: String?
     /// URL associated with browser tool calls (for display in preview).
