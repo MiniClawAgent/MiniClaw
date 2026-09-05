@@ -143,6 +143,8 @@ targets:
         INFOPLIST_KEY_UIRequiredDeviceCapabilities:
           - "arm64"
         INFOPLIST_KEY_NSSupportsLiveActivities: YES
+        # ProMotion 设备解锁 120Hz（iOS 15+ 默认压 60Hz，显式声明后恢复全速）
+        INFOPLIST_KEY_CADisableMinimumFrameDurationOnPhone: YES
         INFOPLIST_KEY_NSSupportsLiveActivitiesFrequentUpdates: YES
         INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO
         # @rpath 解析到 app 内 Frameworks(embed 的 MiniClawKit.framework)
