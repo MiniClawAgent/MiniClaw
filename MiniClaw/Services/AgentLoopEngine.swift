@@ -1713,6 +1713,20 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
         return String(format: String(localized: "loop_calling_tool"), toolName)
     }
 
+    /// 短码解析：清单只展示 UUID 前 8 位，模型照抄短码关闭是高频路径——
+    /// 对当前会话的子代理卡片做大小写不敏感前缀匹配，唯一命中才返回
+    /// （多命中/零命中返回 nil，让模型收到明确错误而非误关）。
+    @MainActor
+    private func prefixResolveSubagentID(_ args: [String: Any], sessionID: UUID) -> UUID? {
+        guard let s = args["subagent_id"] as? String else { return nil }
+        let short = s.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard short.count >= 4, UUID(uuidString: s) == nil else { return nil }
+        let matches = SubagentStore.shared.avatars(for: sessionID)
+            .filter { $0.id.uuidString.lowercased().hasPrefix(short) }
+            .map(\.id)
+        return matches.count == 1 ? matches[0] : nil
+    }
+
     /// 拦截早退类工具（dispatch/close_subagent）的执行生命周期补全：
     /// 与通用路径一致地挂载占位 → 参数定稿 → 结果落定，让工具卡正常显示
     /// 状态流转与耗时（2026-09-05 修复：此前早退绕过挂载，卡片回落
@@ -1769,13 +1783,21 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
             let closeArgs: [String: Any] = (try? JSONSerialization.jsonObject(
                 with: Data(tc.function.arguments.utf8)
             ) as? [String: Any]) ?? [:]
-            guard let subagentID = CloseSubagentTool.parseSubagentID(closeArgs) else {
-                let result = ToolResult(success: false, text: String(localized: "err_close_subagent_need_id"))
+            guard let parentSID = sessionID else {
+                let result = ToolResult(success: false, text: String(localized: "err_engine_no_session"))
                 finalizeInterceptedToolExec(tc, result: result, startedAt: interceptedStartedAt)
                 return result
             }
-            guard let parentSID = sessionID else {
-                let result = ToolResult(success: false, text: String(localized: "err_engine_no_session"))
+            // 精确 UUID 优先；失败则按前缀对当前会话子代理卡片唯一匹配
+            // （系统提示词清单只展示 8 位短码，模型照抄短码关闭是高频路径，2026-09-05）。
+            let subagentID: UUID?
+            if let exact = CloseSubagentTool.parseSubagentID(closeArgs) {
+                subagentID = exact
+            } else {
+                subagentID = await prefixResolveSubagentID(closeArgs, sessionID: parentSID)
+            }
+            guard let subagentID else {
+                let result = ToolResult(success: false, text: String(localized: "err_close_subagent_need_id"))
                 finalizeInterceptedToolExec(tc, result: result, startedAt: interceptedStartedAt)
                 return result
             }

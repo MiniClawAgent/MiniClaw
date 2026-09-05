@@ -42,7 +42,7 @@ enum SubAgentGuide {
         }
         return """
         ### 当前会话的子代理
-        以下子代理已存在，可复用（用完整 subagent_id 续派）或关闭（close_subagent）：
+        以下子代理已存在，可复用（dispatch_subagent 传 subagent_id 续派）或关闭（close_subagent）；id 支持列表中的 8 位短码：
         \(lines.joined(separator: "\n"))
         """
     }
