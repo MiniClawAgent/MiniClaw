@@ -2031,7 +2031,9 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
             emitSubagentEvent(.taskAdded(rec.info, task))
         } else {
             subID = UUID()
-            subName = (spec.focus?.isEmpty == false) ? String(format: String(localized: "loop_subagent_focus"), spec.focus!) : String(localized: "subagents")
+            // 会话页胶囊卡/详情页名称只保留任务名称，不带「子代理·」前缀
+            // （唐唐 2026-09-05 要求；结果文本由 loop_subagent_prefix 自带 [子代理 …] 标签）。
+            subName = (spec.focus?.isEmpty == false) ? spec.focus! : String(localized: "subagents")
             baseFocus = spec.focus
             baseHistory = []
             recProfile = nil

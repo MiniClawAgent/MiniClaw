@@ -29414,35 +29414,6 @@
         }
       }
     },
-    "loop_subagent_focus": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Subagent · %@"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "サブエージェント・%@"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "서브에이전트·%@"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "子代理·%@"
-          }
-        }
-      }
-    },
     "loop_subagent_max_depth": {
       "extractionState": "manual",
       "localizations": {
