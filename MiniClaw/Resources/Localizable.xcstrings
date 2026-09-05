@@ -4263,7 +4263,7 @@
             "value": "작업에 첨부해 보낼 파일(선택). 이전 작업의 출력(이미지/문서 등)도 받을 수 있습니다"
           }
         },
-        "zh": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
             "value": "要随任务发送的文件（可选），可接收前面动作的输出（如图片/文档）"
@@ -4292,7 +4292,7 @@
             "value": "첨부 파일"
           }
         },
-        "zh": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
             "value": "附件"
@@ -11571,7 +11571,7 @@
             "value": "대화 계속"
           }
         },
-        "zh": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
             "value": "继续会话"
@@ -11600,7 +11600,7 @@
             "value": "선택한 MiniClaw 대화에 메시지를 보냅니다(파일 첨부 가능). 에이전트 완료를 기다려 응답을 받거나 즉시 반환 후 나중에 알림을 받을 수 있습니다."
           }
         },
-        "zh": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
             "value": "向选中的 MiniClaw 会话发送消息（可附文件）。可等待智能体完成并返回回复内容，或立即返回稍后通知。"
@@ -11629,7 +11629,7 @@
             "value": "${applicationName} 대화 계속하기"
           }
         },
-        "zh": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
             "value": "继续 ${applicationName} 会话"
@@ -11658,7 +11658,7 @@
             "value": "${applicationName} 대화에 메시지 보내기"
           }
         },
-        "zh": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
             "value": "向 ${applicationName} 会话发送消息"
@@ -25955,7 +25955,7 @@
             "value": "첨부 파일 '%@' 읽기 실패, 다시 시도하세요"
           }
         },
-        "zh": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
             "value": "附件「%@」读取失败，请重试"
@@ -25984,7 +25984,7 @@
             "value": "세션 생성 실패, 다시 시도하세요"
           }
         },
-        "zh": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
             "value": "创建会话失败，请重试"
@@ -26013,7 +26013,7 @@
             "value": "메시지가 비어 있습니다. 에이전트에 보낼 내용을 입력하세요"
           }
         },
-        "zh": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
             "value": "消息内容为空，请输入要发送给智能体的内容"
@@ -26042,7 +26042,7 @@
             "value": "프롬프트가 비어 있습니다. 실행할 작업을 입력하세요"
           }
         },
-        "zh": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
             "value": "任务提示词为空，请输入要执行的任务"
@@ -26158,7 +26158,7 @@
             "value": "MiniClaw가 작업을 처리 중…"
           }
         },
-        "zh": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
             "value": "MiniClaw 任务处理中…"
@@ -26187,7 +26187,7 @@
             "value": "에이전트 응답 대기 시간 초과(120초). 작업이 계속 실행 중일 수 있으니 앱에서 확인하세요"
           }
         },
-        "zh": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
             "value": "等待智能体回复超时（120 秒），任务可能仍在运行，请到 App 内查看"
@@ -26216,7 +26216,7 @@
             "value": "선택한 대화를 찾을 수 없습니다"
           }
         },
-        "zh": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
             "value": "找不到所选会话"
@@ -26245,7 +26245,7 @@
             "value": "작업 완료 대기 시간 초과(30분). 앱에서 진행 상황을 확인하세요"
           }
         },
-        "zh": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
             "value": "等待任务完成超时（30 分钟），请到 App 内查看进度"
@@ -32451,7 +32451,7 @@
             "value": "에이전트에 보낼 내용"
           }
         },
-        "zh": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
             "value": "要发送给智能体的内容"
@@ -32480,7 +32480,7 @@
             "value": "어떤 메시지를 보내시겠습니까?"
           }
         },
-        "zh": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
             "value": "要发送什么内容？"
@@ -32509,7 +32509,7 @@
             "value": "메시지"
           }
         },
-        "zh": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
             "value": "消息"
@@ -35380,7 +35380,7 @@
             "value": "새 작업"
           }
         },
-        "zh": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
             "value": "新建任务"
@@ -35409,7 +35409,7 @@
             "value": "MiniClaw 에이전트에 새 작업 실행을 요청합니다(파일 첨부 가능). 완료 시 알림을 받습니다."
           }
         },
-        "zh": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
             "value": "让 MiniClaw 智能体执行一条新任务（可附文件），完成后发通知"
@@ -35438,7 +35438,7 @@
             "value": "새 작업: %@"
           }
         },
-        "zh": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
             "value": "新建任务：%@"
@@ -47937,7 +47937,7 @@
             "value": "${applicationName}(으)로 작업 실행"
           }
         },
-        "zh": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
             "value": "用 ${applicationName} 执行任务"
@@ -47966,7 +47966,7 @@
             "value": "${applicationName}에게 작업 실행 요청"
           }
         },
-        "zh": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
             "value": "让 ${applicationName} 运行任务"
@@ -47995,7 +47995,7 @@
             "value": "${applicationName} 작업 만들기"
           }
         },
-        "zh": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
             "value": "新建 ${applicationName} 任务"
@@ -49329,7 +49329,7 @@
             "value": "%1$@에게 %2$@ 보내기"
           }
         },
-        "zh": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
             "value": "向 %1$@ 发送 %2$@"
@@ -49677,7 +49677,7 @@
             "value": "대화"
           }
         },
-        "zh": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
             "value": "会话"
@@ -49822,7 +49822,7 @@
             "value": "대화"
           }
         },
-        "zh": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
             "value": "会话"
@@ -54839,7 +54839,7 @@
             "value": "작업 완료"
           }
         },
-        "zh": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
             "value": "任务完成"
@@ -54868,7 +54868,7 @@
             "value": "MiniClaw에 실행시킬 지시"
           }
         },
-        "zh": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
             "value": "要交给 MiniClaw 执行的指令"
@@ -54897,7 +54897,7 @@
             "value": "어떤 작업을 실행하시겠습니까?"
           }
         },
-        "zh": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
             "value": "要执行什么任务？"
@@ -54926,7 +54926,7 @@
             "value": "프롬프트"
           }
         },
-        "zh": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
             "value": "任务提示词"
@@ -54955,7 +54955,7 @@
             "value": "작업이 시작되었습니다. 완료 시 알림을 보냅니다."
           }
         },
-        "zh": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
             "value": "任务已开始，完成后会通知你。"
@@ -54984,7 +54984,7 @@
             "value": "처리를 시작했습니다. 완료 시 알림을 보냅니다."
           }
         },
-        "zh": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
             "value": "已开始处理，完成后会通知你。"
@@ -59682,7 +59682,7 @@
             "value": "결과 기다리기"
           }
         },
-        "zh": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
             "value": "等待结果"
