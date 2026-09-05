@@ -615,7 +615,7 @@ struct ChatView: View {
                 Button {
                     showSessionBrowser = true
                 } label: {
-                    Label(String(localized: "browser_bound_to_this_session"), systemImage: "safari")
+                    Label(String(localized: "browser"), systemImage: "safari")
                 }
 
                 // 后续选项在此追加
