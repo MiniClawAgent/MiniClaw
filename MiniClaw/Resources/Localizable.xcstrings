@@ -35417,35 +35417,6 @@
         }
       }
     },
-    "new_task_summary": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "New Task: %@ (attachments %@)"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "新規タスク：%@（添付 %@）"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "새 작업: %@ (첨부 %@)"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "新建任务：%@（附件 %@）"
-          }
-        }
-      }
-    },
     "nlp_tool_desc": {
       "extractionState": "manual",
       "localizations": {
@@ -49304,35 +49275,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "发送通知"
-          }
-        }
-      }
-    },
-    "send_summary": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Send %@ to %@ (attachments %@, wait for result %@)"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ に %@ を送信（添付 %@、結果待機 %@）"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@에게 %@ 보내기(첨부 %@, 결과 대기 %@)"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "向 %@ 会话发送 %@（附件 %@，等待结果 %@）"
           }
         }
       }

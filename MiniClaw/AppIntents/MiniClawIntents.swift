@@ -48,11 +48,11 @@ struct RunAgentTaskIntent: LiveActivityIntent, ProgressReportingIntent {
     var attachments: [IntentFile]?
 
     static var parameterSummary: some ParameterSummary {
-        // 摘要必须包含全部需要用户填写的参数：不在摘要里的参数，
-        // 快捷指令编辑器不渲染输入行（2026-09-05 修复：prompt 丢失导致无法输入）。
-        // 格式串占位符按构建器参数顺序一一对应。
-        Summary("new_task_summary") {
-            \.$prompt
+        // 摘要必须用**源码插值**写法：占位符与参数的绑定关系由源码提取（元数据处理器
+        // 无法从裸 key 得知参数个数，运行时不会替换、直接显示裸 %@——2026-09-05 实测）。
+        // 摘要里内插的参数不必重复进构建器；构建器只列其余参数（不在摘要里的参数
+        // 编辑器不渲染输入行）。
+        Summary("新建任务：\(\.$prompt)") {
             \.$attachments
         }
     }
@@ -303,13 +303,9 @@ struct ContinueSessionIntent: LiveActivityIntent, ProgressReportingIntent {
     static let finishTimeoutSeconds: TimeInterval = 1800
 
     static var parameterSummary: some ParameterSummary {
-        // 显式列出全部参数（含可选参数）：否则「附件/等待结果」会折叠进快捷指令的
-        // 隐藏区，用户看不到添加入口。**session/message 同样必须在列**——缺失时
-        // 编辑器不渲染会话选择与消息输入行（2026-09-05 修复）。
-        // 占位符顺序与构建器参数顺序一一对应：session → message → attachments → waitForResult。
-        Summary("send_summary") {
-            \.$session
-            \.$message
+        // 源码插值写法（同上）：session/message 内插进摘要句，attachments/waitForResult
+        // 进构建器（各自渲染为输入行）。全部参数均可达。
+        Summary("向 \(\.$session) 会话发送 \(\.$message)") {
             \.$attachments
             \.$waitForResult
         }
