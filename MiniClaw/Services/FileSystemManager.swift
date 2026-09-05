@@ -105,7 +105,7 @@ final class FileSystemManager: @unchecked Sendable {
     在此记录需要跨会话长期保留的记忆。
     """
 
-    var miniClawRoot: URL {
+    nonisolated var miniClawRoot: URL {
         let documents = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first!
         return documents.appendingPathComponent("MiniClaw", isDirectory: true)
     }
@@ -124,10 +124,10 @@ final class FileSystemManager: @unchecked Sendable {
 
     /// 统一插件沙盒根：`plugins/<type>/<插件目录>/`。
     /// plugin.json 的 `type` 字段决定分发目的地；各类型消费方沿用各自 dir 计算属性，零感知。
-    var pluginsRoot: URL { miniClawRoot.appendingPathComponent("plugins") }
-    func pluginTypeDir(_ type: String) -> URL { pluginsRoot.appendingPathComponent(type) }
+    nonisolated var pluginsRoot: URL { miniClawRoot.appendingPathComponent("plugins") }
+    nonisolated func pluginTypeDir(_ type: String) -> URL { pluginsRoot.appendingPathComponent(type) }
 
-    var rulesDir: URL { pluginTypeDir("rule") }
+    nonisolated var rulesDir: URL { pluginTypeDir("rule") }
     var skillsDir: URL { pluginTypeDir("skill") }
     /// 子代理角色插件目录 = plugins/subagent/<id>/（强制 plugin.json[type=subagent] + SKILL.md）。
     var subagentProfilesDir: URL { pluginTypeDir("subagent") }
@@ -141,7 +141,7 @@ final class FileSystemManager: @unchecked Sendable {
     /// 读取内置插件同步 manifest：**id → type** 映射（记录由 App 内置管理、每次启动被同名内置包覆盖的插件）。
     /// 用于区分「内置/导入」与清理已移除的内置包（type 决定其在 plugins/<type>/ 下的位置）。
     /// 未上架不做旧格式兼容：仅认 v2 格式 = pluginsRoot/.bundled-manifest.json（JSON object）。
-    func bundledPluginEntries() -> [String: String] {
+    nonisolated func bundledPluginEntries() -> [String: String] {
         let url = pluginsRoot.appendingPathComponent(".bundled-manifest.json")
         guard let data = try? Data(contentsOf: url), !data.isEmpty,
               let obj = try? JSONDecoder().decode([String: String].self, from: data) else { return [:] }
@@ -155,7 +155,7 @@ final class FileSystemManager: @unchecked Sendable {
     }
 
     /// 内置插件 id 集合（不区分类型的调用方使用）。
-    func bundledPluginIds() -> Set<String> {
+    nonisolated func bundledPluginIds() -> Set<String> {
         Set(bundledPluginEntries().keys)
     }
     var mountsDir: URL { miniClawRoot.appendingPathComponent("mounts") }
@@ -383,7 +383,7 @@ final class FileSystemManager: @unchecked Sendable {
     ///   **有语言子目录** → 优先当前语言目录，缺失时回退默认语言目录（zh-Hans），不混用其他语言。
     /// - 启用过滤：skillEnabledStates[manifest.name] ?? (内置=清单声明 / 导入=关)。
     ///   enabledStates/builtinIds 由调用方在**主线程**快照传入（SettingsStore 后台裸读竞态防护）。
-    func ruleMarkdownFiles(enabledStates: [String: Bool], builtinIds: Set<String>) -> [URL] {
+    nonisolated func ruleMarkdownFiles(enabledStates: [String: Bool], builtinIds: Set<String>) -> [URL] {
         let typeDir = pluginTypeDir("rule")
         let pluginDirs = ((try? fileManager.contentsOfDirectory(
             at: typeDir, includingPropertiesForKeys: [.isDirectoryKey])) ?? [])

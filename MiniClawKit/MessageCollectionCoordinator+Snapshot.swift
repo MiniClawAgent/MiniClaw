@@ -219,7 +219,10 @@ extension MessageCollectionView.Coordinator {
                     // double-tap), the toggle triggers a snapshot refresh
                     // which re-evaluates this condition.
                     let isLastAssistant = (message.id == messages.last(where: { $0.role == .assistant })?.id)
+                    // 2026-09-05 唐唐要求：**每一条** AI 回复都持久显示状态行（已完成/已停止/
+                    // 已中断 + 耗时），不再只显示最后一条。
                     let needsFooter = isLastAssistant
+                        || message.role == .assistant
                         || message.error != nil
                         || message.streamInterruptCount>0
                         || (cellBridgeMap[message.id]?.canResume == true)

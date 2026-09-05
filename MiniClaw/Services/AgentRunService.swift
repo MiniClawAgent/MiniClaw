@@ -373,7 +373,7 @@ final class AgentRunService {
                 // 终态清除消息级暂停标志：曾被暂停、续跑完成的回复不再残留「已暂停」横幅
                 // （该标志由 onPaused 落盘，终态不清除会在 runtime 销毁后经持久化值复活横幅）。
                 assistantMessage.isPaused = false
-                AppLogger.shared.info(String(format: String(localized: "agent_persist_oncomplete"), assistantMessage.content.count, assistantMessage.toolCalls.count, assistantMessage.reasoningSegments.count, assistantMessage.taskElapsedSeconds ?? -1), category: "Agent", subsystem: "Persist")
+                AppLogger.shared.info(String(format: String(localized: "agent_persist_oncomplete"), assistantMessage.content.count, assistantMessage.toolCalls.count, assistantMessage.reasoningSegments.count, String(format: "%.1f", assistantMessage.taskElapsedSeconds ?? -1)), category: "Agent", subsystem: "Persist")
                 AppState.shared?.chatRuntimes[sessionID] = nil
                 // P1-4 升级：整轮 Agent 跑完（成功）后才回跳 x-success，并把回复文本交给等待中的快捷指令。
                 if let cb = deepLinkCallback { AppState.shared?.fireDeepLinkSuccess(cb.xSuccess, replyText: assistantMessage.content) }

@@ -25,8 +25,14 @@ extension AgentRunService {
         // 2. 项目规则（rule 插件：启用过滤 + 按当前语言取用）；逐文件异步读取，避免主线程同步 IO。
         // 启用状态主线程快照（SettingsStore 后台裸读竞态防护，2026-08-14 崩溃修复同款约束）。
         let ruleEnabledStates = await MainActor.run { SettingsStore.shared.settings.skillEnabledStates }
-        let ruleBuiltinIds = FileSystemManager.shared.bundledPluginIds()
-        let ruleURLs = fs.ruleMarkdownFiles(enabledStates: ruleEnabledStates, builtinIds: ruleBuiltinIds)
+        // 2026-09-05 主线程治理：bundle 清单读取与规则目录枚举是同步 IO，
+        // 移出主线程执行（此前是 PROMPT BUILD 数秒级主线程卡顿的组成部分）。
+        let ruleBuiltinIds = await Task.detached(priority: .userInitiated) {
+            FileSystemManager.shared.bundledPluginIds()
+        }.value
+        let ruleURLs = await Task.detached(priority: .userInitiated) {
+            fs.ruleMarkdownFiles(enabledStates: ruleEnabledStates, builtinIds: ruleBuiltinIds)
+        }.value
         var ruleSections: [String] = []
         for fileURL in ruleURLs {
             guard let raw = await readText(fileURL),
@@ -177,6 +183,8 @@ extension AgentRunService {
         \(toolNames.map { "- `\($0)`" }.joined(separator: "\n"))
 
         **再次强调：** 上方列表是你唯一可用的工具。没有「搜索」「新闻」「联网」「查询」等通用工具。如需浏览网页请用 `browser` 工具；如需执行命令请用 `shell_execute`；其他需求请用文字回答。
+
+        **子代理操作铁律：** 派发子代理**只能**通过 `dispatch_subagent` 工具；关闭子代理**只能**通过 `close_subagent` 工具。在回复文本中声称「已派发/已关闭」**不会产生任何实际效果**——没有对应工具调用，子代理不会被创建或关闭。
         """)
 
         // 3.5.1 环境变量(设置页可改,不进前缀)

@@ -1493,25 +1493,25 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "[Persist] onComplete: content=%ld chars toolCalls=%ld reasoningSegments=%ld elapsed=%lds"
+            "value": "[Persist] onComplete: content=%ld chars toolCalls=%ld reasoningSegments=%ld elapsed=%@ s"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "[永続化] onComplete: content=%ld字 toolCalls=%ld reasoningSegments=%ld elapsed=%lds"
+            "value": "[永続化] onComplete: content=%ld字 toolCalls=%ld reasoningSegments=%ld elapsed=%@ s"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "[저장] onComplete: content=%ld자 toolCalls=%ld reasoningSegments=%ld elapsed=%lds"
+            "value": "[저장] onComplete: content=%ld자 toolCalls=%ld reasoningSegments=%ld elapsed=%@ s"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "[落盘] onComplete: content=%ld字 toolCalls=%ld reasoningSegments=%ld elapsed=%lds"
+            "value": "[落盘] onComplete: content=%ld字 toolCalls=%ld reasoningSegments=%ld elapsed=%@ s"
           }
         }
       }
