@@ -720,6 +720,16 @@ public final class MessageListLayout: UICollectionViewLayout {
         }
     }
 
+    /// 只清索引条目、保留 content-keyed memo（2026-09-06 上滑抖动修复）。
+    /// 用于 applySnapshot 里清理「旧 cell 在 apply 期间写脏的索引高度」：
+    /// 那个高度属于旧内容，但 memo 中该 contentKey 的实测高度依然有效
+    /// （紧接着的重播种要读它）。用 invalidateHeight 会把 memo 一起剔除，
+    /// 导致重进会话的种子退化为粗估 → 上滑抖动。
+    public func purgeIndexEntry(at index: Int) {
+        heightEntries.removeValue(forKey: index)
+        geometryReaderConfirmed.remove(index)
+    }
+
     /// Directly set the cached height for a specific item index.
     /// Used when the SwiftUI GeometryReader reports a height that differs
     /// from what `preferredLayoutAttributesFitting` returned, bypassing

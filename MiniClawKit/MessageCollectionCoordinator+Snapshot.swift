@@ -239,226 +239,9 @@ extension MessageCollectionView.Coordinator {
 
                 let cvWidth = viewController?.collectionView.bounds.width ?? 390
                 for (i,item) in newRows.enumerated() {
-                    // Register the stable
-                    // content key for this index so a later self-size writes the
-                    // real height back under the key, and seed precalc from any
-                    // previously-measured real height. This kills the estimate→
-                    // real "settle jitter" for .wholeMessage (user) cells, whose
-                    // estimate is a coarse char-count heuristic (±13–52pt offY),
-                    // on every re-entry after the first measurement. NO new
-                    // measurement happens here — we reuse the height UIKit
-                    // already computed (see MessageListLayout.invalidationContext).
-                    let contentKey = Self.contentKey(for: item,messages: messages,messageIndex: messageIndex)
-                    layout.setContentKey(contentKey,at: i)
-
-                    // Content-aware spacing policy — must run
-                    // BEFORE the cachedHeight guard below, or footers that
-                    // already measured would skip it and fall back to the
-                    // default hug, re-gluing a prominent banner on the next
-                    // prepare(). Hug ONLY when the footer shows the quiet
-                    // meta/usage row (or nothing); error banner / resume banner
-                    // / typing indicator keep the full itemSpacing (user report
-                    // 2026-07-21). Mirrors BridgedAssistantFooter's sections.
-                    var footerProminent = false
-                    // 估高与 hug 解耦：hug 只看 prominent（视觉策略不变），
-                    // 估高按 footer 将渲染的形态取值——终态状态行/回复中指示器
-                    // 实际 ~18pt，errored/resume 横幅 ~44-56pt，空 footer ~0-4pt。
-                    // 固定 4pt 种子 vs 18pt 状态行 = 每条历史 AI 回复 +13~14pt
-                    // 系统性低估，是重进会话上滑抖动的主误差源（2026-09-06 方案 A）。
-                    var footerEstimate: CGFloat = 4
-                    if case .assistantFooter(let footerMID) = item {
-                        let footerMsg = messageIndex[footerMID].flatMap {
-                            $0<messages.count ? messages[$0] : nil
-                        }
-                        let isTailMsg = messages.last?.id == footerMID
-                        let errored = footerMsg?.error != nil
-                        let canResumeFlag = isTailMsg && !errored
-                            && vm.canResume && !vm.isProcessing
-                        let isActive = isTailMsg && vm.isProcessing
-                        footerProminent = errored || canResumeFlag || isActive
-                        layout.setFooterHug(!footerProminent,at: i)
-                        if errored || canResumeFlag {
-                            footerEstimate = 48
-                        } else if isActive || (footerMsg?.footerShowsQuietStatusRow ?? false) {
-                            footerEstimate = 18
-                        }
-                    }
-
-                    // 守卫语义 = 旧三字典的「仅实测高度跳过」。合并字典后
-                    // cachedHeight 对 estimated/precalc 也返回值，若用它挡守卫，
-                    // 流式文本块的首帧估高会永久冻结（重播种被跳过），正文
-                    // 停在首帧高度与下方内容重叠（2026-09-05 回归）。
-                    guard !layout.hasMeasuredHeight(at: i) else { continue }
-
-                    // Re-entry seed: if we have a real measured height for this
-                    // exact content key at this width, use it as precalc — the
-                    // cell lands at its true height with zero on-screen jump.
-                    if let memo = layout.measuredHeight(forKey: contentKey,width: cvWidth) {
-                        layout.setPrecalcHeight(memo,at: i)
-                        continue
-                    }
-
-                    switch item {
-                    case .assistantHeader:
-                        // Header is always a fixed "sparkles MiniClaw" label row (measured: 28pt)
-                        layout.setEstimatedHeight(28,at: i)
-
-                    case .assistantFooter:
-                        // Prominent banners (error/resume) measure
-                        // ~44-56pt; quiet status row / replying indicator
-                        // ~18pt; empty footer ~0-4pt. (footerEstimate
-                        // computed above, pre-guard.)
-                        layout.setEstimatedHeight(footerEstimate,at: i)
-
-                    case .assistantBlock(let msgId,let blockId):
-                        guard let msgIdx = messageIndex[msgId],msgIdx<messages.count else { continue }
-                        let msg = messages[msgIdx]
-                        guard let block = msg.blocks.first(where: { $0.id == blockId }) else { continue }
-
-                        switch block.kind {
-                        case .text:
-                            // Use TextKit layout for accurate height pre-calculation.
-                            // Results are cached by NSAttributedString identity to avoid
-                            // redundant TextKit layout on repeated snapshots.
-                            if let attrStr = block.cachedAttributedString {
-                                let textWidth = max(cvWidth-32,100)
-                                let key = ObjectIdentifier(attrStr)
-                                let height: CGFloat
-                                if let cached = attrStringHeightCache[key] {
-                                    height = cached
-                                } else {
-                                    height = Self.measureAttributedStringHeight(attrStr,width: textWidth)
-                                    attrStringHeightCache[key] = height
-                                }
-                                // height includes the text view's 8pt insets;
-                                // +4 = the SwiftUI wrapper's .padding(.vertical, 2)
-                                // that the historical "+8" never accounted for
-                                // (the constant +5 first-measure growth in the
-                                // debug.scrollMetrics traces = this 4pt + ceil).
-                                layout.setPrecalcHeight(height+4,at: i)
-                                #if DEBUG
-                                // Record content
-                                // features at the seed site (the only place the
-                                // block object and its precalc height coexist) so
-                                // the pulled trace can attribute ct-precalc
-                                // mismatches to specific markdown constructs.
-                                if ScrollMetricsRecorder.shared.isEnabled {
-                                    let c = block.content
-                                    let feats = "code=\(c.contains("```") ? 1 : 0)|tbl=\(c.contains("|") ? 1 : 0)|list=\(c.range(of: #"(?m)^\s*[-*+] "#, options: .regularExpression) != nil ? 1 : 0)|head=\(c.range(of: #"(?m)^#{1,6} "#, options: .regularExpression) != nil ? 1 : 0)|icode=\(c.contains("`") ? 1 : 0)|bold=\(c.contains("**") ? 1 : 0)|nl=\(c.filter { $0 == "\n" }.count)|n=\(c.count)"
-                                    ScrollMetricsRecorder.shared.record(
-                                        kind: "seed", idx: i, a: height+4,
-                                        key: contentKey, src: "tv", note: feats,
-                                        tag: Self.stableCellTag(for: item,messages: messages,messageIndex: messageIndex))
-                                }
-                                #endif
-                            } else if block.content.isEmpty {
-                                // [T-ios-empty-textblock-gapH] A content-less text
-                                // block renders EmptyView (AssistantBlockView gates
-                                // on !content.isEmpty), so it must occupy 0pt — the
-                                // heuristic's one-line floor made it a phantom
-                                // blank row above the next tool capsule while
-                                // streaming defers the corrective measure. When
-                                // content arrives, blockContentFilledSignal
-                                // invalidates the height and reconfigures the cell.
-                                layout.setEstimatedHeight(0,at: i)
-                            } else {
-                                // Streaming text — no cachedAttributedString yet,
-                                // so use the char-count heuristic.
-                                //
-                                // The measured path
-                                // above adds +8 (the bubble's .padding(.vertical, 2)
-                                // plus the TextKit↔SwiftUI line-height delta). The
-                                // heuristic's estimateTextBlockHeight only seeds
-                                // `total = 4`, so a streaming text cell came out
-                                // ~4pt short on its vertical padding — the bubble
-                                // looked cramped/edge-to-edge until a later layout
-                                // pass ran the real systemLayoutSizeFitting measure
-                                // (which includes the padding) and "snapped" the
-                                // spacing back. Add the same +4 here so the first
-                                // streamed frame already reserves that padding.
-                                // The +4 padding compensation now lives inside
-                                // estimateTextBlockHeight, so all estimate paths
-                                // agree — no per-call-site fudge here.
-                                let est = Self.estimateItemHeight(item,messages: messages,width: cvWidth)
-                                layout.setEstimatedHeight(est,at: i)
-                            }
-                        case .thinking:
-                            // Estimator returns 36pt collapsed (matches header-only rendering),
-                            // or header + capped content height when expanded. Hard-coded 88
-                            // caused a -48pt correction per cell on first render, producing a
-                            // contentSize-shrink jitter chain when scrolling through history.
-                            let est = Self.estimateItemHeight(item,messages: messages,width: cvWidth)
-                            layout.setEstimatedHeight(est,at: i)
-                        case .readImageTool:
-                            // In block cells, readImageTool renders as a
-                            // ToolCapsuleView (36pt), same as other tool types.
-                            layout.setEstimatedHeight(36,at: i)
-                        case .file:
-                            layout.setEstimatedHeight(40,at: i)
-                        case .info:
-                            let infoLines = max(1, block.content.components(separatedBy: "\n").count)
-                            layout.setEstimatedHeight(CGFloat(20+infoLines*16),at: i)
-                        default:
-                            // Tool capsules (execute, browser, etc.) are 36pt
-                            layout.setEstimatedHeight(36,at: i)
-                        }
-
-                    case .wholeMessage(let msgId):
-                        // Accurate TextKit
-                        // precalc for USER message bubbles. The "stops then
-                        // twitches" decel-tail jank traced to user (wholeMessage)
-                        // cells whose coarse
-                        // char-count estimate was ~10pt short (idx150: est 77 →
-                        // real 87): when such a cell scrolled into view during the
-                        // decel tail it re-measured taller, grew contentSize, and
-                        // misaligned UIKit's already-computed decel target → 30fps
-                        // micro-correction near the stop + a POST-SETTLE offset
-                        // jump. The user bubble is a plain SwiftUI Text (no
-                        // cachedAttributedString), so it never got the accurate
-                        // precalc the .text blocks do. Measure it with the SAME
-                        // font + wrap width + paddings as the real render so the
-                        // cell lands at its true height and contentSize stays
-                        // stable through the glide. Falls back to the coarse
-                        // estimator for compactDivider / systemInfo / empty.
-                        if let msg = messages.first(where: { $0.id == msgId }),
-                           msg.role == .user {
-                            // Real wrap is bounded by maxContentWidth (the
-                            // .frame(maxWidth:) on BridgedWholeMessage); using
-                            // the wider cvWidth would under-wrap → under-estimate
-                            // on iPad. Use the effective width.
-                            let effWidth = maxContentWidth>0 ? min(cvWidth,maxContentWidth) : cvWidth
-                            let h = Self.measureUserBubbleHeight(for: msg,cvWidth: effWidth,
-                                                                 cache: &userBubbleHeightCache)
-                            if let h {
-                                layout.setPrecalcHeight(h,at: i)
-                                #if DEBUG
-                                // Feature capture for
-                                // the +7 user-bubble subset attribution.
-                                if ScrollMetricsRecorder.shared.isEnabled {
-                                    let c = msg.content
-                                    let cjk = c.unicodeScalars.contains { $0.value >= 0x4E00 && $0.value <= 0x9FFF }
-                                    let feats = "cjk=\(cjk ? 1 : 0)|nl=\(c.filter { $0 == "\n" }.count)|n=\(c.count)|att=\(msg.attachments.count)|inAtt=\(msg.inputAttachments.count)|tag=\(c.contains("<user-attached-files>") ? 1 : 0)"
-                                    ScrollMetricsRecorder.shared.record(
-                                        kind: "seed", idx: i, a: h,
-                                        key: Self.contentKey(for: item,messages: messages,messageIndex: messageIndex),
-                                        src: "bubble", note: feats,
-                                        tag: Self.stableCellTag(for: item,messages: messages,messageIndex: messageIndex))
-                                }
-                                #endif
-                            } else {
-                                // empty text (attachment-only) — coarse estimate
-                                layout.setEstimatedHeight(
-                                    Self.estimateItemHeight(item,messages: messages,width: cvWidth),at: i)
-                            }
-                        } else {
-                            // compactDivider / systemInfo — coarse estimate is fine
-                            let est = Self.estimateItemHeight(item,messages: messages,width: cvWidth)
-                            layout.setEstimatedHeight(est,at: i)
-                        }
-                    }
+                    seedHeight(at: i,item: item,messages: messages,width: cvWidth)
                 }
             }
-
             // Rebuild item→index lookup
             itemToIndex.removeAll(keepingCapacity: true)
             for (i,item) in newRows.enumerated() {
@@ -594,7 +377,16 @@ extension MessageCollectionView.Coordinator {
                 if !inserted.isEmpty,let layout = snapshotLayout {
                     for item in inserted {
                         if let idx = newRows.firstIndex(of: item) {
-                            layout.invalidateHeight(at: idx)
+                            // 只清索引条目（保留 memo），随后立刻重新播种。
+                            // 原实现用 invalidateHeight，既清索引又剔除 memo，且
+                            // 不重播——重进会话时 ALL items 都算 inserted，全部种子
+                            // 被清空后每个 cell 落到 estimatedItemHeight(200pt) 首次
+                            // 自测大修正，offset 补偿在 tracking/decel 期间又不生效
+                            // → 重进会话上滑持续抖动（2026-09-06 真机复现）。
+                            layout.purgeIndexEntry(at: idx)
+                            seedHeight(at: idx,item: item,messages: messages,
+                                       width: viewController?.collectionView.bounds.width ?? 390,
+                                       isReseed: true)
                         }
                     }
                 }
@@ -644,6 +436,169 @@ extension MessageCollectionView.Coordinator {
             } else {
                 snapshotLayout?.suppressContentOffsetAdjustment = false
                 flushingNow = false
+            }
+        }
+
+        /// 播种单个 item 的估高（原种子循环主体，抽成方法以便 apply 后对被
+        /// 清理的 insert 索引重播）。applySnapshot 里旧 cell 脏写被清掉后必须
+        /// 重新播种，否则该 item 落到 `estimatedItemHeight`(200pt) 并首次自测
+        /// 大修正 → 重进会话上滑抖动（2026-09-06）。
+        private func seedHeight(at i: Int,item: MessageListItem,
+                                messages: [ChatMessage],width: CGFloat,
+                                isReseed: Bool = false) {
+            guard let layout = viewController?.messageListLayout,let vm else { return }
+            let cvWidth = width
+            // Register the stable
+            // content key for this index so a later self-size writes the
+            // real height back under the key, and seed precalc from any
+            // previously-measured real height. This kills the estimate→
+            // real "settle jitter" for .wholeMessage (user) cells, whose
+            // estimate is a coarse char-count heuristic (±13–52pt offY),
+            // on every re-entry after the first measurement. NO new
+            // measurement happens here — we reuse the height UIKit
+            // already computed (see MessageListLayout.invalidationContext).
+            let contentKey = Self.contentKey(for: item,messages: messages,messageIndex: messageIndex)
+            layout.setContentKey(contentKey,at: i)
+            // Content-aware spacing policy — must run
+            // BEFORE the cachedHeight guard below, or footers that
+            // already measured would skip it and fall back to the
+            // default hug, re-gluing a prominent banner on the next
+            // prepare(). Hug ONLY when the footer shows the quiet
+            // meta/usage row (or nothing); error banner / resume banner
+            // / typing indicator keep the full itemSpacing (user report
+            // 2026-07-21). Mirrors BridgedAssistantFooter's sections.
+            var footerProminent = false
+            // 估高与 hug 解耦：hug 只看 prominent（视觉策略不变），
+            // 估高按 footer 将渲染的形态取值——终态状态行/回复中指示器
+            // 实际 ~18pt，errored/resume 横幅 ~44-56pt，空 footer ~0-4pt。
+            // 固定 4pt 种子 vs 18pt 状态行 = 每条历史 AI 回复 +13~14pt
+            // 系统性低估，是重进会话上滑抖动的主误差源（2026-09-06 方案 A）。
+            var footerEstimate: CGFloat = 4
+            if case .assistantFooter(let footerMID) = item {
+                let footerMsg = messageIndex[footerMID].flatMap {
+                    $0<messages.count ? messages[$0] : nil
+                }
+                let isTailMsg = messages.last?.id == footerMID
+                let errored = footerMsg?.error != nil
+                let canResumeFlag = isTailMsg && !errored
+                    && vm.canResume && !vm.isProcessing
+                let isActive = isTailMsg && vm.isProcessing
+                footerProminent = errored || canResumeFlag || isActive
+                layout.setFooterHug(!footerProminent,at: i)
+                if errored || canResumeFlag {
+                    footerEstimate = 48
+                } else if isActive || (footerMsg?.footerShowsQuietStatusRow ?? false) {
+                    footerEstimate = 18
+                }
+            }
+
+            // 守卫语义 = 旧三字典的「仅实测高度跳过」。合并字典后
+            // cachedHeight 对 estimated/precalc 也返回值，若用它挡守卫，
+            // 流式文本块的首帧估高会永久冻结（重播种被跳过），正文
+            // 停在首帧高度与下方内容重叠（2026-09-05 回归）。
+            guard !layout.hasMeasuredHeight(at: i) else { return }
+
+            // Re-entry seed: if we have a real measured height for this
+            // exact content key at this width, use it as precalc — the
+            // cell lands at its true height with zero on-screen jump.
+            if let memo = layout.measuredHeight(forKey: contentKey,width: cvWidth) {
+                layout.setPrecalcHeight(memo,at: i)
+                return
+            }
+
+            switch item {
+            case .assistantHeader:
+                // Header is always a fixed "sparkles MiniClaw" label row (measured: 28pt)
+                layout.setEstimatedHeight(28,at: i)
+
+            case .assistantFooter:
+                // Prominent banners (error/resume) measure
+                // ~44-56pt; quiet status row / replying indicator
+                // ~18pt; empty footer ~0-4pt.
+                layout.setEstimatedHeight(footerEstimate,at: i)
+
+            case .assistantBlock(let msgId,let blockId):
+                guard let msgIdx = messageIndex[msgId],msgIdx<messages.count else { return }
+                let msg = messages[msgIdx]
+                guard let block = msg.blocks.first(where: { $0.id == blockId }) else { return }
+
+                switch block.kind {
+                case .text:
+                    // Use TextKit layout for accurate height pre-calculation.
+                    // Results are cached by NSAttributedString identity to avoid
+                    // redundant TextKit layout on repeated snapshots.
+                    if let attrStr = block.cachedAttributedString {
+                        let textWidth = max(cvWidth-32,100)
+                        let key = ObjectIdentifier(attrStr)
+                        let height: CGFloat
+                        if let cached = attrStringHeightCache[key] {
+                            height = cached
+                        } else {
+                            height = Self.measureAttributedStringHeight(attrStr,width: textWidth)
+                            attrStringHeightCache[key] = height
+                        }
+                        // height includes the text view's 8pt insets;
+                        // +4 = the SwiftUI wrapper's .padding(.vertical, 2)
+                        layout.setPrecalcHeight(height+4,at: i)
+                        #if DEBUG
+                        if !isReseed,ScrollMetricsRecorder.shared.isEnabled {
+                            let c = block.content
+                            let feats = "code=\(c.contains("```") ? 1 : 0)|tbl=\(c.contains("|") ? 1 : 0)|list=\(c.range(of: #"(?m)^\s*[-*+] "#, options: .regularExpression) != nil ? 1 : 0)|head=\(c.range(of: #"(?m)^#{1,6} "#, options: .regularExpression) != nil ? 1 : 0)|icode=\(c.contains("`") ? 1 : 0)|bold=\(c.contains("**") ? 1 : 0)|nl=\(c.filter { $0 == "\n" }.count)|n=\(c.count)"
+                            ScrollMetricsRecorder.shared.record(
+                                kind: "seed", idx: i, a: height+4,
+                                key: contentKey, src: "tv", note: feats,
+                                tag: Self.stableCellTag(for: item,messages: messages,messageIndex: messageIndex))
+                        }
+                        #endif
+                    } else if block.content.isEmpty {
+                        layout.setEstimatedHeight(0,at: i)
+                    } else {
+                        let est = Self.estimateItemHeight(item,messages: messages,width: cvWidth)
+                        layout.setEstimatedHeight(est,at: i)
+                    }
+                case .thinking:
+                    let est = Self.estimateItemHeight(item,messages: messages,width: cvWidth)
+                    layout.setEstimatedHeight(est,at: i)
+                case .readImageTool:
+                    layout.setEstimatedHeight(36,at: i)
+                case .file:
+                    layout.setEstimatedHeight(40,at: i)
+                case .info:
+                    let infoLines = max(1, block.content.components(separatedBy: "\n").count)
+                    layout.setEstimatedHeight(CGFloat(20+infoLines*16),at: i)
+                default:
+                    // Tool capsules (execute, browser, etc.) are 36pt
+                    layout.setEstimatedHeight(36,at: i)
+                }
+
+            case .wholeMessage(let msgId):
+                if let msg = messages.first(where: { $0.id == msgId }),
+                   msg.role == .user {
+                    let effWidth = maxContentWidth>0 ? min(cvWidth,maxContentWidth) : cvWidth
+                    let h = Self.measureUserBubbleHeight(for: msg,cvWidth: effWidth,
+                                                         cache: &userBubbleHeightCache)
+                    if let h {
+                        layout.setPrecalcHeight(h,at: i)
+                        #if DEBUG
+                        if !isReseed,ScrollMetricsRecorder.shared.isEnabled {
+                            let c = msg.content
+                            let cjk = c.unicodeScalars.contains { $0.value >= 0x4E00 && $0.value <= 0x9FFF }
+                            let feats = "cjk=\(cjk ? 1 : 0)|nl=\(c.filter { $0 == "\n" }.count)|n=\(c.count)|att=\(msg.attachments.count)|inAtt=\(msg.inputAttachments.count)|tag=\(c.contains("<user-attached-files>") ? 1 : 0)"
+                            ScrollMetricsRecorder.shared.record(
+                                kind: "seed", idx: i, a: h,
+                                key: contentKey, src: "bubble", note: feats,
+                                tag: Self.stableCellTag(for: item,messages: messages,messageIndex: messageIndex))
+                        }
+                        #endif
+                    } else {
+                        layout.setEstimatedHeight(
+                            Self.estimateItemHeight(item,messages: messages,width: cvWidth),at: i)
+                    }
+                } else {
+                    // compactDivider / systemInfo — coarse estimate is fine
+                    let est = Self.estimateItemHeight(item,messages: messages,width: cvWidth)
+                    layout.setEstimatedHeight(est,at: i)
+                }
             }
         }
 
