@@ -195,7 +195,6 @@ struct BridgedAssistantFooter: View {
                     .foregroundStyle(.secondary)
             }
         }
-        .padding(.horizontal, 12)
         .padding(.top, 2)
     }
 
@@ -273,7 +272,7 @@ struct BridgedAssistantFooter: View {
         .frame(maxWidth: .infinity,alignment: .leading)
         .frame(maxWidth: maxWidth>0 ? maxWidth : nil,alignment: .leading)
         .frame(maxWidth: .infinity)
-        .padding(.horizontal,hasFooterContent ? 16 : 0)
+        .padding(.horizontal,16)
         .padding(.vertical,hasFooterContent ? 2 : 0)
         .opacity(message.isCompactedHistory ? 0.5 : 1.0)
         .accessibilityIdentifier("assistantFooter")
