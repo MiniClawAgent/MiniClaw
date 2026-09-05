@@ -143,6 +143,9 @@ final class SubagentStore: ObservableObject {
         for (sid, bySub) in reasonings {
             for (subID, pieces) in bySub {
                 guard let conv = conversations[sid]?[subID], !pieces.isEmpty else { continue }
+                // 终态守卫（2026-09-05）：已完成的子代理丢弃迟到增量——否则尾巴会把
+                // isStreaming 重新置 true，思考药丸恢复转圈、底部重现「正在思考」。
+                guard conv.status == .running else { continue }
                 let m = currentOrNewResponse(conv)
                 for (piece, index, order) in pieces {
                     if let idx = m.reasoningSegments.firstIndex(where: { $0.index == index }) {
@@ -160,6 +163,8 @@ final class SubagentStore: ObservableObject {
             var touched = false
             for (subID, piece) in bySub where !piece.isEmpty {
                 guard let conv = conversations[sid]?[subID] else { continue }
+                // 终态守卫：同上，迟到正文增量不落、不翻流式态。
+                guard conv.status == .running else { continue }
                 let m = currentOrNewResponse(conv)
                 m.text += piece
                 m.isStreaming = true
@@ -314,7 +319,12 @@ final class SubagentStore: ObservableObject {
     }
 
     /// 子代理出错：状态置红 + 把错误文本并入「当前回复」并标记为已中断（与主线被中断回复一致）。
-    func markError(sessionID: UUID, info: SubagentInfo, desc: String) {        if let conv = conversations[sessionID]?[info.id] {
+    func markError(sessionID: UUID, info: SubagentInfo, desc: String) {
+        // 先落缓冲再置终态（2026-09-05 修复）：若先置终态再 flush，缓冲里的尾部
+        // 增量会在 commitPending 中把 isStreaming 重新置 true——思考药丸恢复转圈、
+        // 底部重现「正在思考」且永不复位（真机实测：子代理完成后指示器恒转圈）。
+        commitPending()
+        if let conv = conversations[sessionID]?[info.id] {
             conv.status = .error
             let m = currentOrNewResponse(conv)
             m.wasInterrupted = true
@@ -337,6 +347,9 @@ final class SubagentStore: ObservableObject {
     /// 子代理结束：标记在途回复结束并置「已完成」。**保留头像与对话**（不移除），供用户随时回看。
     /// 仅运行中状态升级为已完成——已取消/已出错是终态，不覆盖（B2）。
     func finishSubagent(sessionID: UUID, info: SubagentInfo) {
+        // 先落缓冲再置终态：缓冲里的尾部 token 必须以流式形态落进回复，
+        // 随后再统一收口 isStreaming——顺序反了会被 commitPending 翻回流式态。
+        commitPending()
         if let conv = conversations[sessionID]?[info.id] {
             if conv.status == .running {
                 conv.status = .completed
@@ -358,6 +371,8 @@ final class SubagentStore: ObservableObject {
 
     /// 子代理被取消/中断：置「已取消」（终态，运行期事件与启动恢复共用）。
     func markCancelled(sessionID: UUID, subagentID: UUID) {
+        // 先落缓冲再置终态（与 finishSubagent/markError 同因，2026-09-05 修复）。
+        commitPending()
         if let conv = conversations[sessionID]?[subagentID] {
             conv.status = .cancelled
             if let last = conv.messages.last, last.role == .response {
