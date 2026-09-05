@@ -256,7 +256,8 @@ struct ChatSessionEntity: AppEntity {
 struct ChatSessionEntityQuery: EntityQuery {
     @MainActor
     func entities(for identifiers: [UUID]) async throws -> [ChatSessionEntity] {
-        identifiers.compactMap { id in
+        await SessionManager.shared.waitForLoaded()
+        return identifiers.compactMap { id in
             SessionManager.shared.session(id: id).map {
                 ChatSessionEntity(id: $0.id, title: $0.title, iconName: $0.iconName)
             }
@@ -265,7 +266,8 @@ struct ChatSessionEntityQuery: EntityQuery {
 
     @MainActor
     func suggestedEntities() async throws -> [ChatSessionEntity] {
-        SessionManager.shared.allSessions().prefix(50).map {
+        await SessionManager.shared.waitForLoaded()
+        return SessionManager.shared.allSessions().prefix(50).map {
             ChatSessionEntity(id: $0.id, title: $0.title, iconName: $0.iconName)
         }
     }
@@ -313,6 +315,8 @@ struct ContinueSessionIntent: LiveActivityIntent, ProgressReportingIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult & ReturnsValue<String> & ProvidesDialog {
+        // 冷启动经快捷指令拉起时 load 已异步化：读会话前等加载完成（超时兜底）。
+        await SessionManager.shared.waitForLoaded()
         guard let target = SessionManager.shared.session(id: session.id) else {
             throw IntentError.sessionNotFound
         }

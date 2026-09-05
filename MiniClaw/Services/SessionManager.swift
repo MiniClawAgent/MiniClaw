@@ -23,12 +23,41 @@ final class SessionManager: ObservableObject {
 
     // MARK: - 启动加载
 
-    /// 启动时全量加载(自 SQLite 单库,替代原 JSON 目录扫描)。
+    /// 启动加载完成信号（2026-09-05 主线程治理）：load() 异步化后，
+    /// 快捷指令/深链等同步依赖方在读取会话前 await 本等待（超时兜底 3s）。
+    public private(set) var isLoaded = false
+    private var isLoading = false
+
+    /// 等待启动加载完成（异步 load 的同步依赖方用；超时兜底防永久挂起）。
+    func waitForLoaded(timeout: TimeInterval = 3) async {
+        let deadline = Date().addingTimeInterval(timeout)
+        while !isLoaded && Date() < deadline {
+            try? await Task.sleep(for: .milliseconds(50))
+        }
+    }
+
+    /// 启动时全量加载(自 SQLite 单库)。
+    /// **异步化（2026-09-05 主线程治理）**：SQLite 读 + 全部消息 JSON 解码曾在主线程
+    /// 同步执行，11 个会话时启动主线程冻结 4s+（系统看门狗击杀码 400 的直接前奏）。
+    /// 改为后台加载，完成后经 @Published 刷新；幂等（重复调用不重复加载）。
+    /// 加载窗口期新建的会话合并保留，不被异步加载覆盖。
     func load() {
-        let loaded = SQLiteStore.shared.loadSessions()
-        sessions = loaded
-        objectWillChange.send()
-        AppLogger.shared.info(String(format: String(localized: "sessionmanager_loaded"), loaded.count), category: "Session")
+        guard !isLoaded, !isLoading else { return }
+        isLoading = true
+        ioQueue.async { [weak self] in
+            let loaded = SQLiteStore.shared.loadSessions()
+            Task { @MainActor in
+                guard let self else { return }
+                // 合并：加载窗口期新建的会话（库内没有）保留，避免被覆盖丢失
+                let loadedIDs = Set(loaded.map(\.id))
+                let createdDuringLoad = self.sessions.filter { !loadedIDs.contains($0.id) }
+                self.sessions = createdDuringLoad + loaded
+                self.isLoaded = true
+                self.isLoading = false
+                self.objectWillChange.send()
+                AppLogger.shared.info(String(format: String(localized: "sessionmanager_loaded"), loaded.count), category: "Session")
+            }
+        }
     }
 
     /// 写盘(SQLite 串行落库)。failure 时由 SQLiteStore 记录日志(不静默)。
