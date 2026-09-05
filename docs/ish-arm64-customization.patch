@@ -1,5 +1,5 @@
---- a/app/ISHShellExecutor.h
-+++ b/app/ISHShellExecutor.h
+--- a/app/ISHShellExecutor.h	2026-09-05 23:01:05
++++ b/app/ISHShellExecutor.h	2026-09-05 23:01:06
 @@ -59,6 +59,15 @@
           lineCallback:(nullable ISHShellLineCallback)lineCallback
             completion:(nullable ISHShellCompletionCallback)completion;
@@ -31,8 +31,9 @@
  /// Execute a shell command and wait synchronously for completion
  /// @param command Shell command to execute
  /// @param timeout Maximum wait time in seconds (0 = no timeout)
---- a/app/ISHShellExecutor.m
-+++ b/app/ISHShellExecutor.m
+
+--- a/app/ISHShellExecutor.m	2026-09-05 23:01:05
++++ b/app/ISHShellExecutor.m	2026-09-05 23:01:06
 @@ -12,9 +12,16 @@
  #include "kernel/init.h"
  #include "kernel/calls.h"
@@ -181,3 +182,22 @@
          ssize_t bytesRead = read(fd, buffer, sizeof(buffer) - 1);
  
          if (bytesRead > 0) {
+@@ -434,6 +514,18 @@
+         outputBuffer:(NSMutableString *)outputBuffer
+             isStdErr:(BOOL)isStdErr {
+ 
++    // 2026-09-05 (MiniClaw): apk/apt 等安装器的进度输出用 \r 重绘整行、不产生 \n，
++    // 只按 \n 切行会让整个下载/安装阶段的输出滞留缓冲、UI 实时终端一片空白。
++    // 规范化：先合并 \r\n，再把残余 \r 视作换行，使进度重绘也逐行送达回调。
++    [lineBuffer replaceOccurrencesOfString:@"\r\n"
++                                withString:@"\n"
++                                   options:NSLiteralSearch
++                                     range:NSMakeRange(0, lineBuffer.length)];
++    [lineBuffer replaceOccurrencesOfString:@"\r"
++                                withString:@"\n"
++                                   options:NSLiteralSearch
++                                     range:NSMakeRange(0, lineBuffer.length)];
++
+     while (YES) {
+         NSRange newlineRange = [lineBuffer rangeOfString:@"\n"];
+         if (newlineRange.location == NSNotFound) {

@@ -56,7 +56,10 @@ final class ToolExecution: @unchecked Sendable {
         self.argsJSON = argsJSON
         block.toolInputArgs = argsJSON
         block.kind = MiniClawChatAdapter.toolKind(name, arguments: argsJSON)
-        block.content = argsJSON
+        // 2026-09-05 修复：终端视图以 content 作为「输出」渲染（含 ToolLiveSheet 黑框）。
+        // 此前把参数 JSON 写进 content，导致执行期间终端显示的是参数回显而非真实输出。
+        // 参数已在 toolInputArgs 单独呈现，content 清空等待真实输出流入。
+        block.content = ""
         block.toolStatus = .running
         block.streamingFileContent = nil
     }
