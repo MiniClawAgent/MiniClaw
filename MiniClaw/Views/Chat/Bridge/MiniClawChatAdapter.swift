@@ -20,6 +20,10 @@ enum MiniClawChatAdapter {
         let kitMessage = MiniClawKit.ChatMessage(role: kitRole(message), content: message.content, id: message.id)
         kitMessage.blocks = buildBlocks(message)
         kitMessage.isAwaitingModelResponse = message.isStreaming
+        // 终态状态行桥接（2026-09-05）：footer 状态行需要已停止/已中断/耗时。
+        kitMessage.wasStopped = message.wasStopped ?? false
+        kitMessage.wasInterrupted = message.wasInterrupted ?? false
+        kitMessage.taskElapsedSeconds = message.taskElapsedSeconds
         // 2026-08-12 治本:附件桥接——宿主消息 attachments 是会话相对路径
         // ("attachments/<name>"),映射为 Kit 的 AttachmentMeta(path: "/var/miniclaw/<rel>");
         // Kit 的 miniClawURL 据此派生 miniclaw:// URL,UserAttachmentList 才能渲染出

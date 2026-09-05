@@ -642,7 +642,9 @@ struct TypingIndicator: View {
         // duplicate here was redundant. ThinkingLevelSheetView is unchanged;
         // it's still presented from the nav-bar badge.
         HStack(spacing: 0) {
-            Text("\(soulName) is thinking")
+            // 2026-09-05 本地化：hardcoded 英文 "is thinking" → thinking_suffix 键
+            //（" 正在思考"，四语齐），与主 App AssistantStatusRow 同源。
+            Text("\(soulName)\(String(localized: "thinking_suffix"))")
             ForEach(0..<3,id: \.self) { i in
                 Text(".")
                     .offset(y: dotOffsets[i] ? -3 : 1)

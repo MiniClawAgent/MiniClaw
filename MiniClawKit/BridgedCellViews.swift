@@ -153,6 +153,32 @@ struct BridgedAssistantFooter: View {
 
     // showUsage and usageContentVisible are on bridge, toggled by double-tap on block cells.
 
+    /// 终态状态行（已完成/已停止/已中断 + 耗时后缀）。
+    private func statusRow(icon: String, color: Color, key: LocalizedStringKey) -> some View {
+        HStack(spacing: 5) {
+            Image(systemName: icon)
+                .font(.caption)
+                .foregroundStyle(color)
+            Text(key)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            if let et = message.taskElapsedSeconds, et >= 1 {
+                Text(" · \(Self.elapsedText(et))")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(.top, 2)
+    }
+
+    private static func elapsedText(_ seconds: Double) -> String {
+        let t = Int(seconds.rounded())
+        let h = t / 3600, m = (t % 3600) / 60, sec = t % 60
+        if h > 0 { return "\(h)h\(m)m\(sec)s" }
+        if m > 0 { return "\(m)m\(sec)s" }
+        return "\(sec)s"
+    }
+
     var hasVisibleContent: Bool {
         message.blocks.contains { block in
             switch block.kind {
@@ -177,9 +203,19 @@ struct BridgedAssistantFooter: View {
 
     var body: some View {
         VStack(alignment: .leading,spacing: 8) {
-            // Typing indicator
+            // 消息状态行（2026-09-05，对齐子代理会话页 AssistantStatusRow）：
+            // 流式/等待首字 = 三点思考指示器；终态按 已停止/已中断/已完成 显示（含耗时）。
+            // 错误（inlineError）与「已暂停」恢复横幅保留原有专属展示，不在此重复。
             if bridge.isActiveMessage && (!hasVisibleContent || message.isAwaitingModelResponse) {
                 TypingIndicator()
+            } else if message.error == nil && !bridge.canResume {
+                if message.wasStopped {
+                    statusRow(icon: "stop.circle.fill", color: .orange, key: "stopped")
+                } else if message.wasInterrupted {
+                    statusRow(icon: "exclamationmark.triangle.fill", color: .red, key: "interrupted")
+                } else if hasVisibleContent {
+                    statusRow(icon: "checkmark.circle.fill", color: .green, key: "completed")
+                }
             }
 
             // Inline error
