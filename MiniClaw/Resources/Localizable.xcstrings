@@ -60998,6 +60998,180 @@
           }
         }
       }
+    },
+    "param_replace_all": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Replace all occurrences"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "すべての一致を置換"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "모든 일치 항목 대체"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "替换全部命中"
+          }
+        }
+      }
+    },
+    "err_edit_empty_old": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "old_string must not be empty. Use file_write to create or overwrite files."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "old_string を空にすることはできません。作成・上書きは file_write を使用してください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "old_string은 비워둘 수 없습니다. 생성·덮어쓰기는 file_write를 사용하세요."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "old_string 不能为空：创建或覆盖文件请用 file_write"
+          }
+        }
+      }
+    },
+    "err_edit_use_write": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "File not found: %@. Use file_write to create new files."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ファイルが見つかりません: %@。新規作成は file_write を使用してください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "파일을 찾을 수 없음: %@. 새 파일 생성은 file_write를 사용하세요."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "文件不存在：%@。创建新文件请用 file_write"
+          }
+        }
+      }
+    },
+    "err_edit_multi_match": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "old_string matches %2$ld locations in %1$@: provide more surrounding context for a unique match, or set replace_all: true."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "old_string が %1$@ 内の %2$ld 箇所で一致：前後の文脈を追加して一意にするか、replace_all: true を設定してください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "old_string이 %1$@에서 %2$ld곳 일치: 더 많은 문맥을 제공해 고유하게 만들거나 replace_all: true로 설정하세요."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "old_string 在 %1$@ 中命中 %2$ld 处：请提供更多上下文使命中唯一，或设置 replace_all: true"
+          }
+        }
+      }
+    },
+    "err_edit_not_found_hint": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "old_string not found (including fuzzy match). Use file_read to view current contents first.\\nFile preview:\\n%@"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "old_string が見つかりません（ファジーマッチ含む）。先に file_read で現在の内容を確認してください。\\nファイルプレビュー：\\n%@"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "old_string을 찾을 수 없습니다(퍼지 매칭 포함). 먼저 file_read로 현재 내용을 확인하세요.\\n파일 미리보기:\\n%@"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "old_string 未命中（含模糊匹配）。请先用 file_read 查看当前内容再编辑。\\n文件预览：\\n%1$@"
+          }
+        }
+      }
+    },
+    "file_edit_fuzzy_note": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": " (fuzzy-matched: quotes/whitespace normalized)"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "（ファジーマッチ：引用符・空白を正規化）"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "(퍼지 매칭: 따옴표·공백 정규화)"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "（模糊匹配：引号/空白已规范化）"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

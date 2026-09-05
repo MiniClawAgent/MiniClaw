@@ -490,29 +490,78 @@ final class FileSystemManager: @unchecked Sendable {
 
     // MARK: - File Operations
 
-    func readFile(at path: String, offset: Int? = nil, limit: Int? = nil, tail: Int? = nil, sessionID: UUID? = nil) throws -> String {
+    /// 读取文本文件。
+    /// - `paged: true`（file_read 工具路径）启用对模型友好的完整协议：
+    ///   二进制文件 → 十六进制预览（非报错）；80 000 字符硬上限 + 智能截断；
+    ///   元数据头 `[路径 | 字节 | 行数 | 显示行区间(+截断/续读提示)]`（2026-09-05）。
+    /// - `paged: false`（默认，内部路径如记忆读取）行为与旧版一致。
+    func readFile(at path: String, offset: Int? = nil, limit: Int? = nil, tail: Int? = nil, sessionID: UUID? = nil, paged: Bool = false) throws -> String {
         let url = try resolveAgentPath(path, sessionID: sessionID)
 
         guard fileManager.fileExists(atPath: url.path) else {
             throw FileError.notFound(path)
         }
-        guard !isBinaryFile(url) else {
+        let data = try Data(contentsOf: url)
+
+        // 二进制检测：首 512 字节含空字节即判二进制。paged 模式返回十六进制
+        // 预览而非报错——模型可据此判断文件类型，无需额外往返。
+        if data.prefix(512).contains(0) {
+            let hex = data.prefix(64).map { String(format: "%02x", $0) }.joined(separator: " ")
+            if paged {
+                return "[\(path) | \(data.count) bytes | binary file]\nhex preview: \(hex)"
+            }
             throw FileError.binaryFileNotSupported(path)
         }
 
-        let content = try String(contentsOf: url, encoding: .utf8)
+        guard let content = String(data: data, encoding: .utf8) else {
+            if paged { return "[\(path) | \(data.count) bytes | not valid UTF-8]" }
+            throw FileError.binaryFileNotSupported(path)
+        }
+
         let lines = content.components(separatedBy: "\n")
         if let tail {
             guard tail >= 0 else { throw FileError.invalidRange(String(localized: "err_tail_negative")) }
-            return lines.suffix(tail).joined(separator: "\n")
+            let body = lines.suffix(tail).joined(separator: "\n")
+            if !paged { return body }
+            // tail 截断取尾部窗口，不提供 next_offset（从文件尾向前分页无意义）
+            var out = body
+            if out.count > 80_000 {
+                out = String(out.suffix(80_000))
+                if let nl = out.firstIndex(of: "\n") { out = String(out[out.index(after: nl)...]) }
+            }
+            let displayStart = max(1, lines.count - out.components(separatedBy: "\n").count + 1)
+            return "[\(path) | \(data.count) bytes | \(lines.count) lines | lines \(displayStart)-\(lines.count)]\n\(out)"
         }
 
         let start = offset ?? 0
         guard start >= 0 else { throw FileError.invalidRange(String(localized: "err_offset_negative")) }
         if let limit, limit < 0 { throw FileError.invalidRange(String(localized: "err_limit_negative")) }
-        guard start < lines.count else { return "" }
+        guard start < lines.count else {
+            return paged ? "[\(path) | \(data.count) bytes | 0 lines]" : ""
+        }
         let end = limit.map { min(start + $0, lines.count) } ?? lines.count
-        return lines[start..<end].joined(separator: "\n")
+        let body = lines[start..<end].joined(separator: "\n")
+        if !paged { return body }
+
+        // 80 000 字符硬上限 + 智能截断：回退到最后一个完整行（半行会导致
+        // 续读重复或拼接错乱），并回传 next_offset 供模型直接续读。
+        var out = body
+        var truncated = false
+        var nextOffset: Int?
+        if out.count > 80_000 {
+            truncated = true
+            out = String(out.prefix(80_000))
+            if let lastNewline = out.lastIndex(of: "\n") {
+                out = String(out[out.startIndex..<lastNewline])
+            }
+            nextOffset = start + out.components(separatedBy: "\n").count
+        }
+
+        var header = "[\(path) | \(data.count) bytes | \(lines.count) lines | lines \(start + 1)-\(end) of \(lines.count)]"
+        if truncated {
+            header += " | truncated at 80000 chars, next_offset=\(nextOffset ?? start)"
+        }
+        return header + "\n\(out)"
     }
 
     func writeFile(
