@@ -137,6 +137,17 @@ struct SubagentChatView: View {
                 }
             }
             Spacer()
+            // 关闭子代理：与悬浮卡长按、智能体侧 close_subagent 同一条 SubagentLifecycle.close 路径
+            // （取消运行中引擎 → 移除复用记录 → 移除卡片与对话 → 释放浏览器上下文），关闭后收起本页。
+            Button {
+                _ = SubagentLifecycle.close(sessionID: sessionID, subagentID: conversation.id)
+                dismiss()
+            } label: {
+                Image(systemName: "xmark.circle")
+                    .font(.callout)
+                    .foregroundStyle(.red)
+            }
+            .accessibilityLabel(Text(String(localized: "subagent_close_button")))
             Button(String(localized: "done")) { dismiss() }
                 .font(.callout)
         }

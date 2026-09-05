@@ -1209,48 +1209,82 @@ struct ChatView: View {
         return window.bounds
     }
 
-    /// 输入框上方悬浮的子代理圆形头像：SF 图标占位，点按打开「智能体 ↔ 子代理」对话详情页。
-    /// 横向排布、最多铺满宽度；状态用颜色区分（运行中=强调色，出错=红色）。
-    /// 仅显示圆形头像本身（无额外背景条），长按头像可移除该子代理卡片。
+    /// 输入框上方悬浮的子代理胶囊卡（唐唐 2026-09-05 定稿）：
+    /// 每个子代理一张胶囊卡（紫色首字母圆头像 + 名称），背景与排队消息一致（ultraThinMaterial 实心圆角框），
+    /// 高度对齐排队消息行；长度随子代理数量自然增长（超出宽度横向滚动）。
+    /// 状态边框对齐工具指示器：已完成=绿色、出错=红色、已取消=灰色、运行中=无边框。
+    /// 点按打开「智能体 ↔ 子代理」对话详情页；长按移除该子代理卡片。
+    /// 注意：手势不用 Button（Button 内部手势会压制 onLongPressGesture，长按永不触发），
+    /// 用 onTapGesture + onLongPressGesture 组合（长按优先识别，快速点按走 tap）。
     private func subagentFloatingAvatars(_ subs: [SubagentCard]) -> some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 12) {
+            HStack(spacing: 8) {
                 ForEach(subs) { sub in
-                    Button {
-                        if let conv = subagentStore.conversation(for: session.id, subagentID: sub.id) {
-                            activeSubagentConversation = conv
-                        }
-                    } label: {
-                        ZStack {
-                            Circle()
-                                .fill(sub.status == .error ? Color.red.opacity(0.15) : Color.accentColor.opacity(0.15))
-                                .frame(width: 38, height: 38)
-                            Image(systemName: sub.status == .error ? "exclamationmark.triangle" : "cpu")
-                                .font(.system(size: 17, weight: .semibold))
-                                .foregroundStyle(sub.status == .error ? .red : .accentColor)
-                        }
-                        .frame(width: 38, height: 38)
-                        .contentShape(Circle())
-                    }
-                    .buttonStyle(.plain)
-                    .onLongPressGesture {
-                        // 长按删除：与 智能体侧 close_subagent 同一条统一路径
-                        // （取消运行中引擎 → 移除复用记录 → 移除卡片与对话 → 释放浏览器上下文）。
-                        _ = SubagentLifecycle.close(
-                            sessionID: session.id,
-                            subagentID: sub.id,
-                            cancel: { [weak appState] id in
-                                appState?.chatRuntimes[session.id]?.cancelSubagent(subagentID: id)
-                            }
-                        )
-                        if activeSubagentConversation?.id == sub.id {
-                            activeSubagentConversation = nil
-                        }
-                    }
+                    subagentCapsule(sub)
                 }
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 6)
+        }
+    }
+
+    /// 单张子代理胶囊卡。
+    private func subagentCapsule(_ sub: SubagentCard) -> some View {
+        HStack(spacing: 8) {
+            // 首字母圆头像（紫色实心，白字）
+            ZStack {
+                Circle()
+                    .fill(Color(red: 0.38, green: 0.32, blue: 0.80))
+                    .frame(width: 24, height: 24)
+                Text(String(sub.name.prefix(1)).uppercased())
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.white)
+            }
+            Text(sub.name)
+                .font(.system(size: 14))
+                .foregroundStyle(.primary)
+                .lineLimit(1)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
+        .overlay {
+            // 状态边框：对齐工具指示器语义（成功=绿，出错=红，取消=灰）
+            if let border = subagentCapsuleBorder(sub.status) {
+                RoundedRectangle(cornerRadius: 12)
+                    .strokeBorder(border, lineWidth: 1.5)
+            }
+        }
+        .contentShape(RoundedRectangle(cornerRadius: 12))
+        .onTapGesture {
+            if let conv = subagentStore.conversation(for: session.id, subagentID: sub.id) {
+                activeSubagentConversation = conv
+            }
+        }
+        .onLongPressGesture {
+            // 长按删除：与 智能体侧 close_subagent 同一条统一路径
+            // （取消运行中引擎 → 移除复用记录 → 移除卡片与对话 → 释放浏览器上下文）。
+            _ = SubagentLifecycle.close(
+                sessionID: session.id,
+                subagentID: sub.id,
+                cancel: { [weak appState] id in
+                    appState?.chatRuntimes[session.id]?.cancelSubagent(subagentID: id)
+                }
+            )
+            if activeSubagentConversation?.id == sub.id {
+                activeSubagentConversation = nil
+            }
+        }
+        .accessibilityLabel(Text(sub.name))
+    }
+
+    /// 胶囊卡状态边框颜色（nil = 无边框）。
+    private func subagentCapsuleBorder(_ status: SubagentStatus) -> Color? {
+        switch status {
+        case .completed: return .green
+        case .error: return .red
+        case .cancelled: return .gray
+        case .running: return nil
         }
     }
 
