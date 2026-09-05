@@ -650,7 +650,7 @@ extension MessageCollectionView {
             // Height estimation for items not yet measured — skip if we already
             // have a measured height OR a precalculated height from applySnapshot.
             if let layout = viewController?.messageListLayout,
-               layout.cachedHeight(at: indexPath.item) == nil,
+               !layout.hasMeasuredHeight(at: indexPath.item),
                !layout.hasPrecalcHeight(at: indexPath.item) {
                 let est = Self.estimateItemHeight(item,messages: messages,
                                                   width: viewController?.collectionView.bounds.width ?? 390)

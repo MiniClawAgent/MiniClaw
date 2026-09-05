@@ -738,6 +738,13 @@ class SelfSizingCell: UICollectionViewCell {
                 return copy
             }
             if isStreamingItem,
+               // 只短路在 precalc 来源上（种子循环每个 chunk 重播种的
+               // TextKit 校准值）。合并字典后 precalcHeight 对任意来源返回值，
+               // 不加来源判定会把首帧陈旧估高当 precalc 返回并跳过实测——
+               // 流式 cell 冻结在首帧高度，正文与下方内容重叠（2026-09-05 回归）。
+               // 无 precalc（工具胶囊/思考块/footer）保持实测，与旧
+               // precalcHeights 字典语义一致。
+               layout.hasPrecalcHeight(at: item),
                let precalc = layout.precalcHeight(at: item) {
                 let copy = layoutAttributes.copy() as! UICollectionViewLayoutAttributes
                 copy.size.height = precalc

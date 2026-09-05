@@ -273,7 +273,11 @@ extension MessageCollectionView.Coordinator {
                         layout.setFooterHug(!footerProminent,at: i)
                     }
 
-                    guard layout.cachedHeight(at: i) == nil else { continue }
+                    // 守卫语义 = 旧三字典的「仅实测高度跳过」。合并字典后
+                    // cachedHeight 对 estimated/precalc 也返回值，若用它挡守卫，
+                    // 流式文本块的首帧估高会永久冻结（重播种被跳过），正文
+                    // 停在首帧高度与下方内容重叠（2026-09-05 回归）。
+                    guard !layout.hasMeasuredHeight(at: i) else { continue }
 
                     // Re-entry seed: if we have a real measured height for this
                     // exact content key at this width, use it as precalc — the

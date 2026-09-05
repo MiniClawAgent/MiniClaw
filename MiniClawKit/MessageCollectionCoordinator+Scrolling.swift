@@ -971,7 +971,7 @@ extension MessageCollectionView.Coordinator {
                 // can take hundreds of ms per cell and accumulate into a watchdog crash
                 // when the user scrolls back through long history. See 3a9fb98 for the
                 // matching configureCell guard.
-                guard layout.cachedHeight(at: index) == nil,
+                guard !layout.hasMeasuredHeight(at: index),
                       !layout.hasPrecalcHeight(at: index) else { continue }
                 guard index<prevSnapshotIds.count else { continue }
                 let item = prevSnapshotIds[index]

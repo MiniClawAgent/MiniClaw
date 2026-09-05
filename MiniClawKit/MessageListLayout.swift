@@ -731,6 +731,16 @@ public final class MessageListLayout: UICollectionViewLayout {
         heightEntries[index]?.source == .precalc
     }
 
+    /// 该索引是否已有「实测」高度（source == .measured）。
+    /// 合并字典后 cachedHeight/precalcHeight 对任意来源条目都返回值，
+    /// 旧三字典时代「仅实测高度才挡住估算/预演」的语义分界由本访问器承接：
+    /// 种子循环、configureCell 与 prefetch 兜底必须用它做守卫——否则流式
+    /// chunk 的逐次重播种（估高随内容增长刷新）会被首帧估算永久冻结，
+    /// 流式 cell 停在首帧高度，正文与下方工具卡/思考块重叠（2026-09-05 回归）。
+    public func hasMeasuredHeight(at index: Int) -> Bool {
+        heightEntries[index]?.source == .measured
+    }
+
     // MARK: - Content-keyed real-height memo
 
     /// Register the stable content key for an item index in the current
