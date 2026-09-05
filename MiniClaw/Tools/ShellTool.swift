@@ -30,7 +30,15 @@ struct ShellExecuteTool: AgentTool {
     }
 
     func execute(_ parameters: [String: Any]) async throws -> ToolResult {
-        let rawCommand = parameters["command"] as? String ?? ""
+        let rawCommand = (parameters["command"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        // 空命令守卫（2026-09-05）：模型偶发吐出缺 command 的垃圾调用（MiMo 派发子代理时实测），
+        // 空命令进 iSH 只会产生一条 0.0s 的失败卡+多余工具往返。直接给明确失败文案，不进执行链。
+        guard !rawCommand.isEmpty else {
+            return ToolResult(
+                success: false,
+                text: String(localized: "shell_empty_command_error")
+            )
+        }
         let timeout = parameters["timeout"] as? Int ?? 900
         let delay = parameters["delay"] as? Int ?? 0
         // delay 参数：App 侧等待（不占用 iSH shell），供轮询/等待服务启动用——

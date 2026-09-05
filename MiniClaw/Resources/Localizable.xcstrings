@@ -60941,6 +60941,35 @@
           }
         }
       }
+    },
+    "shell_empty_command_error": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The command is empty. Provide the command to run via the \"command\" parameter."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "コマンドが空です。実行するコマンドを command パラメーターで指定してください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "명령이 비어 있습니다. 실행할 명령을 command 매개변수로 지정하세요."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "命令为空：请在 command 参数中提供要执行的命令。"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

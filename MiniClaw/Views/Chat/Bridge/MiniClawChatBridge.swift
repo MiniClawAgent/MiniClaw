@@ -176,9 +176,18 @@ final class MiniClawChatBridge: ObservableObject {
                     b.kind == .thinking && !b.content.isEmpty && seg.text.hasPrefix(b.content)
                 }
                 if let existing = prefixMatch {
+                    // [ThinkBridge] 段文本回缩(变短/非前缀增长)是「展开闪一下就折叠」类
+                    // 问题的关键线索:文本回缩时前缀匹配会持续失败,块被重建、展开态丢失。
+                    if seg.text.count < existing.content.count {
+                        AppLogger.shared.info("[ThinkBridge] seg text SHRANK segId=\(seg.id.uuidString.prefix(8)) cachedLen=\(existing.content.count) segLen=\(seg.text.count) — prefix match仍命中,就地更新")
+                    }
                     existing.content = seg.text
                 } else {
                     // [Fix 重进会话跳屏·方案B] 传 seg.id 保持与终态 Adapter 重建一致。
+                    // [ThinkBridge] 走到这里 = 前缀匹配失败、思考块被整体重建:
+                    // 若用户刚展开过旧块,展开态随旧块被丢弃(点开闪一下即折叠)。
+                    // 下次复现请连同 [Collapse] HIT/POST 日志一起抓取。
+                    AppLogger.shared.info("[ThinkBridge] thinking block REBUILT segId=\(seg.id.uuidString.prefix(8)) segLen=\(seg.text.count) existingBlocks=\(lastAI.blocks.count) — 展开态将丢失(若用户刚点开)")
                     let tb = MiniClawKit.AssistantBlock(id: seg.id, kind: .thinking, content: seg.text)
                     tb.isThinkingExpanded = false
                     tb.thinkingUserToggled = false
@@ -321,18 +330,30 @@ final class MiniClawChatBridge: ObservableObject {
 
     /// 把 fresh 的文本块内容就地写进 cached 对应块(保持对象/block.id 不变)。
     /// 思考块/工具块内容也可能增长(流式中),一并更新以保渲染正确。
+    /// 工具类块按 toolUseId 身份匹配(2026-09-05 修复):流式中块会增删,
+    /// 纯索引对位会把终态写到错位的块上——表现为「列表卡片已红、工具快照仍转圈」
+    /// (快照读的块 toolStatus 停留在 .running 永不等不到终态)。
     private func mergeTextContent(_ cached: MiniClawKit.ChatMessage, from fresh: MiniClawKit.ChatMessage) {
-        let count = min(cached.blocks.count, fresh.blocks.count)
-        for i in 0..<count {
-            switch (cached.blocks[i].kind, fresh.blocks[i].kind) {
+        for (i, cb) in cached.blocks.enumerated() {
+            // 工具类块(带 toolUseId):按调用 id 精确配对,不依赖索引。
+            if let tid = cb.toolUseId {
+                if let fb = fresh.blocks.first(where: { $0.toolUseId == tid }) {
+                    cb.content = fb.content
+                    if let ts = fb.toolStatus { cb.toolStatus = ts }
+                }
+                continue
+            }
+            // 文本/思考/信息块:索引 + kind 兼容(原有逻辑)。
+            guard i < fresh.blocks.count else { continue }
+            let fb = fresh.blocks[i]
+            switch (cb.kind, fb.kind) {
             case (.text, .text), (.thinking, .thinking):
-                cached.blocks[i].content = fresh.blocks[i].content
-            case (_, _) where kindTag(cached.blocks[i].kind) == kindTag(fresh.blocks[i].kind):
-                // 工具类块(带关联值,kind 本身不等)且结构标签一致时同步内容/状态
-                cached.blocks[i].content = fresh.blocks[i].content
-                if let ts = fresh.blocks[i].toolStatus { cached.blocks[i].toolStatus = ts }
+                cb.content = fb.content
             default:
-                break
+                if kindTag(cb.kind) == kindTag(fb.kind) {
+                    cb.content = fb.content
+                    if let ts = fb.toolStatus { cb.toolStatus = ts }
+                }
             }
         }
     }
