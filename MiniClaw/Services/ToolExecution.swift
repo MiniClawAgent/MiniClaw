@@ -10,11 +10,33 @@ final class ToolExecution: @unchecked Sendable {
     let name: String
     let callID: String
     let startedAt: Date
-    private(set) var argsJSON: String
-    private(set) var result: ToolResult?
-    private(set) var duration: TimeInterval = 0
-    /// 用户停止整条回复时该执行仍 in-flight 被中断（落盘语义，对应 ToolCallEvent.wasInterrupted）。
-    private(set) var wasInterrupted = false
+    /// 状态锁（2026-09-06 Mac 闪退修复）：本类标着 @unchecked Sendable 却被
+    /// 两条线程同时改——参数流式 delegate 线程（appendArgsDelta）与工具执行
+    /// 后台线程（beginExecution/finish）——标量字段撕裂即未定义行为。
+    /// NSLock 不可重入：锁内只写字段，block @Published 写与 onFinish 回调
+    /// 一律在锁外（onFinish 可能重入本类方法）。
+    private let stateLock = NSLock()
+    private var _argsJSON: String
+    private var _result: ToolResult?
+    private var _duration: TimeInterval = 0
+    private var _wasInterrupted = false
+
+    private(set) var argsJSON: String {
+        get { stateLock.lock(); defer { stateLock.unlock() }; return _argsJSON }
+        set { stateLock.lock(); _argsJSON = newValue; stateLock.unlock() }
+    }
+    private(set) var result: ToolResult? {
+        get { stateLock.lock(); defer { stateLock.unlock() }; return _result }
+        set { stateLock.lock(); _result = newValue; stateLock.unlock() }
+    }
+    private(set) var duration: TimeInterval {
+        get { stateLock.lock(); defer { stateLock.unlock() }; return _duration }
+        set { stateLock.lock(); _duration = newValue; stateLock.unlock() }
+    }
+    private(set) var wasInterrupted: Bool {
+        get { stateLock.lock(); defer { stateLock.unlock() }; return _wasInterrupted }
+        set { stateLock.lock(); _wasInterrupted = newValue; stateLock.unlock() }
+    }
     /// 挂载时由宿主填写（正文中的字符位置，用于卡片内联穿插）。
     var position: Int = 0
 
@@ -26,7 +48,7 @@ final class ToolExecution: @unchecked Sendable {
         self.name = name
         self.callID = callID
         self.startedAt = startedAt
-        self.argsJSON = ""
+        self._argsJSON = ""
         self.block = MiniClawKit.AssistantBlock(
             id: UUID(),
             kind: MiniClawChatAdapter.toolKind(name),
@@ -41,10 +63,13 @@ final class ToolExecution: @unchecked Sendable {
 
     /// SSE 参数增量（LLMClient 层已按 0.15s 节流）：卡片实时显示主参数的已生成部分。
     func appendArgsDelta(_ delta: String) {
-        argsJSON += delta
-        block.toolInputArgs = argsJSON
-        block.toolStatus = .streaming(bytes: argsJSON.utf8.count)
-        if let primary = ToolStreamingParser.primaryPartialValue(name: name, partialJSON: argsJSON) {
+        stateLock.lock()
+        _argsJSON += delta
+        let args = _argsJSON
+        stateLock.unlock()
+        block.toolInputArgs = args
+        block.toolStatus = .streaming(bytes: args.utf8.count)
+        if let primary = ToolStreamingParser.primaryPartialValue(name: name, partialJSON: args) {
             block.content = primary
             if isFileStreamingKind { block.streamingFileContent = primary }
         }
@@ -54,7 +79,9 @@ final class ToolExecution: @unchecked Sendable {
 
     /// 参数定稿、开始执行：kind 按完整参数刷新（file 类补 path 关联值）。
     func beginExecution(argsJSON: String) {
-        self.argsJSON = argsJSON
+        stateLock.lock()
+        _argsJSON = argsJSON
+        stateLock.unlock()
         block.toolInputArgs = argsJSON
         block.kind = MiniClawChatAdapter.toolKind(name, arguments: argsJSON)
         // 2026-09-05 修复：终端视图以 content 作为「输出」渲染（含 ToolLiveSheet 黑框）。
@@ -67,13 +94,18 @@ final class ToolExecution: @unchecked Sendable {
 
     /// 执行中过程输出（逐行，内部节流合并后回主线程写 block）。
     func appendOutputLine(_ line: String) {
+        stateLock.lock()
         outputLineBuffer.append(line)
         let now = Date()
         let interval: TimeInterval = block.content.utf8.count < 1_000 ? 0.3 : 0.6
-        guard now.timeIntervalSince(lastOutputFlush) >= interval else { return }
+        guard now.timeIntervalSince(lastOutputFlush) >= interval else {
+            stateLock.unlock()
+            return
+        }
         lastOutputFlush = now
         let text = outputLineBuffer.joined(separator: "\n")
         outputLineBuffer.removeAll()
+        stateLock.unlock()
         Task { @MainActor [block] in
             if block.content.hasSuffix("Executing...") || block.content.isEmpty {
                 block.content = text
@@ -94,8 +126,11 @@ final class ToolExecution: @unchecked Sendable {
 
     /// 用户停止整条回复时标记中断（仅对尚未返回结果的执行生效，与旧 stopGeneration 语义一致）。
     func markInterrupted(text: String, at stoppedAt: Date) {
-        guard result == nil else { return }
-        wasInterrupted = true
+        stateLock.lock()
+        let already = _result != nil
+        if !already { _wasInterrupted = true }
+        stateLock.unlock()
+        guard !already else { return }
         finish(ToolResult(success: false, text: text), duration: stoppedAt.timeIntervalSince(startedAt))
     }
 
@@ -127,10 +162,12 @@ final class ToolExecution: @unchecked Sendable {
     }
 
     func finish(_ result: ToolResult, duration: TimeInterval) {
-        self.result = result
-        self.duration = duration
+        stateLock.lock()
+        _result = result
+        _duration = duration
         // 被用户停止的执行走 .cancelled（黄色「已取消」），与 .failed（红色「失败」）区分。
-        let isCancelled = wasInterrupted
+        let isCancelled = _wasInterrupted
+        stateLock.unlock()
         Task { @MainActor [block, isCancelled] in
             block.content = result.text
             block.toolDuration = duration

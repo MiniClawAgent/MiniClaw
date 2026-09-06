@@ -34,6 +34,32 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
     /// ToolExecution 内持 AssistantBlock 引用，执行逻辑直接写 block，
     /// 经 @Published 驱动指示器与浮层实时刷新——无事件转换层、无 id 配对。
     private var pendingToolExecutions: [String: ToolExecution] = [:]
+    /// [2026-09-06 Mac 闪退修复] pendingToolExecutions 的访问锁。三类线程并发读写：
+    /// 参数流式 delegate 线程（upsertStreamingToolExecution）、并行工具的多个
+    /// Task.detached（executeTool 挂载/removeValue、finalizeInterceptedToolExec）
+    /// ——Dictionary 并发写触发 COW 缓冲撕裂 → EXC_BAD_ACCESS（iPhone 窗口窄
+    /// 未炸，Mac Designed-for-iPad 首次踩中）。NSLock 不可重入：锁内只做字典
+    /// 取/写，emitToolExecutionBegin / beginExecution 等回调一律在锁外。
+    private let pendingToolExecutionsLock = NSLock()
+
+    /// 同步 helper（async 上下文禁直接调 NSLock.lock，经同步方法规避）：
+    /// 取已有挂载或创建新执行上下文；返回 mounted=true 表示本次新建（需上抛 begin 事件）。
+    private func mountPendingToolExecution(_ tc: ToolCall, name: String, startedAt: Date) -> (exec: ToolExecution, mounted: Bool) {
+        pendingToolExecutionsLock.lock()
+        defer { pendingToolExecutionsLock.unlock() }
+        if let pending = pendingToolExecutions[tc.id] {
+            return (pending, false)
+        }
+        let exec = ToolExecution(name: name, callID: tc.id, startedAt: startedAt)
+        pendingToolExecutions[tc.id] = exec
+        return (exec, true)
+    }
+
+    private func removePendingToolExecution(_ callID: String) {
+        pendingToolExecutionsLock.lock()
+        defer { pendingToolExecutionsLock.unlock() }
+        pendingToolExecutions.removeValue(forKey: callID)
+    }
     private var activeToolExecutions: [String: ToolExecution] = [:]
     private let state = EngineState()
 
@@ -1175,13 +1201,17 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
     private func upsertStreamingToolExecution(callID: String, name: String, partialArgs: String, bytes: Int) {
         guard !isSubagentEngine else { return } // 子代理详情页走 SubagentEvent 事件流，无主会话 block
         let exec: ToolExecution
+        var mounted = false
+        pendingToolExecutionsLock.lock()
         if let pending = pendingToolExecutions[callID] {
             exec = pending
         } else {
             exec = ToolExecution(name: name, callID: callID)
             pendingToolExecutions[callID] = exec
-            emitToolExecutionBegin(exec)
+            mounted = true
         }
+        pendingToolExecutionsLock.unlock()
+        if mounted { emitToolExecutionBegin(exec) }
         exec.appendArgsDelta(partialArgs)
     }
 
@@ -1745,13 +1775,17 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
     /// .shellTool(command:"") 空壳且状态永不收口）。
     private func finalizeInterceptedToolExec(_ tc: ToolCall, result: ToolResult, startedAt: Date) {
         let exec: ToolExecution
+        var mounted = false
+        pendingToolExecutionsLock.lock()
         if let pending = pendingToolExecutions[tc.id] {
             exec = pending
         } else {
             exec = ToolExecution(name: tc.function.name, callID: tc.id, startedAt: startedAt)
             pendingToolExecutions[tc.id] = exec
-            emitToolExecutionBegin(exec)
+            mounted = true
         }
+        pendingToolExecutionsLock.unlock()
+        if mounted { emitToolExecutionBegin(exec) }
         exec.beginExecution(argsJSON: tc.function.arguments)
         exec.finish(result, duration: Date().timeIntervalSince(startedAt))
     }
@@ -1903,19 +1937,12 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
         // 非流式（无参数增量）场景在此首次创建。beginExecution 使参数定稿、状态转 running。
         let exec: ToolExecution
         let isNewExecution: Bool
-        if let pending = pendingToolExecutions[tc.id] {
-            exec = pending
-            isNewExecution = false
-        } else {
-            exec = ToolExecution(name: rawName, callID: tc.id, startedAt: startedAt)
-            isNewExecution = true
-        }
+        (exec, isNewExecution) = mountPendingToolExecution(tc, name: rawName, startedAt: startedAt)
         // 参数定稿必须在挂载之前：子代理转发（child.onToolExecutionBegin）会读
         // exec.argsJSON 构造 ToolCallEvent，挂载时参数为空会导致工具卡参数显示空白。
         // 主线不受影响（参数流式期已挂载，挂载侧只读 position，参数由 block 实时刷新）。
         exec.beginExecution(argsJSON: tc.function.arguments)
         if isNewExecution {
-            pendingToolExecutions[tc.id] = exec
             emitToolExecutionBegin(exec)
         }
 
@@ -2002,7 +2029,9 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
         exec.finish(result, duration: duration)
         // 执行已落定，出表：一个 callID 只执行一次，注册表仅用于「参数流式期 → 执行期」
         // 的上下文传递，留着会让长会话多轮循环持续累积（引擎销毁前不释放）。
-        pendingToolExecutions.removeValue(forKey: tc.id)
+        // 执行已落定，出表：一个 callID 只执行一次，注册表仅用于「参数流式期 → 执行期」
+        // 的上下文传递，留着会让长会话多轮循环持续累积（引擎销毁前不释放）。
+        removePendingToolExecution(tc.id)
         AppLogger.shared.crisisMark("TOOL DONE: \(rawName) (\(Int(duration * 1000))ms)")
         return result
     }
