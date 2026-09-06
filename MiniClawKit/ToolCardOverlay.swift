@@ -91,6 +91,11 @@ struct ToolCardOverlay: View {
 
                     pageDots
                 }
+                // 底部避让（2026-09-07 唐唐反馈）：卡片+分页圆点整体上移，
+                // 给会话页底部的状态指示器（深度思考/回复中）与输入条留出空间——
+                // 此前浮层纵向居中，工具多时分页圆点满行正好压在底部指示器上，
+                // 视觉上如同卡片被拉长、指示器被带出屏幕外。
+                .padding(.bottom, 150)
                 .offset(y: appeared ? 0 : geo.size.height)
                 .opacity(appeared ? 1 : 0)
             }
@@ -114,12 +119,28 @@ struct ToolCardOverlay: View {
     // MARK: - 分页指示
 
     private var pageDots: some View {
-        HStack(spacing: 8) {
-            ForEach(toolBlocks.indices, id: \.self) { i in
+        // 工具执行过多时圆点会满行溢出（2026-09-07 唐唐反馈）——窗口化：
+        // 只显示当前页附近的最多 9 枚，两端以省略号提示还有更多页。
+        let n = toolBlocks.count
+        let maxDots = 9
+        let start = max(0, min(pageIdx - maxDots / 2, n - maxDots))
+        let end = min(n, start + maxDots)
+        return HStack(spacing: 8) {
+            if start > 0 {
+                Text("…")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.35))
+            }
+            ForEach(start..<end, id: \.self) { i in
                 Capsule()
                     .fill(i == pageIdx ? Color.white : Color.white.opacity(0.35))
                     .frame(width: i == pageIdx ? 18 : 6, height: 6)
                     .animation(.easeInOut(duration: 0.2), value: pageIdx)
+            }
+            if end < n {
+                Text("…")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.35))
             }
         }
     }
