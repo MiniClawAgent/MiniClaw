@@ -40,11 +40,26 @@ struct ReadImageTool: AgentTool {
             guard let image = UIImage(data: imageData) else {
                 return ToolResult(success: false, text: String(format: String(localized: "core_image_decode_failed"), path))
             }
-            let base64 = imageData.base64EncodedString()
+            // 视觉最佳分辨率护栏（2026-09-07）：长边 >1568px 时降采样再编码——
+            // base64 体积与 token 双降，识别效果不降（视觉模型输入最佳区间）。
+            let maxSide: CGFloat = 1568
+            let outImage: UIImage
+            if max(image.size.width, image.size.height) > maxSide {
+                let scale = maxSide / max(image.size.width, image.size.height)
+                let newSize = CGSize(width: floor(image.size.width * scale),
+                                     height: floor(image.size.height * scale))
+                outImage = UIGraphicsImageRenderer(size: newSize).image { _ in
+                    image.draw(in: CGRect(origin: .zero, size: newSize))
+                }
+            } else {
+                outImage = image
+            }
+            let outData = outImage.pngData() ?? imageData
+            let base64 = outData.base64EncodedString()
             let mimeType = mimeTypeFor(path: path)
             return ToolResult(
                 success: true,
-                text: String(format: String(localized: "core_image_read"), Int(image.size.width), Int(image.size.height)),
+                text: String(format: String(localized: "core_image_read"), Int(outImage.size.width), Int(outImage.size.height)),
                 data: ["base64": base64, "mime_type": mimeType]
             )
         } catch {

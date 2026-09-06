@@ -592,11 +592,14 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
             var passError: Error?
             var endpointIndex = activeEndpointIndex
             var passSucceeded = false
+            // 本轮实际服务的端点（供工具图片注入判定输入模态；见工具消息组装处）
+            var servedEndpoint: ModelRouteEndpoint? = nil
             // 本轮停止原因（来自 LLMClient 的 finish_reason / stop_reason），用于伪完成兜底。
             var lastFinishReason: String? = nil
             while endpointIndex < routingPlan.endpoints.count && !passSucceeded {
                 guard await !state.isCancelled() else { return }
                 let endpoint = routingPlan.endpoints[endpointIndex]
+                servedEndpoint = endpoint
                 AppLogger.shared.info(String(format: String(localized: "loop_router_candidate"), endpointIndex + 1, routingPlan.endpoints.count, endpoint.modelName))
                 let llmClient = LLMClient(
                     endpointURL: endpoint.url,
@@ -1036,6 +1039,25 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
                     name: tc.function.name
                 )
                 messages.append(toolMsg)
+
+                // [2026-09-07 工具图片注入] apple-image 等工具产出的 base64 图片，
+                // 按当前端点的图片输入能力分流：支持 → 在 tool 消息后追加合成 user
+                // 消息（image_url part，与用户附件同一条编码路径），视觉模型原生
+                // 看图；不支持 → 不注入，apple-vision OCR 文本兜底（纯文本模型行为
+                // 与历史一致）。Chat Completions 的 tool 消息不支持图片内容，
+                // 合成 user 消息是各兼容端点的通用做法。
+                if let servedEndpoint, servedEndpoint.supportsImageInput,
+                   let b64 = result.data?["base64"] as? String,
+                   let mime = result.data?["mime_type"] as? String, mime.hasPrefix("image/") {
+                    let hint = String(localized: "loop_tool_image_injected")
+                    messages.append(ChatCompletionMessage(
+                        role: "user",
+                        messageContent: .parts([
+                            .text(hint),
+                            .imageURL(url: "data:\(mime);base64,\(b64)", detail: "auto")
+                        ])
+                    ))
+                }
 
                 let signature = toolFailureSignature(tc)
                 if result.success {

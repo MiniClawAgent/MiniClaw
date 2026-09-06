@@ -29877,6 +29877,35 @@
         }
       }
     },
+    "loop_tool_image_injected": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "（以上是工具返回的截图/图片，已随本消息附上，请直接查看图像内容；需要精确像素坐标用于点击时，再用 apple-vision 的带坐标 OCR。）"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "(The screenshot/image returned by the tool is attached with this message — view the image directly; use apple-vision coordinate OCR only when you need precise pixel coordinates for clicking.)"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "（ツールが返したスクリーンショット/画像はこのメッセージに添付済みです。画像を直接確認してください。クリック用の正確なピクセル座標が必要な場合のみ apple-vision の座標付き OCR を使用。）"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "(도구가 반환한 스크린샷/이미지가 이 메시지에 첨부되어 있습니다. 이미지를 직접 확인하세요. 클릭용 정확한 픽셀 좌표가 필요할 때만 apple-vision의 좌표 OCR을 사용하세요.)"
+          }
+        }
+      }
+    },
     "loop_tool_interrupted": {
       "extractionState": "manual",
       "localizations": {
