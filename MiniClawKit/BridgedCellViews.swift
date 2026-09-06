@@ -153,18 +153,19 @@ struct BridgedAssistantFooter: View {
 
     // showUsage and usageContentVisible are on bridge, toggled by double-tap on block cells.
 
-    /// 回复中指示器（唐唐 2026-09-05 定稿）：黄色圆内绿色呼吸点 +「回复中」，
-    /// 字号与其余状态行一致（caption）。
+    /// 回复中指示器（唐唐 2026-09-06 调整）：绿色圆内黄色呼吸点 +「回复中」。
+    /// 外圈 12pt 与其余状态行的 caption SF Symbol（已完成/已停止圆图标）视觉等大；
+    /// 呼吸点用透明度呼吸（0.2 ↔ 1）。
     @State private var replyBreathing = false
     private var replyingIndicator: some View {
         HStack(spacing: 5) {
             ZStack {
                 Circle()
-                    .fill(Color.yellow)
-                    .frame(width: 10, height: 10)
-                Circle()
                     .fill(Color.green)
-                    .frame(width: 4, height: 4)
+                    .frame(width: 12, height: 12)
+                Circle()
+                    .fill(Color.yellow)
+                    .frame(width: 5, height: 5)
                     .opacity(replyBreathing ? 1 : 0.2)
             }
             Text(String(localized: "replying"))
