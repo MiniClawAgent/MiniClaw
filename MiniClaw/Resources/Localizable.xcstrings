@@ -47683,6 +47683,122 @@
         }
       }
     },
+    "remote_host_discover_empty": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "局域网内没有发现 SSH 设备：目标机需开启远程登录/SSH 服务，且与手机同网"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No SSH devices found on the LAN: the target must have Remote Login/SSH enabled and be on the same network"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "LAN 内に SSH デバイスが見つかりません：対象でリモートログイン/SSH を有効にし、同じネットワークに接続してください"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "LAN에서 SSH 장치를 찾지 못했습니다: 대상에서 원격 로그인/SSH를 활성화하고 같은 네트워크에 접속하세요"
+          }
+        }
+      }
+    },
+    "remote_host_discover_header": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "局域网内发现的 SSH 设备（名称可直接用作 connect 的 name，无需知道 IP）："
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SSH devices found on the LAN (the name can be used directly as connect's name — no IP needed):"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "LAN 内で検出された SSH デバイス（名前を connect の name として使用可。IP 不要）："
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "LAN에서 발견된 SSH 장치(이름을 connect의 name으로 사용 가능. IP 불필요):"
+          }
+        }
+      }
+    },
+    "remote_host_discover_hint": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "可用 action=discover 重新发现，或手动传 host=IP。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Use action=discover to re-discover, or pass host=IP manually."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "action=discover で再検出するか、host=IP を手動で渡してください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "action=discover로 다시 찾거나 host=IP를 직접 전달하세요."
+          }
+        }
+      }
+    },
+    "remote_host_discover_next": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "IP 变动无需担心：connect/exec 会自动重新解析设备当前地址。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "IP changes are handled automatically: connect/exec re-resolve the device's current address."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "IP 変更は自動対応：connect/exec はデバイスの現在アドレスを再解決します。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "IP 변경은 자동 처리: connect/exec가 장치의 현재 주소를 다시 확인합니다."
+          }
+        }
+      }
+    },
     "remote_host_exec_need_command": {
       "extractionState": "manual",
       "localizations": {
@@ -47892,25 +48008,25 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "操作：setup（检查 iSH 内 openssh/密钥并输出安装与目标机配置指引）、connect（验证连通并保存连接参数）、exec（在已保存的远程主机上执行命令）、list（列出已保存的主机）"
+            "value": "操作：setup（检查 iSH 内 openssh/密钥并输出安装与目标机配置指引）、connect（验证连通并保存连接参数）、exec（在已保存的远程主机上执行命令）、list（列出已保存的主机）、discover（零配置发现局域网内所有 SSH 设备）、discover（零配置发现局域网内所有 SSH 设备）"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Operation: setup (check openssh/key in iSH and output install + target-OS setup guide), connect (verify connectivity and save connection params), exec (run a command on a saved remote host), list (list saved hosts)"
+            "value": "Operation: setup (check openssh/key in iSH and output install + target-OS setup guide), connect (verify connectivity and save connection params), exec (run a command on a saved remote host), list (list saved hosts), discover (zero-config discovery of all SSH devices on the LAN), discover (zero-config discovery of all SSH devices on the LAN)"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "操作：setup（iSH 内の openssh/鍵を確認しインストールと対象 OS の設定手順を提示）、connect（接続を検証しパラメータを保存）、exec（保存済みホストでコマンド実行）、list（保存済みホスト一覧）"
+            "value": "操作：setup（iSH 内の openssh/鍵を確認しインストールと対象 OS の設定手順を提示）、connect（接続を検証しパラメータを保存）、exec（保存済みホストでコマンド実行）、list（保存済みホスト一覧）, discover（LAN 内の SSH デバイスを設定なしで検出）, discover（LAN 内の SSH デバイスを設定なしで検出）"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "작업: setup(iSH 내 openssh/키 점검 후 설치 및 대상 OS 설정 가이드 출력), connect(연결 검증 및 파라미터 저장), exec(저장된 호스트에서 명령 실행), list(저장된 호스트 목록)"
+            "value": "작업: setup(iSH 내 openssh/키 점검 후 설치 및 대상 OS 설정 가이드 출력), connect(연결 검증 및 파라미터 저장), exec(저장된 호스트에서 명령 실행), list(저장된 호스트 목록), discover(LAN 내 SSH 장치를 설정 없이 검출), discover(LAN 내 SSH 장치를 설정 없이 검출)"
           }
         }
       }
@@ -48143,6 +48259,35 @@
           "stringUnit": {
             "state": "translated",
             "value": "SSH 로그인 사용자명(connect용. Mac의 whoami 출력. 보통 root 아님)"
+          }
+        }
+      }
+    },
+    "remote_host_resolve_failed": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法解析该设备的当前 IP。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not resolve the device's current IP."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "デバイスの現在 IP を解決できません。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "장치의 현재 IP를 확인할 수 없습니다."
           }
         }
       }
@@ -48414,25 +48559,25 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "控制远程主机（Mac/Linux/Windows，经 SSH）。首次使用先 action=setup：自动检查 iSH 里的 openssh 与密钥，缺什么给什么命令，并按目标系统给出配置指引；然后 action=connect 传入 host/user 验证并保存连接参数（保存后 exec 不再需要用户名/密钥）；最后 action=exec 远程执行命令。注意：测速/执行会消耗流量，远程命令默认需用户确认。"
+            "value": "控制远程主机（Mac/Linux/Windows，经 SSH）。首次使用先 action=setup：自动检查 iSH 里的 openssh 与密钥，缺什么给什么命令，并按目标系统给出配置指引；然后 action=connect 传入 host/user 验证并保存连接参数（保存后 exec 不再需要用户名/密钥）；最后 action=exec 远程执行命令。注意：测速/执行会消耗流量，远程命令默认需用户确认。主机地址不必写死：action=discover 可零配置发现局域网设备，exec 遇 IP 变动会自动重新解析并重试。主机地址不必写死：action=discover 可零配置发现局域网设备，exec 遇 IP 变动会自动重新解析并重试。"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Control a remote host (Mac/Linux/Windows) over SSH. Start with action=setup: it checks openssh and the key pair inside iSH, gives you the exact commands for anything missing, plus setup steps for the target OS. Then action=connect with host/user to verify and save connection params (after that exec needs no credentials). Finally action=exec runs remote commands. Note: traffic is consumed; remote commands require user confirmation by default."
+            "value": "Control a remote host (Mac/Linux/Windows) over SSH. Start with action=setup: it checks openssh and the key pair inside iSH, gives you the exact commands for anything missing, plus setup steps for the target OS. Then action=connect with host/user to verify and save connection params (after that exec needs no credentials). Finally action=exec runs remote commands. Note: traffic is consumed; remote commands require user confirmation by default.No need to hardcode addresses: action=discover finds LAN devices zero-config, and exec auto-re-resolves and retries when the IP changes.No need to hardcode addresses: action=discover finds LAN devices zero-config, and exec auto-re-resolves and retries when the IP changes."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "SSH でリモートホスト（Mac/Linux/Windows）を操作。まず action=setup：iSH 内の openssh と鍵ペアを確認し、不足分のコマンドと対象 OS の設定手順を提示します。次に action=connect で host/user を渡して検証・接続パラメータを保存（保存後の exec に認証情報は不要）。最後に action=exec でリモート実行。注意：通信が発生し、リモートコマンドは既定でユーザー確認が必要です。"
+            "value": "SSH でリモートホスト（Mac/Linux/Windows）を操作。まず action=setup：iSH 内の openssh と鍵ペアを確認し、不足分のコマンドと対象 OS の設定手順を提示します。次に action=connect で host/user を渡して検証・接続パラメータを保存（保存後の exec に認証情報は不要）。最後に action=exec でリモート実行。注意：通信が発生し、リモートコマンドは既定でユーザー確認が必要です。アドレスを固定する必要なし：action=discover で LAN 内デバイスを設定なしで検出し、exec は IP 変更時に自動で再解決・再試行します。アドレスを固定する必要なし：action=discover で LAN 内デバイスを設定なしで検出し、exec は IP 変更時に自動で再解決・再試行します。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "SSH로 원격 호스트(Mac/Linux/Windows)를 제어합니다. 먼저 action=setup: iSH 내 openssh와 키 쌍을 점검하고, 부족한 항목의 명령어와 대상 OS별 설정 절차를 안내합니다. 이후 action=connect로 host/user를 전달해 검증·연결 파라미터를 저장(저장 후 exec에는 자격증명 불필요). 마지막으로 action=exec로 원격 실행. 주의: 트래픽이 발생하며 원격 명령은 기본적으로 사용자 확인이 필요합니다."
+            "value": "SSH로 원격 호스트(Mac/Linux/Windows)를 제어합니다. 먼저 action=setup: iSH 내 openssh와 키 쌍을 점검하고, 부족한 항목의 명령어와 대상 OS별 설정 절차를 안내합니다. 이후 action=connect로 host/user를 전달해 검증·연결 파라미터를 저장(저장 후 exec에는 자격증명 불필요). 마지막으로 action=exec로 원격 실행. 주의: 트래픽이 발생하며 원격 명령은 기본적으로 사용자 확인이 필요합니다.주소를 고정할 필요 없음: action=discover로 LAN 장치를 설정 없이 검출하며, exec는 IP 변경 시 자동 재확인·재시도합니다.주소를 고정할 필요 없음: action=discover로 LAN 장치를 설정 없이 검출하며, exec는 IP 변경 시 자동 재확인·재시도합니다."
           }
         }
       }
