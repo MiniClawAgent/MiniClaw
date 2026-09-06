@@ -48466,60 +48466,31 @@
         }
       }
     },
-    "remote_host_setup_cmd_apk": {
+    "remote_host_setup_combo": {
       "extractionState": "manual",
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "缺少 openssh：请用 shell_execute 执行 → apk add openssh-client"
+            "value": "环境未就绪。用 shell_execute 执行下面这条一键安装命令（自动清理 apk 残留锁 + 安装 openssh + 生成密钥 + 自检回显）：\nrm -f /lib/apk/db/lock 2>/dev/null; apk add openssh-client >/dev/null 2>&1; ssh-keygen -t ed25519 -f ~/.ssh/miniclaw -N \"\" -C miniclaw >/dev/null 2>&1; echo \"ssh=$(which ssh 2>/dev/null || echo MISSING) key=$(test -f ~/.ssh/miniclaw && echo OK || echo MISSING)\"\n执行完重新调用 action=setup 确认。"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "openssh missing: run this via shell_execute → apk add openssh-client"
+            "value": "Environment not ready. Run this one-liner via shell_execute (auto-cleans stale apk locks + installs openssh + generates the key + self-checks):\nrm -f /lib/apk/db/lock 2>/dev/null; apk add openssh-client >/dev/null 2>&1; ssh-keygen -t ed25519 -f ~/.ssh/miniclaw -N \"\" -C miniclaw >/dev/null 2>&1; echo \"ssh=$(which ssh 2>/dev/null || echo MISSING) key=$(test -f ~/.ssh/miniclaw && echo OK || echo MISSING)\"\nThen call action=setup again to confirm."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "openssh がありません。shell_execute で実行 → apk add openssh-client"
+            "value": "環境が未整備です。shell_execute でこの 1 行を実行（apk の残ロック解除 + openssh 導入 + 鍵生成 + 自己点検）：\nrm -f /lib/apk/db/lock 2>/dev/null; apk add openssh-client >/dev/null 2>&1; ssh-keygen -t ed25519 -f ~/.ssh/miniclaw -N \"\" -C miniclaw >/dev/null 2>&1; echo \"ssh=$(which ssh 2>/dev/null || echo MISSING) key=$(test -f ~/.ssh/miniclaw && echo OK || echo MISSING)\"\n実行後、再度 action=setup を呼び出して確認してください。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "openssh 없음: shell_execute로 실행 → apk add openssh-client"
-          }
-        }
-      }
-    },
-    "remote_host_setup_cmd_keygen": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "缺少密钥：请用 shell_execute 执行 → ssh-keygen -t ed25519 -f ~/.ssh/miniclaw -N ''"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Key pair missing: run this via shell_execute → ssh-keygen -t ed25519 -f ~/.ssh/miniclaw -N ''"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "鍵ペアがありません。shell_execute で実行 → ssh-keygen -t ed25519 -f ~/.ssh/miniclaw -N ''"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "키 쌍 없음: shell_execute로 실행 → ssh-keygen -t ed25519 -f ~/.ssh/miniclaw -N ''"
+            "value": "환경이 준비되지 않았습니다. shell_execute로 이 한 줄을 실행하세요(apk 잔여 잠금 정리 + openssh 설치 + 키 생성 + 자가 점검):\nrm -f /lib/apk/db/lock 2>/dev/null; apk add openssh-client >/dev/null 2>&1; ssh-keygen -t ed25519 -f ~/.ssh/miniclaw -N \"\" -C miniclaw >/dev/null 2>&1; echo \"ssh=$(which ssh 2>/dev/null || echo MISSING) key=$(test -f ~/.ssh/miniclaw && echo OK || echo MISSING)\"\n실행 후 action=setup을 다시 호출해 확인하세요."
           }
         }
       }

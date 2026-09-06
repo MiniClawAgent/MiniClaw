@@ -118,20 +118,11 @@ struct RemoteHostTool: AgentTool {
                             sshInstalled ? String(localized: "remote_host_state_installed") : String(localized: "remote_host_state_missing"),
                             keyExists ? String(localized: "remote_host_state_installed") : String(localized: "remote_host_state_missing")))
 
-        // 精确命令清单：缺什么补什么（AI 拿去用 shell_execute 执行）
-        if !sshInstalled {
-            lines.append(String(localized: "remote_host_setup_cmd_apk"))
-        }
-        if !keyExists {
-            lines.append(String(localized: "remote_host_setup_cmd_keygen"))
-        }
-        if let pubkey {
-            lines.append(String(localized: "remote_host_setup_key_pub_header"))
-            lines.append(pubkey)
-        }
-
-        // 环境未就绪：到此为止，AI 执行完上面的命令后再回来重新 setup
+        // 未就绪：输出「一键安装」组合命令——含 apk 残留锁清理（真机实测：
+        // iSH 首启偶发 apk 进程残留占锁，"Unable to lock database"）、安装、
+        // 密钥生成、自检回显，AI 一次 shell_execute 即可完成，无需多轮往返。
         guard sshInstalled, keyExists else {
+            lines.append(String(localized: "remote_host_setup_combo"))
             lines.append(String(localized: "remote_host_setup_run_first"))
             return ToolResult(success: true, text: lines.joined(separator: "\n"))
         }
