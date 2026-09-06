@@ -96,6 +96,22 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
         }
     }
 
+    /// 通用知会类通知（无会话归属，点击不跳会话）：用于「分享内容已过期」这类
+    /// 必须让用户知晓、但不对应具体会话的一次性提示。
+    func notifyNotice(title: String, body: String) async {
+        let content = UNMutableNotificationContent()
+        content.title = title
+        content.body = body
+        content.sound = .default
+        content.threadIdentifier = "miniclaw-notice"
+        let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
+        do {
+            try await center.add(request)
+        } catch {
+            AppLogger.shared.error("知会通知发送失败: \(String(describing: error))", category: "BG")
+        }
+    }
+
     /// 通知正文：最后回复内容不限字数（不做手动截断，超长由系统通知展示上限省略），
     /// 换行/空格/Tab 全部折叠为单个空格——正文紧凑连续，不会因模型排版换行显得稀碎。
     /// 无回复时回退完成/结束文案。

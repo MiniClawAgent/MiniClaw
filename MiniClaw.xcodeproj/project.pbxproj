@@ -14,6 +14,7 @@
 		027E1E3D7924DE76E6A7583702010ABE /* MathFont.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F0BBD4FB9F13077BB2CCC214A4F88A3 /* MathFont.swift */; };
 		02FE5A908F84BAC7367EF46310678D38 /* ActivityKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CD45210156CF62942ACA6991669536A2 /* ActivityKit.framework */; };
 		03AF1EF1E7654879482587EC6BF013F7 /* MiniClawWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 146F7A8BE47DA18848C6F7E7BF4A0646 /* MiniClawWidget.swift */; };
+		03E46609E6CEA22A0AE14914CDFEFE09 /* SharedInbox.swift in Sources */ = {isa = PBXBuildFile; fileRef = C22A5F9E151163B7977C015F2A45D6AC /* SharedInbox.swift */; };
 		0454BF82181DBDFE8A3E3341555CE0DC /* man.c in Sources */ = {isa = PBXBuildFile; fileRef = 1E7A17ECD501F8A07DE65452184A0F48 /* man.c */; };
 		05321CF894735E0BE6A8F34ECEF68BB5 /* AppleFrameworkTools.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B6BE2B494055ECB6493BA7D13ECAA57 /* AppleFrameworkTools.swift */; };
 		058BA3E063580D3D28D7358ABE9D1358 /* BashismDetectorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 057F16C1874524D3027FBA0538FF1C5A /* BashismDetectorTests.swift */; };
@@ -93,11 +94,13 @@
 		3CA994774A1AC4615CF2E07BA3B55ACA /* CustomModelEditorViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C398FFAB1BC8224F5DE60F10E61296A /* CustomModelEditorViews.swift */; };
 		3DD83821642DB748B651FE9425EA5056 /* BackgroundSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C94E17D51065395FF79A4A3098EAE66D /* BackgroundSettingsView.swift */; };
 		3E2367F7049EE1BEE873DADACB3CA732 /* table.c in Sources */ = {isa = PBXBuildFile; fileRef = 56D012B74EF1FA361C866CC35D2DD183 /* table.c */; };
+		3E58750C20B28C6710E7352EB1325984 /* PendingTaskShare.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AF4D20F02E724461BBB7B264C51604D /* PendingTaskShare.swift */; };
 		3E63490697062521F43BB81DF467E4DD /* commonmark.c in Sources */ = {isa = PBXBuildFile; fileRef = FBE54E1D343E3FBC25196B993D36D63B /* commonmark.c */; };
 		3E73868C7996EC13C6C81BE8A13B17FE /* BrowserSubviews.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF1FE22DCCAB6D4274829097F8A05E14 /* BrowserSubviews.swift */; };
 		3E9F2BDDE4266B7D31E4D8878A053ABB /* ProviderStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 130418F916D4087FA1A9721B517811F6 /* ProviderStore.swift */; };
 		3EEB2B0D43333C49BD8DDE6256DE882D /* PortableRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AC35BC8C93D5CBC747662EB92D082C1 /* PortableRecord.swift */; };
 		3F7B009A183184C8C4C6BDEA38BE62F4 /* SettingsMenuView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E2501406834F30F6FB11FEF2162CAF0 /* SettingsMenuView.swift */; };
+		3F93BA09DCA1E2C96B163793B9474329 /* PendingTaskShare.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AF4D20F02E724461BBB7B264C51604D /* PendingTaskShare.swift */; };
 		400F67E51A994FA61ECBEB74DF8D8719 /* MTMathImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7BC083A3DFD6EAC5DB2C4D06F1F4B44 /* MTMathImage.swift */; };
 		40ACC26185986537BA6A55AB18F4CF60 /* MCPClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 224FF9027BF5834326F8E650024B0DF5 /* MCPClient.swift */; };
 		428DE293090A39BC67633E24208DB868 /* MessageCollectionCoordinator+Bindings.swift in Sources */ = {isa = PBXBuildFile; fileRef = CBEF4914D86C85C4F5D37D1171E2D63B /* MessageCollectionCoordinator+Bindings.swift */; };
@@ -114,6 +117,7 @@
 		4CB9E143920CF3340D668D644C6F23DA /* BrowserSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFBF6E23977C08C8766052D672698035 /* BrowserSupport.swift */; };
 		4D598E9D62107DBEB5BE1A20D86E0650 /* com.miniclaw.builtin.skill.plugin-creator.mpk in Resources */ = {isa = PBXBuildFile; fileRef = CE2163FADE5CC7DEA572E1AD9181D419 /* com.miniclaw.builtin.skill.plugin-creator.mpk */; };
 		4E057CC5C2D99067FD86833BFD80C133 /* MiniClawResourceMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3CD1C0D7B63C9A53F8535768B86884E /* MiniClawResourceMonitor.swift */; };
+		4E18EB48CE44E401FF6C40369861FD73 /* SharedInboxCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 750A64925EF4F1F4E973F2D44A6EB4E9 /* SharedInboxCoordinator.swift */; };
 		4FA5A294DB7436F5FAD86B4108D3B4D8 /* tasklist.h in Sources */ = {isa = PBXBuildFile; fileRef = BFFEB106AA00A20F61A47507A16B5FB9 /* tasklist.h */; };
 		4FD802DDFFE8EE508D9089A6D0CF3140 /* com.miniclaw.builtin.memory.mpk in Resources */ = {isa = PBXBuildFile; fileRef = 6C56C8AF1CC52DB9AD9C8973C06B2B7A /* com.miniclaw.builtin.memory.mpk */; };
 		4FE95DD069F78A0B235C379EF74174C3 /* ToolPluginManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36CB016B2EBACE9BAB7DD24E0E55215E /* ToolPluginManager.swift */; };
@@ -250,6 +254,7 @@
 		ACC1D353C5AEBD3551374668361C4D1B /* LinuxShellRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = 446FDEFFEE82F2F70BCDD2FC659415F3 /* LinuxShellRuntime.swift */; };
 		AE08DEFBFD01AB264C2DEB65837565CF /* MiniClawBrowserJS.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4CCDB0B04645B6AA1BA3E7AB70CDB29 /* MiniClawBrowserJS.swift */; };
 		AE8656EF7BD6A81A55D14840A4A4C4C2 /* RemoteMCPTool.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF6386A10D97A37AC9188929D75F0C72 /* RemoteMCPTool.swift */; };
+		AEA2CC40A10D816226CD672C8D3BCF20 /* SharedInbox.swift in Sources */ = {isa = PBXBuildFile; fileRef = C22A5F9E151163B7977C015F2A45D6AC /* SharedInbox.swift */; };
 		AF188C290B9FDE71D10D0F3DAA86DD9E /* houdini_html_e.c in Sources */ = {isa = PBXBuildFile; fileRef = 57BE14224A1B75516FEE69BA1CFABA84 /* houdini_html_e.c */; };
 		B067C33ABCB8F8389B35F336DFB5D7A1 /* MessageCollectionOverlays.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D1A527E5ACA209C3B188BF692AB9CAB /* MessageCollectionOverlays.swift */; };
 		B220A3BBBFBADFAA7672B17C64C52BC5 /* ModelGroupModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34BE1750DE346FB60B2F417C68D25F91 /* ModelGroupModels.swift */; };
@@ -617,6 +622,7 @@
 		7464CD95BC0782E0694D4C01EA5D9E18 /* MiniClawChatBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MiniClawChatBridge.swift; sourceTree = "<group>"; };
 		748F46E1A509945DF52890B06AAA9735 /* RuntimeStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RuntimeStatus.swift; sourceTree = "<group>"; };
 		74C4F76958BC43F06C769447FC5948D8 /* SettingsGroupViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsGroupViews.swift; sourceTree = "<group>"; };
+		750A64925EF4F1F4E973F2D44A6EB4E9 /* SharedInboxCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedInboxCoordinator.swift; sourceTree = "<group>"; };
 		763556A2B04E2C1DDD08F310C688BF85 /* HealthKitTools.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitTools.swift; sourceTree = "<group>"; };
 		77031C2E9BB1049DD5858BB1E373864B /* RuntimeStatusView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RuntimeStatusView.swift; sourceTree = "<group>"; };
 		779E8DF07AA1AC95351EF1EF4393ADF0 /* OAuthManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OAuthManager.swift; sourceTree = "<group>"; };
@@ -652,6 +658,7 @@
 		88DC523449AC0B59ADE53D4C6A3E160C /* MarkdownAttachments.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownAttachments.swift; sourceTree = "<group>"; };
 		89D4609AF7CCA90FFCD56DAF0BFAADF2 /* PluginsSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PluginsSettingsView.swift; sourceTree = "<group>"; };
 		8A33723C8512D649DADF721E0D6D2D4B /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
+		8AF4D20F02E724461BBB7B264C51604D /* PendingTaskShare.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PendingTaskShare.swift; sourceTree = "<group>"; };
 		8BEB7F3E06B35D1BB5EE111397F04ED1 /* OpenAIStreamDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIStreamDelegate.swift; sourceTree = "<group>"; };
 		8C2B29B8DD54C960AD54DABFFFCE515B /* MountSettingsViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MountSettingsViews.swift; sourceTree = "<group>"; };
 		8C83CB7A02F0F1F7E89A32B1E09298E3 /* RetryPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RetryPolicy.swift; sourceTree = "<group>"; };
@@ -670,6 +677,7 @@
 		98A6C76042FFA4EFBDF99282EA8178DE /* HostExecutor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostExecutor.swift; sourceTree = "<group>"; };
 		992070B92461FD694ACBF06A4763526E /* ReasoningBlockView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReasoningBlockView.swift; sourceTree = "<group>"; };
 		992152DF6E17CEF21C517498C4786435 /* MessageListLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageListLayout.swift; sourceTree = "<group>"; };
+		9AE4C5EF525F61F4D8C39B51C61D065E /* ShareExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ShareExtension.entitlements; sourceTree = "<group>"; };
 		9BE87786BD9739541E993DA8915D093D /* ContextBudget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContextBudget.swift; sourceTree = "<group>"; };
 		9D2481DDD3ED8AAF576DA8B06F5F7EE8 /* MTMathUILabel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MTMathUILabel.swift; sourceTree = "<group>"; };
 		9DF1F7FA01630C22FD9E591D42151C35 /* MiniClawEngineWebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MiniClawEngineWebView.swift; sourceTree = "<group>"; };
@@ -726,6 +734,7 @@
 		C1430B08C0843C0CA182B05CE6098BF9 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 		C1F1E2D873370A186C79DCB78F02A0EF /* AnthropicProviderAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnthropicProviderAdapter.swift; sourceTree = "<group>"; };
 		C1F79ED228968E3C08C6CF59ABCBC0C2 /* autolink.c */ = {isa = PBXFileReference; path = autolink.c; sourceTree = "<group>"; };
+		C22A5F9E151163B7977C015F2A45D6AC /* SharedInbox.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedInbox.swift; sourceTree = "<group>"; };
 		C237998B78737D9A763059D16A3DA037 /* ChatModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatModels.swift; sourceTree = "<group>"; };
 		C26131A6798A4E48F2E38256F35E50F0 /* AgentRunService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentRunService.swift; sourceTree = "<group>"; };
 		C2999AA865C276B20870E3D9F99D0357 /* Localizable.xcstrings */ = {isa = PBXFileReference; path = Localizable.xcstrings; sourceTree = "<group>"; };
@@ -912,6 +921,15 @@
 			path = Bridge;
 			sourceTree = "<group>";
 		};
+		0F3C84DE719B1B6ADD6331FC81C1CDFF /* Shared */ = {
+			isa = PBXGroup;
+			children = (
+				8AF4D20F02E724461BBB7B264C51604D /* PendingTaskShare.swift */,
+				C22A5F9E151163B7977C015F2A45D6AC /* SharedInbox.swift */,
+			);
+			path = Shared;
+			sourceTree = "<group>";
+		};
 		12B7D300401E5F8E0556942C6552AB33 /* BundledPlugins */ = {
 			isa = PBXGroup;
 			children = (
@@ -943,6 +961,7 @@
 			children = (
 				8F62A907A69CEFD03950AD009CACC1C1 /* Info.plist */,
 				569ABCDEDAB4FC9E642AF8AA77461123 /* InfoPlist.strings */,
+				9AE4C5EF525F61F4D8C39B51C61D065E /* ShareExtension.entitlements */,
 				E3C51108C251813E5104C31E20FFFB39 /* ShareViewController.swift */,
 				D3E1C288885B8CF49C94E69DA7778FA7 /* Resources */,
 			);
@@ -1266,6 +1285,7 @@
 				83B5E92B329A65A6C2ADB6113A7512C5 /* SessionManager.swift */,
 				B5D194E884A6E3424078BB5F92028382 /* SessionReviewService.swift */,
 				E9D8A00C2D651D5BC5AC6AF9B8F0AF5B /* SettingsStore.swift */,
+				750A64925EF4F1F4E973F2D44A6EB4E9 /* SharedInboxCoordinator.swift */,
 				72D62B0EFBBC5D29C5A487452CAC56E3 /* ShellRuntimeSupport.swift */,
 				EA0032E73661286B4405321FFC1FDC3C /* SkillManager.swift */,
 				14D28177CB2CCD27E2487DEB738A0431 /* SkillModels.swift */,
@@ -1334,6 +1354,7 @@
 				EA1CE80FCAC00978C105899E0FA98EB8 /* MiniClawKit */,
 				FE596C04F3421609D575495D9C5CC0E8 /* MiniClawTests */,
 				CDBD3BA70B124BF75AF6855607B4C60D /* MiniClawWidget */,
+				0F3C84DE719B1B6ADD6331FC81C1CDFF /* Shared */,
 				1F73E1141C89DBF16A6A12EB2C22ECB5 /* ShareExtension */,
 				B4F73D5AEBEAD617DD76551EDF5DEDFB /* src */,
 				3AB7E4481A30A486CADCEE13F2B00B71 /* SwiftMath */,
@@ -1885,7 +1906,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				3E58750C20B28C6710E7352EB1325984 /* PendingTaskShare.swift in Sources */,
 				149559A87BB6BA4EFF0C9BF0DD0A6DC7 /* ShareViewController.swift in Sources */,
+				AEA2CC40A10D816226CD672C8D3BCF20 /* SharedInbox.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2050,6 +2073,7 @@
 				21C9DBF0509503742BDC919CE80DD58C /* OpenAIOAuthManager.swift in Sources */,
 				C8A931AA74B35473C47706857DC6EE77 /* OpenAIProviderAdapter.swift in Sources */,
 				C995449CE0DDF7DDDC9C3E9EE1700023 /* OpenAIStreamDelegate.swift in Sources */,
+				3F93BA09DCA1E2C96B163793B9474329 /* PendingTaskShare.swift in Sources */,
 				2EB5BAF97288CB1AFD77CEF4E1690FC2 /* PermissionManager.swift in Sources */,
 				611FD44F26C5BC8EB7F0A529564732D6 /* PermissionsSettingsViews.swift in Sources */,
 				DE11A77967DF785E5C39DDE04F541FB3 /* PhotosTools.swift in Sources */,
@@ -2087,6 +2111,8 @@
 				747FE1DD562A1E14BF5EBD729EAB0A5F /* SettingsStore.swift in Sources */,
 				5BD0F3C3E661273A60A99BB9AEC4D0D2 /* SettingsView.swift in Sources */,
 				56862B9C71D66A977CAC45F0499849F6 /* SharedFolderSettingsView.swift in Sources */,
+				03E46609E6CEA22A0AE14914CDFEFE09 /* SharedInbox.swift in Sources */,
+				4E18EB48CE44E401FF6C40369861FD73 /* SharedInboxCoordinator.swift in Sources */,
 				CFFE52BC4F177CEEF0A478DF40257EB2 /* ShellRuntimeSupport.swift in Sources */,
 				B721D45324B2BB9C5E42BA01DE6710F9 /* ShellTool.swift in Sources */,
 				105B2D7B9A0E40C6070226E567D3D64A /* SkillLoadTool.swift in Sources */,
@@ -2252,6 +2278,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = ShareExtension/ShareExtension.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = ShareExtension/Info.plist;
@@ -2267,6 +2294,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = ShareExtension/ShareExtension.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = ShareExtension/Info.plist;

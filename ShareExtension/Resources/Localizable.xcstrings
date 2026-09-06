@@ -1,23 +1,6 @@
 {
   "sourceLanguage": "en",
   "strings": {
-    "share_send_title": {
-      "extractionState": "manual",
-      "localizations": {
-        "zh": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "发送给 MiniClaw 执行"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Send to MiniClaw to run"
-          }
-        }
-      }
-    },
     "share_hint": {
       "extractionState": "manual",
       "localizations": {
@@ -35,19 +18,48 @@
         }
       }
     },
-    "share_file_prefix": {
+    "share_hint_with_files": {
       "extractionState": "manual",
       "localizations": {
-        "zh": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "[文件] "
+            "value": "将作为任务派发给 MiniClaw 智能体。附件：%@"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "[File] "
+            "value": "Will be dispatched to the MiniClaw Agent as a task. Attachments: %@"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MiniClaw エージェントにタスクとして送信されます。添付：%@"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MiniClaw 에이전트에 작업으로 전달됩니다. 첨부: %@"
+          }
+        }
+      }
+    },
+    "share_send_title": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "发送给 MiniClaw 执行"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Send to MiniClaw to run"
           }
         }
       }

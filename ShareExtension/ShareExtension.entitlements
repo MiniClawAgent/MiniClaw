@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- 与主 App 同组：分享内容落进共享容器供主 App 消费。
+	     需与开发者后台为 com.neartop.miniclaw.app.shareext 勾选的 App Group 一致。 -->
+	<key>com.apple.security.application-groups</key>
+	<array>
+		<string>group.com.neartop.miniclaw.app</string>
+	</array>
+</dict>
+</plist>

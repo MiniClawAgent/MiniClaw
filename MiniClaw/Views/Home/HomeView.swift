@@ -302,6 +302,8 @@ struct HomeView: View {
             // P1-4：冷启动竞态兜底——若 onOpenURL 早于本 configure 触发（尚无法建会话），
             // 此处重试被推迟的深链派任务。
             appState.retryPendingDeepLink()
+            // 分享收件箱冷启动兜底（SessionManager 此刻才就绪，可安全建会话派发）。
+            SharedInboxCoordinator.shared.drainIfNeeded(reason: "home-appear")
         }
         .task {
             // 轮询 iSH/Alpine 启动状态，供右上角「终端」菜单项启用/置灰判断。

@@ -643,12 +643,21 @@ final class AppState: ObservableObject {
             return false
         }
 
+        // 系统分享收件箱：深链与分享内容同时到达时合并为同一条任务，
+        // 避免同一个用户动作建出两个会话（例如未来开放扩展直跳后）。
+        let shared = SharedInboxCoordinator.shared.take()
+        let mergedPrompt: String = {
+            guard let extra = shared?.text,!extra.isEmpty else { return prompt }
+            return prompt+"\n"+extra
+        }()
+
         self.selectedSession = session
         self.pendingDeepLinkTask = PendingDeepLinkTask(
-            prompt: prompt,
+            prompt: mergedPrompt,
             targetSessionID: session.id,
             xSuccess: xSuccess,
-            xError: xError
+            xError: xError,
+            attachments: shared?.attachments ?? []
         )
         return true
     }

@@ -1,10 +1,30 @@
 import UIKit
+import UniformTypeIdentifiers
 
-/// P1-1 阶段1：Share Extension 入口。
-/// 从系统分享面板接收文本 / URL / 文件，拼成 prompt，经 `miniclaw://task?prompt=`
-/// 深链唤起主 App 直接执行（深链派发逻辑见 P1-4，无需本扩展感知主 App 内部）。
-/// 本 target 为独立模块，仅依赖 UIKit，不引入主 App 代码（扩展不可链接主 App）。
+/// 系统分享入口（Share Extension）。
+///
+/// 关键约束：iOS 上 **Share Extension 无法用 `extensionContext.open` 唤起宿主
+/// App**（官方仅 Today / iMessage 扩展点支持；Share Extension 恒失败且
+/// completion 常不回调——旧实现把 `completeRequest` 写在 completion 里，表现
+/// 就是「点了发送毫无反应、面板也不收起」）。
+///
+/// 现行链路（方法与 OpenMinis 同思路，实现为自有代码）：
+///   扩展：抽取内容 → 文件**复制**进 App Group 共享目录 → 写 PendingTaskShare
+///        → completeRequest（立即收起面板）
+///   主 App：深链 / 冷启动 / 前台激活时读收件箱 → 建会话 → 走既有深链派发
+///        （P1-4）执行
+/// 文件走共享目录实体搬运，绝不下发别的 App 沙盒路径——那种路径主 App 读不到。
 final class ShareViewController: UIViewController {
+
+    private let hintLabel: UILabel = {
+        let l = UILabel()
+        l.text = String(localized: "share_hint")
+        l.font = .systemFont(ofSize: 12)
+        l.textColor = .secondaryLabel
+        l.numberOfLines = 0
+        l.translatesAutoresizingMaskIntoConstraints = false
+        return l
+    }()
 
     private let textView: UITextView = {
         let v = UITextView()
@@ -18,22 +38,16 @@ final class ShareViewController: UIViewController {
 
     private let sendButton: UIButton = {
         let b = UIButton(type: .system)
-        b.setTitle(String(localized: "share_send_title"), for: .normal)
-        b.titleLabel?.font = .systemFont(ofSize: 17, weight: .semibold)
+        b.setTitle(String(localized: "share_send_title"),for: .normal)
+        b.titleLabel?.font = .systemFont(ofSize: 17,weight: .semibold)
         b.translatesAutoresizingMaskIntoConstraints = false
         return b
     }()
 
-    private let hintLabel: UILabel = {
-        let l = UILabel()
-        l.text = String(localized: "share_hint")
-        l.font = .systemFont(ofSize: 12)
-        l.textColor = .secondaryLabel
-        l.translatesAutoresizingMaskIntoConstraints = false
-        return l
-    }()
-
-    private var payload: String = ""
+    /// 随任务一起带过去的附件（共享目录内的文件名）。
+    private var attachmentNames: [String] = []
+    /// 抽取出的正文 / URL（发送前可编辑）。
+    private var extractedText: String = ""
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -43,70 +57,140 @@ final class ShareViewController: UIViewController {
         view.addSubview(textView)
         view.addSubview(sendButton)
         NSLayoutConstraint.activate([
-            hintLabel.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 16),
-            hintLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
-            hintLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
-            textView.topAnchor.constraint(equalTo: hintLabel.bottomAnchor, constant: 12),
-            textView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
-            textView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+            hintLabel.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor,constant: 16),
+            hintLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor,constant: 16),
+            hintLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor,constant: -16),
+            textView.topAnchor.constraint(equalTo: hintLabel.bottomAnchor,constant: 12),
+            textView.leadingAnchor.constraint(equalTo: view.leadingAnchor,constant: 16),
+            textView.trailingAnchor.constraint(equalTo: view.trailingAnchor,constant: -16),
             textView.heightAnchor.constraint(equalToConstant: 160),
-            sendButton.topAnchor.constraint(equalTo: textView.bottomAnchor, constant: 20),
+            sendButton.topAnchor.constraint(equalTo: textView.bottomAnchor,constant: 20),
             sendButton.centerXAnchor.constraint(equalTo: view.centerXAnchor)
         ])
-        sendButton.addTarget(self, action: #selector(sendTapped), for: .touchUpInside)
-        extractPayload { [weak self] text in
-            self?.payload = text
-            self?.textView.text = text
+        sendButton.addTarget(self,action: #selector(sendTapped),for: .touchUpInside)
+
+        let items = (extensionContext?.inputItems as? [NSExtensionItem]) ?? []
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            let (text,names) = await Self.extract(items: items)
+            self.extractedText = text
+            self.attachmentNames = names
+            self.textView.text = text
+            self.hintLabel.text = names.isEmpty
+                ? String(localized: "share_hint")
+                : String(format: String(localized: "share_hint_with_files"),names.joined(separator: "、"))
         }
     }
 
     @objc private func sendTapped() {
-        let text = (textView.text?.trimmingCharacters(in: .whitespacesAndNewlines)).map { $0.isEmpty ? payload : $0 } ?? payload
-        guard let encoded = text.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
-              let url = URL(string: "miniclaw://task?prompt=\(encoded)") else {
-            extensionContext?.completeRequest(returningItems: nil, completionHandler: nil)
-            return
+        let edited = (textView.text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        let prompt = edited.isEmpty ? extractedText : edited
+        var items: [PendingTaskShare.Item] = []
+        if !prompt.isEmpty { items.append(.text(prompt)) }
+        items.append(contentsOf: attachmentNames.map { PendingTaskShare.Item.attachment($0) })
+
+        // 无论成功与否都收起：绝不留一个点不动的死界面。
+        if !items.isEmpty {
+            SharedInbox.save(PendingTaskShare(items: items,timestamp: Date()))
         }
-        // 唤起主 App 处理深链（P1-4）。open 完成后结束扩展。
-        extensionContext?.open(url) { [weak self] _ in
-            // @Sendable 闭包内不能直接访问 main-actor 隔离属性,切回主线程执行。
-            Task { @MainActor in
-                self?.extensionContext?.completeRequest(returningItems: nil, completionHandler: nil)
-            }
-        }
+        extensionContext?.completeRequest(returningItems: nil,completionHandler: nil)
     }
 
-    /// 从 NSExtensionItem 抽取文本 / URL / 文件名，合并为 prompt 草稿。
-    private func extractPayload(completion: @escaping (String) -> Void) {
-        guard let items = extensionContext?.inputItems as? [NSExtensionItem] else { completion(""); return }
-        var result = ""
-        // loadItem 回调可能并发进入,result 写入加锁保护(Swift 6 并发预检)。
-        let lock = NSLock()
-        let group = DispatchGroup()
+    // MARK: - 内容抽取
+
+    /// 抽取分享内容：文本 / 网页 URL 进正文，本地文件与图片复制进共享目录作为附件。
+    /// - Returns: (正文, 附件文件名列表)
+    static func extract(items: [NSExtensionItem]) async -> (String,[String]) {
+        guard SharedInbox.ensureDirectory() else { return ("",[]) }
+        var texts: [String] = []
+        var names: [String] = []
+
         for item in items {
-            for att in item.attachments ?? [] {
-                let handlers: [(String, @Sendable (Any?) -> String?)] = [
-                    ("public.plain-text", { $0 as? String }),
-                    ("public.url", { ($0 as? URL)?.absoluteString }),
-                    ("public.file-url", { ($0 as? URL)?.lastPathComponent })
-                ]
-                for (type, map) in handlers {
-                    if att.hasItemConformingToTypeIdentifier(type) {
-                        group.enter()
-                        att.loadItem(forTypeIdentifier: type, options: nil) { data, _ in
-                            if let s = map(data) {
-                                lock.lock()
-                                result += (type == "public.file-url" ? String(localized: "share_file_prefix") : "") + s + "\n"
-                                lock.unlock()
-                            }
-                            group.leave()
-                        }
+            for provider in item.attachments ?? [] {
+                if provider.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier),
+                   let loaded = try? await provider.loadItem(forTypeIdentifier: UTType.fileURL.identifier),
+                   let url = loaded as? URL {
+                    if let n = copyToShared(from: url) { names.append(n) }
+                    continue
+                }
+                if provider.hasItemConformingToTypeIdentifier(UTType.url.identifier),
+                   let loaded = try? await provider.loadItem(forTypeIdentifier: UTType.url.identifier),
+                   let url = loaded as? URL {
+                    // file:// 是本地文件 → 附件；网页 URL → 正文。
+                    if url.isFileURL {
+                        if let n = copyToShared(from: url) { names.append(n) }
+                    } else {
+                        texts.append(url.absoluteString)
+                    }
+                    continue
+                }
+                if provider.hasItemConformingToTypeIdentifier(UTType.plainText.identifier),
+                   let loaded = try? await provider.loadItem(forTypeIdentifier: UTType.plainText.identifier),
+                   let text = loaded as? String {
+                    texts.append(text)
+                    continue
+                }
+                if provider.hasItemConformingToTypeIdentifier(UTType.image.identifier),
+                   let loaded = try? await provider.loadItem(forTypeIdentifier: UTType.image.identifier) {
+                    if let n = saveImage(loaded) { names.append(n) }
+                    continue
+                }
+                if provider.hasItemConformingToTypeIdentifier(UTType.data.identifier),
+                   let loaded = try? await provider.loadItem(forTypeIdentifier: UTType.data.identifier) {
+                    if let url = loaded as? URL {
+                        if let n = copyToShared(from: url) { names.append(n) }
+                    } else if let data = loaded as? Data,
+                              let n = save(data: data,suggestedName: item.attributedTitle?.string) {
+                        names.append(n)
                     }
                 }
             }
         }
-        group.notify(queue: .main) {
-            completion(result.trimmingCharacters(in: .whitespacesAndNewlines))
+        return (texts.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines),names)
+    }
+
+    /// 复制本地文件到共享目录（UUID 前缀防重名冲突）。跨沙盒必须先取得
+    /// 安全作用域访问权，否则读不到别的 App / File Provider 提供的文件。
+    static func copyToShared(from url: URL) -> String? {
+        guard let dir = SharedInbox.fileDirectory else { return nil }
+        let accessed = url.startAccessingSecurityScopedResource()
+        defer { if accessed { url.stopAccessingSecurityScopedResource() } }
+        let fileName = "shared-\(UUID().uuidString.prefix(8))_\(url.lastPathComponent)"
+        do {
+            try FileManager.default.copyItem(at: url,to: dir.appendingPathComponent(fileName))
+            return fileName
+        } catch {
+            NSLog("[ShareExt] copy failed: \(error)")
+            return nil
+        }
+    }
+
+    private static func saveImage(_ loaded: Any) -> String? {
+        let image: UIImage?
+        if let img = loaded as? UIImage {
+            image = img
+        } else if let data = loaded as? Data {
+            image = UIImage(data: data)
+        } else if let url = loaded as? URL,let data = try? Data(contentsOf: url) {
+            image = UIImage(data: data)
+        } else {
+            image = nil
+        }
+        guard let image,let data = image.jpegData(compressionQuality: 0.85) else { return nil }
+        return save(data: data,suggestedName: nil,ext: "jpg")
+    }
+
+    private static func save(data: Data,suggestedName: String?,ext: String = "bin") -> String? {
+        guard let dir = SharedInbox.fileDirectory else { return nil }
+        let base = (suggestedName?.isEmpty == false)
+            ? (suggestedName! as NSString).deletingPathExtension : "shared"
+        let fileName = "\(base)-\(UUID().uuidString.prefix(8)).\(ext)"
+        do {
+            try data.write(to: dir.appendingPathComponent(fileName))
+            return fileName
+        } catch {
+            NSLog("[ShareExt] write failed: \(error)")
+            return nil
         }
     }
 }

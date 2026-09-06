@@ -97,6 +97,11 @@ struct MiniClawApp: App {
                     switch newPhase {
                     case .active:
                         desc = "Active"
+                        // 分享收件箱兜底：Share Extension 无法唤起主 App（平台限制），
+                        // 内容落在 App Group，这里在回前台 / 冷启动时取出派发。
+                        Task { @MainActor in
+                            SharedInboxCoordinator.shared.drainIfNeeded(reason: "scene-active")
+                        }
                         // 回前台：OAuth 服务商 令牌 过期自动续期（内存回填，不落盘）。
                         Task { await AppState.shared.refreshOAuthTokensIfNeeded() }
                         // 回前台（用户点 PiP 进入 / 从桌面进入）：判断任务完成状态——

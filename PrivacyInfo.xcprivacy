@@ -156,7 +156,10 @@
             <string>NSPrivacyAccessedAPICategoryUserDefaults</string>
             <key>NSPrivacyAccessedAPITypeReasons</key>
             <array>
-                <string>CA92.1</string>
+                <!-- 1C8F.1：读取本 App 自己的 UserDefaults（含 App Group 共享容器，
+                     系统分享收件箱用 UserDefaults(suiteName:) 传递分享内容）。
+                     跨 App Group 共享后不再适用 CA92.1（那个只覆盖同一 App 内）。 -->
+                <string>1C8F.1</string>
             </array>
         </dict>
         <dict>
