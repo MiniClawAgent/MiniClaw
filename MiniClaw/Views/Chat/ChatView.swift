@@ -680,58 +680,67 @@ struct ChatView: View {
     /// 语义,独立于输入栏测高(列表 bottomInset = inputBarHeight + floatingBarHeight + 8)。
     @ViewBuilder
     private var floatingContent: some View {
-        // 「回到底部」按钮已按用户要求从源码剔除(2026-08-10)。
+        // 显式 VStack 容器（2026-09-06 悬浮条遮挡修复）：
+        // 修饰符挂在 @ViewBuilder 的 Group 上会**逐子视图**应用——
+        // onGeometryChange 测到的是单个子视图（最后上报者）的高度，
+        // 而非排队框 + 胶囊条的总高 → 列表底部预留缺了排队框那截，
+        // 流式页脚（回复中）被排队框压在半透明材质后面。
+        // 包一层 VStack 后测高量到总高，随任一子条出现/消失正确增减。
+        // 注意：spacing 必须为 0——子条自带 bottom padding，保持既有间距。
+        VStack(spacing: 0) {
+            // 「回到底部」按钮已按用户要求从源码剔除(2026-08-10)。
 
-        // 添加密钥引导:用户未配置任何服务商密钥时显示在输入框上方(2026-08-11 用户需求)。
-        // 点击 → 打开服务商页面 + 申请网络/本地网络权限(照设置页先例,拒绝不闪退)。
-        // 已配置任意服务商(apiKey/OAuth/Keychain)后自动消失。
-        if !appState.hasAnyConfiguredProvider {
-            addKeyBanner
-        }
+            // 添加密钥引导:用户未配置任何服务商密钥时显示在输入框上方(2026-08-11 用户需求)。
+            // 点击 → 打开服务商页面 + 申请网络/本地网络权限(照设置页先例,拒绝不闪退)。
+            // 已配置任意服务商(apiKey/OAuth/Keychain)后自动消失。
+            if !appState.hasAnyConfiguredProvider {
+                addKeyBanner
+            }
 
-        // 排队消息:显示在输入框上方悬浮层(2026-08-10 用户要求,
-        // 不再注入消息列表内容里)。每条含删除叉 + 立即发送按钮。
-        let queue = pendingMessages
-        if !queue.isEmpty {
-            VStack(alignment: .leading, spacing: 4) {
-                ForEach(queue) { item in
-                    queuedMessageRow(item)
+            // 排队消息:显示在输入框上方悬浮层(2026-08-10 用户要求,
+            // 不再注入消息列表内容里)。每条含删除叉 + 立即发送按钮。
+            let queue = pendingMessages
+            if !queue.isEmpty {
+                VStack(alignment: .leading, spacing: 4) {
+                    ForEach(queue) { item in
+                        queuedMessageRow(item)
+                    }
                 }
+                .padding(.horizontal, 16)
+                .padding(.bottom, 4)
             }
-            .padding(.horizontal, 16)
-            .padding(.bottom, 4)
-        }
 
-        // 子代理：在输入框上方悬浮显示圆形头像（常驻，任务完成后也不消失）。
-        // 点按头像从底部弹出「智能体 ↔ 子代理」对话详情页（下滑返回）；
-        // 长按头像可移除该子代理卡片。
-        let subs = subagentStore.avatars(for: session.id)
-        if !subs.isEmpty {
-            subagentFloatingAvatars(subs)
-        }
-
-        // 附件交由 智能体通过工具读取时的中性提示：
-        // - 与输入栏左右对齐（同样的 16pt 外边距 + 12pt 内边距、左对齐）
-        // - 用户可点按整条提示立即关闭（同时保留 5 秒后自动消失）
-        if let notice = attachmentNotice {
-            HStack(spacing: 6) {
-                Image(systemName: "info.circle.fill")
-                    .font(.caption)
-                    .foregroundStyle(.blue)
-                Text(notice)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
+            // 子代理：在输入框上方悬浮显示圆形头像（常驻，任务完成后也不消失）。
+            // 点按头像从底部弹出「智能体 ↔ 子代理」对话详情页（下滑返回）；
+            // 长按头像可移除该子代理卡片。
+            let subs = subagentStore.avatars(for: session.id)
+            if !subs.isEmpty {
+                subagentFloatingAvatars(subs)
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
-            .padding(.horizontal, 16)
-            .padding(.bottom, 4)
-            .contentShape(Rectangle())
-            .onTapGesture { withAnimation { attachmentNotice = nil } }
-            .transition(.move(edge: .bottom).combined(with: .opacity))
+
+            // 附件交由 智能体通过工具读取时的中性提示：
+            // - 与输入栏左右对齐（同样的 16pt 外边距 + 12pt 内边距、左对齐）
+            // - 用户可点按整条提示立即关闭（同时保留 5 秒后自动消失）
+            if let notice = attachmentNotice {
+                HStack(spacing: 6) {
+                    Image(systemName: "info.circle.fill")
+                        .font(.caption)
+                        .foregroundStyle(.blue)
+                    Text(notice)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
+                .padding(.horizontal, 16)
+                .padding(.bottom, 4)
+                .contentShape(Rectangle())
+                .onTapGesture { withAnimation { attachmentNotice = nil } }
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
         }
     }
 
