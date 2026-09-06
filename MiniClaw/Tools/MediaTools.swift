@@ -1,6 +1,7 @@
 import Foundation
 import UIKit
 import PDFKit
+import Vision
 
 /// 读取图片并以 base64 返回，供支持原生视觉输入的模型直接「看图」。
 ///
@@ -90,6 +91,11 @@ struct VisionAnalyzeTool: AgentTool {
                 type: "object",
                 properties: [
                     "path": JSONSchema.JSONProperty(type: "string", description: String(localized: "param_image_path")),
+                    "mode": JSONSchema.JSONProperty(
+                        type: "string",
+                        description: String(localized: "apple_vision_param_mode"),
+                        enum: ["analyze", "text_coords"]
+                    ),
                 ],
                 required: ["path"]
             )
@@ -115,6 +121,19 @@ struct VisionAnalyzeTool: AgentTool {
             resolvedPath = path
         }
 
+        // mode=text_coords：逐文字带像素坐标（GUI 自动化点击定位用）。
+        // Vision 框架天然返回每个文字块的 boundingBox——内置此能力后，
+        // AI 不再需要每次现写 Swift OCR 脚本并 scp 传输到目标机。
+        let mode = (parameters["mode"] as? String) ?? "analyze"
+        if mode == "text_coords" {
+            let text = try await Self.coordinateOCR(imagePath: resolvedPath)
+            return ToolResult(
+                success: true,
+                text: (text.isEmpty ? String(localized: "no_output") : text)
+                    + "\n" + String(localized: "apple_vision_coords_note")
+            )
+        }
+
         let result = await VisionAnalyzer.shared.analyze(imageAt: resolvedPath)
 
         if let error = result.error {
@@ -126,6 +145,36 @@ struct VisionAnalyzeTool: AgentTool {
             success: true,
             text: result.formattedText()
         )
+    }
+
+    /// 逐文字 OCR + 像素坐标（图像左上原点）。 VNRecognizeTextRequest 的
+    /// boundingBox 为归一化（左下原点），换算为像素与左上原点坐标。
+    private static func coordinateOCR(imagePath: String) async throws -> String {
+        guard let image = UIImage(contentsOfFile: imagePath),
+              let cg = image.cgImage else {
+            throw ToolError.invalidParameters(String(localized: "core_image_decode_failed"))
+        }
+        let w = CGFloat(cg.width), h = CGFloat(cg.height)
+        return await withCheckedContinuation { (cont: CheckedContinuation<String, Never>) in
+            let request = VNRecognizeTextRequest { req, _ in
+                guard let obs = req.results as? [VNRecognizedTextObservation] else {
+                    cont.resume(returning: ""); return
+                }
+                var lines: [String] = []
+                for o in obs {
+                    guard let c = o.topCandidates(1).first else { continue }
+                    let b = o.boundingBox
+                    let cx = Int(b.midX * w)
+                    let cy = Int((1.0 - b.midY) * h)
+                    lines.append("\(c.string) @ (\(cx),\(cy)) box=\(Int(b.width * w))x\(Int(b.height * h))")
+                }
+                cont.resume(returning: lines.joined(separator: "\n"))
+            }
+            request.recognitionLevel = .accurate
+            request.recognitionLanguages = ["zh-Hans", "en-US"]
+            let handler = VNImageRequestHandler(cgImage: cg, options: [:])
+            try? handler.perform([request])
+        }
     }
 }
 

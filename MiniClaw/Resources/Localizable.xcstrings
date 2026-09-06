@@ -3664,28 +3664,28 @@
     "apple_image_tool_desc": {
       "extractionState": "manual",
       "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "读取图片并作为图像附给模型直接「看」。适用于：判断界面/截图状态、描述画面内容、找界面元素位置——读取后图片直接附在消息后，看一眼即可，无需再调 OCR。注意：本工具不返回文字坐标；GUI 自动化需要精确像素坐标点击时，改用 apple-vision（mode=text_coords）。"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Read an image file and return base64-encoded data for LLM vision analysis. Supports png/jpg/gif/webp. path can be a /var/MiniClaw/... absolute path, or a miniclaw://browser/... link returned by the browser tool's screenshot/fetch (auto-converted)."
+            "value": "Read an image and attach it for vision-capable models to view directly. Use for: judging UI/screenshot state, describing scenes, locating on-screen elements — the image is attached to the message right after reading, just look at it (no OCR needed). Note: this tool does not return text coordinates; for precise pixel coordinates in GUI automation use apple-vision (mode=text_coords)."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "画像ファイルを読み取り、LLM の視覚分析用 base64 データを返します。png/jpg/gif/webp に対応。path は /var/MiniClaw/... の絶対パス、またはブラウザツールの screenshot/fetch が返した miniclaw://browser/... リンク（自動変換）も可。"
+            "value": "画像を読み込み、視覚対応モデルが直接「見る」ために添付します。画面/スクリーンショットの状態判断・描写・要素位置の確認に使用。読み込み後は画像がメッセージに添付されるため、そのまま見ればよく OCR は不要です。注意：テキスト座標は返しません。GUI 自動化の正確なピクセル座標には apple-vision（mode=text_coords）を使用。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "이미지 파일을 읽어 LLM 비전 분석용 base64 데이터를 반환합니다. png/jpg/gif/webp 지원. path는 /var/MiniClaw/... 절대 경로 또는 브라우저 도구의 screenshot/fetch가 반환한 miniclaw://browser/... 링크(자동 변환)도 가능."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "读取图片文件，返回 base64 编码用于 LLM 视觉分析。支持 png/jpg/gif/webp。path 可为 /var/MiniClaw/... 绝对路径，或浏览器工具截图/fetch 返回的 miniclaw://browser/... 链接（会自动转换）。"
+            "value": "이미지를 읽어 시각 지원 모델이 직접 \"보도록\" 첨부합니다. 화면/스크린샷 상태 판단, 장면 묘사, 요소 위치 확인에 사용 — 읽으면 이미지가 메시지에 첨부되어 그대로 보면 되며 OCR이 불필요합니다. 참고: 텍스트 좌표는 반환하지 않습니다. GUI 자동화의 정확한 픽셀 좌표는 apple-vision(mode=text_coords)을 사용하세요."
           }
         }
       }
@@ -4038,31 +4038,89 @@
         }
       }
     },
-    "apple_vision_tool_desc": {
+    "apple_vision_coords_note": {
       "extractionState": "manual",
       "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "坐标为图像像素（左上原点）。若截图是目标屏幕的裁剪/缩放版，请按裁剪偏移与缩放比例换算回目标屏幕坐标。"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Analyze images locally with the Apple Vision framework; no network needed. Recognizes scene/object classification, text content (OCR), face count, etc. When the user sends an image but the current model has no native vision input, prefer calling this tool to understand the image. Supports jpg/png/gif/webp/heic and other common formats. path can be a /var/MiniClaw/... absolute path, or a miniclaw://browser/... link returned by the browser tool's screenshot/fetch (auto-converted)."
+            "value": "Coordinates are image pixels (top-left origin). If the screenshot is a cropped/scaled view of the target screen, map back to target screen coordinates using the crop offset and scale."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "Apple Vision フレームワークで画像をローカル分析します（ネットワーク不要）。シーン/物体の分類、テキスト内容（OCR）、顔の数などを認識できます。ユーザーが画像を送ったが現在のモデルがネイティブの視覚入力に対応していない場合は、画像内容を理解するため本ツールの呼び出しを優先してください。jpg/png/gif/webp/heic などの一般フォーマットに対応。path は /var/MiniClaw/... の絶対パス、またはブラウザツールの screenshot/fetch が返した miniclaw://browser/... リンク（自動変換）も可。"
+            "value": "座標は画像ピクセル（左上原点）。スクリーンショットが対象画面の切り出し/拡縮の場合、オフセットと倍率で画面座標に変換してください。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "Apple Vision 프레임워크로 이미지를 로컬 분석합니다(네트워크 불필요). 장면/물체 분류, 텍스트 내용(OCR), 얼굴 수 등을 인식할 수 있습니다. 사용자가 이미지를 보냈지만 현재 모델이 네이티브 비전 입력을 지원하지 않으면 이미지 내용을 이해하기 위해 이 도구 호출을 우선하세요. jpg/png/gif/webp/heic 등 일반 형식 지원. path는 /var/MiniClaw/... 절대 경로 또는 브라우저 도구의 screenshot/fetch가 반환한 miniclaw://browser/... 링크(자동 변환)도 가능."
+            "value": "좌표는 이미지 픽셀(좌상단 원점)입니다. 스크린샷이 대상 화면의 잘린/확대 버전이면 오프셋과 배율로 화면 좌표로 변환하세요."
           }
-        },
+        }
+      }
+    },
+    "apple_vision_param_mode": {
+      "extractionState": "manual",
+      "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "使用 Apple Vision 框架本地分析图片，无需网络。可识别图片中的场景/物体分类、文字内容(OCR)、人脸数量等。当用户发送了图片但当前模型不支持原生视觉输入时，应优先调用此工具来理解图片内容。支持 jpg/png/gif/webp/heic 等常见格式。path 可为 /var/MiniClaw/... 绝对路径，或浏览器工具截图/fetch 返回的 miniclaw://browser/... 链接（会自动转换）。"
+            "value": "分析模式：analyze（分类+OCR 文本+人脸，默认）；text_coords（逐文字像素坐标，GUI 自动化点击定位用）"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Analysis mode: analyze (classification + OCR text + faces, default); text_coords (per-text pixel coordinates, for GUI automation click targeting)"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "解析モード：analyze（分類+OCR テキスト+顔、既定）；text_coords（テキストごとのピクセル座標、GUI 自動化のクリック位置特定用）"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "분석 모드: analyze(분류+OCR 텍스트+얼굴, 기본값); text_coords(텍스트별 픽셀 좌표, GUI 자동화 클릭 위치 확인용)"
+          }
+        }
+      }
+    },
+    "apple_vision_tool_desc": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apple Vision 本地分析图片。mode=analyze：场景分类 + OCR 文本 + 人脸（无坐标，适合了解图片大致内容）；mode=text_coords：逐文字返回像素坐标（\"文字 @ (x,y)\"，图像左上原点）——GUI 自动化点击定位用。分工建议：判断界面状态/描述画面直接用 apple-image 看图；需要文字内容与精确坐标时用本工具。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apple Vision on-device analysis. mode=analyze: scene classification + OCR text + faces (no coordinates, good for a rough idea of the image); mode=text_coords: per-text pixel coordinates (\"text @ (x,y)\", top-left origin) — for GUI automation click targeting. Division of labor: to judge UI state or describe the scene use apple-image (view directly); use this tool when you need text content with precise coordinates."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apple Vision のオンデバイス解析。mode=analyze：シーン分類 + OCR テキスト + 顔（座標なし、画像の概要把握向け）；mode=text_coords：テキストごとにピクセル座標を返す（\"文字 @ (x,y)\"、左上原点）——GUI 自動化のクリック位置特定用。使い分け：画面状態の判断・描写は apple-image で直接画像を見て、テキスト内容と正確な座標が必要なときに本ツールを使用。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apple Vision 온디바이스 분석. mode=analyze: 장면 분류 + OCR 텍스트 + 얼굴(좌표 없음, 이미지 개요 파악용); mode=text_coords: 텍스트별 픽셀 좌표 반환(\"텍스트 @ (x,y)\", 좌상단 원점) — GUI 자동화 클릭 위치 확인용. 역할 구분: 화면 상태 판단·장면 묘사는 apple-image로 직접 보고, 텍스트 내용과 정확한 좌표가 필요할 때 이 도구를 사용하세요."
           }
         }
       }
@@ -12393,28 +12451,28 @@
     "core_image_read": {
       "extractionState": "manual",
       "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "✅ 图片已附在本消息后（%d x %d px）——可直接查看图像内容（判断界面状态、描述画面、找界面元素）。仅当需要精确像素坐标（如点击定位）时，才用 apple-vision 的 text_coords 模式。"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Image read (%ldx%ld)"
+            "value": "✅ Image attached with this message (%d x %d px) — view it directly to judge UI state, describe the scene, or locate elements. Only use apple-vision text_coords mode when you need precise pixel coordinates (e.g. click targeting)."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "画像を読み込みました (%ldx%ld)"
+            "value": "✅ 画像はこのメッセージに添付済み（%d x %d px）——画面状態の判断や描写は直接ご覧ください。正確なピクセル座標（クリック位置）が必要な場合のみ apple-vision の text_coords を使用。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "이미지 읽기 완료 (%ldx%ld)"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "图片已读取 (%ldx%ld)"
+            "value": "✅ 이미지가 이 메시지에 첨부되었습니다(%d x %d px) — 화면 상태 판단·장면 묘사·요소 찾기는 직접 보세요. 정확한 픽셀 좌표(클릭 위치)가 필요할 때만 apple-vision의 text_coords를 사용하세요."
           }
         }
       }
@@ -29912,25 +29970,25 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "（以上是工具返回的截图/图片，已随本消息附上，请直接查看图像内容；需要精确像素坐标用于点击时，再用 apple-vision 的带坐标 OCR。）"
+            "value": "（以上是工具返回的截图/图片，已随本消息附上——判断界面状态、描述画面直接看图即可，无需 OCR；仅当需要精确像素坐标进行点击时，才用 apple-vision 的 text_coords 模式。）"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "(The screenshot/image returned by the tool is attached with this message — view the image directly; use apple-vision coordinate OCR only when you need precise pixel coordinates for clicking.)"
+            "value": "(The screenshot/image returned by the tool is attached with this message — to judge UI state or describe the scene just view it directly, no OCR needed; only use apple-vision text_coords mode when you need precise pixel coordinates for clicking.)"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "（ツールが返したスクリーンショット/画像はこのメッセージに添付済みです。画像を直接確認してください。クリック用の正確なピクセル座標が必要な場合のみ apple-vision の座標付き OCR を使用。）"
+            "value": "（ツールが返したスクリーンショット/画像はこのメッセージに添付済み——画面状態の判断や描写は直接ご覧ください。OCR は不要です。クリック用の正確なピクセル座標が必要な場合のみ apple-vision の text_coords を使用。）"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "(도구가 반환한 스크린샷/이미지가 이 메시지에 첨부되어 있습니다. 이미지를 직접 확인하세요. 클릭용 정확한 픽셀 좌표가 필요할 때만 apple-vision의 좌표 OCR을 사용하세요.)"
+            "value": "(도구가 반환한 스크린샷/이미지가 이 메시지에 첨부되어 있습니다 — 화면 상태 판단이나 장면 묘사는 그대로 보면 되며 OCR이 불필요합니다. 클릭용 정확한 픽셀 좌표가 필요할 때만 apple-vision의 text_coords 모드를 사용하세요.)"
           }
         }
       }
