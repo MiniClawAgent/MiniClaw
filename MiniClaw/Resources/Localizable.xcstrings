@@ -22598,6 +22598,35 @@
         }
       }
     },
+    "health_empty_result": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "该时间范围内没有健康数据（可能未记录，或读取权限未获授权）。可换其他时间范围或其他指标继续。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No health data in this range (not recorded, or read access not granted). Try another range or metric."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この期間の健康データがありません（未記録、または読み取り権限が未許可）。別の期間や指標でお試しください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "해당 기간에 건강 데이터가 없습니다(기록되지 않았거나 읽기 권한 미허용). 다른 기간이나 지표로 시도하세요."
+          }
+        }
+      }
+    },
     "health_label_7d": {
       "extractionState": "manual",
       "localizations": {
@@ -22685,31 +22714,31 @@
         }
       }
     },
-    "health_no_data": {
+    "health_metrics_required": {
       "extractionState": "manual",
       "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "range_report 需要 metrics 数组，如 [\"step_count\",\"sleep\"]"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "No health data found for this range, or read permission was not granted."
+            "value": "range_report requires a metrics array, e.g. [\"step_count\",\"sleep\"]"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "この期間にヘルスデータがない、または読み取り権限が許可されていません。"
+            "value": "range_report には metrics 配列が必要です。例: [\"step_count\",\"sleep\"]"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "해당 기간에 건강 데이터가 없거나 읽기 권한이 허용되지 않았습니다."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "该时间范围内没有健康数据，或读取权限未获授权。"
+            "value": "range_report에는 metrics 배열이 필요합니다. 예: [\"step_count\",\"sleep\"]"
           }
         }
       }
@@ -22720,25 +22749,25 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Action: summary (today/7-day overview), query (raw samples), write (add one sample), delete (remove samples this app wrote), types (list supported metrics), workouts (list workouts), characteristic (biological sex / blood type / birth year)."
+            "value": "Action: summary (today/7-day overview), query (raw samples), write (add one sample), delete (remove samples this app wrote), types (list supported metrics), workouts (list workouts), characteristic (biological sex / blood type / birth year)., range_report (multi-metric daily report: metrics array + any range in one call — always use this for multi-day analysis)"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "操作種別：summary（今日と直近7日の概要）、query（生サンプルの照会）、write（サンプルを1件書き込み）、delete（このアプリが書き込んだサンプルを削除）、types（対応指標の一覧）、workouts（ワークアウト一覧）、characteristic（生物学的性別／血液型／生年）。"
+            "value": "操作種別：summary（今日と直近7日の概要）、query（生サンプルの照会）、write（サンプルを1件書き込み）、delete（このアプリが書き込んだサンプルを削除）、types（対応指標の一覧）、workouts（ワークアウト一覧）、characteristic（生物学的性別／血液型／生年）。, range_report（複数指標の日別レポート：metrics 配列＋任意の期間を1回で取得。複数日の分析には必須）"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "동작 유형: summary(오늘/최근 7일 요약), query(원본 샘플 조회), write(샘플 1건 기록), delete(이 앱이 기록한 샘플 삭제), types(지원 지표 목록), workouts(운동 기록 목록), characteristic(생물학적 성별/혈액형/출생 연도)."
+            "value": "동작 유형: summary(오늘/최근 7일 요약), query(원본 샘플 조회), write(샘플 1건 기록), delete(이 앱이 기록한 샘플 삭제), types(지원 지표 목록), workouts(운동 기록 목록), characteristic(생물학적 성별/혈액형/출생 연도)., range_report(다중 지표 일별 보고서: metrics 배열 + 임의 기간을 한 번에 조회. 여러 날 분석에 필수)"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "操作类型：summary（今日与近 7 天概览）、query（查询原始样本）、write（写入一条样本）、delete（删除本 App 写入的样本）、types（列出支持的指标）、workouts（列出运动记录）、characteristic（生理性别/血型/出生年份）。"
+            "value": "操作类型：summary（今日与近 7 天概览）、query（查询原始样本）、write（写入一条样本）、delete（删除本 App 写入的样本）、types（列出支持的指标）、workouts（列出运动记录）、characteristic（生理性别/血型/出生年份）。、range_report（多指标逐日报表：metrics 数组 + 任意区间，一次取回，分析多天数据必须用它）"
           }
         }
       }
@@ -22884,6 +22913,35 @@
           "stringUnit": {
             "state": "translated",
             "value": "指标名，如 step_count、heart_rate、sleep。不确定时用 action=types 列出全部支持的指标。"
+          }
+        }
+      }
+    },
+    "health_param_metrics": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "指标 key 数组（配合 action=range_report 一次取回多指标的逐日数据），如 [\"step_count\",\"sleep\"]。不确定 key 时先用 action=types 查。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Array of metric keys (with action=range_report to fetch daily data for multiple metrics at once), e.g. [\"step_count\",\"sleep\"]. Use action=types to list valid keys."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "指標キーの配列（action=range_report と組み合わせて複数指標の日別データを一括取得）。例: [\"step_count\",\"sleep\"]。キーが不明な場合は action=types で確認。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "지표 key 배열(action=range_report와 함께 여러 지표의 일별 데이터를 한 번에 조회), 예: [\"step_count\",\"sleep\"]. key를 모르면 action=types로 확인."
           }
         }
       }
@@ -23058,6 +23116,35 @@
           "stringUnit": {
             "state": "translated",
             "value": "%@ — %@ 条样本："
+          }
+        }
+      }
+    },
+    "health_range_too_long": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "单次 range_report 最多查询 90 天，请缩小时间范围"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "range_report supports at most 90 days per call. Narrow the date range."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "range_report は1回最大90日です。期間を狭めてください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "range_report는 한 번에 최대 90일입니다. 기간을 좁혀 주세요."
           }
         }
       }

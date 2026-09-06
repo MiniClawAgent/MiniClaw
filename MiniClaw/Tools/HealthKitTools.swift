@@ -142,7 +142,12 @@ struct AppleHealthKitTool: AgentTool {
                     "action": JSONSchema.JSONProperty(
                         type: "string",
                         description: String(localized: "health_param_action"),
-                        enum: ["summary", "query", "write", "delete", "types", "workouts", "characteristic"]
+                        enum: ["summary", "query", "range_report", "write", "delete", "types", "workouts", "characteristic"]
+                    ),
+                    "metrics": JSONSchema.JSONProperty(
+                        type: "array",
+                        description: String(localized: "health_param_metrics"),
+                        items: JSONSchema(type: "string")
                     ),
                     "metric": JSONSchema.JSONProperty(
                         type: "string",
@@ -198,6 +203,7 @@ struct AppleHealthKitTool: AgentTool {
         case "types":         return typesAction()
         case "summary":       return await summaryAction()
         case "query":         return await queryAction(parameters)
+        case "range_report":  return await rangeReportAction(parameters)
         case "write":         return await writeAction(parameters)
         case "delete":        return await deleteAction(parameters)
         case "workouts":      return await workoutsAction(parameters)
@@ -292,11 +298,17 @@ struct AppleHealthKitTool: AgentTool {
                 return ToolResult(success: true,
                                   text: "\(label) \(def.key) (\(shortISO(start)) ~ \(shortISO(end))): \(formatValue(value, def: def))")
             }
-            return failure(String(localized: "health_no_data"))
+            // [B] 「区间无数据」是正常空结果而非工具故障：以 success=false 返回会进
+        // 熔断计数（连续同签名失败 → 中断整个分析）。改为成功 + 明确提示，
+        // 让模型跳过该天/该指标继续。
+        return ToolResult(success: true,text: String(localized: "health_empty_result"))
         }
 
         let samples = await fetchSamples(def, start: start, end: end, limit: limit)
-        guard !samples.isEmpty else { return failure(String(localized: "health_no_data")) }
+        guard !samples.isEmpty else { // [B] 「区间无数据」是正常空结果而非工具故障：以 success=false 返回会进
+        // 熔断计数（连续同签名失败 → 中断整个分析）。改为成功 + 明确提示，
+        // 让模型跳过该天/该指标继续。
+        return ToolResult(success: true,text: String(localized: "health_empty_result")) }
         // 格式符纪律：%@ 只接受对象/String，Int 必须显式转字符串——
         // 实测 String(format: "%@", intValue) 编译通过但运行期 SIGSEGV（编译器不校验格式符）。
         var lines: [String] = [String(format: String(localized: "health_query_header"), def.key, String(samples.count))]
@@ -305,6 +317,129 @@ struct AppleHealthKitTool: AgentTool {
             lines.append(String(localized: "health_result_truncated"))
         }
         return ToolResult(success: true, text: lines.joined(separator: "\n"))
+    }
+
+    // MARK: action - range_report
+
+    /// 批量逐日报表：`metrics: [step_count, sleep, ...]` + 任意区间 →
+    /// 一次调用返回「指标 × 天」矩阵。把「分析一周数据」从十几次逐日调用
+    /// 压成一次（模型逐日手滑笔误、熔断中断的土壤即在此）。
+    /// - quantity 类：HKStatisticsCollectionQuery 按天聚合（HealthKit 原生
+    ///   逐日统计接口，单次查询拿整段）；
+    /// - category 类（睡眠/正念）：按天统计与该日**重叠**的样本时长，归属
+    ///   「醒来那天」（endDate 所在日），跨午夜不双计；
+    /// - 无数据的日子显式输出 `-`，让模型知道「这天存在但没记录」，而不是
+    ///   误判为调用失败。
+    private func rangeReportAction(_ parameters: [String: Any]) async -> ToolResult {
+        let keys = Self.metricKeys(from: parameters["metrics"])
+        guard !keys.isEmpty else { return failure(String(localized: "health_metrics_required")) }
+        let defs = keys.compactMap { HealthMetrics.byKey[$0] }
+        guard !defs.isEmpty else {
+            return failure(String(format: String(localized: "health_type_unsupported"),
+                                  HealthMetrics.all.map(\.key).joined(separator: ", ")))
+        }
+        let (start,end,rangeError) = resolveRange(parameters)
+        if let rangeError { return failure(rangeError) }
+
+        let cal = Calendar.current
+        let dayCount = (cal.dateComponents([.day],from: cal.startOfDay(for: start),to: cal.startOfDay(for: end)).day ?? 0)+1
+        guard dayCount <= 90 else { return failure(String(localized: "health_range_too_long")) }
+
+        await requestReadAccess(for: defs.map(\.objectType))
+
+        var sections: [String] = []
+        for def in defs {
+            var dayLines: [String] = []
+            if def.isDurationCategory {
+                var day = cal.startOfDay(for: start)
+                let lastDay = cal.startOfDay(for: end)
+                while day <= lastDay {
+                    let dayEnd = day.addingTimeInterval(86_399)
+                    let seconds = await categoryDuration(def,start: day,end: dayEnd)
+                    dayLines.append("\(Self.dayLabel(day)): \(Self.durationText(seconds))")
+                    day = cal.date(byAdding: .day,value: 1,to: day)!
+                }
+            } else if let daily = await dailyStatistics(def,start: start,end: end) {
+                for (day,value) in daily {
+                    dayLines.append("\(Self.dayLabel(day)): \(value.map { formatValue($0,def: def) } ?? "-")")
+                }
+            }
+            guard !dayLines.isEmpty else { continue }
+            var section = "\(def.key) (\(shortISO(start)) ~ \(shortISO(end))):"
+            section += "\n" + dayLines.joined(separator: "\n")
+            sections.append(section)
+        }
+        guard !sections.isEmpty else {
+            return ToolResult(success: true,text: String(localized: "health_empty_result"))
+        }
+        return ToolResult(success: true,text: sections.joined(separator: "\n\n"))
+    }
+
+    /// quantity 类指标的逐日聚合：单次 HKStatisticsCollectionQuery 覆盖整段区间。
+    private func dailyStatistics(_ def: HealthMetricDef,
+                                 start: Date,
+                                 end: Date) async -> [(day: Date,value: Double?)]? {
+        guard let quantityType = def.objectType as? HKQuantityType, let unit = def.unit else { return nil }
+        let options = def.options ?? .discreteAverage
+        let cal = Calendar.current
+        return await withCheckedContinuation { (cont: CheckedContinuation<[(day: Date,value: Double?)]?,Never>) in
+            let predicate = HKQuery.predicateForSamples(withStart: start,end: end, options: [])
+            let query = HKStatisticsCollectionQuery(
+                quantityType: quantityType,
+                quantitySamplePredicate: predicate,
+                options: options,
+                anchorDate: cal.startOfDay(for: start),
+                intervalComponents: DateComponents(day: 1))
+            query.initialResultsHandler = { _, results, _ in
+                guard let results else { cont.resume(returning: nil); return }
+                var out: [(Date,Double?)] = []
+                results.enumerateStatistics(from: cal.startOfDay(for: start),to: end,with: { stats,_ in
+                    let value: Double?
+                    if options.contains(.cumulativeSum) {
+                        value = stats.sumQuantity()?.doubleValue(for: unit)
+                    } else if options.contains(.discreteAverage) {
+                        value = stats.averageQuantity()?.doubleValue(for: unit)
+                    } else if options.contains(.discreteMax) {
+                        value = stats.maximumQuantity()?.doubleValue(for: unit)
+                    } else if options.contains(.discreteMin) {
+                        value = stats.minimumQuantity()?.doubleValue(for: unit)
+                    } else {
+                        value = nil
+                    }
+                    out.append((stats.startDate,value))
+                })
+                cont.resume(returning: out)
+            }
+            HKHealthStore().execute(query)
+        }
+    }
+
+    private static func dayLabel(_ day: Date) -> String {
+        let df = DateFormatter()
+        df.locale = Locale(identifier: "en_US_POSIX")
+        df.dateFormat = "MM-dd"
+        return df.string(from: day)
+    }
+
+    /// 时长文本：nil（无数据）→ "-"；否则 h/m。与卡片里逐日 `-` 标记同语义。
+    private static func durationText(_ seconds: Double?) -> String {
+        guard let seconds else { return "-" }
+        let h = Int(seconds)/3600
+        let m = (Int(seconds)%3600)/60
+        if h == 0 && m == 0 { return "<1m" }
+        return "\(h)h \(m)m"
+    }
+
+    /// 解析 metrics 参数：JSON 数组或逗号分隔字符串。
+    static func metricKeys(from raw: Any?) -> [String] {
+        switch raw {
+        case let list as [Any]:
+            return list.compactMap { $0 as? String }.map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+        case let text as String:
+            return text.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+        default:
+            return []
+        }
     }
 
     // MARK: action - write
@@ -431,7 +566,10 @@ struct AppleHealthKitTool: AgentTool {
             guard let wanted, !wanted.isEmpty else { return true }
             return Self.workoutName(w.workoutActivityType).contains(wanted)
         }
-        guard !filtered.isEmpty else { return failure(String(localized: "health_no_data")) }
+        guard !filtered.isEmpty else { // [B] 「区间无数据」是正常空结果而非工具故障：以 success=false 返回会进
+        // 熔断计数（连续同签名失败 → 中断整个分析）。改为成功 + 明确提示，
+        // 让模型跳过该天/该指标继续。
+        return ToolResult(success: true,text: String(localized: "health_empty_result")) }
 
         var lines: [String] = [String(format: String(localized: "health_workouts_header"), String(filtered.count))]
         for w in filtered {
@@ -467,10 +605,16 @@ struct AppleHealthKitTool: AgentTool {
             if blood.bloodType != .notSet {
                 lines.append("blood_type: \(Self.bloodName(blood.bloodType))")
             }
-            guard !lines.isEmpty else { return failure(String(localized: "health_no_data")) }
+            guard !lines.isEmpty else { // [B] 「区间无数据」是正常空结果而非工具故障：以 success=false 返回会进
+        // 熔断计数（连续同签名失败 → 中断整个分析）。改为成功 + 明确提示，
+        // 让模型跳过该天/该指标继续。
+        return ToolResult(success: true,text: String(localized: "health_empty_result")) }
             return ToolResult(success: true, text: lines.joined(separator: "\n"))
         } catch {
-            return failure(String(localized: "health_no_data"))
+            // [B] 「区间无数据」是正常空结果而非工具故障：以 success=false 返回会进
+        // 熔断计数（连续同签名失败 → 中断整个分析）。改为成功 + 明确提示，
+        // 让模型跳过该天/该指标继续。
+        return ToolResult(success: true,text: String(localized: "health_empty_result"))
         }
     }
 
@@ -570,8 +714,15 @@ struct AppleHealthKitTool: AgentTool {
     private func resolveRange(_ parameters: [String: Any]) -> (start: Date, end: Date, error: String?) {
         let cal = Calendar.current
         let now = Date()
-        let end = resolveDate(parameters["end_date"]) ?? now
-        let start: Date
+        var end = resolveDate(parameters["end_date"]) ?? now
+        // [A] 纯日期（无时间部分）的 end_date 语义 = 「当天一整天」，必须顺延到
+        // 当天最后一秒。否则 start/end 同传一个日期时区间塌缩成零宽度
+        // （00:00 ~ 00:00），必然查空——「查某天的睡眠」失败即此因
+        // （睡眠样本跨午夜，与零宽度区间无重叠）。delete 同走本函数，一并修复。
+        if let rawEnd = parameters["end_date"] as? String,Self.isDateOnlyText(rawEnd) {
+            end = cal.startOfDay(for: end).addingTimeInterval(86_399)
+        }
+        var start: Date
         if let explicit = resolveDate(parameters["start_date"]) {
             start = explicit
         } else if let days = Self.number(from: parameters["start_date"]) {
@@ -581,6 +732,19 @@ struct AppleHealthKitTool: AgentTool {
         }
         guard start <= end else { return (start, end, String(localized: "health_bad_date_range")) }
         return (start, end, nil)
+    }
+
+    /// 是否为「纯日期」文本（无时间部分）：today / yesterday / yyyy-MM-dd。
+    /// 用于 end 的整天语义判定；相对天数（7d）与带时间的格式不算。
+    static func isDateOnlyText(_ raw: String) -> Bool {
+        let text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        let lower = text.lowercased()
+        if lower == "today" || lower == "yesterday" { return true }
+        guard !text.contains(":") else { return false }
+        let df = DateFormatter()
+        df.locale = Locale(identifier: "en_US_POSIX")
+        df.dateFormat = "yyyy-MM-dd"
+        return df.date(from: text) != nil
     }
 
     /// 解析日期参数：`today` / `yesterday` / `7d`（近 7 天）/ `yyyy-MM-dd` / `yyyy-MM-dd HH:mm`。
