@@ -208,6 +208,8 @@ final class ToolPluginManager {
         // 工厂闭包的入参就是 sessionID，故直接透传即可。
         "apple-image": { ReadImageTool(currentSessionID: $0) },
         "apple-vision": { VisionAnalyzeTool(currentSessionID: $0) },
+        // 2026-09-07 新增：远程主机控制（iSH SSH 通道；setup 引导 / connect 锁定参数 / exec 执行）。
+        "remote-host": { _ in RemoteHostTool() },
     ]
 
     /// 已启用插件的全部工具实例（shell 与 builtin 后端统一产出；非法项跳过并日志）。

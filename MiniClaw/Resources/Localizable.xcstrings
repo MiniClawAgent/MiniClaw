@@ -47509,6 +47509,963 @@
         }
       }
     },
+    "remote_host_ambiguous": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "存在多台主机，请用 name 指定：%@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Multiple hosts exist — specify with name: %@"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ホストが複数あります。name で指定してください：%@"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "호스트가 여러 개입니다. name으로 지정하세요: %@"
+          }
+        }
+      }
+    },
+    "remote_host_connect_failed": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "连通失败（输出如下）："
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connection failed (output below):"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "接続失敗（出力は下記）："
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "연결 실패(출력 아래):"
+          }
+        }
+      }
+    },
+    "remote_host_connect_need_host": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "connect 需要 host 参数（目标机 IP 或域名）"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "connect requires the host parameter (target IP or domain)"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "connect には host パラメータが必要です（対象の IP またはドメイン）"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "connect에는 host 파라미터가 필요합니다(대상 IP 또는 도메인)"
+          }
+        }
+      }
+    },
+    "remote_host_connect_need_user": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "connect 需要 user 参数（目标机登录用户名，Mac 上通常不是 root）"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "connect requires the user parameter (target login name — usually not root on a Mac)"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "connect には user パラメータが必要です（対象のログイン名。Mac では通常 root ではない）"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "connect에는 user 파라미터가 필요합니다(대상 로그인 이름. Mac에서는 보통 root 아님)"
+          }
+        }
+      }
+    },
+    "remote_host_connect_ok": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "✅ 连通成功，配置已保存：name=%@ (%@, 用户 %@)。之后 exec 只需 name + command。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "✅ Connected and saved: name=%@ (%@, user %@). From now on exec only needs name + command."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "✅ 接続成功、設定を保存：name=%@（%@、ユーザー %@）。以降の exec は name + command のみ。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "✅ 연결 성공, 설정 저장: name=%@(%@, 사용자 %@). 이후 exec는 name + command만 필요."
+          }
+        }
+      }
+    },
+    "remote_host_connect_timeout": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "连接超时：目标机不可达、睡眠中，或端口未放行"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connection timed out: target unreachable, asleep, or the port is blocked"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "接続タイムアウト：対象に到達不可・スリープ中、またはポート未開放"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "연결 시간 초과: 대상에 접근 불가, 절전 중, 또는 포트 미개방"
+          }
+        }
+      }
+    },
+    "remote_host_exec_need_command": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "exec 需要 command 参数（要在远程主机上执行的命令）"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "exec requires the command parameter (the command to run on the remote host)"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "exec には command パラメータが必要です（リモートで実行するコマンド）"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "exec에는 command 파라미터가 필요합니다(원격에서 실행할 명령)"
+          }
+        }
+      }
+    },
+    "remote_host_exec_timeout": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "远程执行超时（可在 exec 里加大 timeout 参数重试）"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remote execution timed out (retry with a larger timeout in exec)"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "リモート実行がタイムアウトしました（exec の timeout を増やして再試行）"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "원격 실행 시간 초과(exec에서 timeout을 늘려 재시도)"
+          }
+        }
+      }
+    },
+    "remote_host_guide_linux": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "目标机（Linux）配置步骤：\n1. 安装服务端：sudo apt install openssh-server && sudo systemctl enable --now ssh\n2. 把上面公钥追加到目标机的 ~/.ssh/authorized_keys（权限同 macOS）\n完成后用 action=connect 验证并保存。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Target (Linux) setup:\n1. Install server: sudo apt install openssh-server && sudo systemctl enable --now ssh\n2. Append the public key above to the target's ~/.ssh/authorized_keys (same permissions as macOS)\nThen verify and save with action=connect."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "対象（Linux）の設定：\n1. サーバー導入：sudo apt install openssh-server && sudo systemctl enable --now ssh\n2. 上記の公開鍵を対象の ~/.ssh/authorized_keys に追記（権限は macOS と同様）\n完了後、action=connect で検証・保存。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "대상(Linux) 설정:\n1. 서버 설치: sudo apt install openssh-server && sudo systemctl enable --now ssh\n2. 위 공개 키를 대상의 ~/.ssh/authorized_keys에 추가(권한은 macOS와 동일)\n완료 후 action=connect로 검증·저장."
+          }
+        }
+      }
+    },
+    "remote_host_guide_macos": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "目标机（macOS）配置步骤：\n1. 系统设置 → 通用 → 共享 → 打开「远程登录」\n2. 把上面公钥追加到 Mac 的 ~/.ssh/authorized_keys（无该文件则创建；目录 700、文件 600）\n3. 提醒：Mac 睡眠时不可达，接电源建议开启「防止在显示器关闭时自动进入睡眠」\n完成后用 action=connect（host=该机内网 IP，user=Mac 登录用户名）验证并保存。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Target (macOS) setup:\n1. System Settings → General → Sharing → enable \"Remote Login\"\n2. Append the public key above to ~/.ssh/authorized_keys on the Mac (create if missing; dir 700, file 600)\n3. Note: unreachable while the Mac sleeps; on power adapter consider enabling \"Prevent automatic sleeping\"\nThen verify and save with action=connect (host=LAN IP, user=Mac login name)."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "対象（macOS）の設定：\n1. システム設定 → 一般 → 共有 →「リモートログイン」をオン\n2. 上記の公開鍵を Mac の ~/.ssh/authorized_keys に追記（なければ作成。ディレクトリ 700、ファイル 600）\n3. 注意：スリープ中は到達不可。電源接続時は「自動スリープを防止」を推奨\n完了後、action=connect（host=LAN IP、user=Mac のログイン名）で検証・保存。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "대상(macOS) 설정:\n1. 시스템 설정 → 일반 → 공유 → \"원격 로그인\" 켜기\n2. 위 공개 키를 Mac의 ~/.ssh/authorized_keys에 추가(없으면 생성. 디렉터리 700, 파일 600)\n3. 주의: Mac이 잠들면 접근 불가. 전원 연결 시 \"자동 절전 방지\" 권장\n완료 후 action=connect(host=LAN IP, user=Mac 로그인 이름)로 검증·저장."
+          }
+        }
+      }
+    },
+    "remote_host_guide_windows": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "目标机（Windows）配置步骤：\n1. 设置 → 应用 → 可选功能 → 添加「OpenSSH 服务器」\n2. 服务里启动「OpenSSH SSH Server」并设为自动；防火墙放行 22 端口\n3. 把上面公钥追加到 C:\\Users\\<用户>\\.ssh\\authorized_keys\n完成后用 action=connect 验证并保存。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Target (Windows) setup:\n1. Settings → Apps → Optional features → add \"OpenSSH Server\"\n2. Start \"OpenSSH SSH Server\" service and set it to automatic; allow port 22 in the firewall\n3. Append the public key to C:\\Users\\<user>\\.ssh\\authorized_keys\nThen verify and save with action=connect."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "対象（Windows）の設定：\n1. 設定 → アプリ → オプション機能 →「OpenSSH サーバー」を追加\n2. 「OpenSSH SSH Server」サービスを開始し自動に。ファイアウォールで 22 番を許可\n3. 上記の公開鍵を C:\\Users\\<ユーザー>\\.ssh\\authorized_keys に追記\n完了後、action=connect で検証・保存。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "대상(Windows) 설정:\n1. 설정 → 앱 → 선택적 기능 → \"OpenSSH 서버\" 추가\n2. \"OpenSSH SSH Server\" 서비스를 시작하고 자동으로 설정. 방화벽에서 22 포트 허용\n3. 위 공개 키를 C:\\Users\\<사용자>\\.ssh\\authorized_keys에 추가\n완료 후 action=connect로 검증·저장."
+          }
+        }
+      }
+    },
+    "remote_host_list_header": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已保存的远程主机："
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saved remote hosts:"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "保存済みリモートホスト："
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "저장된 원격 호스트:"
+          }
+        }
+      }
+    },
+    "remote_host_no_host": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "还没有已保存的主机：先用 action=setup + action=connect 完成配置"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No saved hosts yet: finish setup with action=setup and action=connect first"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "保存済みホストがありません。まず action=setup と action=connect で設定してください"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "저장된 호스트가 없습니다. 먼저 action=setup과 action=connect로 설정하세요"
+          }
+        }
+      }
+    },
+    "remote_host_param_action": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "操作：setup（检查 iSH 内 openssh/密钥并输出安装与目标机配置指引）、connect（验证连通并保存连接参数）、exec（在已保存的远程主机上执行命令）、list（列出已保存的主机）"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Operation: setup (check openssh/key in iSH and output install + target-OS setup guide), connect (verify connectivity and save connection params), exec (run a command on a saved remote host), list (list saved hosts)"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "操作：setup（iSH 内の openssh/鍵を確認しインストールと対象 OS の設定手順を提示）、connect（接続を検証しパラメータを保存）、exec（保存済みホストでコマンド実行）、list（保存済みホスト一覧）"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "작업: setup(iSH 내 openssh/키 점검 후 설치 및 대상 OS 설정 가이드 출력), connect(연결 검증 및 파라미터 저장), exec(저장된 호스트에서 명령 실행), list(저장된 호스트 목록)"
+          }
+        }
+      }
+    },
+    "remote_host_param_command": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "要在远程主机上执行的命令（exec 用），如 \"say 你好\"（macOS）或 \"uname -a\""
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Command to run on the remote host (for exec), e.g. \"say hello\" (macOS) or \"uname -a\""
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "リモートホストで実行するコマンド（exec 用）。例: \"say こんにちは\"（macOS）や \"uname -a\""
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "원격 호스트에서 실행할 명령(exec용). 예: \"say 안녕\"(macOS) 또는 \"uname -a\""
+          }
+        }
+      }
+    },
+    "remote_host_param_host": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "主机地址（connect 用）：IP 或域名，如 192.168.10.107"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Host address (for connect): IP or domain, e.g. 192.168.10.107"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ホストアドレス（connect 用）：IP またはドメイン、例: 192.168.10.107"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "호스트 주소(connect용): IP 또는 도메인, 예: 192.168.10.107"
+          }
+        }
+      }
+    },
+    "remote_host_param_keypath": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "私钥路径（iSH 内路径，默认 ~/.ssh/miniclaw）"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Private key path (path inside iSH, default ~/.ssh/miniclaw)"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "秘密鍵パス（iSH 内パス、既定 ~/.ssh/miniclaw）"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "개인 키 경로(iSH 내 경로, 기본 ~/.ssh/miniclaw)"
+          }
+        }
+      }
+    },
+    "remote_host_param_name": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "主机别名（connect 时保存用；exec/list 时选择主机；多台主机时必填）"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Host alias (saved on connect; selects the host for exec/list; required when several hosts exist)"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ホスト別名（connect で保存、exec/list で選択。ホストが複数ある場合は必須）"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "호스트 별명(connect 시 저장, exec/list에서 선택. 호스트가 여러 개면 필수)"
+          }
+        }
+      }
+    },
+    "remote_host_param_os": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "目标机操作系统（setup 用，决定配置指引内容）：macos / linux / windows"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Target OS (for setup, selects the guide): macos / linux / windows"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "対象 OS（setup 用、ガイドを選択）：macos / linux / windows"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "대상 OS(setup용, 가이드 선택): macos / linux / windows"
+          }
+        }
+      }
+    },
+    "remote_host_param_port": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SSH 端口（connect 用，默认 22）"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SSH port (for connect, default 22)"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SSH ポート（connect 用、既定 22）"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SSH 포트(connect용, 기본 22)"
+          }
+        }
+      }
+    },
+    "remote_host_param_timeout": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "超时秒数（exec 用，默认 120）"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Timeout in seconds (for exec, default 120)"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "タイムアウト秒数（exec 用、既定 120）"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "시간 초과 초(exec용, 기본 120)"
+          }
+        }
+      }
+    },
+    "remote_host_param_user": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SSH 登录用户名（connect 用，如 Mac 上是 whoami 的输出，通常不是 root）"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SSH login username (for connect; e.g. the output of whoami on the Mac — usually not root)"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SSH ログインユーザー名（connect 用。Mac では whoami の出力。通常 root ではない）"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SSH 로그인 사용자명(connect용. Mac의 whoami 출력. 보통 root 아님)"
+          }
+        }
+      }
+    },
+    "remote_host_setup_cmd_apk": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "缺少 openssh：请用 shell_execute 执行 → apk add openssh-client"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "openssh missing: run this via shell_execute → apk add openssh-client"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "openssh がありません。shell_execute で実行 → apk add openssh-client"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "openssh 없음: shell_execute로 실행 → apk add openssh-client"
+          }
+        }
+      }
+    },
+    "remote_host_setup_cmd_keygen": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "缺少密钥：请用 shell_execute 执行 → ssh-keygen -t ed25519 -f ~/.ssh/miniclaw -N ''"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Key pair missing: run this via shell_execute → ssh-keygen -t ed25519 -f ~/.ssh/miniclaw -N ''"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "鍵ペアがありません。shell_execute で実行 → ssh-keygen -t ed25519 -f ~/.ssh/miniclaw -N ''"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "키 쌍 없음: shell_execute로 실행 → ssh-keygen -t ed25519 -f ~/.ssh/miniclaw -N ''"
+          }
+        }
+      }
+    },
+    "remote_host_setup_key_pub_header": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "公钥如下（贴到目标机的 authorized_keys）："
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Public key (paste into the target host's authorized_keys):"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "公開鍵（対象ホストの authorized_keys に貼り付け）："
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "공개 키(대상 호스트의 authorized_keys에 붙여넣기):"
+          }
+        }
+      }
+    },
+    "remote_host_setup_next_connect": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "目标机配置好后，用 action=connect（传 host/user/name/os）验证并保存连接参数；之后 action=exec 只需要 name 和 command。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Once the target is configured, use action=connect (host/user/name/os) to verify and save; afterwards action=exec only needs name and command."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "対象の設定後、action=connect（host/user/name/os）で検証・保存。以降の action=exec は name と command だけで実行できます。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "대상 설정 후 action=connect(host/user/name/os)로 검증·저장. 이후 action=exec는 name과 command만 필요합니다."
+          }
+        }
+      }
+    },
+    "remote_host_setup_run_first": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "环境未就绪：先用 shell_execute 执行上面的命令，完成后重新调用 action=setup 确认。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Environment not ready: run the commands above via shell_execute, then call action=setup again to confirm."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "環境が未整備です。上記コマンドを shell_execute で実行後、再度 action=setup を呼び出して確認してください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "환경이 준비되지 않았습니다. 위 명령을 shell_execute로 실행한 후 action=setup을 다시 호출하세요."
+          }
+        }
+      }
+    },
+    "remote_host_setup_status": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "环境自检：openssh=%@，密钥=%@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Environment check: openssh=%@, key pair=%@"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "環境チェック：openssh=%@、鍵ペア=%@"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "환경 점검: openssh=%@, 키 쌍=%@"
+          }
+        }
+      }
+    },
+    "remote_host_shell_unavailable": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iSH 运行时不可用，无法自检。请先启动 Alpine 运行时后重试"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iSH runtime unavailable, cannot self-check. Start the Alpine runtime and retry"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iSH ランタイムが利用不可のため自己点検できません。Alpine ランタイム起動後に再試行してください"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iSH 런타임을 사용할 수 없어 자가 점검 불가. Alpine 런타임 시작 후 재시도하세요"
+          }
+        }
+      }
+    },
+    "remote_host_state_installed": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已就绪"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ready"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "準備完了"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "준비됨"
+          }
+        }
+      }
+    },
+    "remote_host_state_missing": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未安装"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "missing"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未インストール"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "미설치"
+          }
+        }
+      }
+    },
+    "remote_host_tool_desc": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "控制远程主机（Mac/Linux/Windows，经 SSH）。首次使用先 action=setup：自动检查 iSH 里的 openssh 与密钥，缺什么给什么命令，并按目标系统给出配置指引；然后 action=connect 传入 host/user 验证并保存连接参数（保存后 exec 不再需要用户名/密钥）；最后 action=exec 远程执行命令。注意：测速/执行会消耗流量，远程命令默认需用户确认。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Control a remote host (Mac/Linux/Windows) over SSH. Start with action=setup: it checks openssh and the key pair inside iSH, gives you the exact commands for anything missing, plus setup steps for the target OS. Then action=connect with host/user to verify and save connection params (after that exec needs no credentials). Finally action=exec runs remote commands. Note: traffic is consumed; remote commands require user confirmation by default."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SSH でリモートホスト（Mac/Linux/Windows）を操作。まず action=setup：iSH 内の openssh と鍵ペアを確認し、不足分のコマンドと対象 OS の設定手順を提示します。次に action=connect で host/user を渡して検証・接続パラメータを保存（保存後の exec に認証情報は不要）。最後に action=exec でリモート実行。注意：通信が発生し、リモートコマンドは既定でユーザー確認が必要です。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SSH로 원격 호스트(Mac/Linux/Windows)를 제어합니다. 먼저 action=setup: iSH 내 openssh와 키 쌍을 점검하고, 부족한 항목의 명령어와 대상 OS별 설정 절차를 안내합니다. 이후 action=connect로 host/user를 전달해 검증·연결 파라미터를 저장(저장 후 exec에는 자격증명 불필요). 마지막으로 action=exec로 원격 실행. 주의: 트래픽이 발생하며 원격 명령은 기본적으로 사용자 확인이 필요합니다."
+          }
+        }
+      }
+    },
+    "remote_host_unknown_action": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未知 action：%@（可用：setup / connect / exec / list）"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unknown action: %@ (available: setup / connect / exec / list)"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "不明な action：%@（利用可能：setup / connect / exec / list）"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "알 수 없는 action: %@(사용 가능: setup / connect / exec / list)"
+          }
+        }
+      }
+    },
     "remote_server": {
       "extractionState": "manual",
       "localizations": {
