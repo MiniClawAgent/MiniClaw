@@ -109,7 +109,14 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
         func isInjectedImage(_ m: ChatCompletionMessage) -> Bool {
             guard m.role == "user", m.name == "tool_image",
                   case .parts(let parts)? = m.content else { return false }
-            return parts.contains { if case .imageURL = $0 { return true }; return false }
+            // image_url（data URI 内联）与 file（Files API file_id）两类注入均计入预算
+            return parts.contains { p in
+                switch p {
+                case .imageURL: return true
+                case .file(_, let fileId, _): return fileId?.hasPrefix("file-api-") == true
+                default: return false
+                }
+            }
         }
         var excess = messages.filter { isInjectedImage($0) }.count - maxInjectedToolImages
         guard excess > 0 else { return }
@@ -118,6 +125,7 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
                   case .parts(let parts)? = messages[i].content else { continue }
             let kept = parts.compactMap { p -> ContentPart? in
                 if case .imageURL = p { return nil }
+                if case .file = p { return nil }  // file_id 引用移除（远端文件随 30 天过期自动清理）
                 return p
             }
             let note = String(localized: "loop_tool_image_downgraded")
@@ -1078,16 +1086,42 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
                 // 合成 user 消息是各兼容端点的通用做法。
                 if let servedEndpoint, servedEndpoint.supportsImageInput,
                    let b64 = result.data?["base64"] as? String,
-                   let mime = result.data?["mime_type"] as? String, mime.hasPrefix("image/") {
+                   let mime = result.data?["mime_type"] as? String, mime.hasPrefix("image/"),
+                   let jpegData = Data(base64Encoded: b64) {
                     let hint = String(localized: "loop_tool_image_injected")
-                    messages.append(ChatCompletionMessage(
-                        role: "user",
-                        messageContent: .parts([
-                            .text(hint),
-                            .imageURL(url: "data:\(mime);base64,\(b64)", detail: "auto")
-                        ]),
-                        name: "tool_image"
-                    ))
+
+                    // 按官方文档分流（DeepSeek 视觉指南）：
+                    // ① DeepSeek 端点 → Files API 上传拿 file_id，以 {"type":"file"}
+                    //    块引用——不占 48MiB 请求体、不受 32MiB 单图内联限制
+                    //    （官方对"请求体会超限"场景的推荐做法，HTTP 413 官方解法）；
+                    // ② 其他端点 → image_url data URI 内联（OpenAI 兼容标准格式，
+                    //    配 JPEG 降采样与注入预算）。
+                    // 两者失败互相回退；预算（最多 3 张）在注入后统一执行。
+                    var injected = false
+                    if servedEndpoint.providerType == .deepSeek,
+                       let baseURL = URL(string: servedEndpoint.url).map({ $0.absoluteString }),
+                       let fileId = try? await DeepSeekFilesClient.uploadJPEG(
+                           baseURL: baseURL, apiKey: servedEndpoint.apiKey, jpeg: jpegData) {
+                        messages.append(ChatCompletionMessage(
+                            role: "user",
+                            messageContent: .parts([
+                                .text(hint),
+                                .file(fileData: nil, fileId: fileId, filename: "miniclaw-screenshot.jpg")
+                            ]),
+                            name: "tool_image"
+                        ))
+                        injected = true
+                    }
+                    if !injected {
+                        messages.append(ChatCompletionMessage(
+                            role: "user",
+                            messageContent: .parts([
+                                .text(hint),
+                                .imageURL(url: "data:\(mime);base64,\(b64)", detail: "auto")
+                            ]),
+                            name: "tool_image"
+                        ))
+                    }
                     // 注入预算：上下文中工具图片最多保留 3 张（HTTP 413 防线）
                     Self.enforceToolImageBudget(messages: &messages)
                 }
