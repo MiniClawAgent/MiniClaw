@@ -949,7 +949,6 @@ final class MarkdownTextView: UITextView,UIGestureRecognizerDelegate {
                 }
             }
             if allMapped && currentTableGenSum == lastUAVTableGenSum {
-                AppLogger(category: "ChatList.Attach").info("[UAV][SKIP-DEDUPE] storageLen=\(storage.length) tcW=\(String(format: "%.0f", self.textContainer.size.width)) views=\(self.attachmentViewMap.count) tableGen=\(currentTableGenSum) — fingerprint match, nothing to do")
                 return
             }
         }
@@ -1630,7 +1629,6 @@ final class MarkdownTextView: UITextView,UIGestureRecognizerDelegate {
            abs(measureWidth-lastSizedWidth)<0.5,
            tableGenSum == lastSizedTableGenSum,
            lastComputedHeight>0 {
-            cellSizeLogger.info("[invalidateCell][SKIP-DEDUPE] storageLen=\(textStorage.length) measureW=\(String(format: "%.0f", measureWidth)) tcW=\(String(format: "%.0f", textContainer.size.width)) lastH=\(String(format: "%.1f", lastComputedHeight)) tableGen=\(tableGenSum) — fingerprint match, skipping sizeThatFits")
             return
         }
         isInvalidatingCellSize = true

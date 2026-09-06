@@ -301,24 +301,10 @@ extension MessageCollectionView.Coordinator {
             snapshotMessages = messages
             // Skip diffable-data-source apply when items haven't changed —
             // avoids expensive UIKit cell creation/layout on redundant snapshots.
-            if newRows == prevSnapshotIds {
-                AppLogger(category: "ChatList.Snapshot").info("[Snapshot] SKIP caller=\(caller) items unchanged (count=\(newRows.count)) — no re-apply")
-                return
-            }
+            if newRows == prevSnapshotIds { return }
             let oldSet = Set(prevSnapshotIds)
             let inserted = newRows.filter { !oldSet.contains($0) }
             prevSnapshotIds = newRows
-
-            let snapLog = AppLogger(category: "ChatList.Snapshot")
-            let blockItems = newRows.filter { if case .assistantBlock = $0 { return true }; return false }
-            if let lastAIMsg = messages.last(where: { $0.role == .assistant }) {
-                snapLog.info("[Snapshot] caller=\(caller) totalItems=\(newRows.count) blockItems=\(blockItems.count) lastAssistantBlocks=\(lastAIMsg.blocks.count) msgCount=\(messages.count)")
-                for (i,block) in lastAIMsg.blocks.enumerated() {
-                    let contentLen = block.content.count
-                    let tail = String(block.content.suffix(20))
-                    snapLog.info("[Snapshot] block[\(i)] kind=\(block.kind) id=\(block.id.uuidString.prefix(8)) contentLen=\(contentLen) tail=\"\(tail)\"")
-                }
-            }
 
             var snapshot = NSDiffableDataSourceSnapshot<MessageCollectionView.Section,MessageListItem>()
             snapshot.appendSections([.main])
@@ -333,34 +319,6 @@ extension MessageCollectionView.Coordinator {
             (viewController?.collectionView as? NoAnimationCollectionView)?.isApplyingSnapshot = true
             dataSource.apply(snapshot,animatingDifferences: false)
             (viewController?.collectionView as? NoAnimationCollectionView)?.isApplyingSnapshot = false
-            // [ToolLifecycle] Stage 5: log newly-inserted tool blocks now in the
-            // applied snapshot. Only fires for inserts, so volume stays proportional
-            // to actual new tool blocks appearing in the chat UI.
-            if !inserted.isEmpty {
-                let sid = vm.sessionId?.prefix(8) ?? "nil"
-                let appState = UIApplication.shared.applicationState == .active ? "fg" : "bg"
-                let suspendedFlag = vm.streamingUIUpdatesSuspended
-                let processing = vm.isProcessing
-                for item in inserted {
-                    if case .assistantBlock(let msgId,let blockId) = item,
-                       let msgIdx = messageIndex[msgId],
-                       msgIdx<messages.count,
-                       let block = messages[msgIdx].blocks.first(where: { $0.id == blockId }),
-                       block.toolUseId != nil {
-                        let toolName: String = switch block.kind {
-                        case .shellTool: "shell_execute"
-                        case .fileReadTool: "file_read"
-                        case .fileWriteTool: "file_write"
-                        case .fileEditTool: "file_edit"
-                        case .browserTool: "browser_use"
-                        case .readImageTool: "read_image"
-                        case .memoryTool: "memory"
-                        default: "unknown"
-                        }
-                        AppLogger(category: "ChatList.ToolLife").info("[ToolLifecycle] RENDERED_CHATUI toolId=\(block.toolUseId?.prefix(20) ?? "nil") tool=\(toolName) sid=\(sid) appState=\(appState) suspendedFlag=\(suspendedFlag) isProcessing=\(processing) caller=\(caller)")
-                    }
-                }
-            }
             // Re-mark layout dirty: isApplyingSnapshot suppressed the layoutSubviews()
             // that dataSource.apply() triggered internally, so UIKit thinks layout is
             // already done. Without this, layoutIfNeeded() below is a no-op and cells

@@ -1191,27 +1191,6 @@ extension MessageCollectionView.Coordinator {
                 if vm.isAtFirstTurn != atTop { vm.isAtFirstTurn = atTop }
                 vm.contentOffsetYSignal.send(scrollView.contentOffset.y)
             }
-            // Detect offset jumps right after settle
-            if settleJustFinished {
-                let delta = scrollView.contentOffset.y-lastLoggedOffset
-                if abs(delta)>2 {
-                    AppLogger(category: "ChatList.Settle").debug("[Settle] POST-SETTLE JUMP offset \(String(format: "%.1f→%.1f", lastLoggedOffset, scrollView.contentOffset.y)) delta=\(String(format: "%.1f", delta)) tracking=\(scrollView.isTracking) decel=\(scrollView.isDecelerating) contentSize=\(String(format: "%.1f", scrollView.contentSize.height))")
-                    settleJustFinished = false
-                }
-            }
-            // [Stall] Per-second scroll trajectory: offset, distance moved
-            // since last flush, mode, tracking/decel state. Helps correlate
-            // hitches with offset bursts.
-            scrollSamples += 1
-            let now = CACurrentMediaTime()
-            if now-lastScrollFlush>1.0 {
-                let offY = scrollView.contentOffset.y
-                let dist = abs(offY-lastScrollFlushOffset)
-                AppLogger(category: "ChatList.Stall").debug("[SCR] last1s samples=\(scrollSamples) offset=\(String(format: "%.0f", offY)) Δdist=\(String(format: "%.0f", dist)) cs=\(String(format: "%.0f", scrollView.contentSize.height)) mode=\(self.scrollMode == .autoScrolling ? "auto" : "browse") tracking=\(scrollView.isTracking ? 1 : 0) decel=\(scrollView.isDecelerating ? 1 : 0) deferred=\((self.viewController?.messageListLayout?.deferSelfSizing ?? false) ? 1 : 0)")
-                scrollSamples = 0
-                lastScrollFlushOffset = offY
-                lastScrollFlush = now
-            }
         }
 
         // [Decel] Deceleration-phase instrumentation. Lets us pin a
@@ -1251,20 +1230,9 @@ extension MessageCollectionView.Coordinator {
             guard let layout = viewController?.messageListLayout,
                   let cv = viewController?.collectionView else { return }
 
-            let deferredCount = layout.deferredHeightCount
-            AppLogger(category: "ChatList.Settle").debug("[Settle] BEGIN mode=\(scrollMode == .autoScrolling ? "auto" : "browse") nearBottom=\(nearBottom) offset=\(String(format: "%.1f", cv.contentOffset.y)) contentSize=\(String(format: "%.1f", cv.contentSize.height)) deferredHeights=\(deferredCount) pendingSnapshotFlag=\(pendingSnapshotFlag)")
-
+            _ = nearBottom
             // Re-enable self-sizing so future layout passes use real heights.
             layout.deferSelfSizing = false
-
-            // [SettleJitter] Evidence capture (H1): the flush below re-flows
-            // frames from corrected heights but restores only the numeric
-            // offset — if cells ABOVE the viewport changed height, the same
-            // offset now shows different content. Anchor on the top visible
-            // cell's screen-relative y before/after to quantify the jump the
-            // user actually sees at decel end.
-            let anchorIP = cv.indexPathsForVisibleItems.min()
-            let anchorPreY = anchorIP.flatMap { layout.layoutAttributesForItem(at: $0)?.frame.minY }
 
             let savedOffset = cv.contentOffset.y
             flushingNow = true
@@ -1280,25 +1248,6 @@ extension MessageCollectionView.Coordinator {
                 cv.contentOffset.y = savedOffset
             }
 
-            // [SettleJitter] Post-flush: same anchorY item, new frame. screenΔ
-            // is the on-screen displacement of the content the user is looking
-            // at (0 = no visible jitter from the settle flush).
-            if let ip = anchorIP,let preY = anchorPreY {
-                cv.layoutIfNeeded()
-                let postY = layout.layoutAttributesForItem(at: ip)?.frame.minY ?? preY
-                let screenDelta = (postY-cv.contentOffset.y)-(preY-savedOffset)
-                #if DEBUG
-                //
-                ScrollMetricsRecorder.shared.record(
-                    kind: "settle", idx: ip.item, a: screenDelta, b: postY-preY,
-                    offset: Double(cv.contentOffset.y),
-                    note: String(format: "savedOff=%.0f", savedOffset))
-                #endif
-                if abs(screenDelta)>0.5 {
-                    AppLogger(category: "ChatList.Settle").info("[SettleJitter][settle-shift] anchorY=idx\(ip.item) screenΔ=\(String(format: "%+.1f", screenDelta)) frameY \(String(format: "%.0f", preY))→\(String(format: "%.0f", postY)) offset \(String(format: "%.0f", savedOffset))→\(String(format: "%.0f", cv.contentOffset.y))")
-                }
-            }
-
             vm?.setStreamingUIUpdatesSuspended(false)
 
             if pendingSnapshotFlag {
@@ -1307,13 +1256,11 @@ extension MessageCollectionView.Coordinator {
                 }
             }
 
-            lastLoggedOffset = cv.contentOffset.y
+            // 打开「settle 后内容收缩主动 clamp」窗口（见 contentSize KVO 分支）。
             settleJustFinished = true
-            // Auto-clear after 500ms
             DispatchQueue.main.asyncAfter(deadline: .now()+0.5) { [weak self] in
                 self?.settleJustFinished = false
             }
-            AppLogger(category: "ChatList.Settle").debug("[Settle] END offset=\(String(format: "%.1f", cv.contentOffset.y)) contentSize=\(String(format: "%.1f", cv.contentSize.height))")
         }
 
 }

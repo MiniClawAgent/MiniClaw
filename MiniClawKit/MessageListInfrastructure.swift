@@ -623,12 +623,6 @@ class SelfSizingCell: UICollectionViewCell {
 
     private static let sizingLogger = AppLogger(category: "ChatList.CellMetrics")
 
-    // [Stall] 1Hz-aggregated cache-hit counters.
-    private static var dedupHits: Int = 0
-    private static var dedupLastFlush: CFTimeInterval = 0
-    private static var broadHits: Int = 0
-    private static var broadLastFlush: CFTimeInterval = 0
-
     override func preferredLayoutAttributesFitting(
         _ layoutAttributes: UICollectionViewLayoutAttributes
     ) -> UICollectionViewLayoutAttributes {
@@ -650,14 +644,6 @@ class SelfSizingCell: UICollectionViewCell {
             let copy = layoutAttributes.copy() as! UICollectionViewLayoutAttributes
             copy.size.width = cachedW
             copy.size.height = cached
-            // [Stall] Count short-window cache hits; flush summary 1Hz.
-            Self.dedupHits &+= 1
-            let now = CACurrentMediaTime()
-            if now-Self.dedupLastFlush>1.0 {
-                AppLogger(category: "ChatList.Stall").debug("[CACHE-DEDUP] last1s hits=\(Self.dedupHits)")
-                Self.dedupHits = 0
-                Self.dedupLastFlush = now
-            }
             return copy
         }
 
@@ -829,14 +815,6 @@ class SelfSizingCell: UICollectionViewCell {
         if let cached = lastCalcH,
            abs(layoutAttributes.size.width-attrs.size.width)<1 {
             attrs.size.height = cached
-            // [Stall] Count broad cache hits; flush summary 1Hz.
-            Self.broadHits &+= 1
-            let now = CACurrentMediaTime()
-            if now-Self.broadLastFlush>1.0 {
-                AppLogger(category: "ChatList.Stall").debug("[CACHE-BROAD] last1s hits=\(Self.broadHits)")
-                Self.broadHits = 0
-                Self.broadLastFlush = now
-            }
             return attrs
         }
 

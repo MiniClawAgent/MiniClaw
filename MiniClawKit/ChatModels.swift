@@ -204,30 +204,9 @@ public final class AssistantBlock: Identifiable,ObservableObject {
     /// SwiftUI recomposition.
     public var thinkingContentBuffer: String = ""
 
-    // Perf instrumentation: 1s-windowed delta-rate
-    // summary + per-flush timing, category "ThinkPerf". Cheap (one Date +
-    // counters per delta, one log line per second) so it can stay on in
-    // debug builds while reproducing the long-thinking jank report.
-    private static let perfLogger = AppLogger(category: "ChatList.Think")
-    private var perfWindowStart = Date()
-    private var perfDeltaCount = 0
-    private var perfDeltaBytes = 0
-
     public func appendThinkingDelta(_ delta: String) {
         thinkingContentBuffer += delta
         contentUpdateSeq += 1
-        perfDeltaCount += 1
-        perfDeltaBytes += delta.utf8.count
-        let now = Date()
-        let dt = now.timeIntervalSince(perfWindowStart)
-        if dt >= 1.0 {
-            // [T-log-noise-privacy 2026-07-18] info → debug: fires once per
-            // second per streaming thinking block for the whole stream.
-            Self.perfLogger.debug("[ThinkPerf] deltas/s=\(self.perfDeltaCount) bytes/s=\(self.perfDeltaBytes) bufLen=\(self.thinkingContentBuffer.count) contentLen=\(self.content.count) window=\(String(format: "%.2f", dt))s block=\(self.id.uuidString.prefix(8))")
-            perfWindowStart = now
-            perfDeltaCount = 0
-            perfDeltaBytes = 0
-        }
     }
 
     // Adaptive flush throttle for streaming thinking
@@ -260,17 +239,7 @@ public final class AssistantBlock: Identifiable,ObservableObject {
 
     public func flushThinkingBuffer() {
         guard kind == .thinking,thinkingContentBuffer.count>content.count else { return }
-        let t0 = CFAbsoluteTimeGetCurrent()
         content = thinkingContentBuffer
-        let ms = (CFAbsoluteTimeGetCurrent()-t0)*1000
-        // The assign itself is a copy; the real cost lands in the SwiftUI
-        // update it triggers. Log both the copy time and the length so slow
-        // flushes can be correlated with hitches.
-        if ms>4 {
-            Self.perfLogger.info("[ThinkPerf] flush SLOW len=\(self.content.count) copy=\(String(format: "%.1f", ms))ms block=\(self.id.uuidString.prefix(8))")
-        } else {
-            Self.perfLogger.debug("[ThinkPerf] flush len=\(self.content.count) copy=\(String(format: "%.1f", ms))ms")
-        }
     }
     /// Status for tool blocks (nil for text blocks).
     @Published public var toolStatus: ToolBlockStatus?

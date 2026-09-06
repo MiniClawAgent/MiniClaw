@@ -287,26 +287,8 @@ public final class MessageListLayout: UICollectionViewLayout {
             result.append(attrs)
         }
 
-        // [Stall] Sampled rate-limited log. Every 1s we emit one summary
-        // line giving fire count + slowest one. Helps see whether this fn's
-        // O(itemCount) walk is the hitch source on 100+ item sessions.
-        Self.lafeCallCount &+= 1
-        let elapsed = (CACurrentMediaTime()-t0)*1000
-        if elapsed>Self.lafeSlowest { Self.lafeSlowest = elapsed }
-        let now = CACurrentMediaTime()
-        if now-Self.lafeLastFlush>1.0 {
-            AppLogger(category: "ChatList.Stall").debug("[LAFE] last1s fires=\(Self.lafeCallCount - Self.lafeBaseCount) slowest=\(String(format: "%.2f", Self.lafeSlowest))ms items=\(self.itemAttributes.count) returned=\(result.count)")
-            Self.lafeBaseCount = Self.lafeCallCount
-            Self.lafeSlowest = 0
-            Self.lafeLastFlush = now
-        }
-
         return result
     }
-    private static var lafeCallCount = 0
-    private static var lafeBaseCount = 0
-    private static var lafeSlowest: Double = 0
-    private static var lafeLastFlush: CFTimeInterval = 0
 
     public override func layoutAttributesForItem(at indexPath: IndexPath) -> UICollectionViewLayoutAttributes? {
         guard indexPath.item<itemAttributes.count else { return nil }
@@ -426,26 +408,8 @@ public final class MessageListLayout: UICollectionViewLayout {
         if mustInvalidate && delta>100 {
             AppLogger(category: "ChatList.CellMetrics").info("[CellSizing] INVALIDATE idx=\(index) delta=\(String(format: "%.0f", delta)) est=\(String(format: "%.0f", origH)) → pref=\(String(format: "%.0f", prefH)) cached=\(heightEntries[index]?.source == .measured)")
         }
-        // [Stall] Per-second invalidation summary keyed by idx —
-        // identifies cells that flap (re-invalidate repeatedly during scroll).
-        if mustInvalidate {
-            Self.invIdxCounts[index,default: 0] += 1
-            let now = CACurrentMediaTime()
-            if now-Self.invLastFlush>1.0 {
-                let total = Self.invIdxCounts.values.reduce(0,+)
-                let top = Self.invIdxCounts.sorted { $0.value>$1.value }.prefix(5)
-                let topStr = top.map { "idx\($0.key)×\($0.value)" }.joined(separator: " ")
-                if total>0 {
-                    AppLogger(category: "ChatList.Stall").debug("[INV] last1s=\(total) cells top: \(topStr)")
-                }
-                Self.invIdxCounts.removeAll(keepingCapacity: true)
-                Self.invLastFlush = now
-            }
-        }
         return mustInvalidate
     }
-    private static var invIdxCounts: [Int: Int] = [:]
-    private static var invLastFlush: CFTimeInterval = 0
 
     public override func invalidationContext(
         forPreferredLayoutAttributes preferredAttributes: UICollectionViewLayoutAttributes,

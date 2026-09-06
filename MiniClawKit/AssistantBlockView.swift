@@ -3,94 +3,6 @@ import Combine
 
 // MARK: - Assistant Block View (individual block — isolated invalidation)
 
-@MainActor
-final class ThinkingHitchMonitor {
-    static let shared = ThinkingHitchMonitor()
-    private let logger = AppLogger(category: "ChatList.Think")
-    private var cadLink: CADisplayLink?
-    private var lastTick: CFTimeInterval = 0
-    /// Body-eval counter since start (bumped by the view; sampled into hitch logs).
-    var bodyEvalCount = 0
-    var contentLenProvider: (() -> Int)?
-    /// The block that started the monitor. Stops from OTHER blocks are ignored —
-    /// with several thinking blocks in one chat, an older (collapsed / finished)
-    /// block's task(id:) firing false must not kill the live block's monitor.
-    private var ownerId: UUID?
-
-    func start(owner: UUID) {
-        if cadLink != nil {
-            ownerId = owner // live monitor adopted by the newest streaming block
-            if collapseAt != nil {
-                collapseAt = nil // re-expanded within the grace window
-                logger.info("[ThinkPerf] phase → EXPANDED (re-expand)")
-            }
-            return
-        }
-        ownerId = owner
-        lastTick = 0
-        bodyEvalCount = 0
-        let link = CADisplayLink(target: self,selector: #selector(tick(_:)))
-        link.add(to: .main,forMode: .common)
-        cadLink = link
-        logger.info("[ThinkPerf] hitch-monitor START owner=\(owner.uuidString.prefix(8))")
-    }
-
-    /// When the owner collapses, keep sampling for a grace window so the
-    /// COLLAPSED state's frame stats can be compared A/B against EXPANDED
-    /// under the same interactions. Frame lines are tagged with the phase.
-    private var collapseAt: CFTimeInterval?
-    private static let collapsedGraceSeconds: CFTimeInterval = 25
-
-    func stop(owner: UUID) {
-        guard cadLink != nil,owner == ownerId else { return }
-        collapseAt = CACurrentMediaTime()
-        logger.info("[ThinkPerf] phase → COLLAPSED (monitor continues \(Int(Self.collapsedGraceSeconds))s for A/B) bodyEvals=\(self.bodyEvalCount)")
-    }
-
-    private func stopHard() {
-        cadLink?.invalidate()
-        cadLink = nil
-        ownerId = nil
-        collapseAt = nil
-        logger.info("[ThinkPerf] hitch-monitor STOP bodyEvals=\(self.bodyEvalCount)")
-    }
-
-    // Per-second frame statistics: dropped-frame count (>33ms), worst gap, and
-    // frame count — a per-second FPS/drop summary shows sub-100ms jank the
-    // single HITCH threshold misses.
-    private var statWinStart: CFTimeInterval = 0
-    private var statFrameCnt = 0
-    private var statDropCnt = 0
-    private var statWorstMsVal: Double = 0
-
-    @objc private func tick(_ link: CADisplayLink) {
-        defer { lastTick = link.timestamp }
-        guard lastTick>0 else { statWinStart = link.timestamp; return }
-        let gapMs = (link.timestamp-lastTick)*1000
-        statFrameCnt += 1
-        if gapMs>33 { statDropCnt += 1 }
-        if gapMs>statWorstMsVal { statWorstMsVal = gapMs }
-        if gapMs>100 {
-            logger.info("[ThinkPerf] HITCH gap=\(Int(gapMs))ms contentLen=\(self.contentLenProvider?() ?? -1) bodyEvals=\(self.bodyEvalCount)")
-        }
-        let windowDt = link.timestamp-statWinStart
-        if windowDt >= 1.0 {
-            let fps = Double(statFrameCnt)/windowDt
-            let phase = collapseAt == nil ? "EXP" : "COL"
-            // [T-log-noise-privacy 2026-07-18] info → debug: per-second frame
-            // stats; the HITCH lines (rare, actionable) stay at info.
-            logger.debug("[ThinkPerf] [\(phase)] frames/s=\(Int(fps)) dropped=\(self.statDropCnt) worst=\(Int(self.statWorstMsVal))ms contentLen=\(self.contentLenProvider?() ?? -1) bodyEvals=\(self.bodyEvalCount)")
-            statWinStart = link.timestamp
-            statFrameCnt = 0
-            statDropCnt = 0
-            statWorstMsVal = 0
-        }
-        if let c = collapseAt,link.timestamp-c>Self.collapsedGraceSeconds {
-            stopHard()
-        }
-    }
-}
-
 struct DismissImmersiveCoversListener: ViewModifier {
     let onDismiss: () -> Void
 
@@ -502,19 +414,6 @@ struct ThinkingBlockView: View {
                 let total = block.content.count
                 let truncatedFlag = total>windowSz
                 let displayBody: String = {
-                    // Time the tail-window slice and count
-                    // body re-evals. This closure runs on EVERY body evaluation of
-                    // an expanded thinking block — if body re-evals track the
-                    // per-token contentUpdateSeq rather than the 0.3s flush, the
-                    // eval counter in the 1s summary exposes it directly.
-                    let t0 = CFAbsoluteTimeGetCurrent()
-                    defer {
-                        let ms = (CFAbsoluteTimeGetCurrent()-t0)*1000
-                        ThinkingHitchMonitor.shared.bodyEvalCount += 1
-                        if ms>4 {
-                            AppLogger(category: "ChatList.Think").info("[ThinkPerf] slice SLOW total=\(total) took=\(String(format: "%.1f", ms))ms eval#\(ThinkingHitchMonitor.shared.bodyEvalCount)")
-                        }
-                    }
                     guard truncatedFlag else { return block.content }
                     let startCellIdx = block.content.index(block.content.endIndex,offsetBy: -windowSz)
                     let cleanStart = block.content[startCellIdx...].firstIndex(of: "\n")
@@ -550,33 +449,14 @@ struct ThinkingBlockView: View {
                     // @Published, an expanded block re-ran body + an animated
                     // scrollTo for every delta (~60-105/s measured); the flush
                     // pace is ~3-4/s for the same visual result.
-                    .onChange(of: block.content.count) { len in
+                    .onChange(of: block.content.count) { _ in
                         guard isStreaming else { return }
-                        AppLogger(category: "ChatList.Think").debug("[ThinkPerf] scrollTo(flush) contentLen=\(len) seq=\(block.contentUpdateSeq)")
                         withAnimation(.linear(duration: 0.15)) {
                             proxy.scrollTo("thinkingBottom", anchor: .bottom)
                         }
                     }
                 }
             }
-        }
-        // Hitch monitor runs while this block is
-        // EXPANDED — streaming or static. The refined report says the jank is
-        // tied to the expanded state itself (collapse instantly recovers), so
-        // the monitor must also capture expanded-static interactions (list
-        // scrolling, new messages arriving) to compare against collapsed.
-        .task(id: expandedBinding.wrappedValue) {
-            if expandedBinding.wrappedValue {
-                ThinkingHitchMonitor.shared.contentLenProvider = { [weak block] in
-                    block?.thinkingContentBuffer.count ?? -1
-                }
-                ThinkingHitchMonitor.shared.start(owner: block.id)
-            } else {
-                ThinkingHitchMonitor.shared.stop(owner: block.id)
-            }
-        }
-        .onDisappear {
-            ThinkingHitchMonitor.shared.stop(owner: block.id)
         }
         // 2026-09-02 唐唐反馈：结束态 0.15 在浅背景上几乎不可见（思考中灰底→结束"背景消失"的断裂感）。
         // 2026-09-02 唐唐定稿：恒定不透明灰（与工具指示器底一致，思考中/结束不切换）；

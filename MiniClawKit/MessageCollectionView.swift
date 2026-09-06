@@ -94,16 +94,9 @@ extension MessageCollectionView {
 
         var decelDLExpectedMs: Double = 16.67
 
-        /// Track last logged offset to detect jumps after settle.
-        var lastLoggedOffset: CGFloat = 0
-
+        /// settle 刚结束的窗口标记：内容收缩时由 contentSize KVO 主动 clamp
+        /// （防 UIKit 硬 clamp 造成跳动）。属行为状态，不是日志开关。
         var settleJustFinished = false
-
-        var scrollSamples = 0
-
-        var lastScrollFlushOffset: CGFloat = 0
-
-        var lastScrollFlush: CFTimeInterval = 0
 
         // [Decel] Deceleration-phase instrumentation. Lets us pin a
         // dropped frame to "Xms into the decel, at offset Y" so the
@@ -406,7 +399,6 @@ extension MessageCollectionView {
                 if self.settleJustFinished && delta < -1 && self.scrollMode == .autoScrolling && !cv.isTracking && !cv.isDecelerating {
                     let maxOff = max(0,newH-cv.bounds.height+cv.adjustedContentInset.bottom)
                     if cv.contentOffset.y>maxOff {
-                        AppLogger(category: "ChatList.Settle").debug("[Settle] POST-SETTLE SHRINK clamp offset \(String(format: "%.1f→%.1f", cv.contentOffset.y, maxOff)) contentSize \(String(format: "%.1f→%.1f", oldH, newH))")
                         UIView.performWithoutAnimation {
                             cv.contentOffset.y = maxOff
                         }
