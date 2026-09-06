@@ -20,19 +20,29 @@ enum AgentLoopHelpers {
     }
 
 
-    /// 引擎运行时约束段：拼在 profile 正文之后（profile 负责"人设"，本段负责"机制"）。
-    /// `canDispatchDeeper` 为 true 时（P2-4 多层编排，深度未触顶）允许继续往下派子代理。
-    static func subagentEngineSuffix(focus: String?, depth: Int, canDispatchDeeper: Bool) -> String {
+    /// 子代理**静态**机制段（进缓存前缀）：不含任何随实例变化的信息，
+    /// 因此所有子代理（乃至跨会话）逐字节一致 → 可被前缀缓存复用。
+    /// 随实例变化的内容一律走 `subagentInstanceSection` 进 volatile 段。
+    static var subagentStaticRules: String {
+        """
+        规则：
+        - 只使用你手上的工具完成任务。
+        - 直接、简洁地完成任务，最后用一段中文总结你的关键发现或结果，不要多余寒暄与自我介绍。
+        - 你的最终回答会作为父代理的一个工具结果，请保证信息自包含、可被父代理直接引用。
+        """
+    }
+
+    /// 子代理**实例**段（volatile）：focus（本次任务）与深度规则随实例变化，
+    /// 若留在前缀里，每个子代理的 system 指纹都不同 → 彼此无法复用缓存
+    /// （真机实测 3 个子代理 sys 指纹各异、命中 0%）。故必须沉到尾部。
+    static func subagentInstanceSection(focus: String?, depth: Int, canDispatchDeeper: Bool) -> String {
         let recursionRule = canDispatchDeeper
         ? String(format: String(localized: "loop_subagent_depth_hint"), depth, maxSubagentDepth)
         : String(format: String(localized: "loop_subagent_max_depth"), depth, maxSubagentDepth)
         return """
-        规则：
-        - 只使用你手上的工具完成任务。
+        本次任务与层级：
         \(focus.map { String(format: String(localized: "subagent_focus_line"), $0) } ?? "")
         \(recursionRule)
-        - 直接、简洁地完成任务，最后用一段中文总结你的关键发现或结果，不要多余寒暄与自我介绍。
-        - 你的最终回答会作为父代理的一个工具结果，请保证信息自包含、可被父代理直接引用。
         """
     }
 

@@ -486,7 +486,18 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
     /// 并在父引擎上注入子代理调度工具，让模型可以主动派发子代理。
     /// 抽成方法是为了让 run() 里的「发送前上下文估算」也能算上工具定义开销。
     private func buildToolSchemas() -> [ToolSchema] {
-        var toolSchemas = toolRouter.allSchemas().filter { !toolNameExclusions.contains($0.function.name) }
+        // 前缀缓存按「最长公共前缀」匹配。工具定义是当前请求里最大的一块
+        // （真机 ≈12000 tok），因此**随角色变化的工具必须排在最后**：
+        // 若它们按字母序夹在共享工具中间（如 close/read_subagent_result），
+        // 其后所有工具定义都会落在不同的前缀上，主代理与子代理之间、子代理
+        // 彼此之间的缓存复用全部失效。置尾后差异只影响末尾一小段。
+        let routerSchemas = toolRouter.allSchemas().filter { !toolNameExclusions.contains($0.function.name) }
+        var toolSchemas = routerSchemas
+            .filter { !Self.roleSpecificToolNames.contains($0.function.name) }
+            .sorted { $0.function.name < $1.function.name }
+        toolSchemas.append(contentsOf: routerSchemas
+            .filter { Self.roleSpecificToolNames.contains($0.function.name) }
+            .sorted { $0.function.name < $1.function.name })
         // 追加子代理调度工具：仅当本引擎有权派发时（主引擎恒有；子代理引擎未触顶时有），
         // 复盘/整理等受限后台引擎（isSubagentEngine=true）不注入，保持"仅 memory 工具"的受限设计。
         if AgentLoopHelpers.canDispatchSubagents(subagentEngine: isSubagentEngine, depth: subagentDepth),
@@ -497,10 +508,11 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
         if !isSubagentEngine, !toolNameExclusions.contains(Self.closeSubagentToolName) {
             toolSchemas.append(makeCloseSubagentToolSchema())
         }
-        // 按 function.name 升序确定性排序：工具列表顺序每轮必须完全一致，否则 tools 的缓存断点
-        // 前缀逐轮变化 → 提示词缓存命中率归零。工具顺序对模型行为无影响，排序安全。
-        return toolSchemas.sorted { $0.function.name < $1.function.name }
+        return toolSchemas
     }
+
+    /// 是否注入随引擎角色/深度变化的工具（排在最末尾，见 buildToolSchemas 说明）。
+    private static let roleSpecificToolNames: Set<String> = ["read_subagent_result"]
 
     private func runLoop() async {
         guard let routingPlan else { return }
@@ -2151,6 +2163,9 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
 
         child.onToken = { [weak self] piece in
             collector.append(piece)
+            // 首个 token = 本轮请求已被服务端处理，共享前缀大概率已写入缓存
+            // → 放行其余并行子代理（见 SubagentWarmupGate）。
+            Task { await SubagentWarmupGate.shared.markWarm() }
             self?.emitSubagentEvent(.token(info, piece))
         }
         child.onError = { [weak self] err in
@@ -2190,9 +2205,15 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
 
         // 子代理思考档位（参考 reasonix subagent_effort 思路，设置 → 智能体 → 子代理）：
         // 已在派发处确定（runSubagent 开头），此处只应用。
+        //
+        // 并行错峰：缓存写入有秒级延迟，一批子代理同时发起会各自冷写共享前缀。
+        // 第一个立即跑并负责预热，其余等首个 token（或超时）后放行。
+        await SubagentWarmupGate.shared.enter()
         await child.run(userMessage: task, history: baseHistory, forceThinkingLevel: childThinking)
 
         activeSubagents.remove(child)
+        // 本子代理结束：若它是预热者，释放领导权（已 warm 的会保留 warmUntil）。
+        await SubagentWarmupGate.shared.relinquishLead()
 
         let cancelled = await child.state.isCancelled()
         // 落盘最新历史（剔除 system），供下次复用接续上下文；终态状态一并写入（清单展示用）。
@@ -2230,9 +2251,18 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
         // P2-4：深度触顶由 buildToolSchemas 的 canDispatchSubagents 统一判定（硬上限），
         // 这里不再用 toolNameExclusions 控制派发权限（避免双份逻辑漂移）。
         let profile = SubAgentProfileStore.shared.profile(named: profileName)
-        let systemPrompt = profile.systemPrompt + "\n\n"
-            + AgentLoopHelpers.subagentEngineSuffix(focus: focus, depth: childDepth, canDispatchDeeper: canDispatchDeeper)
-        child.setSystemPrompt(stable: systemPrompt, volatile: "")
+        // 前缀分层（2026-09-06 子代理缓存命中治理）：
+        //   [共享前缀 L0] → [角色人设 profile] → [静态机制段]  ‖  [易变：focus/深度]
+        // L0 与主代理逐字节一致 → 主/子、子/子共享同一段 KV 缓存前缀；
+        // focus 与深度是实例信息，必须沉到 volatile，否则每个子代理前缀都不同。
+        let systemPrompt = [
+            AgentPromptCore.sharedPrefix,
+            profile.systemPrompt,
+            AgentLoopHelpers.subagentStaticRules
+        ].joined(separator: "\n\n")
+        let volatile = AgentLoopHelpers.subagentInstanceSection(
+            focus: focus,depth: childDepth,canDispatchDeeper: canDispatchDeeper)
+        child.setSystemPrompt(stable: systemPrompt,volatile: volatile)
         child.configure(sessionID: subID, streamingMessageID: nil)
         // 子代理 usage 转发到父引擎统计（P6）：TokenUsageTracker 只绑主引擎，
         // 不转发则子代理消耗在用量/费用统计里系统性缺失。

@@ -112,6 +112,7 @@
 		497DE4996008C7BE55052CED8ACEA3AF /* AgentError.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2F7731B092F54B5EEF1B39677F35156 /* AgentError.swift */; };
 		499DB48BC9B5970433759D2F315A5A7B /* MessageListLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = 992152DF6E17CEF21C517498C4786435 /* MessageListLayout.swift */; };
 		49C4A1CA5E0CF1E77E8F26A03C6C5F48 /* MTUnicode.swift in Sources */ = {isa = PBXBuildFile; fileRef = CCB3FAD36EC20DA8C6442FCDB5F1EB33 /* MTUnicode.swift */; };
+		49E89DAFFE16A8ACD7B202B019768C5C /* SubagentWarmupGate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AD5897697D477B42DF4F37B0AD4F4D4 /* SubagentWarmupGate.swift */; };
 		4A407795FC831226DDECBB9FC9C9AEB2 /* SwiftMathRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 87D272729DE28B80F3DF1D7026123814 /* SwiftMathRenderer.swift */; };
 		4C09217CD1E5A2A5D7B988CB04D236F0 /* AppSettingsModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8F9FA910B2FDAD343896871BDEE980B /* AppSettingsModels.swift */; };
 		4CB9E143920CF3340D668D644C6F23DA /* BrowserSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFBF6E23977C08C8766052D672698035 /* BrowserSupport.swift */; };
@@ -347,6 +348,7 @@
 		E354EB30C0ED4A5898E6C23A842A5665 /* cmark.c in Sources */ = {isa = PBXBuildFile; fileRef = E6B6328F33E5DDB8CC055A570361BDFE /* cmark.c */; };
 		E48C5901CA0472C8FA5BA898AF8CAE02 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 856AB07EABF3ED265F2DA73169A67CD0 /* HomeView.swift */; };
 		E4A16887697249ABDCE7553FEC24B5BF /* BrowserController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 62D051480F0F881FC5B40D0438F0C9C5 /* BrowserController.swift */; };
+		E4A4B32FCFF56E126203C77FBA637CEC /* AgentPromptCore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A19E6713153AEB0085C7BA6F584D945C /* AgentPromptCore.swift */; };
 		E530BAB7902A88EB49CEEB4BDA9B25C7 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 0072F530DF8AF282B22E4123C828638F /* Assets.xcassets */; };
 		E62048552C00BFB6F5CBDA1D55E61F03 /* registry.c in Sources */ = {isa = PBXBuildFile; fileRef = B2FD4323AF06A598B760D47C715DB93D /* registry.c */; };
 		E6A9718DE757C22282F8CC4314331E04 /* ContactsTools.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF19FBFA6517AC9526043B86D9830189 /* ContactsTools.swift */; };
@@ -677,6 +679,7 @@
 		98A6C76042FFA4EFBDF99282EA8178DE /* HostExecutor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostExecutor.swift; sourceTree = "<group>"; };
 		992070B92461FD694ACBF06A4763526E /* ReasoningBlockView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReasoningBlockView.swift; sourceTree = "<group>"; };
 		992152DF6E17CEF21C517498C4786435 /* MessageListLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageListLayout.swift; sourceTree = "<group>"; };
+		9AD5897697D477B42DF4F37B0AD4F4D4 /* SubagentWarmupGate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubagentWarmupGate.swift; sourceTree = "<group>"; };
 		9AE4C5EF525F61F4D8C39B51C61D065E /* ShareExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ShareExtension.entitlements; sourceTree = "<group>"; };
 		9BE87786BD9739541E993DA8915D093D /* ContextBudget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContextBudget.swift; sourceTree = "<group>"; };
 		9D2481DDD3ED8AAF576DA8B06F5F7EE8 /* MTMathUILabel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MTMathUILabel.swift; sourceTree = "<group>"; };
@@ -687,6 +690,7 @@
 		A02E0E1886684000760FCCAFAF75E9CA /* ChatSessionRuntime.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatSessionRuntime.swift; sourceTree = "<group>"; };
 		A095DD6B9F5B953F4090FF8C8B502F54 /* SkillLoadTool.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkillLoadTool.swift; sourceTree = "<group>"; };
 		A174EBC496313B8A65B7BAFC7B6E754C /* CalendarTools.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarTools.swift; sourceTree = "<group>"; };
+		A19E6713153AEB0085C7BA6F584D945C /* AgentPromptCore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentPromptCore.swift; sourceTree = "<group>"; };
 		A2D9F1C16DD8A466CB406B85D69FA160 /* MiniClaw.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = MiniClaw.entitlements; sourceTree = "<group>"; };
 		A42F4AB06349D7863CD2CD40B07AD3BD /* MCPConfigStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MCPConfigStore.swift; sourceTree = "<group>"; };
 		A49827911C52565BC78EE4F78DD00EA0 /* ResponsesModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResponsesModels.swift; sourceTree = "<group>"; };
@@ -1162,6 +1166,7 @@
 				F5C76925A1A0B68200AF6C42668341A5 /* SubAgentProfile.swift */,
 				3B02F346E238984842BDC14A7BDB49CD /* SubAgentProfileStore.swift */,
 				28FF43DC6C5BEBDFEA105A9B94321657 /* SubagentRuntimeRegistry.swift */,
+				9AD5897697D477B42DF4F37B0AD4F4D4 /* SubagentWarmupGate.swift */,
 			);
 			path = SubAgent;
 			sourceTree = "<group>";
@@ -1231,6 +1236,7 @@
 				E2F7731B092F54B5EEF1B39677F35156 /* AgentError.swift */,
 				B2E301DED4A1129E7B56A701D1439F85 /* AgentLoopEngine.swift */,
 				C732ED2AF64C70FC7D540A97F738FBB3 /* AgentLoopHelpers.swift */,
+				A19E6713153AEB0085C7BA6F584D945C /* AgentPromptCore.swift */,
 				C26131A6798A4E48F2E38256F35E50F0 /* AgentRunService.swift */,
 				1E9F62847735C2E34CBC3BEE08B0A315 /* AgentRunService+Run.swift */,
 				C9508C289CF207E610C5A7A9C7019DC1 /* AgentRunService+SystemPrompt.swift */,
@@ -1937,6 +1943,7 @@
 				497DE4996008C7BE55052CED8ACEA3AF /* AgentError.swift in Sources */,
 				CB0EB671D7E677EF7D279ECFADE24121 /* AgentLoopEngine.swift in Sources */,
 				BE8A2958C830B1AFCF9F726C9C147C41 /* AgentLoopHelpers.swift in Sources */,
+				E4A4B32FCFF56E126203C77FBA637CEC /* AgentPromptCore.swift in Sources */,
 				6AA3C34C6D33280865FB0BF0755A77A2 /* AgentRunService+Run.swift in Sources */,
 				6D59C04304A196039A6CE8B9E2B19C98 /* AgentRunService+SystemPrompt.swift in Sources */,
 				86DEB9F3FC7B029F99272A66A909C848 /* AgentRunService.swift in Sources */,
@@ -2133,6 +2140,7 @@
 				12AAD16B19095AA5FE50D0C997BCF1B4 /* SubagentRuntimeRegistry.swift in Sources */,
 				B2DCF2DA39853914104794D677C577F0 /* SubagentRuntimeTypes.swift in Sources */,
 				C9BA6FC068279A7B1DAAD1261FE82CB6 /* SubagentStore.swift in Sources */,
+				49E89DAFFE16A8ACD7B202B019768C5C /* SubagentWarmupGate.swift in Sources */,
 				9F1C0104EAEB1503AD5F56090C15AD02 /* SyncBootstrap.swift in Sources */,
 				A44A548282467C65B5B8ABF6FDA4310E /* SyncConfig.swift in Sources */,
 				C37B2A13955BF195048AC005857A9DFD /* SyncCore.swift in Sources */,
