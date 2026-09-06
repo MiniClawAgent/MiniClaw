@@ -1728,11 +1728,11 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
     /// 短码解析：清单只展示 UUID 前 8 位，模型照抄短码关闭是高频路径——
     /// 对当前会话的子代理卡片做大小写不敏感前缀匹配，唯一命中才返回
     /// （多命中/零命中返回 nil，让模型收到明确错误而非误关）。
+    /// 批量关闭（subagent_ids）复用本函数逐个解析。
     @MainActor
-    private func prefixResolveSubagentID(_ args: [String: Any], sessionID: UUID) -> UUID? {
-        guard let s = args["subagent_id"] as? String else { return nil }
-        let short = s.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        guard short.count >= 4, UUID(uuidString: s) == nil else { return nil }
+    private func prefixResolveSubagentToken(_ token: String, sessionID: UUID) -> UUID? {
+        let short = token.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard short.count >= 4, UUID(uuidString: token) == nil else { return nil }
         let matches = SubagentStore.shared.avatars(for: sessionID)
             .filter { $0.id.uuidString.lowercased().hasPrefix(short) }
             .map(\.id)
@@ -1786,6 +1786,7 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
         }
         // 关闭子代理：仅父引擎可调（schema 已剔除子代理引擎；执行级再兜底一次——
         // 子代理可能幻觉直调旧工具名，若放行会误删兄弟子代理并销毁其浏览器上下文）。
+        // 支持批量：subagent_id 单个 / subagent_ids 数组，逐个关闭并汇总结果。
         if rawName == Self.closeSubagentToolName {
             guard !isSubagentEngine else {
                 let result = ToolResult(success: false, text: String(localized: "err_subagent_no_close_perm"))
@@ -1800,15 +1801,9 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
                 finalizeInterceptedToolExec(tc, result: result, startedAt: interceptedStartedAt)
                 return result
             }
-            // 精确 UUID 优先；失败则按前缀对当前会话子代理卡片唯一匹配
-            // （系统提示词清单只展示 8 位短码，模型照抄短码关闭是高频路径，2026-09-05）。
-            let subagentID: UUID?
-            if let exact = CloseSubagentTool.parseSubagentID(closeArgs) {
-                subagentID = exact
-            } else {
-                subagentID = await prefixResolveSubagentID(closeArgs, sessionID: parentSID)
-            }
-            guard let subagentID else {
+            // 收集待关闭目标（去重保序；单个/批量/混用皆可）。
+            let tokens = CloseSubagentTool.parseSubagentTokens(closeArgs)
+            guard !tokens.isEmpty else {
                 // 失败文案附带存活清单（2026-09-05）：此前通用错误让模型以为格式错误，
                 // 对已关闭的子代理反复重试直至熔断——附上清单即打破循环。
                 let live = await MainActor.run {
@@ -1823,10 +1818,31 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
                 finalizeInterceptedToolExec(tc, result: result, startedAt: interceptedStartedAt)
                 return result
             }
-            let (ok, text) = await SubagentLifecycle.close(sessionID: parentSID, subagentID: subagentID, cancel: { [weak self] id in
-                self?.cancelSubagent(subagentID: id)
-            })
-            let result = ToolResult(success: ok, text: ok ? text : "Info: \(text)")
+            // 逐个解析 + 关闭：精确 UUID 优先，短码按当前会话唯一前缀匹配。
+            var okCount = 0
+            var failCount = 0
+            var lines: [String] = []
+            for token in tokens {
+                let id: UUID?
+                if let exact = UUID(uuidString: token) {
+                    id = exact
+                } else {
+                    id = await prefixResolveSubagentToken(token, sessionID: parentSID)
+                }
+                guard let subagentID = id else {
+                    failCount += 1
+                    lines.append("❌ \(token): " + String(localized: "err_close_subagent_need_id"))
+                    continue
+                }
+                let (ok, text) = await SubagentLifecycle.close(sessionID: parentSID, subagentID: subagentID, cancel: { [weak self] id in
+                    self?.cancelSubagent(subagentID: id)
+                })
+                if ok { okCount += 1 } else { failCount += 1 }
+                lines.append("\(ok ? "✅" : "❌") \(text)")
+            }
+            let header = String(format: String(localized: "close_batch_summary"), String(okCount), String(failCount))
+            // 部分成功也算成功：已关闭的信息对模型有用，全失败才判失败。
+            let result = ToolResult(success: failCount < tokens.count, text: header + "\n" + lines.joined(separator: "\n"))
             finalizeInterceptedToolExec(tc, result: result, startedAt: interceptedStartedAt)
             return result
         }

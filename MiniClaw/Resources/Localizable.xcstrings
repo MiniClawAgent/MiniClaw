@@ -9403,6 +9403,35 @@
         }
       }
     },
+    "close_batch_summary": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "批量关闭完成：%1$d 成功，%2$d 失败"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Batch close finished: %1$d succeeded, %2$d failed"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "一括クローズ完了：成功 %1$d 件、失敗 %2$d 件"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "일괄 닫기 완료: 성공 %1$d건, 실패 %2$d건"
+          }
+        }
+      }
+    },
     "close_browser": {
       "extractionState": "manual",
       "localizations": {
@@ -39337,25 +39366,54 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Required: the subagent id to close (from dispatch_subagent result or the current session's subagent list). Closing removes its conversation and avatar, frees context, and cannot be reused."
+            "value": "Required: the subagent id to close (from dispatch_subagent result or the current session's subagent list). Closing removes its conversation and avatar, frees context, and cannot be reused.; use the subagent_ids array to close several at once; use the subagent_ids array to close several at once"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "必須：閉じるサブエージェントの id（dispatch_subagent の結果または「現在のセッションのサブエージェント」一覧から）。閉じると会話とアバターが削除され、コンテキストが解放され、再利用できません。"
+            "value": "必須：閉じるサブエージェントの id（dispatch_subagent の結果または「現在のセッションのサブエージェント」一覧から）。閉じると会話とアバターが削除され、コンテキストが解放され、再利用できません。; 複数同時クローズは subagent_ids 配列を使用; 複数同時クローズは subagent_ids 配列を使用"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "필수: 닫을 서브에이전트 id(dispatch_subagent 결과 또는 '현재 세션의 서브에이전트' 목록에서). 닫으면 대화와 아바타가 제거되고 컨텍스트가 해제되며 재사용할 수 없습니다."
+            "value": "필수: 닫을 서브에이전트 id(dispatch_subagent 결과 또는 '현재 세션의 서브에이전트' 목록에서). 닫으면 대화와 아바타가 제거되고 컨텍스트가 해제되며 재사용할 수 없습니다.; 여러 개 닫기는 subagent_ids 배열 사용; 여러 개 닫기는 subagent_ids 배열 사용"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "必填：要关闭的子代理 id（来自 dispatch_subagent 返回结果或「当前会话的子代理」清单）。关闭后其会话与头像移除、上下文释放，不可再复用。"
+            "value": "必填：要关闭的子代理 id（来自 dispatch_subagent 返回结果或「当前会话的子代理」清单）。关闭后其会话与头像移除、上下文释放，不可再复用。；批量关闭改用 subagent_ids 数组；批量关闭改用 subagent_ids 数组"
+          }
+        }
+      }
+    },
+    "param_close_subagent_ids": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "要关闭的子代理 id / 8 位短码 数组，可一次关闭多个（与 subagent_id 可混用）"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Array of subagent ids / 8-char short codes to close (can close several at once; may be combined with subagent_id)"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "クローズするサブエージェントの id / 8 文字ショートコードの配列（複数同時クローズ可。subagent_id と併用可）"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "닫을 서브에이전트 id / 8자 단축코드 배열(한 번에 여러 개 닫기 가능, subagent_id와 혼용 가능)"
           }
         }
       }
