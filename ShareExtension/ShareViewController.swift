@@ -1,7 +1,8 @@
 import UIKit
 import UniformTypeIdentifiers
+import Combine
 
-/// 系统分享入口（Share Extension）。
+/// 系统分享入口（Share Extension）——卡片式界面。
 ///
 /// 关键约束：iOS 上 **Share Extension 无法用 `extensionContext.open` 唤起宿主
 /// App**（官方仅 Today / iMessage 扩展点支持；Share Extension 恒失败且
@@ -16,14 +17,23 @@ import UniformTypeIdentifiers
 /// 文件走共享目录实体搬运，绝不下发别的 App 沙盒路径——那种路径主 App 读不到。
 final class ShareViewController: UIViewController {
 
-    private let hintLabel: UILabel = {
-        let l = UILabel()
-        l.text = String(localized: "share_hint")
-        l.font = .systemFont(ofSize: 12)
-        l.textColor = .secondaryLabel
-        l.numberOfLines = 0
-        l.translatesAutoresizingMaskIntoConstraints = false
-        return l
+    // MARK: - UI 组件（卡片式）
+
+    /// 附件横向滚动区（每张附件一张卡片）。
+    private let attachScrollView: UIScrollView = {
+        let s = UIScrollView()
+        s.showsHorizontalScrollIndicator = false
+        s.translatesAutoresizingMaskIntoConstraints = false
+        s.isHidden = true
+        return s
+    }()
+
+    private let attachStack: UIStackView = {
+        let s = UIStackView()
+        s.axis = .horizontal
+        s.spacing = 10
+        s.translatesAutoresizingMaskIntoConstraints = false
+        return s
     }()
 
     private let textView: UITextView = {
@@ -31,17 +41,43 @@ final class ShareViewController: UIViewController {
         v.font = .systemFont(ofSize: 16)
         v.layer.borderWidth = 1
         v.layer.borderColor = UIColor.separator.cgColor
-        v.layer.cornerRadius = 8
+        v.layer.cornerRadius = 12
         v.translatesAutoresizingMaskIntoConstraints = false
         return v
     }()
 
+    /// 输入框占位符（textView 原生不带，用浮层实现）。
+    private let placeholderLabel: UILabel = {
+        let l = UILabel()
+        l.text = String(localized: "share_prompt_placeholder")
+        l.font = .systemFont(ofSize: 16)
+        l.textColor = .placeholderText
+        l.numberOfLines = 0
+        l.translatesAutoresizingMaskIntoConstraints = false
+        l.isUserInteractionEnabled = false
+        return l
+    }()
+
     private let sendButton: UIButton = {
-        let b = UIButton(type: .system)
-        b.setTitle(String(localized: "share_send_title"),for: .normal)
-        b.titleLabel?.font = .systemFont(ofSize: 17,weight: .semibold)
+        var config = UIButton.Configuration.filled()
+        config.title = String(localized: "share_send_title")
+        config.cornerStyle = .large
+        config.baseBackgroundColor = .systemBlue
+        config.baseForegroundColor = .white
+        let b = UIButton(configuration: config)
         b.translatesAutoresizingMaskIntoConstraints = false
         return b
+    }()
+
+    private let hintLabel: UILabel = {
+        let l = UILabel()
+        l.text = String(localized: "share_hint")
+        l.font = .systemFont(ofSize: 12)
+        l.textColor = .secondaryLabel
+        l.numberOfLines = 0
+        l.textAlignment = .center
+        l.translatesAutoresizingMaskIntoConstraints = false
+        return l
     }()
 
     /// 随任务一起带过去的附件（共享目录内的文件名）。
@@ -53,21 +89,36 @@ final class ShareViewController: UIViewController {
         super.viewDidLoad()
         view.backgroundColor = .systemBackground
         title = "MiniClaw"
-        view.addSubview(hintLabel)
-        view.addSubview(textView)
-        view.addSubview(sendButton)
+        textView.delegate = self
+
+        let stack = UIStackView(arrangedSubviews: [attachScrollView,textView,sendButton,hintLabel])
+        stack.axis = .vertical
+        stack.spacing = 16
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(stack)
+        textView.addSubview(placeholderLabel)
+
         NSLayoutConstraint.activate([
-            hintLabel.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor,constant: 16),
-            hintLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor,constant: 16),
-            hintLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor,constant: -16),
-            textView.topAnchor.constraint(equalTo: hintLabel.bottomAnchor,constant: 12),
-            textView.leadingAnchor.constraint(equalTo: view.leadingAnchor,constant: 16),
-            textView.trailingAnchor.constraint(equalTo: view.trailingAnchor,constant: -16),
-            textView.heightAnchor.constraint(equalToConstant: 160),
-            sendButton.topAnchor.constraint(equalTo: textView.bottomAnchor,constant: 20),
-            sendButton.centerXAnchor.constraint(equalTo: view.centerXAnchor)
+            stack.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor,constant: 20),
+            stack.leadingAnchor.constraint(equalTo: view.leadingAnchor,constant: 20),
+            stack.trailingAnchor.constraint(equalTo: view.trailingAnchor,constant: -20),
+
+            attachScrollView.heightAnchor.constraint(equalToConstant: 76),
+            attachStack.leadingAnchor.constraint(equalTo: attachScrollView.contentLayoutGuide.leadingAnchor,constant: 4),
+            attachStack.trailingAnchor.constraint(equalTo: attachScrollView.contentLayoutGuide.trailingAnchor,constant: -4),
+            attachStack.topAnchor.constraint(equalTo: attachScrollView.contentLayoutGuide.topAnchor,constant: 4),
+            attachStack.bottomAnchor.constraint(equalTo: attachScrollView.contentLayoutGuide.bottomAnchor,constant: -4),
+            attachStack.heightAnchor.constraint(equalToConstant: 68),
+
+            textView.heightAnchor.constraint(equalToConstant: 120),
+            placeholderLabel.topAnchor.constraint(equalTo: textView.contentLayoutGuide.topAnchor,constant: 8),
+            placeholderLabel.leadingAnchor.constraint(equalTo: textView.contentLayoutGuide.leadingAnchor,constant: 6),
+            placeholderLabel.trailingAnchor.constraint(equalTo: textView.contentLayoutGuide.trailingAnchor,constant: -8),
+
+            sendButton.heightAnchor.constraint(equalToConstant: 50),
         ])
-        sendButton.addTarget(self,action: #selector(sendTapped),for: .touchUpInside)
+
+        sendButton.addAction(UIAction { [weak self] _ in self?.sendTapped() },for: .touchUpInside)
 
         let items = (extensionContext?.inputItems as? [NSExtensionItem]) ?? []
         Task { @MainActor [weak self] in
@@ -76,11 +127,12 @@ final class ShareViewController: UIViewController {
             self.extractedText = text
             self.attachmentNames = names
             self.textView.text = text
-            self.hintLabel.text = names.isEmpty
-                ? String(localized: "share_hint")
-                : String(format: String(localized: "share_hint_with_files"),names.joined(separator: "、"))
+            self.refreshPlaceholder()
+            self.renderAttachmentCards(names: names)
         }
     }
+
+    // MARK: - 发送
 
     @objc private func sendTapped() {
         let edited = (textView.text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
@@ -94,6 +146,88 @@ final class ShareViewController: UIViewController {
             SharedInbox.save(PendingTaskShare(items: items,timestamp: Date()))
         }
         extensionContext?.completeRequest(returningItems: nil,completionHandler: nil)
+    }
+
+    // MARK: - 附件卡片
+
+    /// 每个附件渲染一张卡：类型图标 + 文件名 + 体积。
+    private func renderAttachmentCards(names: [String]) {
+        guard !names.isEmpty else { return }
+        attachScrollView.isHidden = false
+        for name in names {
+            let card = UIView()
+            card.backgroundColor = .secondarySystemBackground
+            card.layer.cornerRadius = 12
+
+            let icon = UIImage(systemName: Self.iconName(for: name))
+            let iconView = UIImageView(image: icon)
+            iconView.tintColor = .systemBlue
+            iconView.contentMode = .scaleAspectFit
+            iconView.translatesAutoresizingMaskIntoConstraints = false
+
+            let nameView = UILabel()
+            nameView.text = Self.displayName(for: name)
+            nameView.font = .systemFont(ofSize: 13,weight: .medium)
+            nameView.lineBreakMode = .byTruncatingMiddle
+            nameView.translatesAutoresizingMaskIntoConstraints = false
+
+            let sizeView = UILabel()
+            sizeView.text = Self.fileSizeText(for: name)
+            sizeView.font = .systemFont(ofSize: 11)
+            sizeView.textColor = .secondaryLabel
+            sizeView.translatesAutoresizingMaskIntoConstraints = false
+
+            let v = UIStackView(arrangedSubviews: [nameView,sizeView])
+            v.axis = .vertical
+            v.spacing = 3
+            v.translatesAutoresizingMaskIntoConstraints = false
+
+            card.addSubview(iconView)
+            card.addSubview(v)
+            NSLayoutConstraint.activate([
+                card.widthAnchor.constraint(equalToConstant: 210),
+                iconView.leadingAnchor.constraint(equalTo: card.leadingAnchor,constant: 12),
+                iconView.centerYAnchor.constraint(equalTo: card.centerYAnchor),
+                iconView.widthAnchor.constraint(equalToConstant: 26),
+                v.leadingAnchor.constraint(equalTo: iconView.trailingAnchor,constant: 10),
+                v.centerYAnchor.constraint(equalTo: card.centerYAnchor),
+                v.trailingAnchor.constraint(equalTo: card.trailingAnchor,constant: -12),
+            ])
+            attachStack.addArrangedSubview(card)
+        }
+    }
+
+    /// 卡片上展示的文件名：剥掉 UUID 防冲突前缀（shared-XXXXXXXX_）。
+    private static func displayName(for storedName: String) -> String {
+        guard storedName.hasPrefix("shared-"),let idx = storedName.firstIndex(of: "_") else {
+            return storedName
+        }
+        return String(storedName[storedName.index(after: idx)...])
+    }
+
+    private static func fileSizeText(for name: String) -> String {
+        guard let dir = SharedInbox.fileDirectory else { return "" }
+        let attrs = try? FileManager.default.attributesOfItem(
+            atPath: dir.appendingPathComponent(name).path)
+        let bytes = (attrs?[.size] as? Int64) ?? 0
+        return ByteCountFormatter.string(fromByteCount: bytes,countStyle: .file)
+    }
+
+    /// 按扩展名挑 SF Symbol（未识别的回落通用文档图标）。
+    private static func iconName(for name: String) -> String {
+        let ext = (name as NSString).pathExtension.lowercased()
+        switch ext {
+        case "jpg","jpeg","png","gif","webp","heic": return "photo.fill"
+        case "mov","mp4","m4v","avi","mkv","webm": return "video.fill"
+        case "mp3","m4a","wav","aac","ogg","flac": return "waveform"
+        case "zip","mpk","tar","gz": return "doc.zipper"
+        case "pdf": return "doc.richtext.fill"
+        default: return "doc.fill"
+        }
+    }
+
+    private func refreshPlaceholder() {
+        placeholderLabel.isHidden = !(textView.text ?? "").isEmpty
     }
 
     // MARK: - 内容抽取
@@ -192,5 +326,11 @@ final class ShareViewController: UIViewController {
             NSLog("[ShareExt] write failed: \(error)")
             return nil
         }
+    }
+}
+
+extension ShareViewController: UITextViewDelegate {
+    func textViewDidChange(_ textView: UITextView) {
+        refreshPlaceholder()
     }
 }
