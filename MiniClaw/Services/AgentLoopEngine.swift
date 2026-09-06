@@ -2161,11 +2161,13 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
         /// 工具调用 / 思考段穿插用的全局时间线序号（与主线 ChatView.nextTimelineOrder 同语义）。
         let order = SubagentTimelineCounter()
 
+        // 预热信号按端点区分：缓存是服务商账号维度的，不同 modelId 各自预热。
+        let warmKey = plan.endpoints.first?.modelId ?? "default"
         child.onToken = { [weak self] piece in
             collector.append(piece)
             // 首个 token = 本轮请求已被服务端处理，共享前缀大概率已写入缓存
             // → 放行其余并行子代理（见 SubagentWarmupGate）。
-            Task { await SubagentWarmupGate.shared.markWarm() }
+            Task { await SubagentWarmupGate.shared.markWarm(endpointKey: warmKey) }
             self?.emitSubagentEvent(.token(info, piece))
         }
         child.onError = { [weak self] err in
@@ -2176,6 +2178,10 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
         // executeTool 首次创建并挂载 → 此处即「工具开始执行」时机（等价旧 onToolCall）。
         child.onToolExecutionBegin = { [weak self] exec in
             guard let self else { return }
+            // 预热信号补位：子代理首轮可能直接调工具、一个文本 token 都不出，
+            // 此时 onToken 不触发，等待者只能等满超时。工具调用同样说明请求
+            // 已被服务端处理 → 共享前缀已写入，可放行其余并行子代理。
+            Task { await SubagentWarmupGate.shared.markWarm(endpointKey: warmKey) }
             let argsStr: String
             if let data = exec.argsJSON.data(using: .utf8),
                let obj = try? JSONSerialization.jsonObject(with: data),
@@ -2208,12 +2214,12 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
         //
         // 并行错峰：缓存写入有秒级延迟，一批子代理同时发起会各自冷写共享前缀。
         // 第一个立即跑并负责预热，其余等首个 token（或超时）后放行。
-        await SubagentWarmupGate.shared.enter()
+        await SubagentWarmupGate.shared.enter(endpointKey: warmKey)
         await child.run(userMessage: task, history: baseHistory, forceThinkingLevel: childThinking)
 
         activeSubagents.remove(child)
         // 本子代理结束：若它是预热者，释放领导权（已 warm 的会保留 warmUntil）。
-        await SubagentWarmupGate.shared.relinquishLead()
+        await SubagentWarmupGate.shared.relinquishLead(endpointKey: warmKey)
 
         let cancelled = await child.state.isCancelled()
         // 落盘最新历史（剔除 system），供下次复用接续上下文；终态状态一并写入（清单展示用）。
