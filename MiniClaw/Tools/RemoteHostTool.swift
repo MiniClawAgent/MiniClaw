@@ -153,19 +153,28 @@ struct RemoteHostTool: AgentTool {
 
     private func discoverAction() async -> ToolResult {
         let services = await Self.discoverSSHServices(timeout: 5)
-        guard !services.isEmpty else {
-            // mDNS 发现在跨网段 / 本地网络权限未授予时会扫不到——不代表目标机不可达。
-            // 直接 connect（传 IP 或不传 host 让工具自动探测网段）仍可成功。
+        if !services.isEmpty {
+            let lines = services.map { "- \($0)" }
+            return ToolResult(success: true,
+                              text: String(localized: "remote_host_discover_header") + "\n" + lines.joined(separator: "\n")
+                              + "\n" + String(localized: "remote_host_discover_next"))
+        }
+
+        // Bonjour 空（跨网段 / 本地网络权限未授予）≠ 目标机不可达：
+        // 自动跑局域网探测（ping + 探 22），把可连接的设备 IP 直接递给 AI。
+        let candidates = await Self.healProbeLAN()
+        guard !candidates.isEmpty else {
             return ToolResult(success: true, text: String(localized: "remote_host_discover_empty")
                               + "\n" + String(localized: "remote_host_discover_note"))
         }
-        let lines = services.map { "- \($0)" }
+        let lines = candidates.map { "- \($0)（22 端口开放）" }
         return ToolResult(success: true,
-                          text: String(localized: "remote_host_discover_header") + "\n" + lines.joined(separator: "\n")
-                          + "\n" + String(localized: "remote_host_discover_next"))
+                          text: String(localized: "remote_host_discover_probe_header") + "\n"
+                              + lines.joined(separator: "\n")
+                              + "\n" + String(localized: "remote_host_discover_next"))
     }
 
-    // MARK: - action: connect（验证 + 锁定配置）
+    // MARK: - action: connect（验证 + 锁定配置；host 可省略全自动连接）
 
     private func connectAction(_ parameters: [String: Any]) async -> ToolResult {
         let name = stringParam(parameters, "name")
@@ -175,23 +184,34 @@ struct RemoteHostTool: AgentTool {
         let keyPath = stringParam(parameters, "key_path") ?? Self.defaultKeyPath
         let os = (stringParam(parameters, "os") ?? "macos").lowercased()
 
-        // 通用路径：host 未给（或以 .local 结尾）→ 用 Bonjour 发现/解析拿当前 IP。
-        // Bonjour 服务名优先取 name；host 为 .local 名时也走解析。
+        // 通用路径：host 未给（或以 .local 结尾）→ 自动解析当前 IP：
+        //   ① Bonjour（name 或 .local 名）→ ② 局域网探测（跨网段/权限盲区兜底）。
+        // 解析在 App 层完成——iSH 的 DNS 不走 mDNS。
         var bonjourService: String? = nil
         if host.isEmpty || host.hasSuffix(".local") {
             let serviceCandidate = (host.isEmpty ? (name ?? "") : host)
                 .trimmingCharacters(in: .whitespacesAndNewlines)
-            bonjourService = serviceCandidate.hasSuffix(".local")
+            let service = serviceCandidate.hasSuffix(".local")
                 ? String(serviceCandidate.dropLast(6)) : serviceCandidate
-            guard let service = bonjourService, !service.isEmpty else {
-                return ToolResult(success: false, text: String(localized: "remote_host_connect_need_host"))
+            if !service.isEmpty {
+                bonjourService = service
+                host = await Self.resolveBonjourHost(service) ?? ""
             }
-            guard let ip = await Self.resolveBonjourHost(service) else {
+        }
+        // Bonjour 没拿到（权限/跨网段/名字不匹配）→ 局域网探测兜底
+        if host.isEmpty {
+            let candidates = await Self.healProbeLAN()
+            switch candidates.count {
+            case 1: host = candidates[0]
+            case 0:
                 return ToolResult(success: false,
-                                  text: String(localized: "remote_host_resolve_failed") + " "
-                                      + String(localized: "remote_host_discover_hint"))
+                                  text: String(localized: "remote_host_discover_empty") + "\n"
+                                      + String(localized: "remote_host_heal_none"))
+            default:
+                return ToolResult(success: false,
+                                  text: String(format: String(localized: "remote_host_heal_candidates"),
+                                               candidates.joined(separator: "、")))
             }
-            host = ip
         }
         guard !host.isEmpty else {
             return ToolResult(success: false, text: String(localized: "remote_host_connect_need_host"))
@@ -606,17 +626,17 @@ struct RemoteHostTool: AgentTool {
     }
 
     /// 拼 ssh 命令：accept-new 首连免交互、ConnectTimeout 防卡死、BatchMode 防密码提示挂起、
-    /// ControlMaster 复用（iSH 模拟下 ssh 加密握手慢，首连一次后 10 分钟内 exec 走复用通道毫秒级）、
     /// 远程命令整体单引号包裹（内部单引号按 POSIX 规则转义）。keyPath 含 ~ 不加引号（交由 shell 展开）。
+    ///
+    /// ⚠️ 禁止加 ControlMaster/ControlPath（2026-09-07 真机实测）：iSH 无法创建
+    /// unix domain socket（unix_listener: cannot bind ... Operation not permitted，
+    /// ssh 直接致命退出）。iSH 下完整握手实测仅 ~3 秒，不需要连接复用。
     private static func sshCommand(user: String, host: String, port: Int, keyPath: String, command: String) -> String {
         let escaped = command.replacingOccurrences(of: "'", with: "'\\''")
         var parts = ["ssh", "-i", keyPath,
                      "-o", "StrictHostKeyChecking=accept-new",
                      "-o", "ConnectTimeout=10",
-                     "-o", "BatchMode=yes",
-                     "-o", "ControlMaster=auto",
-                     "-o", "ControlPath=/tmp/cm-%r@%h:%p",
-                     "-o", "ControlPersist=600"]
+                     "-o", "BatchMode=yes"]
         if port != 22 { parts += ["-p", String(port)] }
         parts.append("\(user)@\(host)")
         parts.append("'\(escaped)'")

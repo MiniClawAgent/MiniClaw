@@ -47857,6 +47857,35 @@
         }
       }
     },
+    "remote_host_discover_probe_header": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "局域网探测发现以下主机的 22 端口开放（可直接作为 connect 的 host）："
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "LAN probe found the following hosts with port 22 open (usable directly as connect's host):"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "LAN 探測で 22 ポート開放ホストを検出（connect の host としてそのまま使用可）："
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "LAN 탐색으로 22 포트가 열린 호스트 발견(connect의 host로 바로 사용 가능):"
+          }
+        }
+      }
+    },
     "remote_host_exec_need_command": {
       "extractionState": "manual",
       "localizations": {
@@ -48211,25 +48240,25 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "主机地址（connect 用）：IP 或域名，如 192.168.10.107"
+            "value": "主机地址（connect 用）：IP 或域名，如 192.168.10.107；connect 时可省略——自动 Bonjour 发现/局域网探测；connect 时可省略——自动 Bonjour 发现/局域网探测"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Host address (for connect): IP or domain, e.g. 192.168.10.107"
+            "value": "Host address (for connect): IP or domain, e.g. 192.168.10.107; omit on connect for automatic Bonjour discovery / LAN probing; omit on connect for automatic Bonjour discovery / LAN probing"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "ホストアドレス（connect 用）：IP またはドメイン、例: 192.168.10.107"
+            "value": "ホストアドレス（connect 用）：IP またはドメイン、例: 192.168.10.107; connect では省略可——Bonjour 検出/LAN 自動探測; connect では省略可——Bonjour 検出/LAN 自動探測"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "호스트 주소(connect용): IP 또는 도메인, 예: 192.168.10.107"
+            "value": "호스트 주소(connect용): IP 또는 도메인, 예: 192.168.10.107; connect에서 생략 가능——Bonjour 검출/LAN 자동 탐색; connect에서 생략 가능——Bonjour 검출/LAN 자동 탐색"
           }
         }
       }
