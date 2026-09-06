@@ -136,12 +136,15 @@ struct RemoteHostTool: AgentTool {
             return ToolResult(success: true, text: lines.joined(separator: "\n"))
         }
 
-        // 环境就绪：按目标 OS 输出配置指引
+        // 环境就绪：按目标 OS 输出「一行命令」——用户在目标电脑粘贴执行即可
+        // （开启 SSH 服务端 + 写入公钥一步到位），无需多步骤手动操作。
+        let guide: String
         switch (os ?? "macos").lowercased() {
-        case "linux":   lines.append(String(localized: "remote_host_guide_linux"))
-        case "windows": lines.append(String(localized: "remote_host_guide_windows"))
-        default:        lines.append(String(localized: "remote_host_guide_macos"))
+        case "linux":   guide = String(format: String(localized: "remote_host_guide_linux"), pubkey ?? "")
+        case "windows": guide = String(format: String(localized: "remote_host_guide_windows"), pubkey ?? "")
+        default:        guide = String(format: String(localized: "remote_host_guide_macos"), pubkey ?? "")
         }
+        lines.append(guide)
         lines.append(String(localized: "remote_host_setup_next_connect"))
         return ToolResult(success: true, text: lines.joined(separator: "\n\n"))
     }
@@ -151,7 +154,10 @@ struct RemoteHostTool: AgentTool {
     private func discoverAction() async -> ToolResult {
         let services = await Self.discoverSSHServices(timeout: 5)
         guard !services.isEmpty else {
-            return ToolResult(success: true, text: String(localized: "remote_host_discover_empty"))
+            // mDNS 发现在跨网段 / 本地网络权限未授予时会扫不到——不代表目标机不可达。
+            // 直接 connect（传 IP 或不传 host 让工具自动探测网段）仍可成功。
+            return ToolResult(success: true, text: String(localized: "remote_host_discover_empty")
+                              + "\n" + String(localized: "remote_host_discover_note"))
         }
         let lines = services.map { "- \($0)" }
         return ToolResult(success: true,
@@ -197,16 +203,38 @@ struct RemoteHostTool: AgentTool {
 
         let probe = Self.sshCommand(user: user, host: host, port: port, keyPath: keyPath,
                                     command: "echo ok && uname -s")
-        let probeResult = await runLocal(probe, timeout: 45)
-        guard let probeResult, probeResult.exitCode == 0, probeResult.stdout.contains("ok") else {
-            let detail: String
-            if let r = probeResult, !r.stdout.isEmpty {
-                detail = r.stdout
+        let probeResult = await runLocal(probe, timeout: 90)
+        var ok = probeResult?.exitCode == 0 && probeResult?.stdout.contains("ok") == true
+        var lastOutput = probeResult.map { $0.stdout.isEmpty ? $0.stderr : $0.stdout } ?? ""
+
+        // 自愈：连接类失败 → 局域网探测（跨网段 mDNS 盲区 / DHCP 换 IP / 网段未知三种场景全覆盖）。
+        // 唯一候选自动重连；多候选列出让用户确认；无候选返回探测结论。
+        var healNote = ""
+        if !ok {
+            let candidates = await Self.healProbeLAN()
+            if candidates.count == 1 {
+                let ip = candidates[0]
+                let retry = Self.sshCommand(user: user, host: ip, port: port, keyPath: keyPath,
+                                            command: "echo ok && uname -s")
+                if let r2 = await runLocal(retry, timeout: 90), r2.exitCode == 0, r2.stdout.contains("ok") {
+                    host = ip
+                    ok = true
+                    healNote = String(format: String(localized: "remote_host_heal_found"), ip)
+                } else {
+                    healNote = String(format: String(localized: "remote_host_heal_candidates"), ip)
+                }
+            } else if candidates.count > 1 {
+                healNote = String(format: String(localized: "remote_host_heal_candidates"),
+                                  candidates.joined(separator: "、"))
             } else {
-                detail = String(localized: "remote_host_connect_timeout")
+                healNote = String(localized: "remote_host_heal_none")
             }
-            return ToolResult(success: false,
-                              text: String(localized: "remote_host_connect_failed") + "\n" + detail)
+        }
+
+        if !ok {
+            var text = String(localized: "remote_host_connect_failed") + "\n" + lastOutput
+            if !healNote.isEmpty { text += "\n" + healNote }
+            return ToolResult(success: false, text: text)
         }
 
         var file = Self.loadHosts()
@@ -219,7 +247,8 @@ struct RemoteHostTool: AgentTool {
             return ToolResult(success: false, text: String(localized: "remote_host_config_write_failed"))
         }
         return ToolResult(success: true,
-                          text: String(format: String(localized: "remote_host_connect_ok"), alias, host, user))
+                          text: String(format: String(localized: "remote_host_connect_ok"), alias, host, user)
+                              + (healNote.isEmpty ? "" : "\n" + healNote))
     }
 
     // MARK: - action: exec（远程执行 + IP 自愈重试）
@@ -248,38 +277,57 @@ struct RemoteHostTool: AgentTool {
                               text: String(format: String(localized: "remote_host_ambiguous"), names))
         }
 
-        let timeout = intParam(parameters, "timeout") ?? 120
-        let ssh = Self.sshCommand(user: host.user, host: host.host, port: host.port,
-                                  keyPath: host.keyPath, command: command)
-        guard let first = await runLocal(ssh, timeout: TimeInterval(timeout)) else {
-            return ToolResult(success: false, text: String(localized: "remote_host_exec_timeout"))
+        let timeout = intParam(parameters, "timeout") ?? 180
+        var currentHost = host.host
+        var configDirty = false
+        var last: (stdout: String, stderr: String, exitCode: Int32)? = nil
+
+        // 自愈阶梯（最多 3 次尝试）：直连 → Bonjour 重解析（IP 自愈）→ 局域网探测。
+        // 只有「连接类失败」才进入下一级；命令可能非幂等，非连接失败绝不重试。
+        for attempt in 1...3 {
+            let cmd = Self.sshCommand(user: host.user, host: currentHost, port: host.port,
+                                      keyPath: host.keyPath, command: command)
+            guard let r = await runLocal(cmd, timeout: TimeInterval(timeout)) else {
+                break // 真超时（执行预算耗尽），不再重试
+            }
+            last = r
+            if r.exitCode == 0 { break }
+            if !Self.looksLikeConnectionFailure(r.stdout + r.stderr) { break }
+
+            if attempt == 1, let bonjour = host.bonjourService,
+               let fresh = await Self.resolveBonjourHost(bonjour), fresh != currentHost {
+                AppLogger.shared.info("[RemoteHost] IP 自愈（Bonjour）：\(currentHost) → \(fresh)", category: "RemoteHost")
+                currentHost = fresh
+                configDirty = true
+                continue
+            }
+            if attempt <= 2 {
+                let candidates = await Self.healProbeLAN()
+                if let pick = candidates.first(where: { $0 != currentHost }) {
+                    AppLogger.shared.info("[RemoteHost] IP 自愈（局域网探测）：\(currentHost) → \(pick)", category: "RemoteHost")
+                    currentHost = pick
+                    configDirty = true
+                    continue
+                }
+                break
+            }
         }
 
-        // IP 自愈（2026-09-07）：连接类失败（超时/不可达/拒绝/无法解析）→ 若该主机
-        // 带 Bonjour 服务名则重新解析当前 IP → 更新缓存 → 重试**一次**。
-        // 仅连接类失败才重试：命令语义可能非幂等，盲目重试有副作用风险。
-        guard first.exitCode != 0,
-              Self.looksLikeConnectionFailure(first.stdout + first.stderr),
-              let bonjour = host.bonjourService,
-              let freshIP = await Self.resolveBonjourHost(bonjour), freshIP != host.host else {
-            return ToolResult(success: first.exitCode == 0,
-                              text: first.stdout.isEmpty ? String(localized: "no_output") : first.stdout)
+        // 持久化自愈后的地址
+        if configDirty {
+            var file2 = Self.loadHosts()
+            file2.hosts.removeAll { $0.name == host.name }
+            file2.hosts.append(HostConfig(name: host.name, host: currentHost, user: host.user,
+                                          port: host.port, keyPath: host.keyPath, os: host.os,
+                                          bonjourService: host.bonjourService))
+            _ = Self.saveHosts(file2)
         }
-        AppLogger.shared.info("[RemoteHost] IP 自愈：\(host.host) → \(freshIP)（\(host.name)）", category: "RemoteHost")
-        var updated = host
-        updated.host = freshIP
-        var file2 = Self.loadHosts()
-        file2.hosts.removeAll { $0.name == host.name }
-        file2.hosts.append(updated)
-        _ = Self.saveHosts(file2)
 
-        let retry = Self.sshCommand(user: updated.user, host: freshIP, port: updated.port,
-                                    keyPath: updated.keyPath, command: command)
-        guard let second = await runLocal(retry, timeout: TimeInterval(timeout)) else {
+        guard let last else {
             return ToolResult(success: false, text: String(localized: "remote_host_exec_timeout"))
         }
-        return ToolResult(success: second.exitCode == 0,
-                          text: second.stdout.isEmpty ? String(localized: "no_output") : second.stdout)
+        return ToolResult(success: last.exitCode == 0,
+                          text: last.stdout.isEmpty ? String(localized: "no_output") : last.stdout)
     }
 
     /// 连接类失败判定：只有这类失败才值得走 IP 自愈重试。
@@ -287,6 +335,62 @@ struct RemoteHostTool: AgentTool {
         let markers = ["Connection timed out", "No route to host", "Connection refused",
                        "Could not resolve hostname", "connect to host"]
         return markers.contains { text.localizedCaseInsensitiveContains($0) }
+    }
+
+    // MARK: - 局域网探测自愈（discover 跨网段失效 / DHCP 换 IP 的兜底）
+
+    /// 从 DNS 配置推断网段 → 并发 ping 找存活 → 并发 nc 探 22 端口。
+    /// 真机会话验证过：iSH 里 ping/nc 可用，两个 /24 段 3 秒内扫完。
+    /// 返回开 22 端口的 IP 列表（排序去重）。
+    private static func healProbeLAN() async -> [String] {
+        let script = """
+        OUT=/tmp/remote_heal.txt
+        : > $OUT
+        SEGS=""
+        for ns in $(awk '/^nameserver/{print $2}' /etc/resolv.conf 2>/dev/null); do
+          s=$(echo $ns | cut -d. -f1-3)
+          case " $SEGS " in *" $s "*) ;; *) SEGS="$SEGS $s";; esac
+        done
+        for s in $SEGS; do
+          for i in $(seq 1 254); do
+            ( ping -c 1 -W 1 $s.$i >/dev/null 2>&1 && echo $s.$i >> $OUT ) &
+          done
+          wait
+        done
+        sort -t. -k4 -n -u $OUT | while read ip; do
+          ( nc -z -w 2 $ip 22 >/dev/null 2>&1 && echo ">>> $ip:22 OPEN" ) &
+        done
+        wait
+        echo HEAL_DONE
+        """
+        guard let (out, _, _) = await runLocalStatic(script, timeout: 90),
+              out.contains("HEAL_DONE") else {
+            return []
+        }
+        let ips = out.components(separatedBy: "\n")
+            .filter { $0.hasPrefix(">>> ") && $0.contains(":22 OPEN") }
+            .compactMap { $0.split(separator: " ").dropFirst().first }
+            .map { String($0) }
+            .sorted()
+        return ips
+    }
+
+    /// 同步包装（工具方法均为 async，NSLock 不可用于 async 上下文——本函数无锁需求）。
+    private static func runLocalStatic(_ command: String, timeout: TimeInterval) async -> (stdout: String, stderr: String, exitCode: Int32)? {
+        do {
+            let result = try await ShellRuntimeFactory.runtime.execute(
+                command: command,
+                environment: [:],
+                workingDirectory: nil,
+                timeout: timeout,
+                onLine: nil,
+                sessionID: nil
+            )
+            return (result.stdout, result.stderr, result.exitCode)
+        } catch {
+            AppLogger.shared.error("[RemoteHost] 探测执行失败: \(error.localizedDescription)", category: "RemoteHost")
+            return nil
+        }
     }
 
     // MARK: - action: list
@@ -502,13 +606,17 @@ struct RemoteHostTool: AgentTool {
     }
 
     /// 拼 ssh 命令：accept-new 首连免交互、ConnectTimeout 防卡死、BatchMode 防密码提示挂起、
+    /// ControlMaster 复用（iSH 模拟下 ssh 加密握手慢，首连一次后 10 分钟内 exec 走复用通道毫秒级）、
     /// 远程命令整体单引号包裹（内部单引号按 POSIX 规则转义）。keyPath 含 ~ 不加引号（交由 shell 展开）。
     private static func sshCommand(user: String, host: String, port: Int, keyPath: String, command: String) -> String {
         let escaped = command.replacingOccurrences(of: "'", with: "'\\''")
         var parts = ["ssh", "-i", keyPath,
                      "-o", "StrictHostKeyChecking=accept-new",
                      "-o", "ConnectTimeout=10",
-                     "-o", "BatchMode=yes"]
+                     "-o", "BatchMode=yes",
+                     "-o", "ControlMaster=auto",
+                     "-o", "ControlPath=/tmp/cm-%r@%h:%p",
+                     "-o", "ControlPersist=600"]
         if port != 22 { parts += ["-p", String(port)] }
         parts.append("\(user)@\(host)")
         parts.append("'\(escaped)'")

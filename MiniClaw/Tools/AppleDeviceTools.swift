@@ -1,4 +1,5 @@
 import Foundation
+import Network
 import UIKit
 import AVFoundation
 import NaturalLanguage
@@ -83,6 +84,9 @@ struct AppleDeviceTool: AgentTool {
 
     func execute(_ parameters: [String: Any]) async throws -> ToolResult {
         let info = (parameters["info"] as? String) ?? "all"
+        // 网络探测是 async：先算好再进 MainActor 组装（MainActor.run 不收 async 闭包）
+        let networkText: String? = (info == "all" || info == "network")
+            ? await Self.currentNetworkDescription() : nil
         let parts: [String] = await MainActor.run {
             let device = UIDevice.current
             var p: [String] = []
@@ -111,12 +115,45 @@ struct AppleDeviceTool: AgentTool {
                 let bounds = screen.bounds
                 p.append(String(format: String(localized: "apple_screen"), Int(bounds.width), Int(bounds.height), Int(screen.scale)))
             }
+            if let networkText {
+                p.append(networkText)
+            }
             if info == "storage" {
                 p.append(String(localized: "not_implemented_storage"))
             }
             return p
         }
         return ToolResult(success: true, text: parts.joined(separator: "\n"))
+    }
+
+    /// 单次 NWPathMonitor 探测：网络类型 + 连接状态 + 省电/低数据标记。
+    private static func currentNetworkDescription() async -> String {
+        nonisolated(unsafe) var resumed = false
+        nonisolated(unsafe) var monitorRef: NWPathMonitor? = nil
+        return await withCheckedContinuation { (cont: CheckedContinuation<String, Never>) in
+            let finish: @Sendable (String) -> Void = { text in
+                guard !resumed else { return }
+                resumed = true
+                monitorRef?.cancel()
+                cont.resume(returning: text)
+            }
+            let monitor = NWPathMonitor()
+            monitorRef = monitor
+            monitor.pathUpdateHandler = { path in
+                let kind: String
+                if path.usesInterfaceType(.wifi) { kind = "Wi-Fi" }
+                else if path.usesInterfaceType(.cellular) { kind = "蜂窝网络" }
+                else if path.usesInterfaceType(.wiredEthernet) { kind = "有线网络" }
+                else if path.status == .unsatisfied { kind = "无网络" }
+                else { kind = "其他" }
+                let status = path.status == .satisfied ? "已连接" : "未连接"
+                var extra = ""
+                if path.isExpensive { extra = "（蜂窝/昂贵链路）" }
+                else if path.isConstrained { extra = "（低数据模式）" }
+                finish("\(kind) · \(status)\(extra)")
+            }
+            monitor.start(queue: DispatchQueue.global(qos: .utility))
+        }
     }
 }
 
