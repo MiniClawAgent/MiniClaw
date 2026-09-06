@@ -97,6 +97,10 @@ final class ShareViewController: UIViewController {
         stack.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(stack)
         textView.addSubview(placeholderLabel)
+        // 必须先把卡片栈加进滚动视图：跨层级激活约束会抛
+        // NSInternalInconsistencyException，扩展进程起不来（表现为分享界面根本
+        // 不出现）——卡片式重设计第一版就栽在这里。
+        attachScrollView.addSubview(attachStack)
 
         NSLayoutConstraint.activate([
             stack.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor,constant: 20),
