@@ -54,27 +54,18 @@ struct ReadImageTool: AgentTool {
             } else {
                 outImage = image
             }
-            let outData = outImage.pngData() ?? imageData
+            // 统一 JPEG 编码（质量 0.85）：截图类内容 PNG 压缩率极差（1.5MB+），
+            // JPEG 同画质体积 1/6~1/8——服务商对请求体大小有上限（HTTP 413 实锤），
+            // 视觉输入无需透明通道。PNG 截图 1.6MB → JPEG ~250KB。
+            let outData = outImage.jpegData(compressionQuality: 0.85) ?? imageData
             let base64 = outData.base64EncodedString()
-            let mimeType = mimeTypeFor(path: path)
             return ToolResult(
                 success: true,
                 text: String(format: String(localized: "core_image_read"), Int(outImage.size.width), Int(outImage.size.height)),
-                data: ["base64": base64, "mime_type": mimeType]
+                data: ["base64": base64, "mime_type": "image/jpeg"]
             )
         } catch {
             return ToolResult(success: false, text: error.localizedDescription)
-        }
-    }
-
-    private func mimeTypeFor(path: String) -> String {
-        let ext = URL(fileURLWithPath: path).pathExtension.lowercased()
-        switch ext {
-        case "png": return "image/png"
-        case "jpg", "jpeg": return "image/jpeg"
-        case "gif": return "image/gif"
-        case "webp": return "image/webp"
-        default: return "application/octet-stream"
         }
     }
 }

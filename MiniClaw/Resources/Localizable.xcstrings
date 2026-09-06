@@ -29877,6 +29877,35 @@
         }
       }
     },
+    "loop_tool_image_downgraded": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "（早期工具截图已省略，以控制请求体积；需要时重新截屏即可。）"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "(Earlier tool screenshots omitted to keep the request size down; take a new screenshot if needed.)"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "（リクエストサイズ抑制のため、古いツールのスクリーンショットは省略しました。必要なら再取得してください。）"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "(요청 크기 절감을 위해 이전 도구 스크린샷은 생략했습니다. 필요하면 새로 캡처하세요.)"
+          }
+        }
+      }
+    },
     "loop_tool_image_injected": {
       "extractionState": "manual",
       "localizations": {

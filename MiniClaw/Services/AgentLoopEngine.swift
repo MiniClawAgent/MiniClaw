@@ -96,6 +96,36 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
     private var convergenceHintInjected = false
     /// 连续工具调用无用户输出的阈值（检索类任务的收敛预算）。
     private static let convergenceToolCallBudget = 12
+
+    /// [2026-09-07 HTTP 413 防线] 上下文中「工具注入的图片」最多保留张数。
+    /// 真机实测：两张 1568px PNG 截图的 base64（各 ~1.6MB）即触发服务商
+    /// 413 Payload Too Large；配合 apple-image 的 JPEG 降采样，3 张 ~750KB 安全。
+    private static let maxInjectedToolImages = 3
+
+    /// 注入图片超预算时，把最早的图片消息降级为文本占位（图片从上下文移除）。
+    /// 以 name == "tool_image" 标识注入消息，不会误伤用户自带附件；
+    /// 降级时校验消息内确有图片，防 compaction 索引错位误伤。
+    private static func enforceToolImageBudget(messages: inout [ChatCompletionMessage]) {
+        func isInjectedImage(_ m: ChatCompletionMessage) -> Bool {
+            guard m.role == "user", m.name == "tool_image",
+                  case .parts(let parts)? = m.content else { return false }
+            return parts.contains { if case .imageURL = $0 { return true }; return false }
+        }
+        var excess = messages.filter { isInjectedImage($0) }.count - maxInjectedToolImages
+        guard excess > 0 else { return }
+        for i in messages.indices where excess > 0 {
+            guard isInjectedImage(messages[i]),
+                  case .parts(let parts)? = messages[i].content else { continue }
+            let kept = parts.compactMap { p -> ContentPart? in
+                if case .imageURL = p { return nil }
+                return p
+            }
+            let note = String(localized: "loop_tool_image_downgraded")
+            messages[i].content = .parts(kept + [.text(note)])
+            excess -= 1
+        }
+        AppLogger.shared.info("[RemoteHost] 注入图片超预算，已降级最早的工具截图", category: "RemoteHost")
+    }
     /// 当前任务所属会话（检查点落盘文件名 key）。
     private var sessionID: UUID? = nil
     /// 本轮 run 的 history 对应的 session 消息 id（与 history 参数一一对应），
@@ -1055,8 +1085,11 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
                         messageContent: .parts([
                             .text(hint),
                             .imageURL(url: "data:\(mime);base64,\(b64)", detail: "auto")
-                        ])
+                        ]),
+                        name: "tool_image"
                     ))
+                    // 注入预算：上下文中工具图片最多保留 3 张（HTTP 413 防线）
+                    Self.enforceToolImageBudget(messages: &messages)
                 }
 
                 let signature = toolFailureSignature(tc)
