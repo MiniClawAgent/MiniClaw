@@ -4,16 +4,28 @@
     "share_hint": {
       "extractionState": "manual",
       "localizations": {
-        "zh": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "将作为任务直接派发给 MiniClaw 智能体"
+            "value": "将作为任务派发给 MiniClaw 智能体"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Will be dispatched to the MiniClaw Agent as a task"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MiniClaw エージェントにタスクとして送信されます"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MiniClaw 에이전트에 작업으로 전달됩니다"
           }
         }
       }
@@ -50,7 +62,7 @@
     "share_send_title": {
       "extractionState": "manual",
       "localizations": {
-        "zh": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
             "value": "发送给 MiniClaw 执行"
@@ -59,7 +71,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Send to MiniClaw to run"
+            "value": "Send to MiniClaw"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MiniClaw で実行"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MiniClaw로 실행"
           }
         }
       }
