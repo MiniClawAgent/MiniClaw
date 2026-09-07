@@ -34,8 +34,11 @@ struct DocumentView: View {
     }
 
     private func loadContent() {
+        // 三个 .md 以「逐文件资源」打包（folder reference 增量构建不保证拷贝目录内
+        // 新增/变更文件，2026-08-29 体检 P1）——逐文件资源会被**平铺进 bundle 根目录**，
+        // 不保留 AboutDocs 子目录（已在产物中核实）。因此这里按文件名在 bundle 根定位；
+        // 此前找 AboutDocs/ 子目录必然失败，表现为「无法定位文档」。
         guard let url = Bundle.main.resourceURL?
-            .appendingPathComponent("AboutDocs", isDirectory: true)
             .appendingPathComponent(filename),
               FileManager.default.fileExists(atPath: url.path) else {
             loadError = String(format: String(localized: "document_not_found"), filename)
