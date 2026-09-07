@@ -379,7 +379,6 @@ struct RemoteHostTool: AgentTool {
                     }
                 }
                 if let fresh = healed {
-                    AppLogger.shared.info("[RemoteHost] IP 自愈（Bonjour）：\(currentHost) → \(fresh)", category: "RemoteHost")
                     currentHost = fresh
                     configDirty = true
                     continue
@@ -388,7 +387,6 @@ struct RemoteHostTool: AgentTool {
             if attempt <= 2 {
                 let candidates = await Self.healProbeLAN()
                 if let pick = candidates.first(where: { $0 != currentHost }) {
-                    AppLogger.shared.info("[RemoteHost] IP 自愈（局域网探测）：\(currentHost) → \(pick)", category: "RemoteHost")
                     currentHost = pick
                     configDirty = true
                     continue
