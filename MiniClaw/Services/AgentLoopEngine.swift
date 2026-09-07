@@ -438,7 +438,7 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
         outputStreamEnd = Date()
         lastReportedModelId = ""
 
-        // 后台任务挂钩：开始 Live Activity / 定位保活（若「后台运行」开启）。
+        // 后台任务挂钩：开始 Live Activity（若「后台运行」开启）。
         // 子代理引擎不另拉起 Live Activity（避免与主 LA 冲突，由父引擎统一展示）。
         let bgSid = self.sessionID
         if !isSubagentEngine {

@@ -19,7 +19,7 @@
 
 "NSLocalNetworkUsageDescription" = "MiniClaw는 로컬 네트워크의 기기와 서비스를 찾아 연결하기 위해 로컬 네트워크 접근이 필요합니다.";
 
-"NSLocationWhenInUseUsageDescription" = "MiniClaw는 날씨 등 위치 기반 기능을 제공하기 위해 사용자의 위치가 필요합니다.";
+"NSLocationWhenInUseUsageDescription" = "MiniClaw는 위치 관련 질문에 답변하기 위해(현재 위치 확인, 주변 장소 찾기 등) 위치 정보를 사용합니다.";
 
 "NSMicrophoneUsageDescription" = "MiniClaw는 음성 입력과 음성 인식을 위해 마이크가 필요합니다.";
 

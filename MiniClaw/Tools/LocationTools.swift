@@ -1,5 +1,6 @@
 import Foundation
 import CoreLocation
+import MapKit
 
 // MARK: - 一次性定位取数器
 
@@ -173,23 +174,39 @@ struct AppleLocationTool: AgentTool {
 
     // MARK: action - geocode
 
+    /// 正向地理编码统一走 MKLocalSearch（与 apple-maps 同源）：CLGeocoder 自 iOS 26
+    /// 起废弃，而 MKLocalSearch 自 iOS 6.1 全版本可用，部署目标 16.0 完整覆盖。
     private func geocodeAction(_ parameters: [String: Any]) async -> ToolResult {
         guard let address = parameters["address"] as? String, !address.isEmpty else {
             return ToolResult(success: false, text: String(localized: "location_arg_missing"))
         }
-        let placemarks = await withCheckedContinuation { (cont: CheckedContinuation<[CLPlacemark], Never>) in
-            CLGeocoder().geocodeAddressString(address) { marks, _ in
-                cont.resume(returning: marks ?? [])
+        // MapKit 对象非 Sendable（Swift 6 铁律）：构造、请求与逐项组装全部收进
+        // MainActor 桥接内一次完成，只回传 [String]。请求用 iOS 16+ 的 async
+        // start()（非废弃通路）；「无结果」与「请求失败」同归 no_result。
+        let rendered: [String] = await withCheckedContinuation { cont in
+            Task { @MainActor in
+                let request = MKLocalSearch.Request()
+                request.naturalLanguageQuery = address
+                let search = MKLocalSearch(request: request)
+                do {
+                    let response = try await search.start()
+                    var lines: [String] = []
+                    for (index, item) in response.mapItems.enumerated() where index < 5 {
+                        let c = item.placemark.coordinate
+                        let name = (item.name?.isEmpty == false) ? item.name! : Self.readableAddress(item.placemark)
+                        lines.append("\(index + 1). \(name) | \(Self.trim(c.latitude)), \(Self.trim(c.longitude))")
+                    }
+                    cont.resume(returning: lines)
+                } catch {
+                    cont.resume(returning: [])
+                }
             }
         }
-        guard !placemarks.isEmpty else {
+        guard !rendered.isEmpty else {
             return ToolResult(success: false, text: String(localized: "location_geocode_no_result"))
         }
-        var lines: [String] = [String(format: String(localized: "location_geocode_header"), String(placemarks.count))]
-        for (index, mark) in placemarks.enumerated() where index < 5 {
-            guard let coordinate = mark.location?.coordinate else { continue }
-            lines.append("\(index + 1). \(Self.readableAddress(mark)) | \(Self.trim(coordinate.latitude)), \(Self.trim(coordinate.longitude))")
-        }
+        var lines: [String] = [String(format: String(localized: "location_geocode_header"), String(rendered.count))]
+        lines.append(contentsOf: rendered)
         return ToolResult(success: true, text: lines.joined(separator: "\n"))
     }
 
@@ -227,6 +244,9 @@ struct AppleLocationTool: AgentTool {
         }
     }
 
+    /// 反向地理编码（坐标 → 地址）。**保留 CLGeocoder**：MapKit 的新反向接口
+    /// （MKReverseGeocodingRequest）要求 iOS 26+，而部署目标是 16.0，低版本无替代；
+    /// CLGeocoder 在 iOS 26 为软废弃（仍可用），待最低版本提升到 26 再统一。
     private func reverseGeocode(_ location: CLLocation) async -> String? {
         await withCheckedContinuation { (cont: CheckedContinuation<String?, Never>) in
             CLGeocoder().reverseGeocodeLocation(location) { marks, _ in

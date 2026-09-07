@@ -91,11 +91,6 @@ struct ToolCardOverlay: View {
 
                     pageDots
                 }
-                // 底部避让（2026-09-07 唐唐反馈）：卡片+分页圆点整体上移，
-                // 给会话页底部的状态指示器（深度思考/回复中）与输入条留出空间——
-                // 此前浮层纵向居中，工具多时分页圆点满行正好压在底部指示器上，
-                // 视觉上如同卡片被拉长、指示器被带出屏幕外。
-                .padding(.bottom, 150)
                 .offset(y: appeared ? 0 : geo.size.height)
                 .opacity(appeared ? 1 : 0)
             }

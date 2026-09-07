@@ -10,7 +10,8 @@ struct AppearanceSettings: Codable {
 
 /// 后台设置（background）
 struct BackgroundSettings: Codable, Equatable {
-    /// 后台运行：开启后运用灵动岛 / Live Activity 显示任务进度，并用模糊定位保持 App 在后台运行。
+    /// 后台运行：开启后运用灵动岛 / Live Activity 显示任务进度、任务完成通知与画中画。
+    /// （模糊定位保活已于 2026-09-07 移除：缺 UIBackgroundModes=location 时它在后台唤不醒 App。）
     var backgroundRun: Bool = true
     /// 实时活动：开启后对接 Live Activity（灵动岛 / 锁屏）渲染。
     var liveActivity: Bool = true

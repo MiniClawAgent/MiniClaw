@@ -11,7 +11,6 @@ final class BackgroundTaskController {
     nonisolated(unsafe) static let shared = BackgroundTaskController()
 
     /// 同一会话只维护一个 Live Activity 的句柄表（sessionID -> Activity）。
-    private let locationKeeper = BackgroundLocationKeeper()
 
     // MARK: 生命周期
 
@@ -34,7 +33,6 @@ final class BackgroundTaskController {
 
     func agentDidStart(sessionID: String?, title: String, icon: String = "bubble.left.and.bubble.right.fill") {
         Task { @MainActor in AgentRuntimeStatus.shared.setActive(title: title) }
-        startLocationIfNeeded()
 
         let bg = SettingsStore.shared.settings.background
         Task { @MainActor in
@@ -153,7 +151,6 @@ final class BackgroundTaskController {
 
     func agentDidFinish(sessionID: String?, success: Bool, lastReply: String? = nil) async {
         Task { @MainActor in AgentRuntimeStatus.shared.setInactive() }
-        stopLocationIfNeeded()
         await TaskPipController.shared.taskEnded(sessionID: sessionID)
 
         // ★ 官方机制结束 Live Activity（源头修复 2026-08-05）：
@@ -342,18 +339,19 @@ final class BackgroundTaskController {
         }
     }
 
-    // MARK: 定位保活
+    // MARK: 快捷指令派发
 
     /// 快捷指令 headless 派发时的立即保活（eager arm，对齐参考实现）：
-    /// 在 intent 执行窗口内直接启动定位保活，消除「引擎尚未启动 → 进程已被挂起」的窗口期。
-    /// 引擎启动后 agentDidStart 会再次调用（幂等，不重复采集）。受「后台运行」开关控制。
+    /// 在 intent 执行窗口内直接点亮 Live Activity，消除「引擎尚未启动 → 进程已被挂起」
+    /// 的窗口期。引擎启动后 agentDidStart 会再次调用（幂等）。受「后台运行」开关控制。
+    ///
+    /// （原「定位保活」环节已于 2026-09-07 移除——见 BackgroundTaskComponents 注释。）
     func armForIntent(sessionID: String?) {
         let bg = SettingsStore.shared.settings.background
         guard bg.backgroundRun else {
             AppLogger.shared.info(String(localized: "intent_keepalive_skipped"), category: "Intent")
             return
         }
-        startLocationIfNeeded()
         if let sid = sessionID, let uuid = UUID(uuidString: sid) {
             Task { @MainActor in
                 let title = SessionManager.shared.session(id: uuid)?.title ?? "MiniClaw"
@@ -361,16 +359,6 @@ final class BackgroundTaskController {
             }
         }
         AppLogger.shared.info(String(localized: "intent_keepalive_armed"), category: "Intent")
-    }
-
-    private func startLocationIfNeeded() {
-        let bg = SettingsStore.shared.settings.background
-        guard bg.backgroundRun else { return }
-        locationKeeper.startIfAuthorized()
-    }
-
-    private func stopLocationIfNeeded() {
-        locationKeeper.stop()
     }
 
     // MARK: 通知

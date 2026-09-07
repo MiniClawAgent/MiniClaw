@@ -15,7 +15,7 @@ struct PermissionsSettingsView: View {
     @State private var tick: Bool = false
     /// 通知是否已授权（决定「通知」行显示开关还是「未授权」，2026-08-07 自后台页移入）。
     @State private var notifAuthorized: Bool = false
-    /// 定位授权状态（2026-08-07 自后台页移入；模糊定位保活依赖）。
+    /// 定位授权状态（2026-08-07 自后台页移入；供 apple-location 取当前位置使用）。
     @State private var locationState: PermissionState = .notDetermined
 
     /// 权限清单（仅展示用户指定的项；健康仅保留「健康数据」，位置已移至「后台」页定位行）。
@@ -46,7 +46,7 @@ struct PermissionsSettingsView: View {
             } header: {
                 Text(String(localized: "background"))
             } footer: {
-                Text(String(localized: "background_running_live_activities_dynamic_island_notifications_and_location_keepalive_settings"))
+                Text(String(localized: "permissions_background_section_footer"))
             }
 
             Section {

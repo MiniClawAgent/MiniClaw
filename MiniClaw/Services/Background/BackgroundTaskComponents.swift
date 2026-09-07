@@ -124,41 +124,15 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
     }
 }
 
-// MARK: - 模糊定位保活
-
-/// 用「显著位置变化」监测 + 降低精度（模糊定位）在后台保持 App 可被唤醒。
-/// 仅当「后台运行」开启且已授权定位时启动；不开启时完全不采集。
-final class BackgroundLocationKeeper: NSObject, CLLocationManagerDelegate {
-    private var manager: CLLocationManager?
-
-    func startIfAuthorized() {
-        // iOS14+:authorizationStatus() 类方法已弃用,用实例查询(语义等价)。
-        let status = CLLocationManager().authorizationStatus
-        guard status == .authorizedWhenInUse || status == .authorizedAlways else { return }
-        let m = CLLocationManager()
-        m.delegate = self
-        m.desiredAccuracy = kCLLocationAccuracyReduced   // 模糊定位
-        m.pausesLocationUpdatesAutomatically = false
-        manager = m
-        m.startMonitoringSignificantLocationChanges()
-    }
-
-    func stop() {
-        manager?.stopMonitoringSignificantLocationChanges()
-        manager = nil
-    }
-
-    func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
-        AppLogger.shared.warn(String(format: String(localized: "bg_location_keepalive_failed"), error.localizedDescription), category: "BG")
-    }
-}
-
 // MARK: - 后台任务协调器
 
 /// 引擎在 Agent 开始 / 完成时调用，统一编排：
 /// - Live Activity（灵动岛 / 锁屏）任务进度展示
-/// - 模糊定位后台保活
 /// - 完成时系统通知
+///
+/// （「模糊定位后台保活」已于 2026-09-07 移除：显著位置变化要在后台唤醒 App 必须
+///  依赖 UIBackgroundModes=location，而该后台模式早已删除，实际前台有效、后台唤不醒，
+///  白占一个敏感权限。定位能力只保留前台的 apple-location current。）
 ///
 /// 注意：本类**刻意不**声明 `@MainActor`。
 /// ActivityKit 的 `Activity.update` / `end` 是 nonisolated async，而 `Activity` 句柄本身并非 `Sendable`。

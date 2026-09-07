@@ -19,7 +19,7 @@
 
 "NSLocalNetworkUsageDescription" = "MiniClaw needs local network access to discover and connect local devices and services.";
 
-"NSLocationWhenInUseUsageDescription" = "MiniClaw needs your location to provide location-based services such as weather and location features.";
+"NSLocationWhenInUseUsageDescription" = "MiniClaw needs your location to answer location-related questions, such as getting your current position and finding nearby places.";
 
 "NSMicrophoneUsageDescription" = "MiniClaw needs the microphone for voice input and speech recognition.";
 
