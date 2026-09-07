@@ -466,6 +466,25 @@ struct SkillPackage: Identifiable, Codable, Hashable {
     var category: String = "skill"
     /// 插件类型（对应 plugin.json 的 type）
     var type: String = "skill"
+
+    /// 是否显示「启用」开关——**单一事实源**：插件列表行与插件详情页共用此判定，
+    /// 杜绝两处各自写条件而漂移（2026-09-07：详情页已排除 model，列表页漏排 →
+    /// model 插件在列表有开关、详情没有，且该开关无任何消费点）。
+    ///
+    /// 无启停语义的类型不显示开关：
+    /// - `theme`：启用＝外观页选用，唯一入口在外观页
+    /// - `mcp`：默认启用、无启停语义（关闭请到 MCP 列表按 server 关——插件级开关
+    ///   对 servers 无消费点）
+    /// - `model`：配置分发包（模型模板声明层，导入即合并；真正发请求在各 provider
+    ///   adapter，开关无消费点）
+    /// - 内置 `soul`：恒可用底座（装第三方人格自动应用，开关已移除）
+    var showsEnableToggle: Bool {
+        switch type {
+        case "theme", "mcp", "model": return false
+        case "soul": return source != "builtin"
+        default: return true
+        }
+    }
 }
 
 /// 远端 MCP 服务配置。Bearer 令牌 只存入 Keychain，永不编码进此模型。

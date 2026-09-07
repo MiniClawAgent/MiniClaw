@@ -141,12 +141,9 @@ private struct SkillRowView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             Spacer()
-            // theme 插件无启停语义（启用 = 外观页选用）；mcp 插件默认启用、无启停语义
-            // （唐唐 2026-09-02：关闭去 MCP 列表里按 server 关，插件级开关对 servers 无消费点）；
-            // 内置默认人格为恒可用底座（唐唐 2026-09-02：装第三方人格自动应用，开关移除）。
-            // 三者列表行均不显示开关。
-            if skill.type != "theme" && skill.type != "mcp"
-                && !(skill.type == "soul" && skill.source == "builtin") {
+            // 无启停语义的类型（theme/mcp/model/内置 soul）不显示开关——
+            // 判定见 SkillPackage.showsEnableToggle（与详情页同源）。
+            if skill.showsEnableToggle {
                 Toggle("", isOn: enabledBinding)
                     .labelsHidden()
             }
@@ -242,10 +239,8 @@ private struct SkillDetailView: View {
                 }
                 // 启用开关（按类型）：skill=注入会话/指令入口；subagent=角色参与派发；
                 // rule=规则注入；soul=应用此人格（排他单选，启用即自动停用其他 soul 插件）。
-                // mcp/model=配置分发包（导入即合并）；theme=外观页选用；内置默认人格=恒可用底座
-                // （唐唐 2026-09-02 开关移除）——均无启停语义，不显示开关。
-                if skill.type != "mcp" && skill.type != "model" && skill.type != "theme"
-                    && !(skill.type == "soul" && skill.source == "builtin") {
+                // 无启停语义的类型不显示——判定见 SkillPackage.showsEnableToggle（与列表行同源）。
+                if skill.showsEnableToggle {
                     Toggle(skill.type == "skill"
                            ? String(localized: "enable_inject_into_conversation")
                            : String(localized: "enable_plugin"),
