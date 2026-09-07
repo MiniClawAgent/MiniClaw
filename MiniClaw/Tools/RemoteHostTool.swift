@@ -175,27 +175,48 @@ struct RemoteHostTool: AgentTool {
         let keyPath = stringParam(parameters, "key_path") ?? Self.defaultKeyPath
         let os = (stringParam(parameters, "os") ?? "macos").lowercased()
 
-        // 通用路径：host 未给（或以 .local 结尾）→ 自动解析**全部候选地址**（v4+v6）：
-        //   ① Bonjour 解析（name 或 .local 名）→ ② 局域网探测（跨网段/权限盲区兜底）。
+        // 候选地址解析顺序（真机 2026-09-07 复盘后定稿）：
+        //   ① 已保存配置优先——name（别名）或同 IP 命中已存条目 → 缓存 IP 打头、
+        //      bonjourService 记下供自愈。此前 AI 给设备起新别名（如 macbook）后
+        //      按名解析 Bonjour 找不到 → 断链落到探测兜底。
+        //   ② Bonjour 解析——服务名（name 或 .local 名）拿 v4+v6 全部候选追加。
+        //   ③ 显式 host（IP/带 zone 的 v6）插到最前。
+        //   ④ 以上全空 → 局域网探测兜底。
         // 解析在 App 层完成——iSH 的 DNS 不走 mDNS。同一设备的多个地址指向同一终端，
         // 依次尝试直到连通（v4 优先，v6 带 zone id 亦可直连）。
         var bonjourService: String? = nil
         var addressCandidates: [String] = []
+
+        // ① 已保存配置优先
+        let savedHosts = Self.loadHosts().hosts
+        let matched = savedHosts.first { h in
+            (name != nil && h.name == name) || (!explicitHost.isEmpty && explicitHost == h.host)
+        }
+        if let matched {
+            bonjourService = matched.bonjourService
+            if !matched.host.isEmpty { addressCandidates.append(matched.host) }
+        }
+
+        // ② Bonjour 解析（跳过条件：name 就是已存配置的别名而非 Bonjour 服务名——
+        //    按别名查服务必然空手，白等超时）
+        let aliasNotServiceName = matched != nil && name == matched!.name && name != matched!.bonjourService
         if explicitHost.isEmpty || explicitHost.hasSuffix(".local") {
-            let serviceCandidate = (explicitHost.isEmpty ? (name ?? "") : explicitHost)
+            let serviceCandidate = (explicitHost.isEmpty ? (name ?? bonjourService ?? "") : explicitHost)
                 .trimmingCharacters(in: .whitespacesAndNewlines)
             let service = serviceCandidate.hasSuffix(".local")
                 ? String(serviceCandidate.dropLast(6)) : serviceCandidate
-            if !service.isEmpty {
-                bonjourService = service
-                addressCandidates = await Self.resolveBonjourAddresses(service)
+            if !service.isEmpty, !aliasNotServiceName {
+                bonjourService = bonjourService ?? service
+                for addr in await Self.resolveBonjourAddresses(service) where !addressCandidates.contains(addr) {
+                    addressCandidates.append(addr)
+                }
             }
         }
-        // 显式 host（IP/带 zone 的 v6）单独成候选
+        // ③ 显式 host（IP/带 zone 的 v6）单独成候选
         if !explicitHost.isEmpty, !addressCandidates.contains(explicitHost) {
             addressCandidates.insert(explicitHost, at: 0)
         }
-        // 解析一无所获 → 局域网探测兜底
+        // ④ 解析一无所获 → 局域网探测兜底
         if addressCandidates.isEmpty {
             let candidates = await Self.healProbeLAN()
             switch candidates.count {
@@ -417,6 +438,9 @@ struct RemoteHostTool: AgentTool {
             .filter { $0.hasPrefix(">>> ") && $0.contains(":22 OPEN") }
             .compactMap { $0.split(separator: " ").dropFirst().first }
             .map { String($0) }
+            // 剥掉端口尾巴（脚本输出 ip:22）：整串喂 ssh 会被当主机名解析失败
+            // （真机 2026-09-07：Could not resolve hostname 192.168.10.104:22）
+            .map { $0.hasSuffix(":22") ? String($0.dropLast(3)) : $0 }
             .sorted()
         return ips
     }
