@@ -99,7 +99,7 @@ struct ShellExecuteTool: AgentTool {
             // 环境教学（2026-09-07）：Alpine 最小环境默认只有 busybox 命令集，模型按
             // 通用常识猜 curl/git/python 存在会吃「not found」。检出缺失命令时附加
             // apk 安装引导——模型一轮自纠，且逐渐学会这个环境有什么。
-            let missing = Self.missingCommands(in: result.stderr.isEmpty ? result.stdout : result.stderr)
+            let missing = Self.missingCommands(in: result.stderr + "\n" + result.stdout)
             if !missing.isEmpty {
                 final += "\n" + String(format: String(localized: "shell_command_missing_hint"), missing.joined(separator: "、"))
             }
@@ -113,12 +113,14 @@ struct ShellExecuteTool: AgentTool {
     /// yt-dlp/apk 下载等工具用 \r 在同一行反复重绘进度，非 tty 管道下会原样
     /// 捕获数百行冗余记录。按真实终端语义重放：\r 后的内容覆盖行内已有内容，
     /// 每行只保留最终状态——与用户在屏幕上实际看到的完全一致。
+    /// 行尾 \r 只回车不清行（进度条末帧常带 \r），取最后一个非空段，
+    /// 不能让空段覆盖掉最终状态。
     private static func foldCarriageReturns(_ text: String) -> String {
         guard text.contains("\r") else { return text }
         var folded: [String] = []
         for line in text.components(separatedBy: "\n") {
             var final = ""
-            for part in line.components(separatedBy: "\r") {
+            for part in line.components(separatedBy: "\r") where !part.isEmpty {
                 final = part
             }
             folded.append(final)
@@ -126,18 +128,20 @@ struct ShellExecuteTool: AgentTool {
         return folded.joined(separator: "\n")
     }
 
-    /// 从输出中提取「命令未安装」的命令名（busybox ash 形态：`/bin/sh: curl: not found`）。
-    /// 可能多个（管道里多条命令都缺），去重保序。
+    /// 从输出中提取「命令未安装」的命令名，去重保序。两种形态都认：
+    /// busybox ash `/bin/sh: curl: not found`、bash `bash: curl: command not found`
+    /// （bash -lc 深一层时是 `bash: line 1: curl: command not found`）。
     private static func missingCommands(in text: String) -> [String] {
+        guard let re = try? NSRegularExpression(pattern: "([A-Za-z0-9_./-]+):[ \t]+(?:command[ \t]+)?not found") else { return [] }
+        let excluded: Set<String> = ["sh", "/bin/sh", "bash", "/bin/bash", "ash"]
         var names: [String] = []
         var seen = Set<String>()
-        for line in text.components(separatedBy: "\n") {
-            guard let idx = line.range(of: ": not found") else { continue }
-            let before = line[..<idx.lowerBound]
-            guard let name = before.split(separator: " ").last, !name.isEmpty,
-                  name != "sh", name != "/bin/sh" else { continue }
-            if seen.insert(String(name)).inserted {
-                names.append(String(name))
+        for m in re.matches(in: text, range: NSRange(text.startIndex..., in: text)) {
+            guard let r = Range(m.range(at: 1), in: text) else { continue }
+            let name = String(text[r])
+            guard !excluded.contains(name) else { continue }
+            if seen.insert(name).inserted {
+                names.append(name)
             }
         }
         return names

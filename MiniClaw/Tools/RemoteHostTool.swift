@@ -244,17 +244,13 @@ struct RemoteHostTool: AgentTool {
         var ok = false
         var lastOutput = ""
         for candidate in addressCandidates {
-            let probe = Self.sshCommand(user: user, host: candidate, port: port, keyPath: keyPath,
-                                        command: "echo ok && uname -s")
-            let probeResult = await runLocal(probe, timeout: 90)
-            let reached = probeResult?.exitCode == 0 && probeResult?.stdout.contains("ok") == true
-            let output = probeResult.map { $0.stdout.isEmpty ? $0.stderr : $0.stdout } ?? ""
-            if reached {
+            let probe = await probeCandidate(user: user, host: candidate, port: port, keyPath: keyPath, os: os)
+            if probe.alive {
                 host = candidate
                 ok = true
                 break
             }
-            if lastOutput.isEmpty { lastOutput = output }
+            if lastOutput.isEmpty { lastOutput = probe.output }
         }
 
         // 自愈第一层（换网场景，真机 2026-09-07）：缓存候选全失败 → **强制重新解析**
@@ -264,9 +260,8 @@ struct RemoteHostTool: AgentTool {
         if !ok, let svc = bonjourService {
             let fresh = await Self.resolveBonjourAddresses(svc).filter { !addressCandidates.contains($0) }
             for candidate in fresh {
-                let retry = Self.sshCommand(user: user, host: candidate, port: port, keyPath: keyPath,
-                                            command: "echo ok && uname -s")
-                if let r2 = await runLocal(retry, timeout: 90), r2.exitCode == 0, r2.stdout.contains("ok") {
+                let retry = await probeCandidate(user: user, host: candidate, port: port, keyPath: keyPath, os: os)
+                if retry.alive {
                     host = candidate
                     ok = true
                     healNote = String(format: String(localized: "remote_host_heal_found"), candidate)
@@ -276,14 +271,13 @@ struct RemoteHostTool: AgentTool {
         }
 
         // 自愈第二层：局域网探测（跨网段 mDNS 盲区 / DHCP 换 IP / 网段未知三种场景全覆盖）。
-        // 唯一候选自动重连；多候选列出让用户确认；无候选返回探测结论。
+        // 唯一候选经探活+平台校验后自动重连；多候选列出让用户确认；无候选返回探测结论。
         if !ok {
             let candidates = await Self.healProbeLAN()
             if candidates.count == 1 {
                 let ip = candidates[0]
-                let retry = Self.sshCommand(user: user, host: ip, port: port, keyPath: keyPath,
-                                            command: "echo ok && uname -s")
-                if let r2 = await runLocal(retry, timeout: 90), r2.exitCode == 0, r2.stdout.contains("ok") {
+                let retry = await probeCandidate(user: user, host: ip, port: port, keyPath: keyPath, os: os)
+                if retry.alive {
                     host = ip
                     ok = true
                     healNote = String(format: String(localized: "remote_host_heal_found"), ip)
@@ -365,15 +359,16 @@ struct RemoteHostTool: AgentTool {
             if !Self.looksLikeConnectionFailure(r.stdout + r.stderr) { break }
 
             if attempt == 1, let bonjour = host.bonjourService {
-                // 重新解析设备的全部候选地址（v4+v6），逐个探活（echo ok），
-                // 首个存活者切为目标并 continue 重跑真命令——probe 不产生副作用。
+                // 重新解析设备的全部候选地址（v4+v6），逐个探活 + 平台校验，
+                // 首个通过者切为目标并 continue 重跑真命令——probe 不产生副作用，
+                // 且 Bonjour 服务名锚定配置的目标设备，身份可信。
                 let candidates = await Self.resolveBonjourAddresses(bonjour)
                     .filter { $0 != currentHost }
                 var healed: String?
                 for candidate in candidates {
-                    let probe = Self.sshCommand(user: host.user, host: candidate, port: host.port,
-                                                keyPath: host.keyPath, command: "echo ok")
-                    if let r = await runLocal(probe, timeout: 30), r.exitCode == 0, r.stdout.contains("ok") {
+                    let probe = await probeCandidate(user: host.user, host: candidate, port: host.port,
+                                                     keyPath: host.keyPath, os: host.os)
+                    if probe.alive {
                         healed = candidate
                         break
                     }
@@ -385,11 +380,24 @@ struct RemoteHostTool: AgentTool {
                 }
             }
             if attempt <= 2 {
-                let candidates = await Self.healProbeLAN()
-                if let pick = candidates.first(where: { $0 != currentHost }) {
-                    currentHost = pick
-                    configDirty = true
-                    continue
+                // 局域网探测层的候选**不自动执行真命令**：探到的「任意开 22 机器」
+                // 无法证明是配置的目标（同公钥部署多机的家庭网络里，非幂等命令会
+                // 跑向错误主机）。逐个 probe（无副作用）后把存活清单交回 AI 确认——
+                // AI 核对平台后用 connect(name+host) 更新地址再重试 exec。
+                let candidates = await Self.healProbeLAN().filter { $0 != currentHost }
+                var alive: [String] = []
+                for candidate in candidates {
+                    let probe = await probeCandidate(user: host.user, host: candidate, port: host.port,
+                                                     keyPath: host.keyPath, os: host.os,
+                                                     checkPlatform: false)
+                    if probe.alive {
+                        alive.append(probe.kernel.isEmpty ? candidate : "\(candidate)（\(probe.kernel)）")
+                    }
+                }
+                if !alive.isEmpty {
+                    return ToolResult(success: false,
+                                      text: String(format: String(localized: "remote_host_exec_lan_candidates"),
+                                                   alive.joined(separator: "、")))
                 }
                 break
             }
@@ -408,8 +416,38 @@ struct RemoteHostTool: AgentTool {
         guard let last else {
             return ToolResult(success: false, text: String(localized: "remote_host_exec_timeout"))
         }
-        return ToolResult(success: last.exitCode == 0,
-                          text: last.stdout.isEmpty ? String(localized: "no_output") : last.stdout)
+        // stderr 不能丢：远程失败（Permission denied / command not found 等）的
+        // 现场全在 stderr，AI 靠它自纠。stdout 优先（成功态），空则回退 stderr。
+        let output = last.stdout.isEmpty
+            ? (last.stderr.isEmpty ? String(localized: "no_output") : last.stderr)
+            : last.stdout
+        return ToolResult(success: last.exitCode == 0, text: output)
+    }
+
+    /// 自愈候选探活 + 廉价身份校验：probe 远端执行 `uname -s`，与配置的 os 字段比对
+    ///（macos→Darwin / linux→Linux；windows 没有 uname，退回 `echo ok`）。
+    /// os 缺失或非 macos/linux 时跳过比对（存量配置兼容）。
+    /// checkPlatform=false 时只判可达不比平台（exec 候选清单模式，内核名随清单返回）。
+    private func probeCandidate(user: String, host: String, port: Int, keyPath: String,
+                                os: String, checkPlatform: Bool = true) async
+        -> (alive: Bool, kernel: String, output: String) {
+        let lowered = os.lowercased()
+        if lowered == "macos" || lowered == "linux" {
+            let cmd = Self.sshCommand(user: user, host: host, port: port, keyPath: keyPath, command: "uname -s")
+            let r = await runLocal(cmd, timeout: 30)
+            guard let r, r.exitCode == 0 else { return (false, "", r?.stderr ?? "") }
+            let kernel = r.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
+            let output = r.stdout.isEmpty ? r.stderr : r.stdout
+            if checkPlatform {
+                let expected = lowered == "macos" ? "Darwin" : "Linux"
+                return (kernel == expected, kernel, output)
+            }
+            return (true, kernel, output)
+        }
+        let cmd = Self.sshCommand(user: user, host: host, port: port, keyPath: keyPath, command: "echo ok")
+        let r = await runLocal(cmd, timeout: 30)
+        guard let r, r.exitCode == 0, r.stdout.contains("ok") else { return (false, "", r?.stderr ?? "") }
+        return (true, "", "")
     }
 
     /// 连接类失败判定：只有这类失败才值得走 IP 自愈重试。
@@ -804,21 +842,31 @@ struct RemoteHostTool: AgentTool {
         }
     }
 
-    /// 拼 ssh 命令：accept-new 首连免交互、ConnectTimeout 防卡死、BatchMode 防密码提示挂起、
-    /// 远程命令整体单引号包裹（内部单引号按 POSIX 规则转义）。keyPath 含 ~ 不加引号（交由 shell 展开）。
+    /// 拼 ssh 命令：accept-new 首连免交互、ConnectTimeout 防卡死、BatchMode 防密码提示挂起。
+    /// 全部动态片段（user/host/keyPath/command）单引号包裹——user/host 来自 AI 参数、
+    /// keyPath 落盘后跨会话复用，不转义即可被 iSH 的 /bin/sh 逃逸出 ssh 参数（命令注入）。
+    /// keyPath 词首 ~ 必须裸露才能触发波浪号展开（POSIX：引号内的 ~ 不展开），拼成 `~'/x'`。
     ///
     /// ⚠️ 禁止加 ControlMaster/ControlPath（2026-09-07 真机实测）：iSH 无法创建
     /// unix domain socket（unix_listener: cannot bind ... Operation not permitted，
     /// ssh 直接致命退出）。iSH 下完整握手实测仅 ~3 秒，不需要连接复用。
     private static func sshCommand(user: String, host: String, port: Int, keyPath: String, command: String) -> String {
-        let escaped = command.replacingOccurrences(of: "'", with: "'\\''")
-        var parts = ["ssh", "-i", keyPath,
+        var parts = ["ssh", "-i", quoteShellToken(keyPath),
                      "-o", "StrictHostKeyChecking=accept-new",
                      "-o", "ConnectTimeout=10",
                      "-o", "BatchMode=yes"]
         if port != 22 { parts += ["-p", String(port)] }
-        parts.append("\(user)@\(host)")
-        parts.append("'\(escaped)'")
+        parts.append("\(quoteShellToken(user))@\(quoteShellToken(host))")
+        parts.append(quoteShellToken(command))
         return parts.joined(separator: " ")
+    }
+
+    /// 单引号包裹 shell 词（' → '\''）；词首 ~ 保持在引号外以保留展开语义。
+    private static func quoteShellToken(_ s: String) -> String {
+        let escaped = s.replacingOccurrences(of: "'", with: "'\\''")
+        if escaped.hasPrefix("~") {
+            return "~'" + escaped.dropFirst() + "'"
+        }
+        return "'" + escaped + "'"
     }
 }

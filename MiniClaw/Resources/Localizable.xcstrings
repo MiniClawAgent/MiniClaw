@@ -62854,6 +62854,38 @@
           }
         }
       }
+    },
+    "remote_host_exec_lan_candidates": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "type": "string",
+            "value": "目标主机不可达。局域网内这些主机可 SSH 登录：%1$@。请核对哪台才是目标（对照系统平台，防止连错机器），确认后用 connect(name+host) 更新地址，再重试 exec。",
+            "state": "translated"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "type": "string",
+            "value": "Target host unreachable. These LAN hosts accept SSH logins: %1$@. Verify which one is the actual target (check the OS platform to avoid the wrong machine), then update it with connect (name + host) and retry exec.",
+            "state": "translated"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "type": "string",
+            "value": "接続先ホストに到達できません。LAN 内で SSH ログイン可能なホスト: %1$@。どれが目標か確認し（誤接続防止のため OS プラットフォームを照合）してから、connect（name + host）でアドレスを更新し、exec を再試行してください。",
+            "state": "translated"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "type": "string",
+            "value": "대상 호스트에 연결할 수 없습니다. LAN에서 SSH 로그인 가능한 호스트: %1$@. 어느 것이 대상인지 확인(잘못된 머신 방지를 위해 OS 플랫폼 대조)한 후 connect(name + host)로 주소를 갱신하고 exec를 재시도하세요.",
+            "state": "translated"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

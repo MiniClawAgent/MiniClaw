@@ -49,7 +49,12 @@ struct ReadImageTool: AgentTool {
                 let scale = maxSide / max(image.size.width, image.size.height)
                 let newSize = CGSize(width: floor(image.size.width * scale),
                                      height: floor(image.size.height * scale))
-                outImage = UIGraphicsImageRenderer(size: newSize).image { _ in
+                // scale 必须钉死 1：默认取主屏 scale（2x/3x），位图会被反向放大
+                // 1568pt → 3136/4704px，体积膨胀反而更易触发 HTTP 413，
+                // 且 size（point）与真实像素错位、坐标定位系统性偏移。
+                let format = UIGraphicsImageRendererFormat()
+                format.scale = 1
+                outImage = UIGraphicsImageRenderer(size: newSize, format: format).image { _ in
                     image.draw(in: CGRect(origin: .zero, size: newSize))
                 }
             } else {
@@ -149,32 +154,33 @@ struct VisionAnalyzeTool: AgentTool {
 
     /// 逐文字 OCR + 像素坐标（图像左上原点）。 VNRecognizeTextRequest 的
     /// boundingBox 为归一化（左下原点），换算为像素与左上原点坐标。
+    /// VNImageRequestHandler.perform 是同步 API：直接取 results，不用 continuation——
+    /// perform 抛错时请求回调不会执行，continuation 写法会永久挂起。
     private static func coordinateOCR(imagePath: String) async throws -> String {
         guard let image = UIImage(contentsOfFile: imagePath),
               let cg = image.cgImage else {
             throw ToolError.invalidParameters(String(localized: "core_image_decode_failed"))
         }
         let w = CGFloat(cg.width), h = CGFloat(cg.height)
-        return await withCheckedContinuation { (cont: CheckedContinuation<String, Never>) in
-            let request = VNRecognizeTextRequest { req, _ in
-                guard let obs = req.results as? [VNRecognizedTextObservation] else {
-                    cont.resume(returning: ""); return
-                }
-                var lines: [String] = []
-                for o in obs {
-                    guard let c = o.topCandidates(1).first else { continue }
-                    let b = o.boundingBox
-                    let cx = Int(b.midX * w)
-                    let cy = Int((1.0 - b.midY) * h)
-                    lines.append("\(c.string) @ (\(cx),\(cy)) box=\(Int(b.width * w))x\(Int(b.height * h))")
-                }
-                cont.resume(returning: lines.joined(separator: "\n"))
-            }
-            request.recognitionLevel = .accurate
-            request.recognitionLanguages = ["zh-Hans", "en-US"]
-            let handler = VNImageRequestHandler(cgImage: cg, options: [:])
-            try? handler.perform([request])
+        let request = VNRecognizeTextRequest()
+        request.recognitionLevel = .accurate
+        request.recognitionLanguages = ["zh-Hans", "en-US"]
+        let handler = VNImageRequestHandler(cgImage: cg, options: [:])
+        do {
+            try handler.perform([request])
+        } catch {
+            throw ToolError.executionFailed("OCR failed: \(error.localizedDescription)")
         }
+        guard let obs = request.results as? [VNRecognizedTextObservation] else { return "" }
+        var lines: [String] = []
+        for o in obs {
+            guard let c = o.topCandidates(1).first else { continue }
+            let b = o.boundingBox
+            let cx = Int(b.midX * w)
+            let cy = Int((1.0 - b.midY) * h)
+            lines.append("\(c.string) @ (\(cx),\(cy)) box=\(Int(b.width * w))x\(Int(b.height * h))")
+        }
+        return lines.joined(separator: "\n")
     }
 }
 
