@@ -257,9 +257,26 @@ struct RemoteHostTool: AgentTool {
             if lastOutput.isEmpty { lastOutput = output }
         }
 
-        // 自愈：全部候选都失败 → 局域网探测（跨网段 mDNS 盲区 / DHCP 换 IP / 网段未知三种场景全覆盖）。
-        // 唯一候选自动重连；多候选列出让用户确认；无候选返回探测结论。
+        // 自愈第一层（换网场景，真机 2026-09-07）：缓存候选全失败 → **强制重新解析**
+        //（热点/换网后缓存 IP 必失效，旧地址重试无意义），新地址逐个探活，
+        // 首个连通者即为目标。
         var healNote = ""
+        if !ok, let svc = bonjourService {
+            let fresh = await Self.resolveBonjourAddresses(svc).filter { !addressCandidates.contains($0) }
+            for candidate in fresh {
+                let retry = Self.sshCommand(user: user, host: candidate, port: port, keyPath: keyPath,
+                                            command: "echo ok && uname -s")
+                if let r2 = await runLocal(retry, timeout: 90), r2.exitCode == 0, r2.stdout.contains("ok") {
+                    host = candidate
+                    ok = true
+                    healNote = String(format: String(localized: "remote_host_heal_found"), candidate)
+                    break
+                }
+            }
+        }
+
+        // 自愈第二层：局域网探测（跨网段 mDNS 盲区 / DHCP 换 IP / 网段未知三种场景全覆盖）。
+        // 唯一候选自动重连；多候选列出让用户确认；无候选返回探测结论。
         if !ok {
             let candidates = await Self.healProbeLAN()
             if candidates.count == 1 {
@@ -410,22 +427,21 @@ struct RemoteHostTool: AgentTool {
     /// 真机会话验证过：iSH 里 ping/nc 可用，两个 /24 段 3 秒内扫完。
     /// 返回开 22 端口的 IP 列表（排序去重）。
     private static func healProbeLAN() async -> [String] {
+        // 网段由 App 层 getifaddrs 实时提供（真机 2026-09-07：iSH 的 resolv.conf
+        // 不随网络切换更新——在家装的 iSH 出门后仍推断家里网段，热点下扫了个寂寞）。
+        let prefixes = currentLANIPv4Prefixes()
+        guard !prefixes.isEmpty else { return [] }
         let script = """
         OUT=/tmp/remote_heal.txt
         : > $OUT
-        SEGS=""
-        for ns in $(awk '/^nameserver/{print $2}' /etc/resolv.conf 2>/dev/null); do
-          s=$(echo $ns | cut -d. -f1-3)
-          case " $SEGS " in *" $s "*) ;; *) SEGS="$SEGS $s";; esac
-        done
-        for s in $SEGS; do
+        for s in \(prefixes.joined(separator: " ")); do
           for i in $(seq 1 254); do
             ( ping -c 1 -W 1 $s.$i >/dev/null 2>&1 && echo $s.$i >> $OUT ) &
           done
           wait
         done
         sort -t. -k4 -n -u $OUT | while read ip; do
-          ( nc -z -w 2 $ip 22 >/dev/null 2>&1 && echo ">>> $ip:22 OPEN" ) &
+          ( nc -z -w 2 $ip 22 >/dev/null 2>&1 && echo ">>> $ip OPEN" ) &
         done
         wait
         echo HEAL_DONE
@@ -435,14 +451,41 @@ struct RemoteHostTool: AgentTool {
             return []
         }
         let ips = out.components(separatedBy: "\n")
-            .filter { $0.hasPrefix(">>> ") && $0.contains(":22 OPEN") }
+            .filter { $0.hasPrefix(">>> ") && $0.hasSuffix(" OPEN") }
             .compactMap { $0.split(separator: " ").dropFirst().first }
             .map { String($0) }
-            // 剥掉端口尾巴（脚本输出 ip:22）：整串喂 ssh 会被当主机名解析失败
-            // （真机 2026-09-07：Could not resolve hostname 192.168.10.104:22）
-            .map { $0.hasSuffix(":22") ? String($0.dropLast(3)) : $0 }
             .sorted()
         return ips
+    }
+
+    /// App 层枚举本机全部 IPv4 网段前缀（排除回环与链路本地）。
+    /// getifaddrs 反映**当前实时**网络：Wi-Fi→家里网段、热点→172.20.10.x，随切换更新。
+    private static func currentLANIPv4Prefixes() -> [String] {
+        var prefixes: [String] = []
+        var seen = Set<String>()
+        var ifaddr: UnsafeMutablePointer<ifaddrs>?
+        guard getifaddrs(&ifaddr) == 0, let first = ifaddr else { return [] }
+        defer { freeifaddrs(first) }
+        var cursor: UnsafeMutablePointer<ifaddrs>? = first
+        while let p = cursor {
+            if p.pointee.ifa_addr?.pointee.sa_family == UInt8(AF_INET) {
+                var sa = sockaddr_in()
+                memcpy(&sa, p.pointee.ifa_addr, min(Int(p.pointee.ifa_addr.pointee.sa_len), MemoryLayout<sockaddr_in>.size))
+                var buf = [CChar](repeating: 0, count: Int(INET_ADDRSTRLEN))
+                inet_ntop(AF_INET, &sa.sin_addr, &buf, socklen_t(INET_ADDRSTRLEN))
+                let ip = String(cString: buf)
+                // 排除回环与 IPv4 链路本地
+                if !ip.hasPrefix("127."), !ip.hasPrefix("169.254.") {
+                    let parts = ip.split(separator: ".")
+                    if parts.count == 4 {
+                        let prefix = parts.dropLast().joined(separator: ".")
+                        if seen.insert(prefix).inserted { prefixes.append(prefix) }
+                    }
+                }
+            }
+            cursor = p.pointee.ifa_next
+        }
+        return prefixes
     }
 
     /// 同步包装（工具方法均为 async，NSLock 不可用于 async 上下文——本函数无锁需求）。
@@ -528,8 +571,71 @@ struct RemoteHostTool: AgentTool {
     /// （iOS 系统层对 .local 域自动走 mDNS）。返回顺序：v4 在前（iSH 下最稳）、
     /// v6 在后（link-local 已拼 zone id）。
     static func resolveBonjourAddresses(_ serviceName: String, timeout: TimeInterval = 6) async -> [String] {
-        guard let hostname = await Self.resolveServiceHostname(serviceName, timeout: timeout) else { return [] }
-        return Self.allAddresses(ofHost: hostname)
+        // 主路径：NetService 拿主机名 → getaddrinfo 展开全部地址。
+        // 但 NetService.resolve 依赖 runloop——放在 global queue（无 runloop）时可能
+        // 静默失败（真机 2026-09-07 热点场景实测）→ 失败/空结果时回退 NWConnection
+        // 直连 trick（拿当前可达的单地址，实测可用）。
+        if let hostname = await Self.resolveServiceHostname(serviceName, timeout: timeout) {
+            let addrs = Self.allAddresses(ofHost: hostname)
+            if !addrs.isEmpty { return addrs }
+        }
+        if let single = await Self.resolveViaConnection(serviceName, timeout: timeout) {
+            return [single]
+        }
+        return []
+    }
+
+    /// NWConnection 兜底：直连 service endpoint，从 remoteEndpoint 拿**当前可达**地址。
+    /// v6 链路本地拼上当前接口名（zone id）——没有 zone 的 fe80:: 无法路由。
+    private static func resolveViaConnection(_ serviceName: String, timeout: TimeInterval) async -> String? {
+        nonisolated(unsafe) var probe = BonjourProbe()
+        return await withCheckedContinuation { (cont: CheckedContinuation<String?, Never>) in
+            let finish: @Sendable (String?) -> Void = { ip in
+                guard !probe.resumed else { return }
+                probe.resumed = true
+                probe.browser?.cancel()
+                probe.connection?.cancel()
+                cont.resume(returning: ip)
+            }
+            let browser = NWBrowser(for: .bonjour(type: Self.bonjourServiceType, domain: "local."), using: .tcp)
+            probe.browser = browser
+            browser.browseResultsChangedHandler = { results, _ in
+                guard probe.connection == nil else { return }
+                for result in results {
+                    if case let .service(name, _, _, _) = result.endpoint, name == serviceName {
+                        let conn = NWConnection(to: result.endpoint, using: .tcp)
+                        probe.connection = conn
+                        conn.stateUpdateHandler = { state in
+                            switch state {
+                            case .ready:
+                                if let ep = conn.currentPath?.remoteEndpoint,
+                                   case let .hostPort(host, _) = ep {
+                                    var ip = "\(host)"
+                                    // 链路本地 v6 必须带 zone（当前接口名）才可路由
+                                    if ip.hasPrefix("fe80::"),
+                                       let ifname = conn.currentPath?.availableInterfaces.first?.name {
+                                        ip += "%" + ifname
+                                    }
+                                    finish(ip)
+                                } else {
+                                    finish(nil)
+                                }
+                            case .failed, .waiting, .cancelled:
+                                finish(nil)
+                            default: break
+                            }
+                        }
+                        conn.start(queue: .main)
+                        break
+                    }
+                }
+            }
+            browser.stateUpdateHandler = { state in
+                if case .failed = state { finish(nil) }
+            }
+            browser.start(queue: .main)
+            DispatchQueue.main.asyncAfter(deadline: .now() + timeout) { finish(nil) }
+        }
     }
 
     /// DNSServiceResolve：服务实例名 → mDNS 主机名（target）。
