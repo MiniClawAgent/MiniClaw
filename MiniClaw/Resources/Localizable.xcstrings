@@ -47654,6 +47654,35 @@
         }
       }
     },
+    "remote_host_candidates_tried": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已依次尝试该设备的全部地址（同一设备的 v4/v6 指向同一终端）：%1$@。可指定其中一个 host 重试，或检查目标机 22 端口与防火墙。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tried all addresses of this device in turn (its IPv4/IPv6 point to the same host): %1$@. Retry with one as host, or check port 22 and the firewall on the target."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "このデバイスの全アドレスを順に試しました（IPv4/IPv6 は同一ホスト）：%1$@。いずれかを host に指定して再試行するか、対象の 22 番ポートとファイアウォールを確認してください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이 장치의 모든 주소를 순서대로 시도했습니다(IPv4/IPv6는 동일 호스트): %1$@. 그중 하나를 host로 지정해 재시도하거나 대상의 22 포트와 방화벽을 확인하세요."
+          }
+        }
+      }
+    },
     "remote_host_connect_failed": {
       "extractionState": "manual",
       "localizations": {
