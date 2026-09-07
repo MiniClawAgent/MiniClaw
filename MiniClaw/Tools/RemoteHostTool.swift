@@ -1,6 +1,5 @@
 import Foundation
 import Network
-import dnssd
 
 /// `remote-host`：通过 iSH 内的 SSH 控制远程主机（Mac / Linux / Windows）。
 ///
@@ -510,44 +509,19 @@ struct RemoteHostTool: AgentTool {
     }
 
     /// DNSServiceResolve：服务实例名 → mDNS 主机名（target）。
+    ///
+    /// 实现说明（2026-09-07）：首版用 dnssd C 回调 + Unmanaged box + 静态注册表，
+    /// 结果①真机双重 resume 闪退、②连编译器 SendNonSendable pass 都被这个复杂
+    /// 组合搞崩（swift-frontend stack dump）。改用 **NetService.resolve(withTimeout:)**
+    /// ——同步阻塞、自带超时、无回调无生命周期管理；同步阻塞放在全局并发队列
+    /// （非 Swift 协作线程池）上跑，await 包装不卡协程。
     private static func resolveServiceHostname(_ serviceName: String, timeout: TimeInterval) async -> String? {
-        final class ContinuationBox: @unchecked Sendable {
-            let cont: CheckedContinuation<String?, Never>
-            init(_ c: CheckedContinuation<String?, Never>) { cont = c }
-        }
-        nonisolated(unsafe) var resumed = false
-        nonisolated(unsafe) var sdRef: DNSServiceRef?
-        return await withCheckedContinuation { (cont: CheckedContinuation<String?, Never>) in
-            let box = ContinuationBox(cont)
-            let ctx = Unmanaged.passRetained(box).toOpaque()
-            let callback: DNSServiceResolveReply = { _, flags, _, errorCode, _, hosttarget, _, _, _, context in
-                guard let context else { return }
-                let box = Unmanaged<ContinuationBox>.fromOpaque(context).takeRetainedValue()
-                // MoreComing 置位表示还有后续回调（结果分批到达），等最终回调再收。
-                guard errorCode == kDNSServiceErr_NoError,
-                      flags & kDNSServiceFlagsMoreComing == 0,
-                      let hosttarget else {
-                    if flags & kDNSServiceFlagsMoreComing == 0 { box.cont.resume(returning: nil) }
-                    return
-                }
-                box.cont.resume(returning: String(cString: hosttarget))
-            }
-            let err = DNSServiceResolve(&sdRef, 0, 0, serviceName, Self.bonjourServiceType, "local.", callback, ctx)
-            guard err == kDNSServiceErr_NoError, let ref = sdRef else {
-                Unmanaged<ContinuationBox>.fromOpaque(ctx).release()
-                cont.resume(returning: nil)
-                return
-            }
-            let queue = DispatchQueue(label: "com.neartop.miniclaw.dnssd")
-            DNSServiceSetDispatchQueue(ref, queue)
-            queue.asyncAfter(deadline: .now() + timeout) {
-                DNSServiceRefDeallocate(ref)
-                // 超时兜底：回调未触发时由这里收尾（resumed 标志防止双重 resume）
-                if !resumed {
-                    resumed = true
-                    Unmanaged<ContinuationBox>.fromOpaque(ctx).release()
-                    cont.resume(returning: nil)
-                }
+        await withCheckedContinuation { (cont: CheckedContinuation<String?, Never>) in
+            DispatchQueue.global(qos: .userInitiated).async {
+                let service = NetService(domain: "local.", type: Self.bonjourServiceType, name: serviceName)
+                service.resolve(withTimeout: timeout)
+                // resolve 返回即已完成或超时；hostName 形如 "Xxx.local."（getaddrinfo 两种都接受）
+                cont.resume(returning: service.hostName)
             }
         }
     }
