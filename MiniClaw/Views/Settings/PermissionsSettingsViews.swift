@@ -205,25 +205,37 @@ struct PermissionsSettingsView: View {
             showInfo = true
             return
         }
-        // 本地网络：系统仅对 Bonjour 浏览弹窗，且无查询授权状态的公开 API——
-        // 触发 NWBrowser 浏览后轮询配置域状态（由回调写回），最多等 8s。
+        // 本地网络：无公开的状态查询 API，只能靠 NWBrowser 探测（首次会触发系统弹窗）。
+        // 2026-09-07 行为调整：不论当前状态一律重新探测——
+        //   未授权 → 触发系统弹窗，用户允许即写回「已授权」；
+        //   已拒绝 → 快速失败，引导去系统设置开启（用户在设置里打开后回到本页再点
+        //            一次即可刷新为已授权，此前点都不让点是错的）；
+        //   未能确认（无网络 / 用户未做选择）→ 不写状态，提示重试而非误标已拒绝。
         if key == "localNetwork" {
             guard busyKey == nil else { return }
-            // 已拒绝：系统不再重复弹窗，点击无意义——直接引导去系统设置手动开启
-            // （本地网络开关在「设置 → 隐私与安全性 → 本地网络」，openSettingsURLString 到不了）。
-            if store.settings.permissions.localNetwork == .denied {
-                infoText = String(localized: "local_network_permission_was_denied_go_to_settings_privacy_security_local_network_and_enable_miniclaw_once_enabled_internal_dns_names_and_lan_devices_will_work_automatically")
-                showInfo = true
-                return
-            }
             busyKey = key
             PermissionManager.shared.requestLocalNetwork()
             Task { @MainActor in
-                for _ in 0..<8 {
-                    try? await Task.sleep(nanoseconds: 1_000_000_000)
+                // 系统弹窗没有超时，用户可能十几秒后才回答——等待窗口必须给足（30s），
+                // 否则用户点了「允许」而 UI 早已放弃等待，状态永远停在未授权。
+                for _ in 0..<60 {
+                    try? await Task.sleep(nanoseconds: 500_000_000)
                     if store.settings.permissions.localNetwork != .notDetermined { break }
                 }
                 busyKey = nil
+                tick.toggle()
+                switch store.settings.permissions.localNetwork {
+                case .denied:
+                    // 本地网络开关在「设置 → 隐私与安全性 → 本地网络」，
+                    // openSettingsURLString 到不了该层，只能给文字引导。
+                    infoText = String(localized: "local_network_permission_was_denied_go_to_settings_privacy_security_local_network_and_enable_miniclaw_once_enabled_internal_dns_names_and_lan_devices_will_work_automatically")
+                    showInfo = true
+                case .notDetermined:
+                    infoText = String(localized: "local_network_probe_inconclusive")
+                    showInfo = true
+                default:
+                    break   // 已授权：徽标已刷新，无需提示
+                }
             }
             return
         }

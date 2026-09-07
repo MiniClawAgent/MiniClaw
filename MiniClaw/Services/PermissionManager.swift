@@ -97,14 +97,21 @@ final class PermissionManager: @unchecked Sendable {
 
     /// 触发本地网络授权对话框，并把用户选择写回 PermissionConfig.localNetwork。
     ///
-    /// 行为说明：
-    /// - 首次调用：系统弹出「允许 MiniClaw 发现本地网络上的设备」对话框。
-    /// - 用户允许 → 浏览器进入 `.ready`，记录为 `authorized`。
-    /// - 用户拒绝 → 浏览器进入 `.failed`，记录为 `denied`。
-    /// - 已授权/已拒绝时再次调用：不会重复弹窗，仅快速回写当前状态，幂等安全。
+    /// 行为说明（2026-09-07 修正）：
+    /// - 首次调用：系统弹出「允许 MiniClaw 发现本地网络上的设备」对话框。用户回答前
+    ///   浏览器停在 `.waiting`（系统挂起该操作），**弹窗本身没有超时**——因此探测必须
+    ///   等至终态，不能几秒就 cancel：否则用户在第 10 秒点了「允许」，权限其实拿到了，
+    ///   UI 却早已放弃等待，状态永远停在未授权。
+    /// - 用户允许 → `.ready` → `authorized`；用户拒绝 → `.failed(权限类错误)` → `denied`。
+    /// - 已授权/已拒绝时再次调用不会重复弹窗，仅快速回读当前状态（探测兼读状态：用户在
+    ///   系统设置里开启后回到本页再点一次，即可刷新为已授权）。
+    /// - **只有权限类错误才记为 denied**：无网络/飞行模式等同样会 `.failed`。此前一律
+    ///   记 denied，会让「没网时点一下」被永久标成已拒绝，之后点击只显示去设置的引导，
+    ///   而系统其实从未弹过窗、设置列表里也没有本 app → 用户彻底卡死。
     ///
-    /// 实现细节：通过 NWBrowser 浏览一个自定义 Bonjour 类型 `_miniclaw._tcp`。
-    /// 即使局域网内不存在该服务，浏览动作本身即构成「本地网络使用」，足以触发系统弹窗。
+    /// 实现细节：通过 NWBrowser 浏览自定义 Bonjour 类型 `_miniclaw._tcp`（已在
+    /// Info.plist 的 `NSBonjourServices` 中声明）。即使局域网内不存在该服务，浏览动作
+    /// 本身即构成「本地网络使用」，足以触发系统弹窗。
     func requestLocalNetwork() {
         queue.async { [weak self] in
             guard let self else { return }
@@ -129,15 +136,18 @@ final class PermissionManager: @unchecked Sendable {
 
             self._browser = browser
             browser.start(queue: self.queue)
-            // .waiting 超时（5s）：本地网络请求可能因系统节流/网络未就绪停在 waiting，
-            // 不及时停止会让 _browser 永久占用，后续点击全部被挡（同「点了没反应」）。
-            // 超时停止不写状态（保持未授权），用户可再次点击重试。
-            self.queue.asyncAfter(deadline: .now() + 5) { [weak self] in
+            // 终态前不 cancel：系统弹窗没有超时，用户可能十几秒后才回答（见上面说明）。
+            // 60s 仅为兜底（用户始终不理会弹窗 / 系统节流停在 .waiting）；超时不写状态，
+            // 用户可再次点击重试。
+            self.queue.asyncAfter(deadline: .now() + Self.localNetworkProbeTimeout) { [weak self] in
                 guard let self, self._browser === browser else { return }
                 self.stop(browser)
             }
         }
     }
+
+    /// 本地网络探测超时兜底（秒）。需远大于用户阅读并回答系统弹窗的时间。
+    private static let localNetworkProbeTimeout: TimeInterval = 60
 
     // MARK: - 内部处理
 
@@ -147,14 +157,27 @@ final class PermissionManager: @unchecked Sendable {
             // 授权成功：浏览器进入就绪态。
             persistLocalNetwork(.authorized)
             stop(browser)
-        case .failed:
-            // 授权被拒：浏览失败（通常为权限被拒，而非真正的网络错误）。
-            persistLocalNetwork(.denied)
+        case .failed(let error):
+            // 仅权限类错误（EPERM/EACCES）才判定为「用户拒绝」并持久化。其余（无网络、
+            // 飞行模式、DNS 不可达等）不写状态：误标成 denied 后用户再点只会被引导去
+            // 系统设置，而那里根本没有本 app 的开关，等于把人卡死。
+            if Self.isPermissionDenied(error) {
+                persistLocalNetwork(.denied)
+            }
             stop(browser)
         default:
             // .setup / .waiting / .cancelled 均不写状态，等待终态。
             break
         }
+    }
+
+    /// 是否为「本地网络权限被拒」的错误。系统未授予权限时 NWBrowser 以
+    /// POSIX EPERM/EACCES 失败；无网络等情况则是其他错误码。
+    private static func isPermissionDenied(_ error: NWError) -> Bool {
+        if case let .posix(code) = error {
+            return code == .EPERM || code == .EACCES
+        }
+        return false
     }
 
     private func stop(_ browser: NWBrowser) {

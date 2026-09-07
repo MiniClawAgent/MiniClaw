@@ -44,6 +44,16 @@
 	</dict>
 	<key>NSAppleMusicUsageDescription</key>
 	<string>MiniClaw 需要访问媒体库以播放和控制音乐。</string>
+	<!-- 本地网络：声明本 app 会浏览的 Bonjour 服务类型。未声明时系统可能静默拦截
+	     浏览动作（既不返回结果、也不弹本地网络授权框），表现为「发现不到设备且
+	     设置 → 隐私与安全性 → 本地网络里根本没有本 app」，权限无从开启。
+	     - _ssh._tcp：remote-host 发现局域网内可 SSH 的设备（Mac 远程登录/avahi 广播）
+	     - _miniclaw._tcp：权限探测用虚构类型（不存在也不影响，浏览动作本身触发授权弹窗） -->
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_ssh._tcp</string>
+		<string>_miniclaw._tcp</string>
+	</array>
 	<key>NSCalendarsFullAccessUsageDescription</key>
 	<string>MiniClaw 需要完整访问日历以读取、创建和修改您的日程事件。</string>
 	<key>NSCalendarsUsageDescription</key>

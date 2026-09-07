@@ -27992,6 +27992,35 @@
         }
       }
     },
+    "local_network_probe_inconclusive": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未能确认本地网络权限状态：请确认已连接 Wi‑Fi，并在系统弹出的授权框中选择「允许」后重试。若此前选择过「不允许」，请到 设置 → 隐私与安全性 → 本地网络 中开启 MiniClaw（只有弹过一次授权框的 App 才会出现在该列表里）。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not confirm the local network permission: make sure Wi‑Fi is connected, then allow the system prompt and try again. If you previously chose \"Don't Allow\", enable MiniClaw in Settings → Privacy & Security → Local Network (only apps that have prompted once appear in that list)."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ローカルネットワーク権限を確認できませんでした。Wi‑Fi に接続し、システムの許可ダイアログで「許可」を選んでから再試行してください。以前「許可しない」を選んだ場合は 設定 → プライバシーとセキュリティ → ローカルネットワーク で MiniClaw を有効にしてください（一度でもダイアログが出た App のみ一覧に表示されます）。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "로컬 네트워크 권한을 확인할 수 없습니다. Wi‑Fi에 연결한 뒤 시스템 권한 창에서 \"허용\"을 선택하고 다시 시도하세요. 이전에 \"허용 안 함\"을 선택했다면 설정 → 개인정보 보호 및 보안 → 로컬 네트워크에서 MiniClaw를 켜세요(한 번이라도 권한 창이 뜬 앱만 목록에 표시됩니다)."
+          }
+        }
+      }
+    },
     "local_stdio": {
       "extractionState": "manual",
       "localizations": {
