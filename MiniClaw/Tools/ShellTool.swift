@@ -96,6 +96,13 @@ struct ShellExecuteTool: AgentTool {
             let cwd = currentSessionID.map { "/var/MiniClaw/sessions/\($0.uuidString)" } ?? "/var/MiniClaw"
             final += "\n[env] cwd: \(cwd) (relative paths resolve here)"
             if let bashReminder { final += bashReminder }
+            // 环境教学（2026-09-07）：Alpine 最小环境默认只有 busybox 命令集，模型按
+            // 通用常识猜 curl/git/python 存在会吃「not found」。检出缺失命令时附加
+            // apk 安装引导——模型一轮自纠，且逐渐学会这个环境有什么。
+            let missing = Self.missingCommands(in: result.stderr.isEmpty ? result.stdout : result.stderr)
+            if !missing.isEmpty {
+                final += "\n" + String(format: String(localized: "shell_command_missing_hint"), missing.joined(separator: "、"))
+            }
             return ToolResult(success: result.exitCode == 0, text: final)
         } catch {
             return ToolResult(success: false, text: error.localizedDescription)
@@ -117,6 +124,23 @@ struct ShellExecuteTool: AgentTool {
             folded.append(final)
         }
         return folded.joined(separator: "\n")
+    }
+
+    /// 从输出中提取「命令未安装」的命令名（busybox ash 形态：`/bin/sh: curl: not found`）。
+    /// 可能多个（管道里多条命令都缺），去重保序。
+    private static func missingCommands(in text: String) -> [String] {
+        var names: [String] = []
+        var seen = Set<String>()
+        for line in text.components(separatedBy: "\n") {
+            guard let idx = line.range(of: ": not found") else { continue }
+            let before = line[..<idx.lowerBound]
+            guard let name = before.split(separator: " ").last, !name.isEmpty,
+                  name != "sh", name != "/bin/sh" else { continue }
+            if seen.insert(String(name)).inserted {
+                names.append(String(name))
+            }
+        }
+        return names
     }
 
     /// 单引号包裹命令（' 转义为 '\''），供 `bash -lc '...'` 包装使用。
