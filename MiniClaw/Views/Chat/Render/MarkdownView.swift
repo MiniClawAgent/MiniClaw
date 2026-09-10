@@ -1,0 +1,1606 @@
+import MiniClawKit
+import SwiftUI
+import UIKit
+import Photos
+import Foundation
+import Combine
+
+// MARK: - Markdown 统一渲染/测量缓存（2026-09-08 治本收口）
+//
+/// 此前同职责散落 5 处（block.cachedAttributedString / attrStringMemo /
+/// heightMemo×2 / coord.cachedSizes），各管一段、互相不知情，每轮优化都在打补丁。
+/// 统一为一个进程级缓存：
+///
+///   key   = markdown 源文 + 字号（同一 markdown 唯一确定渲染结果）
+///   entry = 渲染好的 NSAttributedString + 各宽度下的实测高度
+///
+/// 三条消费路径全部走它：
+///   ① 渲染（updateUIView）——命中免全量解析+构造
+///   ② 测量（sizeThatFits）——命中免 TextKit 全量重排（50-100ms/次）
+///   ③ 种子（applySnapshot precalc）——命中免算术估算误差
+/// 无附件块才缓存 attributed（附件与 renderer 上下文身份耦合）；高度按宽度分存。
+@MainActor
+final class MarkdownRenderCache {
+    static let shared = MarkdownRenderCache()
+
+    private struct Entry {
+        // [2026-09-09 根源修复] nil = 该条目只有高度（height-only，prewarm/种子/
+        // PLAF 先写高度的正常路径）。此前用**空 NSAttributedString 占位**，而
+        // `cachedAttributed` 只判 nil → 所有"先有高度"的块在渲染/测量时命中
+        // **空串当有效渲染结果** → 渲染出 attrText=0 的空帧，空值又经 onRendered
+        // 回写块缓存 → 渲染层 prebuilt 再命中空 → 空白死锁（漏消息的直接根源）。
+        // 「无」必须表达为 nil，不能是空串。
+        let attributed: NSAttributedString?
+        var heights: [Int: CGFloat] = [:]
+        let insertedAt: CFAbsoluteTime
+    }
+
+    private var entries: [String: Entry] = [:]
+    private var order: [String] = []
+    // [T-perf 2026-09-08] 48 → 256：386-item 会话有数百个块，48 条 LRU 把活跃块
+    // 反复淘汰 → 测量永远 MISS → 反复 1.2s 全量排版（真机 SLOW MEASURE 1196ms）。
+    // 无附件块的 attributed 较小（纯文本+样式），256 条 ≈ 数 MB 内存，可接受。
+    private let limit = 1024
+
+    // [缓存观测 2026-09-10] 唐唐要求：缓存写入/读取命中必须全部可见于设备日志，
+    // 用于判定「回看不稳」到底是没读缓存、缓存被破坏还是时机不对。
+    // 策略：STORE/MISS 全打（每个内容 key 一生各一次，量可控）；HIT 同 key 1s 节流。
+    private static let cacheLogger = AppLogger(category: "RenderCache")
+    private var hitLogAt: [String: CFAbsoluteTime] = [:]
+
+    private func logHit(_ kind: String,key: String) {
+        let now = CFAbsoluteTimeGetCurrent()
+        if let t = hitLogAt[key],now-t < 1.0 { return }
+        hitLogAt[key] = now
+        Self.cacheLogger.info("[RC] HIT-\(kind) key=\(key)")
+    }
+
+    /// 统一 key：markdown 源文 + 字号。全库所有消费点必须用同一构造。
+    static func key(for markdown: String, fontSize: CGFloat) -> String {
+        var hasher = Hasher()
+        hasher.combine(markdown)
+        hasher.combine(fontSize)
+        return "\(hasher.finalize())"
+    }
+
+    /// [2026-09-09 根源修复] 无条目 / height-only / 空串 一律返回 nil——
+    /// 消费方"命中"语义 = 存在**非空**的有效渲染结果。
+    func cachedAttributed(for key: String) -> NSAttributedString? {
+        guard let entry = entries[key], let attr = entry.attributed, attr.length > 0 else {
+            Self.cacheLogger.info("[RC] MISS-ATT key=\(key)")
+            return nil
+        }
+        logHit("ATT",key: key)
+        return attr
+    }
+
+    func cachedHeight(for key: String, width: Int) -> CGFloat? {
+        guard let h = entries[key]?.heights[width] else {
+            Self.cacheLogger.info("[RC] MISS-H key=\(key) w=\(width)")
+            return nil
+        }
+        logHit("H",key: key)
+        return h
+    }
+
+    /// 命中后把 key 移到队尾（真 LRU）。旧实现命中不刷新 order → 退化为 FIFO：
+    /// 386-item 会话里活跃块会被"先入"的冷块挤掉，测量反复 MISS。
+    private func touch(_ key: String) {
+        guard let idx = order.firstIndex(of: key), idx != order.count - 1 else { return }
+        order.remove(at: idx)
+        order.append(key)
+    }
+
+    func store(attributed: NSAttributedString, key: String) {
+        // [2026-09-09 根源修复] 空渲染结果不入库（空 att 会被消费方当有效结果，
+        // 曾致 height-only 空串占位连锁出「漏消息」死锁）。
+        guard attributed.length > 0, entries[key] == nil else { return }
+        entries[key] = Entry(attributed: attributed, insertedAt: CFAbsoluteTimeGetCurrent())
+        order.append(key)
+        while order.count > limit {
+            let evict = order.removeFirst()
+            entries.removeValue(forKey: evict)
+        }
+        Self.cacheLogger.info("[RC] STORE-ATT key=\(key) len=\(attributed.length)")
+    }
+
+    /// 高度写入**不依赖 attributed 是否存在**（2026-09-08 修复）：
+    /// 旧实现 `guard var entry = entries[key] else { return }` → 附件块
+    ///（表格/代码块/公式，按设计不缓存 attributed）永远没有 entry，高度
+    /// 100% 存不进去，等于这次"缓存合并"对含附件的块完全没生效。
+    /// 改为 height-only entry：无 attributed 时建一个占位条目专存高度。
+    func store(height: CGFloat, key: String, width: Int) {
+        if var entry = entries[key] {
+            entry.heights[width] = height
+            entries[key] = entry
+        } else {
+            var entry = Entry(attributed: nil, // height-only：无富文本，只有高度
+                              insertedAt: CFAbsoluteTimeGetCurrent())
+            entry.heights[width] = height
+            entries[key] = entry
+            order.append(key)
+            while order.count > limit {
+                entries.removeValue(forKey: order.removeFirst())
+            }
+        }
+        Self.cacheLogger.info("[RC] STORE-H key=\(key) w=\(width) h=\(String(format: "%.0f", height))")
+    }
+
+    /// 内存告警时整体清空（2026-09-08）：1024 条 NSAttributedString 常驻，
+    /// 收到系统内存警告时主动释放，避免被 jetsam 直接杀进程。
+    func removeAll() {
+        entries.removeAll(keepingCapacity: false)
+        order.removeAll(keepingCapacity: false)
+    }
+
+    /// 注册内存告警监听（进程内一次）。缓存可重建，宁可丢也不被杀。
+    private static var memoryObserverInstalled = false
+    static func installMemoryWarningObserver() {
+        guard !memoryObserverInstalled else { return }
+        memoryObserverInstalled = true
+        #if canImport(UIKit)
+        NotificationCenter.default.addObserver(
+            forName: UIApplication.didReceiveMemoryWarningNotification,
+            object: nil, queue: .main) { _ in
+            MarkdownRenderCache.shared.removeAll()
+        }
+        #endif
+    }
+}
+
+/// 反色外阴影修饰符（2026-09-07，全局强制）：SwiftUI 文字统一入口。
+/// 浅色模式暗字配三层白色光晕塔（中心实、外围渐散，托住复杂背景图上的可读性）；
+/// 深色模式亮字配单层黑影。shadow 恒在字形下层零侵入——中文小字禁用描边/贴脸
+/// 紧实层（会吃笔画致整页发糊，真机教训，详见 MarkdownTheme.textShadow 注释）。
+/// 覆盖：SwiftUI 文字入口（AI 名字行 BridgedAssistantHeader、消息状态行 AssistantStatusRow 等）；
+/// 富文本正文走 MarkdownTheme.textShadow。
+public struct LegibleTextShadow: ViewModifier {
+    @Environment(\.colorScheme) private var colorScheme
+
+    public func body(content: Content) -> some View {
+        // 最终定稿（2026-09-08）：浅色三层白晕加密塔（描边实验否决后回归）；
+        // 深色单层黑影。
+        content
+            .shadow(color: colorScheme == .dark ? .black.opacity(0.8) : .white.opacity(1.0),
+                    radius: 2)
+            .shadow(color: colorScheme == .dark ? .black.opacity(0.0) : .white.opacity(1.0),
+                    radius: 3.5)
+            .shadow(color: colorScheme == .dark ? .black.opacity(0.0) : .white.opacity(0.85),
+                    radius: 5.5)
+    }
+}
+
+public extension View {
+    /// 反色外阴影：所有浮在可换背景上的文字统一使用（见 LegibleTextShadow）。
+    func legibleTextShadow() -> some View { modifier(LegibleTextShadow()) }
+}
+
+struct MarkdownTheme {
+    let baseFontSize: CGFloat
+    let codeBlockCornerRadius: CGFloat = 8
+    let inlineCodeCornerRadius: CGFloat = 5
+
+    init(baseFontSize: CGFloat? = nil) {
+        self.baseFontSize = baseFontSize ?? 16.5
+    }
+
+    var baseFont: UIFont { .systemFont(ofSize: baseFontSize) }
+    var labelColor: UIColor { .label }
+    var secondaryLabelColor: UIColor { .secondaryLabel }
+
+    /// 正文反色外阴影（2026-09-07，全局强制）：
+    /// 深色模式文字为亮色 → 黑影；浅色模式文字为暗色 → 白影。
+    /// 用 dynamic UIColor 与 .label 同机制（绘制时按 trait 解析，深浅色切换自动生效）。
+    /// offset .zero 的阴影是纯绘制效果，不占布局空间，对高度估算/实测零影响；
+    /// 同色系背景上阴影自然隐形（黑底黑影/白底白影），复杂背景图上承担可读性兜底。
+    /// ⚠️ 刻意不用 .strokeWidth 描边（2026-09-07 真机教训）：stroke 是中心线描边，
+    /// 一半侵入笔画内侧——16.5pt 中文字笔画仅 1~1.5pt，1.5pt 白描边直接把黑字
+    /// 吃成灰字（整页发糊）。可读性兜底只靠下层光晕，永远不碰字形本身。
+    /// 正文阴影（最终定稿 2026-09-08）：浅色反色白晕 / 深色黑影，dynamic 随深浅色切换。
+    var textShadow: NSShadow {
+        let s = NSShadow()
+        s.shadowColor = UIColor { trait in
+            trait.userInterfaceStyle == .dark
+                ? UIColor(white: 0, alpha: 0.8)
+                : UIColor(white: 1, alpha: 1.0)
+        }
+        s.shadowBlurRadius = 3
+        s.shadowOffset = .zero
+        return s
+    }
+    var accentColor: UIColor { .systemOrange }
+    var linkColor: UIColor { .systemBlue }
+    var codeBlockBackground: UIColor {
+        UIColor { $0.userInterfaceStyle == .dark ? UIColor(white: 0.15,alpha: 1) : .black }
+    }
+    var codeBlockTextColor: UIColor {
+        UIColor { $0.userInterfaceStyle == .dark ? UIColor(red: 0.55,green: 0.95,blue: 0.55,alpha: 1) : .systemGreen }
+    }
+    var inlineCodeBackground: UIColor { miniClawInlineCodeBackgroundColor }
+    var inlineCodeColor: UIColor { .systemOrange }
+    var blockquoteBarColor: UIColor { UIColor.systemOrange.withAlphaComponent(0.5) }
+    var tableBorderColor: UIColor { UIColor.label.withAlphaComponent(0.25) }
+
+    func headingFont(level: Int) -> UIFont {
+        let size: CGFloat
+        let weight: UIFont.Weight
+        switch level {
+        case 1: size = baseFontSize*1.5; weight = .bold
+        case 2: size = baseFontSize*1.3; weight = .bold
+        case 3: size = baseFontSize*1.15; weight = .semibold
+        case 5: size = baseFontSize*0.875; weight = .semibold
+        case 6: size = baseFontSize*0.85; weight = .semibold
+        default: size = baseFontSize; weight = .semibold // H4 and fallback
+        }
+        return .systemFont(ofSize: size,weight: weight)
+    }
+
+    var inlineCodeFont: UIFont {
+        let size = baseFontSize*0.845
+        if let menlo = UIFont(name: "Menlo", size: size) {
+            let descriptor = menlo.fontDescriptor.addingAttributes([
+                .cascadeList: [UIFontDescriptor(fontAttributes: [.name: "PingFang SC"])]
+            ])
+            return UIFont(descriptor: descriptor,size: size)
+        }
+        return .monospacedSystemFont(ofSize: size,weight: .regular)
+    }
+
+    var codeBlockFont: UIFont {
+        let size = baseFontSize*0.85
+        if let menlo = UIFont(name: "Menlo", size: size) {
+            let descriptor = menlo.fontDescriptor.addingAttributes([
+                .cascadeList: [UIFontDescriptor(fontAttributes: [.name: "PingFang SC"])]
+            ])
+            return UIFont(descriptor: descriptor,size: size)
+        }
+        return .monospacedSystemFont(ofSize: size,weight: .regular)
+    }
+}
+
+/// Intended for one-shot rendering of completed messages (e.g. caching in MessageListModel).
+func percentEncodePathSegmentIdempotent(_ seg: String) -> String {
+    let decoded = seg.removingPercentEncoding ?? seg
+    return decoded.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? seg
+}
+
+// MARK: - MarkdownTheme
+
+/// Inline-code span background, shared by the
+/// 文件指示器附件:带边框的胶囊 + SF 文档图标 + 文件名(超 10 字截断)。
+/// 区别于工具/思考指示器,让用户一眼识别是文件(2026-08-13)。
+
+struct MarkdownView: UIViewRepresentable {
+    let markdown: String
+    var cachedContent: MarkdownContent?
+    var cachedAttributedString: NSAttributedString?
+    /// 所属块是否仍在流式输出（2026-09-08）：**显式终态信号**。
+    /// 此前终态靠 `cachedAttributedString != nil || cachedContent != nil` 反推——
+    /// 而 `cachedAttributedString` 又只能由终态回写（onRendered）产生 → 自依赖：
+    /// 缓存不存在时永远判定为"流式"，回写分支永远打不开。以宿主传入的流式状态为准。
+    var isStreaming: Bool = false
+    var messageId: UUID?
+    /// Optional block identity for table slot-cache keying. In the list
+    var blockId: UUID?
+    var onTapBlank: ((CGPoint) -> Void)?
+    var onCopyScreenshot: (() -> Void)?
+    /// "Read from Start" (whole reply) via MiniClaw TTS.
+    var onReadAloud: (() -> Void)?
+    /// "Read Selection" (selected text) via MiniClaw TTS.
+    var onSpeakText: ((String) -> Void)?
+    /// 终态渲染完成后回写富文本缓存（2026-09-08 性能修复）：
+    /// `block.cachedAttributedString` 的写入方法 cacheRenderedContent() 此前从未被
+    /// 接线调用 → 每个块在每个 cell 实例上首次配置都全量渲染（真机日志实证：
+    /// 同一 1070 字符块滑动期间反复 MISS 30+ 次、累计近 1s 主线程）。渲染完成时
+    /// 把结果写回缓存，同块的其他 cell 实例 / 重进会话直接命中（零额外成本，
+    /// 复用本来就要做的渲染）。仅 finalized 且无 in-flight 表格后缀时回写。
+    /// [2026-09-09 指纹同源修复] **第二参数 = 本次渲染实际输入的长度**（调用点传
+    /// markdown.count）。调用方必须用它当缓存指纹，不得用回调时刻的
+    /// block.content.count——SwiftUI body 求值与 sizeThatFits 可跨 runloop 迭代，
+    /// 期间 Bridge 会改写 block.content（流式 ~100ms/次），两者不同源时指纹指向
+    /// 新内容而 att 是旧内容的渲染结果 → prebuilt 长度校验恰好通过 → 正文被钉在
+    /// 旧版本（回复中工具挂载后正文截短，滑动/复用均不恢复）。
+    var onRendered: ((NSAttributedString, Int) -> Void)? = nil
+    /// [2026-09-09 截短锁死修复] prebuilt 缓存的内容指纹 = **渲染输入**的字符数
+    /// （AssistantBlock.cachedAttrContentCount，由 onRendered 第二参数写入，与
+    /// cachedAttributedString 同源）。背景：流式中工具挂载会让该块提前被判终态
+    /// （isStreamingBlock 只认 blocks.last），onRendered 把**缺尾包的中间态**渲染
+    /// 结果回写块缓存；100ms 后尾包 flush 内容变长，而 prebuilt 采用点
+    /// （updateUIView）此前**不校验缓存对应哪一版内容**、回写条件又是 `== nil`
+    /// 永不覆盖 → 中间态被永久锁死（显示截短且滑动/复用均不恢复，
+    /// 真机 IMG_4605「好，继续给这一」）。nil = 调用方未提供指纹，保守放行
+    /// （兼容其它调用点）；提供时不匹配即弃用 prebuilt 落全量渲染——覆盖式
+    /// 回写会让缓存追赶内容，下一次测量自然对齐。
+    var prebuiltContentCount: Int? = nil
+    @Environment(\.openURL) private var openURL
+
+    func makeCoordinator() -> Coordinator {
+        let coord = Coordinator()
+        if let mid = messageId,let existing = MarkdownView.rendererCache[mid] {
+            coord.renderer = existing
+        } else if let mid = messageId {
+            MarkdownView.rendererCache[mid] = coord.renderer
+        }
+        return coord
+    }
+
+    @MainActor private static var rendererCache: [UUID: MarkdownNSRenderer] = [:]
+
+    /// [T-perf 2026-09-08 缓存合并] 原 heightMemo（附件块 fallback 高度缓存）已
+    /// 迁入统一缓存 MarkdownRenderCache.heights（key=renderCacheKey+width，与
+    /// 无附件块/预填充/种子循环同一体系）——独立缓存不再维护。
+
+    // （无附件块的渲染/测量/高度缓存已收口至 MarkdownRenderCache，见文件顶部——
+    //   attrStringMemo 零散缓存已删除，不再维护多套。）
+
+    func makeUIView(context: Context) -> MarkdownTextView {
+        let textView = MarkdownTextView()
+        textView.delegate = context.coordinator
+        textView.setContentHuggingPriority(.required,for: .vertical)
+        textView.setContentCompressionResistancePriority(.required,for: .vertical)
+        context.coordinator.lastMarkdown = ""
+        context.coordinator.openURL = openURL
+        textView.onTapBlank = onTapBlank
+        textView.onCopyScreenshot = onCopyScreenshot
+        textView.onReadAloud = onReadAloud
+        textView.onSpeakText = onSpeakText
+        #if DEBUG
+        // makeUIView creates a FRESH textView +
+        let rId = String(ObjectIdentifier(context.coordinator.renderer).hashValue&0xFFFFFF,radix: 16)
+        AppLogger(category: "MarkdownRenderer").info("[MK-VIEW] new textView rnd=\(rId)")
+        #endif
+        return textView
+    }
+
+    func updateUIView(_ textView: MarkdownTextView,context: Context) {
+        // [PerfTrace 2026-09-08] 渲染路径计时（此前只给测量侧打点，渲染侧是空白）
+        let updateStart = CFAbsoluteTimeGetCurrent()
+        context.coordinator.openURL = openURL
+        textView.onTapBlank = onTapBlank
+        textView.onCopyScreenshot = onCopyScreenshot
+        textView.onReadAloud = onReadAloud
+        textView.onSpeakText = onSpeakText
+
+        let currentFontSize = FontSettings.shared.scaledMessage(16.5)
+        let fontChanged = context.coordinator.lastFontSize != currentFontSize
+
+        let imgCacheN = context.coordinator.renderer.imageAttachmentCache.count
+        if imgCacheN>0 {
+            let prevLen = context.coordinator.lastMarkdown.count
+            let curLen = markdown.count
+            let isAppend = curLen>prevLen && markdown.hasPrefix(context.coordinator.lastMarkdown)
+            AppLogger(category: "ChatList.Attach").info("[UPD] entry imgCache=\(imgCacheN) prevLen=\(prevLen) curLen=\(curLen) Δ\(curLen - prevLen) appendOnly=\(isAppend ? 1 : 0) fontChanged=\(fontChanged ? 1 : 0)")
+        }
+
+        let _curW = textView.textContainer.size.width
+        let _prevW = context.coordinator.lastRenderedWidth
+        let _widthChanged = _curW>1 && _prevW>1 && abs(_curW-_prevW)>0.5
+        if _widthChanged && markdown == context.coordinator.lastMarkdown && !fontChanged {
+            context.coordinator.fadeAnimator.cancelAll()
+            let storage = textView.textStorage
+        if storage.length>0 {
+                var ranges: [NSRange] = []
+                storage.enumerateAttribute(.attachment,in: NSRange(location: 0,length: storage.length),options: []) { value,range,_ in
+                    if let table = value as? TableAttachment {
+                        table.invalidateCachedLayoutForWidthChange()
+                        ranges.append(range)
+                    }
+                }
+                if !ranges.isEmpty,let lm = textView.layoutManager as? MiniClawLayoutManager {
+                    for r in ranges {
+                        lm.invalidateLayout(forCharacterRange: r,actualCharacterRange: nil)
+                    }
+                }
+            }
+            context.coordinator.cachedSizes.removeAll(keepingCapacity: true)
+            textView.refreshAttachViews()
+            textView.invalidateIntrinsicContentSize()
+            textView.setNeedsLayout()
+            textView.invalidateCellSizeIfChanged()
+        }
+        if _curW>1 {
+            context.coordinator.lastRenderedWidth = _curW
+        }
+        // [尾包修复 2026-09-10] `streamSnapshotStale` 必须放行：内容没变但 storage 停在
+        // 缺尾旧快照（上一轮走了流式节流复用，窗长见 Coordinator.streamThrottleWindow）时，正是本条 updateUIView 要追平。
+        guard markdown != context.coordinator.lastMarkdown || fontChanged
+            || context.coordinator.streamSnapshotStale else {
+            let shouldRecover = textView.window != nil
+                && textView.needsAttachmentRecovery
+                && !textView.hasScheduledRecoveryForCurrentContent
+
+            if shouldRecover {
+                textView.hasScheduledRecoveryForCurrentContent = true
+                DispatchQueue.main.async { [weak textView] in
+                    guard let textView,textView.window != nil else { return }
+                    textView.refreshAttachViews()
+                    textView.invalidateIntrinsicContentSize()
+                    textView.setNeedsDisplay()
+                    textView.setNeedsLayout()
+                }
+            }
+            // [FadeLeak] 自愈第二道（2026-09-10）：本分支正是「用户点击/切页回来、
+            // 内容未变」时走的路径——漏字现场被手动刷出前的那一次 updateUIView。
+            // 交给 fade 动画器**按它自己的压暗记录**核对还原（不是「凡 alpha<1 拉满」：
+            // 那会把引用块的 .secondaryLabel 一并刷成不透明黑，真机日志
+            // IDLE-RESIDUE HEALED 最低alpha=0.61 即是该误伤的痕迹）。
+            // 非流式态才查，避开动画进行中的正常半透明；每 coordinator 2s 节流防刷屏。
+            if !isStreaming {
+                let now = CACurrentMediaTime()
+                if now - context.coordinator.lastFadeResidueScanAt > 2.0 {
+                    context.coordinator.lastFadeResidueScanAt = now
+                    context.coordinator.fadeTextView = textView
+                    context.coordinator.fadeAnimator.traitProvider = textView
+                    context.coordinator.fadeAnimator.healResidueIfNeeded()
+                }
+            }
+            return
+        }
+
+        // .background → defer (always; final streaming
+        // frame would otherwise be blank
+        // until SwiftUI re-evaluates)
+        // .inactive ≥ 30s → defer (long-running .inactive is
+        // indistinguishable from background
+        // for watchdog purposes — commit
+        // e6efac23 fixed crashes here)
+        // .inactive < 30s → render normally (control center
+        // swipe, incoming call banner,
+        // app-switcher peek — short enough
+        // that the scene-transition
+        // watchdog window has settled)
+        // .active → render normally (falls through)
+        //
+        let appState = UIApplication.shared.applicationState
+        let inactiveDuration: TimeInterval = appState == .inactive
+            ? (context.coordinator.inactiveEnteredAt.map { Date().timeIntervalSince($0) } ?? 0)
+            : 0
+        let shouldDefer: Bool = {
+            switch appState {
+            case .background: return true
+            case .inactive: return inactiveDuration >= 30.0
+            default: return false
+            }
+        }()
+        if shouldDefer {
+            context.coordinator.deferRender(markdown) { [weak textView] in
+                guard let textView else { return }
+                context.coordinator.lastRenderedContentHash = nil
+                self.updateUIView(textView,context: context)
+            }
+            return
+        }
+        // [FadeLeak 2026-09-10 内容身份判定] 判定当前 textView 承载的是哪一块内容：
+        // 同一 coordinator（UIViewRepresentable 在 cell 复用/块重配时**复用同一个
+        // textView**）被更新为另一块的内容时，无论新 markdown 是否恰好以旧内容为
+        // 前缀，都必须 cancelAll——否则旧块的 in-flight fade word 落在新 storage 上
+        // 继续改写 alpha（用旧块的颜色曲线写新块字符）→ 永久透明残留（漏字实锤，
+        // 真机 IDLE-RESIDUE alpha=0.00 ×15）。cell 复用换块会稳定复现同一类故障
+        // 后补上了同一防御（SelectableMarkdownView :7663-7702），移植时未带走。
+        let contentId = blockId ?? messageId
+        let previousContentId = context.coordinator.lastContentId
+        context.coordinator.lastContentId = contentId
+        let isDifferentContent = contentId != nil
+            && previousContentId != nil
+            && contentId != previousContentId
+        if isDifferentContent {
+            context.coordinator.fadeAnimator.cancelAll()
+        }
+
+        let oldMarkdown = context.coordinator.lastMarkdown
+        context.coordinator.lastMarkdown = markdown
+
+        if fontChanged {
+            context.coordinator.renderer.applyFontSizeChange(currentFontSize)
+            context.coordinator.lastFontSize = currentFontSize
+            context.coordinator.lastRenderedContentHash = nil
+            context.coordinator.renderer.mathAttachmentCache.removeAll()
+            // 任务C：字号变更后清掉表格附件缓存，迫使按新字号重建 TableAttachment
+            // （contentHash 已纳入字号，这里显式清掉旧字号残留，立即生效而非等 LRU 淘汰）。
+            context.coordinator.renderer.tableAttachmentCache.removeAll()
+            context.coordinator.renderer.tableAttachmentLRU.removeAll()
+            context.coordinator.renderer.tableSlotCache.removeAll()
+            context.coordinator.renderer.tableAttachmentReverseKey.removeAll()
+            textView.clearAllAttachViews()
+        }
+
+        // 内容改写（非前缀）= 同一内容的重写，走破坏性重建路径；
+        // 换块（isDifferentContent）走下方缓存/重建路径，不算 rewrite——上游
+        // SelectableMarkdownView :7699-7701 的语义，防止复用时误清附件缓存。
+        let isNewMessage = !oldMarkdown.isEmpty && !markdown.hasPrefix(oldMarkdown) && !isDifferentContent
+        if isNewMessage {
+            context.coordinator.fadeAnimator.cancelAll()
+            let renderer = context.coordinator.renderer
+            renderer.imageAttachmentCache.removeAll()
+            renderer.videoAttachmentCache.removeAll()
+            renderer.audioAttachmentCache.removeAll()
+            renderer.codeBlockAttachmentCache.removeAll()
+            renderer.codeBlockContentHashes.removeAll()
+            renderer.mathAttachmentCache.removeAll()
+            textView.clearAllAttachViews()
+        }
+
+        //
+        // by `MessageListModel.cacheAttributedString(for:)`. After that
+        // [尾包修复 2026-09-10] 终态信号与 sizeThatFits 分支**同源**（那里已用
+        // `!isStreaming`，此处曾漏改）：旧条件只用缓存有无反推终态，缓存未回写时
+        // 流式已结束仍按「流式中」切表格尾 → 显示串与测量串不同源（高度/显示错位），
+        // 且表格要等缓存回写才成型。两处同源后显示与测量必然一致。
+        let _isFinalised = !isStreaming || cachedAttributedString != nil || cachedContent != nil
+        let _splitForUpdate = _isFinalised ? (prefix: markdown, plainSuffix: "") : splitStreamingTableTail(markdown)
+        let _hasPlainSuffix = !_splitForUpdate.plainSuffix.isEmpty
+        let prepared = prepareMarkdownForRender(_splitForUpdate.prefix)
+        let content = (_hasPlainSuffix ? nil : cachedContent) ?? MarkdownContent(prepared)
+        let imageMatches = markdown.ranges(of: /!\[([^\]]*)\]\(([^)]+)\)/)
+        if !imageMatches.isEmpty {
+            for match in imageMatches {
+                let matchStr = String(markdown[match])
+                imgLogger.info("[MiniClawImage][StreamParse] image markdown found: \(matchStr)")
+            }
+            let imageBlockCount = content.blocks.flatMap { Self.collectImageNodes(from: $0) }.count
+            if imageBlockCount>0 {
+                imgLogger.info("[MiniClawImage][StreamParse] parsed \(imageBlockCount) image node(s) from \(content.blocks.count) block(s), markdownLen=\(markdown.count)")
+            }
+        }
+
+        var hasher = Hasher()
+        hasher.combine(cachedContent != nil ? cachedContent!.blocks.hashValue : markdown.hashValue)
+        hasher.combine(FontSettings.shared.scaledMessage(16.5))
+        let contentHash: Int = hasher.finalize()
+        // [尾包修复 2026-09-10] 跳过脏态下的去重：上一轮显示的是落后快照，其内容哈希
+        // 已按**当前内容**记录，直接命中去重会把缺尾状态永久固化（正是本 bug 的帮凶）。
+        if contentHash == context.coordinator.lastRenderedContentHash,
+           !context.coordinator.streamSnapshotStale {
+            if textView.textContainer.size.width>1 {
+                textView.refreshAttachViews()
+            }
+            return
+        }
+        #if DEBUG
+        // Hash MISS — log why so we can tell if
+        if cachedContent != nil || cachedAttributedString != nil {
+            let prev = context.coordinator.lastRenderedContentHash
+            let usingBlocks = cachedContent != nil
+            AppLogger(category: "MarkdownRenderer").info("[RND-MISS] hash=\(contentHash) prev=\(prev.map(String.init) ?? "nil") src=\(usingBlocks ? "blocks" : "markdown") hasPlainSuffix=\(_hasPlainSuffix) fontChanged=\(fontChanged) mdLen=\(markdown.count)")
+        }
+        #endif
+        context.coordinator.lastRenderedContentHash = contentHash
+
+        let renderer = context.coordinator.renderer
+        let attributed: NSAttributedString
+        // `MessageListModel.cacheAttributedString(for:)` which uses a fresh
+        let prebuiltHasTable: Bool = {
+            guard let prebuilt = cachedAttributedString,prebuilt.length>0 else { return false }
+            var found = false
+            prebuilt.enumerateAttribute(.attachment,in: NSRange(location: 0,length: prebuilt.length),options: []) { value,_,stop in
+                if value is TableAttachment {
+                    found = true
+                    stop.pointee = true
+                }
+            }
+            return found
+        }()
+        // [2026-09-09 空缓存防御] prebuilt 可能被写入**空的** NSAttributedString
+        //（渲染被 defer 丢弃/自愈循环期间的空产物回写）——用它渲染产出 attrText=0
+        // → self-heal 重画 → 又命中同一个空 prebuilt → **永久空白死循环**（真机
+        // 实证 len=16 块反复 self-heal②）。length=0 的 prebuilt 一律不采用，
+        // 落走 renderer.render 重画。
+        if let prebuilt = cachedAttributedString,prebuilt.length>0,!fontChanged,!prebuiltHasTable,!_hasPlainSuffix,
+           // [2026-09-09 截短锁死修复] 指纹不匹配 = 缓存是旧中间态而内容已增长——
+           // **必须弃用**落全量渲染（此前指纹判定只打日志、旧缓存仍被采用，等于没修）。
+           prebuiltContentCount == nil || prebuiltContentCount == markdown.count {
+            attributed = prebuilt
+            context.coordinator.streamSnapshotStale = false
+        } else {
+            // [Prebuilt] 指纹不匹配被上层弃用的现场（低频：内容边界才触发）。
+            // 覆盖式回写随后把缓存追平。
+            if cachedAttributedString != nil, let cnt = prebuiltContentCount, cnt != markdown.count {
+                AppLogger(category: "MarkdownSTF").warning("[Prebuilt] REJECT stale cache cachedCnt=\(cnt) mdCnt=\(markdown.count) block=\(blockId?.uuidString.prefix(8) ?? "?") — 全量重渲染追赶")
+            }
+            if isStreaming,
+              let prev = context.coordinator.lastStreamPending,
+              CACurrentMediaTime() - context.coordinator.lastStreamRenderAt < Coordinator.streamThrottleWindow {
+            // [2026-09-08 修复] 与 sizeThatFits 的测量节流**同频同源码**：
+            // 此前渲染每 token 全量、测量节流复用旧 pending →「显示新内容、
+            // 测旧内容」→ 高度系统性滞后 ≤节流窗并呈台阶跳。这里复用同一份
+            // lastStreamPending，显示与测量必然同源（均滞后 ≤节流窗，下个 token 追上）。
+            attributed = prev
+            // [尾包修复 2026-09-10] 快照的渲染输入比当前内容短 = 本次显示**缺尾**。
+            // 置脏让后续 updateUIView 放行（内容停止增长后守卫本来会把它拦死）并排追赶渲染。
+            if context.coordinator.lastStreamPendingSourceLen < markdown.count {
+                context.coordinator.streamSnapshotStale = true
+            }
+        } else {
+            renderer.messageId = messageId
+            renderer.blockId = blockId
+            let renderedBody = autoreleasepool {
+                renderer.render(blocks: content.blocks)
+            }
+            // [2026-09-09 渲染输入观测] 全量渲染路径的判凶观测。probe 只取**纯散文行**
+            //（完全不含语法符 *|`#~[]()>+-· 与数字的行）末 12 字做包含判定——
+            // 此前「过滤后比对」有两类系统性误报（20:19 日志 9 条 TAIL-MISS 全误报）：
+            // ① 数字在 markdown 侧被滤掉但渲染输出里还在（「按 17:45 确立」）；
+            // ② 行内代码渲染为 \u{200A}code\u{200A}（发丝空格包裹），普通空格匹配不上。
+            // 找不到纯散文行 → probe 置空跳过判凶（宁漏不误）。
+            var _probe = ""
+            var _mdTailLine = ""
+            let _syntaxChars = "*|`#~[]()>+-·0123456789"
+            for line in markdown.split(whereSeparator: { $0.isNewline }).reversed() {
+                let t = line.trimmingCharacters(in: .whitespaces)
+                if t.isEmpty { continue }
+                guard !t.contains(where: { _syntaxChars.contains($0) }) else { continue }
+                if t.count >= 6 {
+                    _probe = String(t.suffix(12))
+                    _mdTailLine = String(t.suffix(40))
+                    break
+                }
+            }
+            let _tailHit = _probe.isEmpty || renderedBody.string.contains(_probe)
+            if !_tailHit {
+                AppLogger(category: "MarkdownSTF").warning(
+                    "[Render] TAIL-MISS block=\(blockId?.uuidString.prefix(8) ?? "?") mdCnt=\(markdown.count) attrCnt=\(renderedBody.length) — 渲染输出缺少 markdown 结尾（截短实锤）mdTail=\"\(_mdTailLine)\" probe=\"\(_probe)\"")
+            }
+            if isStreaming {
+                context.coordinator.lastStreamPending = renderedBody
+                context.coordinator.lastStreamRenderAt = CACurrentMediaTime()
+                context.coordinator.lastStreamPendingSourceLen = markdown.count
+            }
+            // 全量渲染落地 = storage 追平内容，脏标记清除。
+            context.coordinator.streamSnapshotStale = false
+            if _hasPlainSuffix {
+                let mut = NSMutableAttributedString(attributedString: renderedBody)
+                let suffixAttrs: [NSAttributedString.Key: Any] = [
+                    .font: UIFont.systemFont(ofSize: FontSettings.shared.scaledMessage(16.5)),
+                    .foregroundColor: UIColor.label,
+                ]
+                mut.append(NSAttributedString(string: _splitForUpdate.plainSuffix,attributes: suffixAttrs))
+                attributed = mut
+            } else {
+                attributed = renderedBody
+            }
+            }
+        }
+        // [每轮落盘 2026-09-10] 唐唐要求：AI 每轮循环的正文在**全量渲染落地瞬间**
+        // 即写入进程级缓存（key=markdown+字号，内容敏感不存在陈旧），此后的测量/
+        // 回看/预填充直接命中，与任何可能落后的中间快照彻底解耦。附件块不缓存
+        //（附件实例与消息身份耦合，2026-09-09 回退教训）；带 plainSuffix 的流式
+        // 表格尾不缓存（renderedBody 只是前缀，与 key 不对齐）。
+        if attributed.length > 0,_splitForUpdate.plainSuffix.isEmpty,
+           // 脏态（本条显示的是落后快照）不入库：快照短于当前 markdown，
+           // 存进新内容的 key 就是投毒（同测量侧，2026-09-10）。
+           !context.coordinator.streamSnapshotStale {
+            var hasAttachment = false
+            attributed.enumerateAttribute(.attachment,
+                                          in: NSRange(location: 0,length: attributed.length),
+                                          options: []) { v,_,stop in
+                if v != nil { hasAttachment = true; stop.pointee = true }
+            }
+            if !hasAttachment {
+                MarkdownRenderCache.shared.store(
+                    attributed: attributed,
+                    key: MarkdownRenderCache.key(for: markdown,fontSize: FontSettings.shared.scaledMessage(16.5)))
+            }
+        }
+        // 1. patch `messageId` (the cached path via renderMarkdownBlocks
+        // creates attachments without one)
+        // 2. invalidate any stale bitmap if the underlying file was
+        // rewritten since the attachment last loaded (size+mtime
+        // fingerprint mismatch). Skips the on-disk stat for
+        // non-miniclaw schemes.
+        attributed.enumerateAttribute(.attachment,
+                                      in: NSRange(location: 0,length: attributed.length),
+                                      options: []) { value,_,_ in
+            guard let att = value as? ImageAttachment else { return }
+            if let messageId { att.messageId = messageId }
+            if let loadedFp = att.loadedFingerprint {
+                let currentFp = miniClawMediaCacheKey(for: att.source)
+                if loadedFp != currentFp {
+                    imgLogger.info("[MiniClawImage][CachedAttr] FINGERPRINT CHANGED src=\(att.source) old=\(loadedFp) new=\(currentFp) — invalidating cached image")
+                    att.invalidateLoadedImage()
+                }
+            }
+        }
+        // prefix of the NEW text — true for every streamed token.
+        var fadeRevealRange: NSRange? = nil
+        let oldStorage = textView.textStorage
+        if oldStorage.length>0,
+           attributed.length>oldStorage.length {
+            let oldLen = oldStorage.length
+            let oldStr = oldStorage.string as NSString
+            let newStr = attributed.string as NSString
+            if newStr.length >= oldLen,
+               newStr.substring(to: oldLen) == (oldStr as String) {
+                fadeRevealRange = NSRange(location: oldLen,length: attributed.length-oldLen)
+            }
+        }
+
+        var fastPathTaken = false
+        var newAttachInTail = 0
+        let prevStorage = textView.textStorage
+        if prevStorage.length>0,
+           attributed.length>prevStorage.length {
+            let prefixLen = prevStorage.length
+            let newPrefix = attributed.attributedSubstring(from: NSRange(location: 0,length: prefixLen))
+            let _oldPrefix = prevStorage.attributedSubstring(from: NSRange(location: 0,length: prefixLen))
+            if Self.prefixesEqualIgnoringFontSubstitution(newPrefix,_oldPrefix) {
+                let tailRange = NSRange(location: prefixLen,length: 0)
+                let tail = attributed.attributedSubstring(from: NSRange(location: prefixLen,length: attributed.length-prefixLen))
+                tail.enumerateAttribute(.attachment,in: NSRange(location: 0,length: tail.length),options: []) { v,_,_ in
+                    if v != nil { newAttachInTail += 1 }
+                }
+                prevStorage.beginEditing()
+                prevStorage.replaceCharacters(in: tailRange,with: tail)
+                prevStorage.endEditing()
+                fastPathTaken = true
+            }
+        }
+        if !fastPathTaken {
+            // [FadeLeak 2026-09-10] 内容与 storage 完全一致时跳过赋值：full-assign
+            // 会重置全部属性，把在途 fade 的渐变状态抹掉（视觉=字突然变实再重新淡入），
+            // 且 storage 若因此缩短会让 in-flight word 越界（STALE-DROP）。流式节流
+            // 复用 lastStreamPending 时 attributed 与 storage 完全相同——典型触发场景。
+            let sameAsStorage = attributed.length == textView.textStorage.length
+                && attributed.string == textView.textStorage.string
+            if !sameAsStorage {
+                textView.attributedText = attributed
+            }
+        }
+
+        if let revealRange = fadeRevealRange {
+            context.coordinator.fadeTextView = textView
+            context.coordinator.fadeAnimator.traitProvider = textView
+            context.coordinator.fadeAnimator.scheduleAnimation(for: revealRange,in: textView.textStorage)
+        }
+        // [尾包修复 2026-09-10] 本条显示的是**落后快照** → 排一次追赶渲染。必须显式排期：
+        // 内容停止增长（回复结束）后不会再有带新 markdown 的 SwiftUI 更新，靠「下一次
+        // updateUIView」追平是不成立的（早退守卫还会把它拦下）。
+        if context.coordinator.streamSnapshotStale {
+            context.coordinator.scheduleStreamCatchUp { [weak textView] in
+                guard let textView else { return }
+                self.updateUIView(textView,context: context)
+            }
+        }
+        textView.rawMarkdown = markdown
+        textView.resetAttachmentRecovery()
+        StreamingHangLogger.shared.recordAssignedText(
+            messageId: messageId,
+            markdown: markdown,
+            attrLen: attributed.length,
+            path: fastPathTaken ? "fast-append" : "full-assign",
+            isStreaming: isStreaming
+        )
+
+        let storage = textView.textStorage
+        let storageLen = storage.length
+        if storageLen>0 {
+            storage.enumerateAttribute(.attachment,
+                                       in: NSRange(location: 0,length: storageLen),
+                                       options: []) { value,range,_ in
+                if let table = value as? TableAttachment,table.needsLayoutInvalidation {
+                    textView.layoutManager.invalidateLayout(forCharacterRange: range,actualCharacterRange: nil)
+                    table.needsLayoutInvalidation = false
+                }
+            }
+        }
+
+        if fastPathTaken {
+            textView.setNeedsLayout()
+        } else if (cachedContent != nil || cachedAttributedString != nil) && textView.textContainer.size.width>1 {
+            let containerSize = textView.textContainer.size
+            let visibleRect: CGRect
+            if textView.bounds.width>1,textView.bounds.height>1 {
+                visibleRect = CGRect(x: 0,y: 0,width: containerSize.width,height: textView.bounds.height+800)
+            } else {
+                visibleRect = CGRect(x: 0,y: 0,width: containerSize.width,height: 1200)
+            }
+            let visibleGlyphRange = textView.layoutManager.glyphRange(forBoundingRect: visibleRect,
+                                                                     in: textView.textContainer)
+            if visibleGlyphRange.length>0 {
+                textView.layoutManager.ensureLayout(forGlyphRange: visibleGlyphRange)
+            } else {
+                textView.setNeedsLayout()
+            }
+        } else {
+            textView.setNeedsLayout()
+        }
+        textView.invalidateIntrinsicContentSize()
+        textView.setNeedsDisplay()
+        textView.invalidateCellSizeIfChanged()
+
+        let attachStart = CFAbsoluteTimeGetCurrent()
+        // refreshAttachViews enumeration. If a new attachment did appear
+        let skipAttachUpdate = fastPathTaken && newAttachInTail == 0
+        if skipAttachUpdate {
+        } else if textView.textContainer.size.width>1 {
+            textView.refreshAttachViews()
+        } else {
+            DispatchQueue.main.async { [weak textView] in
+                guard let textView,textView.window != nil else { return }
+                textView.refreshAttachViews()
+                textView.invalidateIntrinsicContentSize()
+                textView.setNeedsDisplay()
+                textView.setNeedsLayout()
+                textView.invalidateCellSizeIfChanged()
+            }
+        }
+        _ = (CFAbsoluteTimeGetCurrent()-attachStart)*1000
+        let updateElapsed = (CFAbsoluteTimeGetCurrent()-updateStart)*1000
+
+        #if DEBUG
+        let msgIdShort = messageId?.uuidString.prefix(8) ?? "—"
+        if updateElapsed >= 300 {
+            Self.watchdogProbe.warning("[WatchdogProbe][upd] slow updateUIView elapsed=\(String(format: "%.1f", updateElapsed))ms attrLen=\(textView.attributedText?.length ?? 0) markdownLen=\(markdown.count) msgId=\(msgIdShort)")
+        }
+        Self.recordUpdateUIView(elapsedMs: updateElapsed,attrLen: textView.attributedText?.length ?? 0,msgId: messageId)
+        #endif
+
+        if textView.textContainer.size.height<CGFloat.greatestFiniteMagnitude {
+            textView.textContainer.size.height = CGFloat.greatestFiniteMagnitude
+        }
+        #if DEBUG
+        // Snapshot at end of updateUIView (live uiView).
+        MarkdownSnapshotCollector.captureIfEnabled(
+            textView: textView,
+            phase: "afterUpdateUIView",
+            messageId: context.coordinator.renderer.messageId?.uuidString,
+            isMeasureView: false
+        )
+        #endif
+    }
+
+    private static let nsOriginalFontKey = NSAttributedString.Key("NSOriginalFont")
+
+    ///
+    /// A genuine font/size change still breaks the match.
+    private static func prefixesEqualIgnoringFontSubstitution(
+        _ newPrefix: NSAttributedString,
+        _ oldPrefix: NSAttributedString
+    ) -> Bool {
+        guard newPrefix.length == oldPrefix.length else { return false }
+        guard (newPrefix.string as NSString).isEqual(oldPrefix.string) else { return false }
+        let fontKey = NSAttributedString.Key.font
+        let full = NSRange(location: 0,length: newPrefix.length)
+        var equal = true
+        newPrefix.enumerateAttributes(in: full,options: []) { aN,range,stop in
+            let aO = oldPrefix.attributes(at: range.location,effectiveRange: nil)
+            let fontN = aN[fontKey] as? UIFont
+            let fontO = aO[fontKey] as? UIFont
+            let originalO = aO[nsOriginalFontKey] as? UIFont
+            let fontsOK = (fontN == fontO) || (fontN != nil && fontN == originalO)
+            if !fontsOK { equal = false; stop.pointee = true; return }
+            var nN = aN; nN.removeValue(forKey: fontKey); nN.removeValue(forKey: nsOriginalFontKey)
+            var nO = aO; nO.removeValue(forKey: fontKey); nO.removeValue(forKey: nsOriginalFontKey)
+            if !(nN as NSDictionary).isEqual(to: nO) {
+                equal = false
+                stop.pointee = true
+            }
+        }
+        return equal
+    }
+
+    private static func collectImageNodes(from block: BlockNode) -> [String] {
+        var results: [String] = []
+        func walkInlineNodes(_ inlines: [InlineNode]) {
+            for inline in inlines {
+                switch inline {
+                case .image(let src,_):
+                    results.append(src)
+                case .emphasis(let ch),.strong(let ch),.strikethrough(let ch),.link(_,let ch):
+                    walkInlineNodes(ch)
+                default: break
+                }
+            }
+        }
+        func walkBlockNodes(_ blocks: [BlockNode]) {
+            for b in blocks {
+                switch b {
+                case .paragraph(let inlines),.heading(_,let inlines):
+                    walkInlineNodes(inlines)
+                case .blockquote(let children):
+                    walkBlockNodes(children)
+                case .bulletedList(_,let items):
+                    for item in items { walkBlockNodes(item.children) }
+                case .numberedList(_,_,let items):
+                    for item in items { walkBlockNodes(item.children) }
+                case .taskList(_,let items):
+                    for item in items { walkBlockNodes(item.children) }
+                default: break
+                }
+            }
+        }
+        walkBlockNodes([block])
+        return results
+    }
+
+    ///
+    static func ctFramesetterHeight(for attrStr: NSAttributedString,width: CGFloat) -> CGFloat {
+        guard attrStr.length>0,width>0 else { return 0 }
+        let framesetter = CTFramesetterCreateWithAttributedString(attrStr)
+        let constraint = CGSize(width: width,height: .greatestFiniteMagnitude)
+        let size = CTFramesetterSuggestFrameSizeWithConstraints(
+            framesetter,
+            CFRange(location: 0,length: 0),// 0 length = whole string
+            nil,
+            constraint,
+            nil
+        )
+        return ceil(size.height)
+    }
+
+    @available(iOS 16.0,*)
+    func sizeThatFits(_ proposal: ProposedViewSize,uiView: MarkdownTextView,context: Context) -> CGSize? {
+        let width = proposal.width ?? UIScreen.main.bounds.width
+        // 统一渲染/测量缓存的 key（渲染分支与测量分支共用同一 key，条目互通）
+        let renderCacheKey = MarkdownRenderCache.key(for: markdown, fontSize: FontSettings.shared.scaledMessage(16.5))
+        let bindingLen = (markdown as NSString).length
+        let storageLen = uiView.textStorage.length
+
+        let coord = context.coordinator
+        coord.sizeThatFitsCallCount &+= 1
+        let callIdx = coord.sizeThatFitsCallCount
+        let t0 = CFAbsoluteTimeGetCurrent()
+
+        let widthKey = Int(width.rounded())
+        if bindingLen == coord.cachedSizeMarkdownCount,
+           let cachedHeight = coord.cachedSizes[widthKey] {
+            coord.sizeThatFitsCacheHitCount &+= 1
+            if callIdx%50 == 0 {
+            }
+            return CGSize(width: width,height: cachedHeight)
+        }
+
+        // Near-width cache hit for FULLY
+        if bindingLen == coord.cachedSizeMarkdownCount,
+           bindingLen == storageLen,
+           !coord.cachedSizes.isEmpty {
+            var nearestHeight: CGFloat?
+            var nearestDelta = Int.max
+            for (bucket,h) in coord.cachedSizes {
+                let delta = abs(bucket-widthKey)
+                if delta <= 2,delta<nearestDelta {
+                    nearestDelta = delta
+                    nearestHeight = h
+                }
+            }
+            if let nearestHeight {
+                coord.sizeThatFitsCacheHitCount &+= 1
+                coord.cachedSizes[widthKey] = nearestHeight
+                if coord.cachedSizes.count>4,let firstKey = coord.cachedSizes.keys.first {
+                    coord.cachedSizes.removeValue(forKey: firstKey)
+                }
+                return CGSize(width: width,height: nearestHeight)
+            }
+        }
+
+        //
+        let useMeasureTextView = bindingLen != storageLen
+        // STREAM-EST disabled again.
+        // message (user report, macOS, "MiniClaw Feedback Review" — the shell
+        let disableStreamEst = true
+        if !disableStreamEst,
+           useMeasureTextView,
+           let prevHeight = coord.lastFullMeasureHeight[widthKey],
+           coord.lastFullMeasureBindingLen >= 64,// anchor must represent enough characters
+           prevHeight >= 30,// and a real laid-out block
+           bindingLen>coord.lastFullMeasureBindingLen,
+           bindingLen-coord.lastFullMeasureBindingLen<128 { // tighter delta window
+            let prevLen = coord.lastFullMeasureBindingLen
+            let pxPerChar = prevHeight/CGFloat(prevLen)
+            let delta = CGFloat(bindingLen-prevLen)
+            let rawEstimate = prevHeight+delta*pxPerChar
+            let estimated = min(rawEstimate,prevHeight*1.5,1200)
+            return CGSize(width: width,height: estimated)
+        }
+
+        if bindingLen != coord.cachedSizeMarkdownCount {
+            coord.cachedSizes.removeAll(keepingCapacity: true)
+            coord.cachedSizeMarkdownCount = bindingLen
+        }
+
+        // recorded in `MiniClaw-2026-05-13-084827.ips` (depth=9 recursion at
+        let measuringTextView: MarkdownTextView
+        if useMeasureTextView {
+            // from `MessageListModel.cacheAttributedString(for:)` which uses
+            let preHasTable: Bool = {
+                guard let pre = cachedAttributedString,pre.length>0 else { return false }
+                var found = false
+                pre.enumerateAttribute(.attachment,in: NSRange(location: 0,length: pre.length),options: []) { value,_,stop in
+                    if value is TableAttachment { found = true; stop.pointee = true }
+                }
+                return found
+            }()
+            let pending: NSAttributedString
+            // [高度投毒修复 2026-09-10] 本次测量输入是否为落后快照（见下方节流分支）。
+            var measuredFromStaleSnapshot = false
+            if let pre = cachedAttributedString,!preHasTable {
+                pending = pre
+            } else {
+                //
+                // Skip the split once the message has finished streaming: a message
+                // whose final row never gets a trailing `\n` must still be rendered
+                // as a real table after stream-end.
+                // [2026-09-08] 终态信号改为**宿主显式传入的 isStreaming**（旧实现用
+                // `cachedAttributedString != nil || cachedContent != nil` 反推，而
+                // cachedAttributedString 又只能由终态回写产生 → 自依赖死循环：缓存
+                // 缺失时永远判为流式，回写永不触发）。保留旧条件作兼容兜底（旧缓存
+                // 已存在的块同样视为终态，行为不变）。
+                let _isFinalisedSTF = !isStreaming
+                    || cachedAttributedString != nil || cachedContent != nil
+                let split = _isFinalisedSTF
+                    ? (prefix: markdown, plainSuffix: "")
+                    : splitStreamingTableTail(markdown)
+                let preparedPrefix = prepareMarkdownForRender(split.prefix)
+                // 统一渲染缓存查找：key=markdown 源文+字号。**不加 _isFinalisedSTF 门**——
+                // key 内容敏感（流式中内容变 → key 变 → 自然 miss），历史块复用时
+                // cachedAttributedString 为 nil 也不该跳过缓存（真机日志：62-144ms
+                // hosting 测量 × 每块 = 流式期间滑动掉帧主因）。
+                if let memo = MarkdownRenderCache.shared.cachedAttributed(for: renderCacheKey) {
+                    pending = memo
+                } else {
+                // [T-perf 2026-09-08] 流式渲染节流：距上次全量渲染 <节流窗时直接复用
+                // 上次结果（显示滞后 ≤节流窗，下个 token 到达自然追上）。全量渲染是
+                // O(当前长度)——长消息后期单次 0.5-1.1s（真机 SizeFit #32=1112ms），
+                // 每 token 都渲染 = 主线程饱和 = 思考/流式期间没法滑动。
+                if _isFinalisedSTF == false,
+                   let prev = coord.lastStreamPending,
+                   CACurrentMediaTime()-coord.lastStreamRenderAt < Coordinator.streamThrottleWindow {
+                    pending = prev
+                    // [高度投毒修复 2026-09-10] 节流复用的旧快照可能**落后于当前
+                    // markdown**（下个 token 已到、渲染还没追上）。此时 renderCacheKey
+                    // 是**新内容**的 key，用旧快照测出的矮高度一旦写入，就会以新内容
+                    // 的 key 永久命中（:1051/:1088 直接 return，不再重测）→ 文字全在、
+                    // 高度没长 → 上滑回看尾部行被裁（两天「块错位/丢字」的根因）。
+                    // 快照落后时置位，下方所有缓存写入全部跳过；返回值照旧（显示
+                    // 滞后 ≤节流窗是节流的既有语义，下个 chunk 自然追平）。
+                    measuredFromStaleSnapshot = coord.lastStreamPendingSourceLen < markdown.count
+                } else {
+                let blocks = MarkdownContent(preparedPrefix).blocks
+                coord.renderer.messageId = messageId
+                coord.renderer.blockId = blockId
+                let rendered = autoreleasepool { coord.renderer.render(blocks: blocks) }
+                if split.plainSuffix.isEmpty {
+                    pending = rendered
+                } else {
+                    let mut = NSMutableAttributedString(attributedString: rendered)
+                    let suffixAttrs: [NSAttributedString.Key: Any] = [
+                        .font: UIFont.systemFont(ofSize: FontSettings.shared.scaledMessage(16.5)),
+                        .foregroundColor: UIColor.label,
+                    ]
+                    mut.append(NSAttributedString(string: split.plainSuffix,attributes: suffixAttrs))
+                    pending = mut
+                }
+                if _isFinalisedSTF == false {
+                    coord.lastStreamPending = pending
+                    coord.lastStreamRenderAt = CACurrentMediaTime()
+                }
+                // block 级缓存写回（供 precalc 精确种子）：统一缓存在测量分支写入。
+                if _isFinalisedSTF, split.plainSuffix.isEmpty {
+                    // 第二参数必须是**本次渲染输入**的长度：回调方以它当缓存指纹，
+                    // 保证指纹与 pending 同源（见 onRendered 声明处注释）。
+                    onRendered?(pending, markdown.count)
+                }
+            }
+            }
+            }
+            var hasAnyAttachment = false
+            pending.enumerateAttribute(.attachment,in: NSRange(location: 0,length: pending.length),options: []) { v,_,stop in
+                if v != nil { hasAnyAttachment = true; stop.pointee = true }
+            }
+            if !hasAnyAttachment {
+                // FINALIZED content takes
+                // MarkdownTextView measure matches the final render
+                let finalizedSTF = cachedAttributedString != nil || cachedContent != nil
+                let h: CGFloat
+                // [T-perf 2026-09-08] 统一缓存 heights 命中：免 TextKit 全量重排
+                // （50-100ms/次，cell 每次复用重复付费 → 上滑掉帧主因）。
+                // **不加 finalizedSTF 门**：key 内容敏感（内容变 → key 变 → 自然
+                // miss），历史块复用（cachedAttributedString=nil）也必须命中——
+                // 真机日志：62-144ms hosting 测量 × 每块 = 流式期间滑动掉帧主因。
+                // store 保留 finalized 门（流式中间态不污染缓存）。
+                if finalizedSTF {
+                    MarkdownRenderCache.shared.store(attributed: pending, key: renderCacheKey)
+                }
+                if let cachedH = MarkdownRenderCache.shared.cachedHeight(for: renderCacheKey, width: widthKey) {
+                    h = cachedH
+                } else if finalizedSTF,pending.length <= 8000,
+                   let mtv = coord.measureTextView as? MarkdownTextView {
+                    // [T-perf 2026-09-08] 绕过 UITextView.attributedText setter——它
+                    // 会重置 selection/scroll/内部 canvas 等全部 UI 状态（真机实测
+                    // 单次 1.2s），测量只需要 TextKit 排版：直接驱动 textStorage +
+                    // 手动设 textContainer 宽（widthTracksTextView=false 的离屏 mtv）。
+                    mtv.textContainer.size = CGSize(width: width,height: .greatestFiniteMagnitude)
+                    mtv.textStorage.setAttributedString(pending)
+                    h = ceil(mtv.sizeThatFits(CGSize(width: width,height: .greatestFiniteMagnitude)).height)
+                    if !measuredFromStaleSnapshot {
+                        MarkdownRenderCache.shared.store(height: h, key: renderCacheKey, width: widthKey)
+                    }
+                } else {
+                    let textHeight = Self.ctFramesetterHeight(for: pending,width: width)
+                    let inset = uiView.textContainerInset.top+uiView.textContainerInset.bottom
+                    h = textHeight+inset
+                    if !measuredFromStaleSnapshot {
+                        MarkdownRenderCache.shared.store(height: h, key: renderCacheKey, width: widthKey)
+                    }
+                }
+                if !measuredFromStaleSnapshot {
+                    // [高度投毒修复] 落后快照测出的高度一律不入任何缓存——否则短高度
+                    // 挂在完整内容的 key/指纹下，回看时 :902/:1051 永久命中矮高度。
+                    coord.cachedSizes[widthKey] = h
+                    coord.cachedSizeMarkdownCount = bindingLen
+                    if bindingLen>0 {
+                        coord.lastFullMeasureBindingLen = bindingLen
+                        coord.lastFullMeasureHeight[widthKey] = h
+                        coord.lastFullMeasureAt = CFAbsoluteTimeGetCurrent()
+                    }
+                }
+                let _renderW = uiView.bounds.width
+                if _renderW <= 0 || abs(width-_renderW)<0.5 {
+                    uiView.lastComputedHeight = h
+                }
+                return CGSize(width: width,height: h)
+            }
+            // [T-perf 2026-09-08 缓存合并] 含表格/附件块的测量高度迁移至统一缓存
+            // MarkdownRenderCache.heights（key=renderCacheKey+width，与无附件块/
+            // 预填充/种子循环同一体系——此前独立的 heightMemo 已删除）。命中则
+            // 跳过 `mtv.attributedText = pending` 的全量重排（755-811ms/次）。
+            // 高度在函数尾部拿到后回写（fallbackMemoKey）。
+            let mtv = coord.measureTextView as? MarkdownTextView ?? coord.measureTextView as! MarkdownTextView
+            if let cachedH = MarkdownRenderCache.shared.cachedHeight(for: renderCacheKey, width: widthKey) {
+                measuringTextView = mtv
+                return CGSize(width: width,height: cachedH)
+            }
+            mtv.attributedText = pending
+            #if DEBUG
+            // Snapshot the moment after attributedText
+            MarkdownSnapshotCollector.captureIfEnabled(
+                textView: mtv,
+                phase: "afterMtv.setAttributedText",
+                messageId: context.coordinator.renderer.messageId?.uuidString,
+                isMeasureView: true
+            )
+            #endif
+            measuringTextView = mtv
+        } else {
+            measuringTextView = uiView
+
+            let liveStorage = uiView.textStorage
+            if liveStorage.length>0 {
+                var hasAnyAttachment = false
+                liveStorage.enumerateAttribute(.attachment,in: NSRange(location: 0,length: liveStorage.length),options: []) { v,_,stop in
+                    if v != nil { hasAnyAttachment = true; stop.pointee = true }
+                }
+                if !hasAnyAttachment {
+                    // Same real-engine
+                    // offscreen MarkdownTextView (matches the render
+                    let finalizedCommitted = cachedAttributedString != nil || cachedContent != nil
+                    // [T-perf 2026-09-08 缓存合并] 进程级高度查找迁入统一缓存
+                    //（key=renderCacheKey+width，与渲染分支/预填充/种子循环同体系）。
+                    // 命中则直接跳过 `mtv.attributedText = liveStorage` 的全量重排。
+                    let h: CGFloat
+                    if finalizedCommitted {
+                        // [2026-09-08 修复] 存**深拷贝**：liveStorage 是屏幕上 UITextView
+                        // 的 NSTextStorage（可变子类）——直接缓存会 ① cell 复用时旧 key
+                        // 的内容被就地改写（串味）② 强引用保活 UITextView/layoutManager/
+                        // 附件子视图（1024 条上限形同虚设）。与渲染分支一致存不可变副本。
+                        MarkdownRenderCache.shared.store(
+                            attributed: NSAttributedString(attributedString: liveStorage),
+                            key: renderCacheKey)
+                    }
+                    if let cachedH = MarkdownRenderCache.shared.cachedHeight(for: renderCacheKey, width: widthKey) {
+                        h = cachedH
+                    } else if finalizedCommitted,liveStorage.length <= 8000,
+                       let mtv = coord.measureTextView as? MarkdownTextView {
+                        mtv.attributedText = liveStorage
+                        h = ceil(mtv.sizeThatFits(CGSize(width: width,height: .greatestFiniteMagnitude)).height)
+                        MarkdownRenderCache.shared.store(height: h, key: renderCacheKey, width: widthKey)
+                    } else {
+                        let textHeight = Self.ctFramesetterHeight(for: liveStorage,width: width)
+                        let inset = uiView.textContainerInset.top+uiView.textContainerInset.bottom
+                        h = textHeight+inset
+                        MarkdownRenderCache.shared.store(height: h, key: renderCacheKey, width: widthKey)
+                    }
+                    coord.cachedSizes[widthKey] = h
+                    if coord.cachedSizes.count>12,let firstKey = coord.cachedSizes.keys.first {
+                        coord.cachedSizes.removeValue(forKey: firstKey)
+                    }
+                    coord.cachedSizeMarkdownCount = bindingLen
+                    if bindingLen>0 {
+                        coord.lastFullMeasureBindingLen = bindingLen
+                        coord.lastFullMeasureHeight[widthKey] = h
+                        coord.lastFullMeasureAt = CFAbsoluteTimeGetCurrent()
+                        if coord.lastFullMeasureHeight.count>12,let firstKey = coord.lastFullMeasureHeight.keys.first {
+                            coord.lastFullMeasureHeight.removeValue(forKey: firstKey)
+                        }
+                    }
+                    let renderW = uiView.bounds.width
+                    if renderW <= 0 || abs(width-renderW)<0.5 {
+                        uiView.lastComputedHeight = h
+                    }
+                    let totalMs = (CFAbsoluteTimeGetCurrent()-t0)*1000
+                    coord.sizeThatFitsTotalMs += totalMs
+                    #if DEBUG
+                    Self.recordSTF(elapsedMs: totalMs,msgId: messageId,attrLen: bindingLen)
+                    #endif
+                    return CGSize(width: width,height: h)
+                }
+            }
+        }
+
+        //
+        let tc = measuringTextView.textContainer
+        let oldWidth = tc.size.width
+        let renderW = measuringTextView.bounds.width
+        let isRenderWidth = renderW>0 && abs(width-renderW)<0.5
+        let widthChanged = abs(width-oldWidth)>0.5
+        if widthChanged && (isRenderWidth || renderW <= 0 || useMeasureTextView) {
+            tc.size = CGSize(width: width,height: .greatestFiniteMagnitude)
+        }
+
+        let tSize = CFAbsoluteTimeGetCurrent()
+        let size = measuringTextView.sizeThatFits(CGSize(width: width,height: .greatestFiniteMagnitude))
+        let sizeMs = (CFAbsoluteTimeGetCurrent()-tSize)*1000
+
+        if tc.size.height<CGFloat.greatestFiniteMagnitude {
+            tc.size.height = CGFloat.greatestFiniteMagnitude
+        }
+
+        // Keep lastComputedHeight in sync so invalidateCellSizeIfChanged()
+        //
+        if isRenderWidth || renderW <= 0 {
+            uiView.lastComputedHeight = size.height
+        }
+
+        // Cache the new result by width bucket. [T-perf 2026-09-08] Cap 4 → 12:
+        // SwiftUI 布局每 pass 以 402（边界宽）/370（内容宽）两个宽度交替询问，
+        // 4 桶时两宽度互相淘汰 → 每次 MISS 都走 mtv.attributedText = liveStorage
+        // 的 TextKit 全量重排（50-100ms/次，上滑掉帧主因）。12 桶让两组宽度共存。
+        coord.cachedSizes[widthKey] = size.height
+        if coord.cachedSizes.count>12 {
+            if let firstKey = coord.cachedSizes.keys.first {
+                coord.cachedSizes.removeValue(forKey: firstKey)
+            }
+        }
+
+        if bindingLen>0 && size.height>0 {
+            coord.lastFullMeasureBindingLen = bindingLen
+            coord.lastFullMeasureHeight[widthKey] = size.height
+            coord.lastFullMeasureAt = CFAbsoluteTimeGetCurrent()
+            // [T-perf 2026-09-08] 同 cachedSizes：cap 4 → 12（402/370 双宽共存）
+            if coord.lastFullMeasureHeight.count>12 {
+                if let firstKey = coord.lastFullMeasureHeight.keys.first {
+                    coord.lastFullMeasureHeight.removeValue(forKey: firstKey)
+                }
+            }
+        }
+
+        let totalMs = (CFAbsoluteTimeGetCurrent()-t0)*1000
+        coord.sizeThatFitsTotalMs += totalMs
+
+        if totalMs >= 50 || callIdx%100 == 0 {
+            let widthDelta = Int((width-oldWidth).rounded())
+            let level: String
+            if totalMs >= 200 { level = "🔥🔥" }
+            else if totalMs >= 50 { level = "🔥" }
+            else { level = "" }
+            Self.stfLogger.info("[SizeFit] #\(callIdx) MISS\(level) w=\(widthKey) (Δ\(widthDelta)) len=\(bindingLen) wChg=\(widthChanged ? 1 : 0) stf=\(String(format: "%.1f", sizeMs))ms total=\(String(format: "%.1f", totalMs))ms buckets=\(coord.cachedSizes.count) cumulative=\(String(format: "%.0f", coord.sizeThatFitsTotalMs))ms hits=\(coord.sizeThatFitsCacheHitCount)/\(callIdx)")
+        }
+
+        if bindingLen >= 10_000 && totalMs >= 100 {
+            Self.stfLogger.warning("[SizeFit] ⚠️ LONG-TEXT SLOW len=\(bindingLen) totalMs=\(String(format: "%.1f", totalMs)) — repeated calls of this size can trigger 0x8BADF00D")
+        }
+
+        #if DEBUG
+        Self.recordSTF(elapsedMs: totalMs,msgId: messageId,attrLen: bindingLen)
+        #endif
+
+        #if DEBUG
+        // Snapshot the textView used for measurement.
+        let stfMid = context.coordinator.renderer.messageId?.uuidString
+        let isMeasure = (measuringTextView !== uiView)
+        MarkdownSnapshotCollector.captureIfEnabled(
+            textView: measuringTextView,
+            phase: isMeasure ? "afterSizeThatFits.mtv" : "afterSizeThatFits.live",
+            messageId: stfMid,
+            isMeasureView: isMeasure,
+            sizeThatFitsResult: CGSize(width: width,height: size.height)
+        )
+        #endif
+
+        // [T-perf 2026-09-08 缓存合并] 附件块高度回写统一缓存（渲染分支已
+        // store(attributed) → entry 存在 → 本写入生效；流式期 entry 不存在 → no-op）。
+        MarkdownRenderCache.shared.store(height: size.height, key: renderCacheKey, width: widthKey)
+
+        return CGSize(width: width,height: size.height)
+    }
+
+    private static let stfLogger = AppLogger(category: "MarkdownSTF")
+    #if DEBUG
+    fileprivate static let watchdogProbe = AppLogger(category: "ChatList.Watchdog")
+    #endif
+
+    #if DEBUG
+
+    private static var stfWindowTotalMs: Double = 0
+    private static var stfWindowCallCount: Int = 0
+    private static var updWindowTotalMs: Double = 0
+    private static var updWindowCallCount: Int = 0
+    private static var distinctMsgIds: Set<UUID> = []
+    private static var observerInstalled = false
+    private static let windowAlarmThresholdMs: Double = 2000
+    private static var alarmAlreadyFiredThisHop = false
+
+    fileprivate static func recordSTF(elapsedMs: Double,msgId: UUID?,attrLen: Int) {
+        installWindowObserverIfNeeded()
+        stfWindowTotalMs += elapsedMs
+        stfWindowCallCount += 1
+        if let msgId { distinctMsgIds.insert(msgId) }
+        checkWindowAlarm(trigger: "stf", lastLen: attrLen, lastMsgId: msgId)
+    }
+
+    fileprivate static func recordUpdateUIView(elapsedMs: Double,attrLen: Int,msgId: UUID?) {
+        installWindowObserverIfNeeded()
+        updWindowTotalMs += elapsedMs
+        updWindowCallCount += 1
+        if let msgId { distinctMsgIds.insert(msgId) }
+        checkWindowAlarm(trigger: "upd", lastLen: attrLen, lastMsgId: msgId)
+    }
+
+    private static func checkWindowAlarm(trigger: String,lastLen: Int,lastMsgId: UUID?) {
+        let total = stfWindowTotalMs+updWindowTotalMs
+        guard total >= windowAlarmThresholdMs,!alarmAlreadyFiredThisHop else { return }
+        alarmAlreadyFiredThisHop = true
+        let msgIdShort = lastMsgId?.uuidString.prefix(8) ?? "—"
+        watchdogProbe.warning("[WatchdogProbe][window] 🚨 cumulative=\(String(format: "%.0f", total))ms (stf=\(String(format: "%.0f", stfWindowTotalMs)) upd=\(String(format: "%.0f", updWindowTotalMs))) sttCalls=\(stfWindowCallCount) updCalls=\(updWindowCallCount) distinctMsgs=\(distinctMsgIds.count) trigger=\(trigger) lastMsgId=\(msgIdShort) lastLen=\(lastLen) — main runloop is heading toward 0x8BADF00D (10s watchdog)")
+    }
+
+    private static func installWindowObserverIfNeeded() {
+        guard !observerInstalled else { return }
+        observerInstalled = true
+        let observer = CFRunLoopObserverCreateWithHandler(
+            kCFAllocatorDefault,
+            CFRunLoopActivity.beforeWaiting.rawValue,
+            true,0
+        ) { _,_ in
+            let total = stfWindowTotalMs+updWindowTotalMs
+            if total >= 500 {
+                watchdogProbe.info("[WatchdogProbe][hop] cumulative=\(String(format: "%.0f", total))ms stf=\(String(format: "%.0f", stfWindowTotalMs)) upd=\(String(format: "%.0f", updWindowTotalMs)) stfCalls=\(stfWindowCallCount) updCalls=\(updWindowCallCount) distinctMsgs=\(distinctMsgIds.count)")
+            }
+            stfWindowTotalMs = 0
+            stfWindowCallCount = 0
+            updWindowTotalMs = 0
+            updWindowCallCount = 0
+            distinctMsgIds.removeAll(keepingCapacity: true)
+            alarmAlreadyFiredThisHop = false
+        }
+        if let observer {
+            CFRunLoopAddObserver(CFRunLoopGetMain(),observer,.commonModes)
+        }
+    }
+    #endif
+
+    final class Coordinator: NSObject,UITextViewDelegate {
+        var lastMarkdown: String = ""
+        var lastRenderedContentHash: Int? = nil
+        var pendingMarkdown: String? = nil
+        private var replayDeferredRender: (() -> Void)?
+
+        func deferRender(_ markdown: String,replay: @escaping () -> Void) {
+            pendingMarkdown = markdown
+            replayDeferredRender = replay
+        }
+
+        private nonisolated(unsafe) var foregroundObserver: NSObjectProtocol?
+        private nonisolated(unsafe) var resignActiveObserver: NSObjectProtocol?
+        var inactiveEnteredAt: Date?
+
+        override init() {
+            super.init()
+            foregroundObserver = NotificationCenter.default.addObserver(
+                forName: UIApplication.didBecomeActiveNotification,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                self?.inactiveEnteredAt = nil
+                self?.applyDeferredRenderNow()
+            }
+            resignActiveObserver = NotificationCenter.default.addObserver(
+                forName: UIApplication.willResignActiveNotification,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                self?.inactiveEnteredAt = Date()
+            }
+        }
+
+        private func applyDeferredRenderNow() {
+            guard UIApplication.shared.applicationState == .active else { return }
+            guard pendingMarkdown != nil,let replay = replayDeferredRender else { return }
+            pendingMarkdown = nil
+            replayDeferredRender = nil
+            replay()
+        }
+
+        deinit {
+            if let foregroundObserver {
+                NotificationCenter.default.removeObserver(foregroundObserver)
+            }
+            if let resignActiveObserver {
+                NotificationCenter.default.removeObserver(resignActiveObserver)
+            }
+        }
+        var lastFontSize: CGFloat = FontSettings.shared.scaledMessage(16.5)
+        var openURL: OpenURLAction?
+        var cachedSizes: [Int: CGFloat] = [:]
+        var cachedSizeMarkdownCount: Int = 0
+        // [T-perf 2026-09-08] 流式渲染节流状态（见渲染分支注释）：节流窗内的
+        // sizeThatFits/updateUIView 直接复用上次渲染结果，把流式渲染频率锁到 ~4 次/秒。
+        var lastStreamPending: NSAttributedString? = nil
+        var lastStreamRenderAt: CFTimeInterval = 0
+        /// [尾包修复 2026-09-10] 上面这份节流快照所对应的**渲染输入长度**（markdown.count）。
+        /// 判定「显示所依据的快照是否已落后于当前内容」——只有落后的快照才需要追赶。
+        var lastStreamPendingSourceLen: Int = 0
+        /// [尾包修复 2026-09-10 真机实证] 节流复用旧快照的那一次 updateUIView 会把
+        /// `lastMarkdown` 记成**最新内容**，于是内容停止增长后（回复结束）后续 updateUIView
+        /// 全被早退守卫拦下 → storage 永久停在缺尾的旧快照上（表现：AI 回复结尾少一截，
+        /// 滑动离开/重进会话才恢复，因为那时才换到新 textView 重新全量渲染）。
+        /// 置位 = 当前 storage 与内容不一致：早退守卫必须放行，追赶渲染必须跳过节流。
+        var streamSnapshotStale = false
+        private var streamCatchUpScheduled = false
+
+        /// [尾包修复 2026-09-10] 追赶渲染：本条 updateUIView 显示的是落后快照时排一次
+        /// 「出窗即全量渲染」。必须显式排期——内容停止增长后不会再有带新 markdown 的
+        /// SwiftUI 更新，否则尾包永远落不了地。延迟取节流窗剩余时间，保证追赶那次
+        /// 真正走全量。后台不渲染（与 deferRender 同口径）且**保留脏标记**，
+        /// 回前台由 applyDeferredRenderNow 的那次 replay 顺带追平。
+        func scheduleStreamCatchUp(replay: @escaping () -> Void) {
+            guard !streamCatchUpScheduled else { return }
+            streamCatchUpScheduled = true
+            let remaining = max(0,Self.streamThrottleWindow - (CACurrentMediaTime() - lastStreamRenderAt)) + 0.02
+            DispatchQueue.main.asyncAfter(deadline: .now() + remaining) { [weak self] in
+                guard let self else { return }
+                self.streamCatchUpScheduled = false
+                guard UIApplication.shared.applicationState == .active else { return }
+                replay()
+            }
+        }
+
+        /// 流式渲染/测量统一节流窗（唐唐定 2026-09-10：250ms → 150ms）。
+        /// 全库节流判定与追赶排期必须引用本常量，禁止散落字面量。
+        static let streamThrottleWindow: CFTimeInterval = 0.15
+        var lastRenderedWidth: CGFloat = -1
+        /// [FadeLeak] 尾部透明残留扫描的节流时间戳（early-return 分支，2s/次）。
+        var lastFadeResidueScanAt: CFTimeInterval = 0
+        /// 当前渲染的内容身份（blockId 优先，缺省
+        /// messageId）。换块判定用：cell 复用/块重配把同一 textView 更新为另一块
+        /// 的内容时必须 cancelAll（见 updateUIView 内注释）。
+        var lastContentId: UUID?
+        var sizeThatFitsCallCount: Int = 0
+        var sizeThatFitsCacheHitCount: Int = 0
+        var sizeThatFitsTotalMs: Double = 0
+        var streamRenderCount: Int = 0
+        ///
+        var lastFullMeasureBindingLen: Int = 0
+        var lastFullMeasureHeight: [Int: CGFloat] = [:]
+        var lastFullMeasureAt: CFAbsoluteTime = 0
+        var renderer = MarkdownNSRenderer(baseFontSize: FontSettings.shared.scaledMessage(16.5))
+
+        weak var fadeTextView: MarkdownTextView?
+
+        lazy var fadeAnimator: TextFadeAnimator = TextFadeAnimator { [weak self] in
+            self?.fadeTextView?.setNeedsDisplay()
+        }
+
+        /// `MiniClaw-2026-05-13-084827.ips`: it rebuilds attachment subviews
+        ///
+        fileprivate lazy var measureTextView: UITextView = {
+            let tv = MarkdownTextView()
+            tv.isScrollEnabled = false
+            tv.isEditable = false
+            tv.isSelectable = false
+            // [ClipFix 2026-05-16] Match the live MarkdownTextView's
+            tv.textContainerInset = UIEdgeInsets(top: 4,left: 0,bottom: 4,right: 0)
+            tv.textContainer.lineFragmentPadding = 0
+            tv.backgroundColor = .clear
+            return tv
+        }()
+
+        @available(iOS 17.0,*)
+        func textView(_ textView: UITextView,primaryActionFor textItem: UITextItem,defaultAction: UIAction) -> UIAction? {
+            if case .link(let url) = textItem.content {
+                return UIAction { [weak self] _ in
+                    if let openURL = self?.openURL {
+                        openURL(url)
+                    } else {
+                        UIApplication.shared.open(url)
+                    }
+                }
+            }
+            if #available(iOS 19,*) {
+            } else if case .textAttachment(let attachment) = textItem.content,
+                      attachment is TableAttachment {
+                return UIAction { _ in }
+            }
+            return defaultAction
+        }
+
+        @available(iOS 17.0,*)
+        func textView(_ textView: UITextView,menuConfigurationFor textItem: UITextItem,defaultMenu: UIMenu) -> UITextItem.MenuConfiguration? {
+            switch textItem.content {
+            case .link(let url):
+                let copyAction = UIAction(title: String(localized: "Copy Link"), image: UIImage(systemName: "doc.on.doc")) { _ in
+                    UIPasteboard.general.string = url.absoluteString
+                }
+                let openAction = UIAction(title: String(localized: "Open in Safari"), image: UIImage(systemName: "safari")) { _ in
+                    UIApplication.shared.open(url)
+                }
+                let menu = UIMenu(children: [copyAction,openAction])
+                return UITextItem.MenuConfiguration(preview: nil,menu: menu)
+            case .textAttachment(let attachment):
+                if #available(iOS 19,*) {
+                } else if let tableAttach = attachment as? TableAttachment {
+                    let copyTableAction = UIAction(
+                        title: String(localized: "Copy Table"),
+                        image: UIImage(systemName: "tablecells")
+                    ) { _ in
+                        UIPasteboard.general.string = tableAttach.plainText()
+                    }
+                    return UITextItem.MenuConfiguration(preview: nil,menu: UIMenu(children: [copyTableAction]))
+                }
+                guard let imageAttach = attachment as? ImageAttachment,
+                      let image = imageAttach.loadedImage else {
+                    return UITextItem.MenuConfiguration(preview: nil,menu: UIMenu(children: []))
+                }
+                let copyAction = UIAction(title: String(localized: "Copy Image"), image: UIImage(systemName: "doc.on.doc")) { _ in
+                    UIPasteboard.general.image = image
+                }
+                let saveAction = UIAction(title: String(localized: "Save to Camera Roll"), image: UIImage(systemName: "square.and.arrow.down")) { _ in
+                    PHPhotoLibrary.requestAuthorization(for: .addOnly) { status in
+                        guard status == .authorized || status == .limited else { return }
+                        PHPhotoLibrary.shared().performChanges {
+                            PHAssetChangeRequest.creationRequestForAsset(from: image)
+                        }
+                    }
+                }
+                let menu = UIMenu(children: [copyAction,saveAction])
+                return UITextItem.MenuConfiguration(preview: nil,menu: menu)
+            @unknown default:
+                return nil
+            }
+        }
+
+        func textViewDidChangeSelection(_ textView: UITextView) {
+            (textView as? MarkdownTextView)?.refreshSelectionState()
+        }
+
+        func textView(_ textView: UITextView,shouldInteractWith URL: URL,in characterRange: NSRange,interaction: UITextItemInteraction) -> Bool {
+            if interaction == .presentActions {
+                let alert = UIAlertController(title: URL.absoluteString,message: nil,preferredStyle: .actionSheet)
+                alert.addAction(UIAlertAction(title: String(localized: "Copy Link"), style: .default) { _ in
+                    UIPasteboard.general.string = URL.absoluteString
+                })
+                alert.addAction(UIAlertAction(title: String(localized: "Open in Safari"), style: .default) { _ in
+                    UIApplication.shared.open(URL)
+                })
+                alert.addAction(UIAlertAction(title: String(localized: "Cancel"), style: .cancel))
+                if let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+                   let root = scene.windows.first?.rootViewController {
+                    var presenter = root
+                    while let presented = presenter.presentedViewController { presenter = presented }
+                    if let popover = alert.popoverPresentationController {
+                        popover.sourceView = textView
+                        let glyphRange = textView.layoutManager.glyphRange(forCharacterRange: characterRange,actualCharacterRange: nil)
+                        popover.sourceRect = textView.layoutManager.boundingRect(forGlyphRange: glyphRange,in: textView.textContainer)
+                    }
+                    presenter.present(alert,animated: true)
+                }
+                return false
+            }
+            if let openURL {
+                openURL(URL)
+            } else {
+                UIApplication.shared.open(URL)
+            }
+            return false
+        }
+    }
+}

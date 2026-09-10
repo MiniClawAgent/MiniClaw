@@ -37,6 +37,19 @@ final class AppLogger: @unchecked Sendable {
     private let queue = DispatchQueue(label: "com.neartop.miniclaw.applogger")
     private let fileManager = FileManager.default
 
+    // MARK: - 批量落盘（2026-09-08 性能修复）
+    //
+    // 此前**每条日志**都 `queue.async` 一次：一次 block 分配 + 一次
+    // open/seek/write/close。Instruments 实测 50+ 消息会话滑动时 54% CPU 烧在
+    // libdispatch 的释放路径（`_dispatch_block_async_invoke2 → _Block_release →
+    // dispatch_continuation_free_to_cache_limit`），正是这条路径。
+    // 改为攒批：满 `flushThreshold` 条、或距上次 flush 超过 `flushInterval` 秒，
+    // 才派发**一次**块，把整批行一次性写入（1 次 open/write/close）。
+    private let pendingLock = OSAllocatedUnfairLock<[String]>(initialState: [])
+    private let lastFlushLock = OSAllocatedUnfairLock(initialState: Date())
+    private let flushThreshold = 32
+    private let flushInterval: TimeInterval = 1.0
+
     /// 独立计算（2026-09-05 修复）：路径与 FileSystemManager.miniClawRoot/logs 保持一致，
     /// 但**不依赖 FSM 单例**——AppLogger 被 FSM.init 的清理路径同步调用，而
     /// FSM.shared 的 dispatch_once 尚未完成时，logsDir 再回查 FSM.shared 会形成
@@ -108,8 +121,6 @@ final class AppLogger: @unchecked Sendable {
         }
     }
 
-    // MARK: - Public API
-
     /// 诊断类 category 白名单:这些 category 的 info 级日志也镜像到 Xcode 控制台,
     /// 便于真机调试时直接观察滚动/抖动链路(2026-08-11 用户要求)。
     /// 2026-08-13 降噪:移除 KbdDiag/InputBarLayout/SubViewport/InputFocus——键盘与布局
@@ -130,8 +141,35 @@ final class AppLogger: @unchecked Sendable {
             || (level == .info && Self.consoleMirrorCategories.contains(category)) {
             print("[\(level.rawValue)] [\(category)] \(message)")
         }
-        queue.async { [weak self] in
-            self?.append(line)
+        // 警告及以上：立即落盘（崩溃前必须留住），其余攒批。
+        pendingLock.withLock { $0.append(line) }
+        if level == .warn || level == .error || level == .fault {
+            flushPending()
+            return
+        }
+        let count = pendingLock.withLock { $0.count }
+        let sinceFlush = Date().timeIntervalSince(lastFlushLock.withLock { $0 })
+        if count >= flushThreshold || sinceFlush >= flushInterval {
+            flushPending()
+        }
+    }
+
+    /// 把缓冲行一次性交给日志队列批量写入（一次 open/write/close）。
+    /// `sync = true` 时在**调用线程**直写（崩溃/信号处理器用，那里不能 async）。
+    func flushPending(sync: Bool = false) {
+        lastFlushLock.withLock { $0 = Date() }
+        let batch = pendingLock.withLock { buf -> [String] in
+            let out = buf
+            buf.removeAll(keepingCapacity: true)
+            return out
+        }
+        guard !batch.isEmpty else { return }
+        if sync {
+            append(batch)
+        } else {
+            queue.async { [weak self] in
+                self?.append(batch)
+            }
         }
     }
 
@@ -183,8 +221,6 @@ final class AppLogger: @unchecked Sendable {
         return "\(snapshot.mark)（\(String(format: "%.1f", elapsed))s 前）"
     }
 
-    // MARK: - Formatting
-
     private func formatLine(category: String, subsystem: String, level: LogLevel, message: String) -> String {
         let now = Date()
         let time = timeFormatter.string(from: now)
@@ -216,8 +252,13 @@ final class AppLogger: @unchecked Sendable {
     private let fileLock = NSLock()
 
     private func append(_ line: String) {
+        append([line])
+    }
+
+    /// 批量写：一次 open/seek/write/close 写多行（单条路径也走这里，行为一致）。
+    private func append(_ lines: [String]) {
         let url = currentLogFileURL()
-        guard let data = (line + "\n").data(using: .utf8) else { return }
+        guard let data = (lines.joined(separator: "\n") + "\n").data(using: .utf8) else { return }
         fileLock.lock()
         defer { fileLock.unlock() }
         do {
@@ -246,7 +287,19 @@ final class AppLogger: @unchecked Sendable {
         signal(SIGFPE, appLoggerCrashSignalHandler)
 
         startWatchdog()
-        info("App launched — AppLogger ready (logs at \(logsDir.path))", category: "Lifecycle", subsystem: "Lifecycle")
+        // [2026-09-09 构建指纹] 启动日志打印**可执行文件编译时间**与版本号：
+        // 可执行文件 mtime = 上次真实编译时间，自动准确、零维护，
+        // 日志首屏即可确认修复是否在包里（多轮「测的哪个构建」排查成本过高）。
+        var buildStamp = "?"
+        if let exe = Bundle.main.executableURL,
+           let attrs = try? FileManager.default.attributesOfItem(atPath: exe.path),
+           let mtime = attrs[.modificationDate] as? Date {
+            let fmt = DateFormatter()
+            fmt.dateFormat = "MM-dd HH:mm:ss"
+            buildStamp = fmt.string(from: mtime)
+        }
+        let ver = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "?"
+        info("App launched — AppLogger ready (build=\(buildStamp) ver=\(ver) logs at \(logsDir.path))", category: "Lifecycle", subsystem: "Lifecycle")
     }
 
     /// 当天运行日志路径，供崩溃报告「Log file」字段引用（AppLogger 与 CrashReporter 共用）。
@@ -589,6 +642,7 @@ fileprivate let sFullFormatter: DateFormatter = {
 
 fileprivate func appLoggerUncaughtExceptionHandler(_ exception: NSException) {
     guard appLoggerEnabledFlag else { return }
+    AppLogger.shared.flushPending(sync: true)   // 攒批缓冲在崩溃时必须直写落盘
     let stack = exception.callStackSymbols.joined(separator: "\n")
     let crashURL = CrashReporter.shared.recordException(exception)
     let ref = crashURL?.lastPathComponent ?? "(unknown)"
@@ -647,6 +701,7 @@ fileprivate func appLoggerCrashSignalHandler(_ sig: Int32) {
         return
     }
     let name = appLoggerSignalName(sig)
+    AppLogger.shared.flushPending(sync: true)   // 攒批缓冲在崩溃时必须直写落盘
     let ts = sFullFormatter.string(from: Date())
     let time = sTimeFormatter.string(from: Date())
 

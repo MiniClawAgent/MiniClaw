@@ -319,7 +319,7 @@ final class AgentRunService {
             }
         }
         // 直接引用架构：挂载执行上下文（分配位置与顺序），落盘收集也在 runtime。
-        engine.onToolExecutionBegin = { [weak runtime] exec in
+        engine.onToolExecutionBegin = { [weak runtime, assistantMessage] exec in
             MainActor.assumeIsolated {
                 guard let runtime, runtime.streamingMessageID == responseMessageID else { return }
                 if runtime.retryState != nil {
@@ -333,6 +333,15 @@ final class AgentRunService {
                 let order = runtime.nextTimelineOrder
                 runtime.nextTimelineOrder += 1
                 runtime.registerStreamingToolExecution(exec, order: Double(order))
+                // [2026-09-09] 轮次安全锚点：工具开始 = 之前所有内容已安全（重试只丢
+                // 锚点之后的半截输出）。同时把最新状态同步进 assistantMessage ——
+                // 此前 content 只在四个终态回调同步，工具执行中途的 persist 落的是
+                // 旧 content → 中断/被杀时 loop 期间内容全部丢失。
+                runtime.markRoundSafePoint()
+                assistantMessage.content = runtime.streamingContent
+                assistantMessage.reasoningSegments = runtime.streamingReasoningSegments
+                assistantMessage.reasoning = runtime.streamingReasoningSegments.map { $0.text }.joined(separator: "\n\n")
+                assistantMessage.toolCalls = runtime.streamingToolEvents
             }
         }
         engine.onComplete = { [weak engine, session, assistantMessage, weak runtime] in
@@ -386,23 +395,23 @@ final class AgentRunService {
                 AppState.shared?.markIntentEngineFinished(sessionID: sessionID, result: .success(assistantMessage.content))
             }
         }
-        engine.onRetryState = { [weak runtime] state in
+        engine.onRetryState = { [weak runtime, assistantMessage] state in
             MainActor.assumeIsolated {
                 guard let runtime, runtime.streamingMessageID == responseMessageID else { return }
                 switch state.phase {
                 case .retrying:
                     // 重试不算任务耗时：暂停计时，恢复输出时继续。
                     runtime.taskPause()
-                    // 丢弃半截输出，重新完整生成：清空已显示内容与上下文占位。
-                    runtime.pendingText = ""
-                    runtime.streamingContent = ""
-                    runtime.streamingToolExecutions = []
-                    runtime.streamingReasoningSegments = []
-                    runtime.nextTimelineOrder = 1
-                    assistantMessage.content = ""
-                    assistantMessage.reasoning = ""
-                    assistantMessage.reasoningSegments = []
-                    assistantMessage.toolCalls = []
+                    // [2026-09-09 治本] 只丢弃**当前轮**的半截输出（回滚到最近安全
+                    // 点 = 最后一个工具挂载前），**已完成轮次的内容全部保留**。
+                    // 此前清空整个 runtime 状态：请求失败重试 5 次全挂（如 HTTP 402
+                    // 余额不足）→ 中断前所有 loop 内容从 UI 和落盘里一起消失
+                    //（真机实证 onError 落盘 content=23字，只剩错误提示）。
+                    runtime.rollbackToRoundSafePoint()
+                    assistantMessage.content = runtime.streamingContent
+                    assistantMessage.reasoning = runtime.streamingReasoningSegments.map { $0.text }.joined(separator: "\n\n")
+                    assistantMessage.reasoningSegments = runtime.streamingReasoningSegments
+                    assistantMessage.toolCalls = runtime.streamingToolEvents
                     // 显示重试指示器（计数/可展开错误信息/手动重试按钮）
                     runtime.retryState = state
                 case .exhausted:
@@ -419,8 +428,9 @@ final class AgentRunService {
                 }
                 runtime.commitStreamBuffer()
                 runtime.commitReasoningBuffer()
-                // 重试耗尽（统一重试机制）：onError 紧随 exhausted 状态在同一 runloop 触发并
-                // 移除 runtime → 指示器消失，错误信息必须由文本承载，确保用户可见最终错误。
+                // [2026-09-09] 最终失败同样先回滚到安全点：已完成轮次内容保留，
+                // 只丢当前轮半截输出 —— 否则落盘 content 只剩错误提示。
+                runtime.rollbackToRoundSafePoint()
                 runtime.streamingContent += String(format: String(localized: "n_n_request_failed"), error.localizedDescription)
                 assistantMessage.content = runtime.streamingContent
                 AppLogger.shared.info(String(format: String(localized: "agent_persist_onerror"), assistantMessage.content.count, assistantMessage.toolCalls.count, assistantMessage.reasoningSegments.count), category: "Agent", subsystem: "Persist")

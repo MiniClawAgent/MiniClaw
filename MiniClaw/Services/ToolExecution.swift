@@ -6,7 +6,7 @@ import MiniClawKit
 /// 经 @Published 驱动指示器与浮层实时刷新——不存在事件转换层与 id 配对。
 /// 相比「事件广播 + id 配对」，直接持有 block 引用天然免疫索引失效与重复事件。
 final class ToolExecution: @unchecked Sendable {
-    let block: MiniClawKit.AssistantBlock
+    let block: AssistantBlock
     let name: String
     let callID: String
     let startedAt: Date
@@ -49,7 +49,7 @@ final class ToolExecution: @unchecked Sendable {
         self.callID = callID
         self.startedAt = startedAt
         self._argsJSON = ""
-        self.block = MiniClawKit.AssistantBlock(
+        self.block = AssistantBlock(
             id: UUID(),
             kind: MiniClawChatAdapter.toolKind(name),
             content: "",
@@ -67,11 +67,20 @@ final class ToolExecution: @unchecked Sendable {
         _argsJSON += delta
         let args = _argsJSON
         stateLock.unlock()
-        block.toolInputArgs = args
-        block.toolStatus = .streaming(bytes: args.utf8.count)
-        if let primary = ToolStreamingParser.primaryPartialValue(name: name, partialJSON: args) {
-            block.content = primary
-            if isFileStreamingKind { block.streamingFileContent = primary }
+        // block 是 ObservableObject（@Published 驱动工具卡实时刷新），本方法由
+        // SSE delegate 线程调用——写 @Published 必须回主线程，否则触发
+        // "Publishing changes from background threads is not allowed"。
+        // 与 appendOutputLine / finish 同范式：只捕获 block 与 name，不捕获 self。
+        Task { @MainActor [block, name] in
+            block.toolInputArgs = args
+            block.toolStatus = .streaming(bytes: args.utf8.count)
+            if let primary = ToolStreamingParser.primaryPartialValue(name: name, partialJSON: args) {
+                block.content = primary
+                switch block.kind {
+                case .fileWriteTool, .fileEditTool: block.streamingFileContent = primary
+                default: break
+                }
+            }
         }
     }
 
@@ -82,14 +91,18 @@ final class ToolExecution: @unchecked Sendable {
         stateLock.lock()
         _argsJSON = argsJSON
         stateLock.unlock()
-        block.toolInputArgs = argsJSON
-        block.kind = MiniClawChatAdapter.toolKind(name, arguments: argsJSON)
-        // 2026-09-05 修复：终端视图以 content 作为「输出」渲染（含 ToolLiveSheet 黑框）。
-        // 此前把参数 JSON 写进 content，导致执行期间终端显示的是参数回显而非真实输出。
-        // 参数已在 toolInputArgs 单独呈现，content 清空等待真实输出流入。
-        block.content = ""
-        block.toolStatus = .running
-        block.streamingFileContent = nil
+        // 同上：本方法由工具执行后台线程调用，block 的 @Published 写入须回主线程。
+        // 注意 `argsJSON`（锁保护字段）已同步落定，子代理转发读 exec.argsJSON 不受影响。
+        Task { @MainActor [block, name] in
+            block.toolInputArgs = argsJSON
+            block.kind = MiniClawChatAdapter.toolKind(name, arguments: argsJSON)
+            // 2026-09-05 修复：终端视图以 content 作为「输出」渲染（含 ToolLiveSheet 黑框）。
+            // 此前把参数 JSON 写进 content，导致执行期间终端显示的是参数回显而非真实输出。
+            // 参数已在 toolInputArgs 单独呈现，content 清空等待真实输出流入。
+            block.content = ""
+            block.toolStatus = .running
+            block.streamingFileContent = nil
+        }
     }
 
     /// 执行中过程输出（逐行，内部节流合并后回主线程写 block）。
@@ -175,13 +188,6 @@ final class ToolExecution: @unchecked Sendable {
             block.streamingFileContent = nil
         }
         onFinish?(result, duration)
-    }
-
-    private var isFileStreamingKind: Bool {
-        switch block.kind {
-        case .fileWriteTool, .fileEditTool: return true
-        default: return false
-        }
     }
 
     // MARK: - 落盘

@@ -28,11 +28,15 @@ protocol AgentTool {
     /// MiniClaw 注入到模型参数中的本地活动描述字段。
     /// 远端协议工具可覆盖为不会与服务端 schema 冲突的保留名。
     var activityParameterName: String { get }
+    /// 单次执行超时（秒），nil = 不限时长。默认 120；长时编排工具（如 dispatch_subagent）
+    /// 覆盖为 nil——子代理整轮回复可达分钟级，120s 竞速会误杀正常任务。
+    var executionTimeout: TimeInterval? { get }
 }
 
 extension AgentTool {
     var resumePolicy: ResumePolicy { .retryable }
     var activityParameterName: String { "activity" }
+    var executionTimeout: TimeInterval? { 120 }
 }
 
 struct ToolSchema: Codable {
@@ -211,6 +215,28 @@ final class ToolRouter {
     func resumePolicy(for name: String) -> ResumePolicy {
         tools[name]?.resumePolicy ?? .retryable
     }
+
+    /// 查询某个已注册工具的执行超时（未注册返回默认 120s）。
+    func executionTimeout(for name: String) -> TimeInterval? {
+        tools[name]?.executionTimeout ?? 120
+    }
+}
+
+// MARK: - 引擎作用域（引擎保留工具的统一执行通道）
+
+/// 引擎弱引用盒：AgentLoopEngine 非 Sendable，包一层以通过 TaskLocal 的 Sendable 检查
+/// （与 SubagentSlotCounter 的 @unchecked Sendable 先例一致）。
+final class EngineBox: @unchecked Sendable {
+    weak var engine: AgentLoopEngine?
+    init(_ engine: AgentLoopEngine?) { self.engine = engine }
+}
+
+/// 引擎保留工具（dispatch_subagent / close_subagent）经 ToolRouter 统一执行时，
+/// 由 `AgentLoopEngine.executeTool` 以 TaskLocal 注入**当前执行引擎**——
+/// 同一 router 实例被父子引擎共享，工具体据此解析到自己所属的引擎（深度/会话状态才正确）。
+enum ToolEngineScope {
+    @TaskLocal static var box: EngineBox? = nil
+    static var engine: AgentLoopEngine? { box?.engine }
 }
 
 enum ToolError: Error, LocalizedError {

@@ -1,7 +1,7 @@
 import Foundation
 
 /// 子代理运行期记录：复用所需的最小状态（身份 + 聚焦 + 对话历史）。
-/// 不长期持有活引擎实例（方案 C）：复用前由 `AgentLoopEngine.spawnSubagent`
+/// 不长期持有活引擎实例（方案 C）：复用前由 `AgentLoopEngine.dispatchSubagent`
 /// 重建子引擎，并用这里的 `history` 调 `run(userMessage:history:)` 接续上下文。
 struct SubagentRuntimeRecord: Codable, Sendable {
     let id: UUID
@@ -55,6 +55,12 @@ final class SubagentRuntimeRegistry: @unchecked Sendable {
     /// sessionID -> (subagentID -> 运行期记录)
     private var store: [UUID: [UUID: SubagentRuntimeRecord]] = [:]
     private let lock = NSLock()
+    /// 最近关闭记录（sessionID → subID → 关闭时间，60s 过期）。
+    /// 2026-09-10：模型有「核实性重复关闭」习惯（对刚关闭的 id 再 close 一次确认），
+    /// 此前二次关闭的短码在 store 里已查不到 → 解析层直接报「需要有效的 subagent_id」，
+    /// 语义完全误导（模型被迫编造解释）。保留短窗口关闭记录，让二次关闭返回
+    /// 「已关闭，无需重复关闭」的正确语义。
+    private var recentlyClosed: [UUID: [UUID: Date]] = [:]
     /// 落盘队列（值类型快照 → Data → 原子写入，写文件不占主线程）。
     private let ioQueue = DispatchQueue(label: "subagent-runtime-registry-io")
 
@@ -102,14 +108,35 @@ final class SubagentRuntimeRegistry: @unchecked Sendable {
         lock.lock()
         store[sessionID]?[subagentID] = nil
         if store[sessionID]?.isEmpty == true { store[sessionID] = nil }
+        recentlyClosed[sessionID, default: [:]][subagentID] = Date()
         lock.unlock()
         persist(sessionID: sessionID)
+    }
+
+    /// 短码（或完整 UUID 串）是否命中 60s 内刚关闭的子代理；命中返回完整 id。
+    /// 过期条目惰性清理；查不到返回 nil（与「从未存在」不可区分——调用方按无效 id 处理）。
+    func recentlyClosedID(for sessionID: UUID, token: String) -> UUID? {
+        let t = token.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard t.count >= 4, UUID(uuidString: token) == nil else { return nil }
+        let cutoff = Date().addingTimeInterval(-60)
+        lock.lock()
+        defer { lock.unlock() }
+        guard var bySub = recentlyClosed[sessionID] else { return nil }
+        if bySub.values.contains(where: { $0 <= cutoff }) {
+            bySub = bySub.filter { $0.value > cutoff }
+            recentlyClosed[sessionID] = bySub.isEmpty ? nil : bySub
+        }
+        for (id, _) in bySub where id.uuidString.lowercased().hasPrefix(t) {
+            return id
+        }
+        return nil
     }
 
     /// 移除某个会话下全部的子代理运行期记录（删除会话时调用，避免内存泄漏）。
     func clear(sessionID: UUID) {
         lock.lock()
         store[sessionID] = nil
+        recentlyClosed[sessionID] = nil
         lock.unlock()
         // 同步删除 SQLite 行，避免残留（会话删除路径）。
         ioQueue.async {

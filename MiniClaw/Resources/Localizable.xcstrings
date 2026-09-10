@@ -33,7 +33,16 @@
         }
       }
     },
+    "." : {
+
+    },
+    "…" : {
+
+    },
     "·" : {
+
+    },
+    "(%@)" : {
 
     },
     "）" : {
@@ -128,6 +137,16 @@
         }
       }
     },
+    "%@ / %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ / %2$@"
+          }
+        }
+      }
+    },
     "%@ tokens" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -157,9 +176,6 @@
         }
       }
     },
-    "%@." : {
-
-    },
     "%@/%@" : {
       "localizations" : {
         "en" : {
@@ -188,10 +204,17 @@
         }
       }
     },
-    "%@%%" : {
-
+    "%@%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@%2$@"
+          }
+        }
+      }
     },
-    "•" : {
+    "%@%%" : {
 
     },
     "⚠️ %@" : {
@@ -227,6 +250,9 @@
 
     },
     "$" : {
+
+    },
+    "$ %@" : {
 
     },
     "a_consolidation_run_is_already_in_progress" : {
@@ -2404,6 +2430,35 @@
         }
       }
     },
+    "api_key_keychain_write_failed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Failed to save the API key (Keychain error %d). Try again, or restart the app and retry."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "API キーの保存に失敗しました（Keychain エラー %d）。再試行するか、App を再起動してから保存してください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "API 키 저장 실패(키체인 오류 %d). 다시 시도하거나 앱을 재시작한 후 저장하세요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "API Key 保存失败（Keychain 错误 %d），请重试或重启 App 后再保存。"
+          }
+        }
+      }
+    },
     "api_key_oauth_readonly" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -3477,6 +3532,9 @@
         }
       }
     },
+    "Audio" : {
+
+    },
     "audio_input" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -3618,35 +3676,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "本地网络权限: %@"
-          }
-        }
-      }
-    },
-    "audit_log" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Audit Log"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "監査ログ"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "감사 로그"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "审计日志"
           }
         }
       }
@@ -4140,6 +4169,35 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "后台"
+          }
+        }
+      }
+    },
+    "background_agent_status_footer" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "\"Active\" means the agent is running a task; \"Idle\" means no task is currently running."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "「アクティブ」は Agent がタスクを実行中、「待機中」は実行中のタスクがない状態です。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "'활성'은 에이전트가 작업을 실행 중임을, '대기 중'은 실행 중인 작업이 없음을 의미합니다."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "「活跃」表示 Agent 正在执行任务，「空闲」表示当前没有运行中的任务。"
           }
         }
       }
@@ -8813,6 +8871,35 @@
         }
       }
     },
+    "compact_scheduled_indicator" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Compression scheduled — will run before the next reply"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "圧縮を予約しました — 次の返信前に実行されます"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "압축 예약됨 — 다음 답변 전에 실행됩니다"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已预约压缩 — 将在下次回复前执行"
+          }
+        }
+      }
+    },
     "compaction_trigger_line" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -11980,25 +12067,25 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Structured crash reports auto-generated when the app crashes or exits abnormally (crash-年月日-时分秒.log). Swipe left to delete."
+            "value" : "Structured crash reports auto-generated when the app crashes or exits abnormally (crash-YYYYMMDD-HHMMSS.log). Swipe left to delete."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "アプリがクラッシュや異常終了した際に自動生成される構造化クラッシュレポート（crash-年月日-时分秒.log）。左にスワイプで削除できます。"
+            "value" : "アプリがクラッシュや異常終了した際に自動生成される構造化クラッシュレポート（crash-YYYYMMDD-HHMMSS.log）。左にスワイプで削除できます。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "앱이 강제 종료되거나 비정상 종료될 때 자동 생성되는 구조화된 크래시 리포트(crash-年月日-时分秒.log). 왼쪽으로 스와이프하여 삭제할 수 있습니다."
+            "value" : "앱이 강제 종료되거나 비정상 종료될 때 자동 생성되는 구조화된 크래시 리포트(crash-YYYYMMDD-HHMMSS.log). 왼쪽으로 스와이프하여 삭제할 수 있습니다."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "应用闪退或异常退出时自动生成的结构化崩溃报告（crash-年月日-时分秒.log）。左滑可删除。"
+            "value" : "应用闪退或异常退出时自动生成的结构化崩溃报告（crash-YYYYMMDD-HHMMSS.log）。左滑可删除。"
           }
         }
       }
@@ -12027,7 +12114,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "应用闪退或异常退出时自动生成的结构化崩溃报告（crash-年月日-时分秒.log）。左滑可删除。crash- 前缀为 App 内信号/启动检测报告；mxcrash- 前缀为系统级（MetricKit）报告，兜底 App 内抓不到的崩溃。"
+            "value" : "应用闪退或异常退出时自动生成的结构化崩溃报告（crash-YYYYMMDD-HHMMSS.log）。左滑可删除。crash- 前缀为 App 内信号/启动检测报告；mxcrash- 前缀为系统级（MetricKit）报告，兜底 App 内抓不到的崩溃。"
           }
         }
       }
@@ -14267,6 +14354,9 @@
           }
         }
       }
+    },
+    "Done" : {
+
     },
     "downgrade_even_on_transient_errors_always" : {
       "extractionState" : "manual",
@@ -21118,25 +21208,25 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Output too long (%1$@ bytes); automatically offloaded to /var/MiniClaw/offloads/%2$@ (miniclaw://offloads/%2$@), readable via file_read or list_dir."
+            "value" : "Output too long (%1$lld bytes); automatically offloaded to /var/MiniClaw/offloads/%2$@ (miniclaw://offloads/%2$@), readable via file_read or list_dir."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "出力が長すぎます（%1$@ バイト）。自動的に /var/MiniClaw/offloads/%2$@ へ退避しました（miniclaw://offloads/%2$@）。file_read または list_dir で読めます。"
+            "value" : "出力が長すぎます（%1$lld バイト）。自動的に /var/MiniClaw/offloads/%2$@ へ退避しました（miniclaw://offloads/%2$@）。file_read または list_dir で読めます。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "출력이 너무 깁니다(%1$@ 바이트). 자동으로 /var/MiniClaw/offloads/%2$@(으)로 옮겼습니다(miniclaw://offloads/%2$@). file_read 또는 list_dir로 읽을 수 있습니다."
+            "value" : "출력이 너무 깁니다(%1$lld 바이트). 자동으로 /var/MiniClaw/offloads/%2$@(으)로 옮겼습니다(miniclaw://offloads/%2$@). file_read 또는 list_dir로 읽을 수 있습니다."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "输出过长（%1$@ 字节），已自动转存至 offloads/。\n可通过 Markdown 链接打开 miniclaw://offloads/%2$@，或由 Agent 用 file_read 读取。"
+            "value" : "输出过长（%1$lld 字节），已自动转存至 offloads/。\n可通过 Markdown 链接打开 miniclaw://offloads/%2$@，或由 Agent 用 file_read 读取。"
           }
         }
       }
@@ -26129,6 +26219,9 @@
         }
       }
     },
+    "Interrupted — tap Resume to continue" : {
+
+    },
     "invalid_response" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -26273,6 +26366,9 @@
           }
         }
       }
+    },
+    "JavaScript" : {
+
     },
     "keep_saved_credentials" : {
       "extractionState" : "manual",
@@ -26941,6 +27037,9 @@
         }
       }
     },
+    "Live" : {
+
+    },
     "live_activity" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -27173,6 +27272,9 @@
         }
       }
     },
+    "Load all" : {
+
+    },
     "load_balancing_loadbalance" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -27259,6 +27361,9 @@
           }
         }
       }
+    },
+    "Loading..." : {
+
     },
     "local_estimate_shown_when_the_provider_doesn_t_report_usage_based_on_calibrated_estimates" : {
       "extractionState" : "manual",
@@ -28445,6 +28550,35 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "工具调用被拒绝：function.name 为空 (id=%@)"
+          }
+        }
+      }
+    },
+    "loop_empty_reply_recover" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Detected empty reply (reasoning only, no text); injecting self-healing round 1/1"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "空の返信を検出（思考のみで本文なし）、自己修復 1/1 ラウンドを注入"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "빈 응답 감지(추론만 있고 본문 없음), 자가 복구 1/1 라운드 주입"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "检测到空回复（仅思考无正文），注入自愈提示 1/1 轮"
           }
         }
       }
@@ -32512,6 +32646,9 @@
     "MiniClaw" : {
 
     },
+    "MiniClaw Computer" : {
+
+    },
     "miniclaw_config_write" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -35125,6 +35262,238 @@
         }
       }
     },
+    "net_extra_constrained" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : " (Low Data Mode)"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "（低データモード）"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "（저데이터 모드）"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "（低数据模式）"
+          }
+        }
+      }
+    },
+    "net_extra_expensive" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : " (cellular/expensive link)"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "（モバイル通信/従量課金回線）"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "（셀룰러/고가 회선）"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "（蜂窝/昂贵链路）"
+          }
+        }
+      }
+    },
+    "net_kind_cellular" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cellular"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "モバイル通信"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "셀룰러"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "蜂窝网络"
+          }
+        }
+      }
+    },
+    "net_kind_none" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No Network"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ネットワークなし"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "네트워크 없음"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无网络"
+          }
+        }
+      }
+    },
+    "net_kind_other" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Other"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "その他"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "기타"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "其他"
+          }
+        }
+      }
+    },
+    "net_kind_wired" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wired"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "有線"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "유선"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "有线网络"
+          }
+        }
+      }
+    },
+    "net_status_connected" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connected"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "接続済み"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "연결됨"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已连接"
+          }
+        }
+      }
+    },
+    "net_status_disconnected" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not Connected"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未接続"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "연결 안 됨"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未连接"
+          }
+        }
+      }
+    },
     "new_chat" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -35357,6 +35726,9 @@
         }
       }
     },
+    "No Page" : {
+
+    },
     "no_agent_reply_yet" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -35527,35 +35899,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "暂无审计记录。"
-          }
-        }
-      }
-    },
-    "no_audit_records_yet_automatically_logged_after_any_config_change" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No audit records yet (automatically logged after any config change)"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "監査記録はまだありません（任意の設定を変更すると自動的に記録されます）"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "감사 기록이 없습니다(설정을 변경하면 자동으로 기록됨)"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "暂无审计记录（修改任意配置后将自动记录）"
           }
         }
       }
@@ -39783,7 +40126,7 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "mode=edit 시 필수, 치환后的 새 텍스트"
+            "value" : "mode=edit 시 필수, 대체할 새 텍스트"
           }
         },
         "zh-Hans" : {
@@ -41407,7 +41750,7 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "치환后的 텍스트"
+            "value" : "대체할 텍스트"
           }
         },
         "zh-Hans" : {
@@ -41958,7 +42301,7 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "필수. UI 표시용 6-16자 중국어 구체적 행동 이름. 예: 뉴스 목록 보기, 뉴스연播 홈 열기, 오늘의 두티아오 기사 읽기"
+            "value" : "필수. UI 표시용 구체적 행동 이름(중국어 6-16자). 예: 뉴스 목록 보기, CCTV 뉴스 홈 열기, 오늘의 헤드라인 기사 읽기"
           }
         },
         "zh-Hans" : {
@@ -46754,35 +47097,6 @@
         }
       }
     },
-    "records_setting_changes_and_rollback_actions_tap_to_view_all_audit_content" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Records setting changes and rollback actions. Tap to view all audit content."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "設定の変更とロールバック操作を記録します。タップするとすべての監査内容を確認できます。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "설정 변경 및 롤백 작업을 기록합니다. 탭하여 전체 감사 내용을 확인하세요."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "记录设置变更与回滚操作，点击进入查看全部审计内容。"
-          }
-        }
-      }
-    },
     "refresh_all_servers" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -47736,6 +48050,35 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "已依次尝试该设备的全部地址（同一设备的 v4/v6 指向同一终端）：%1$@。可指定其中一个 host 重试，或检查目标机 22 端口与防火墙。"
+          }
+        }
+      }
+    },
+    "remote_host_config_write_failed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Failed to write the remote host configuration; this connection was not saved."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "リモートホスト設定の書き込みに失敗しました。今回の接続結果は保存されていません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "원격 호스트 설정을 저장하지 못했습니다. 이번 연결 결과는 저장되지 않았습니다."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "远程主机配置写入失败，本次连接结果未能保存。"
           }
         }
       }
@@ -49335,6 +49678,12 @@
         }
       }
     },
+    "Result" : {
+
+    },
+    "Resume" : {
+
+    },
     "Retry" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -49360,6 +49709,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "重试"
+          }
+        }
+      }
+    },
+    "Retry in %@s (%@/%@)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Retry in %1$@s (%2$@/%3$@)"
           }
         }
       }
@@ -49421,6 +49780,9 @@
           }
         }
       }
+    },
+    "Revert Compact" : {
+
     },
     "review_model" : {
       "extractionState" : "manual",
@@ -49973,31 +50335,31 @@
         }
       }
     },
-    "runtime_logs_and_audit_logs" : {
+    "runtime_logs_and_crash_logs" : {
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Runtime logs and audit logs"
+            "value" : "Runtime logs and crash logs"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "実行ログと監査ログ"
+            "value" : "実行ログとクラッシュログ"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "실행 로그 및 감사 로그"
+            "value" : "실행 로그 및 크러시 로그"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "运行日志与审计日志"
+            "value" : "运行日志与崩溃日志"
           }
         }
       }
@@ -52815,6 +53177,17 @@
         }
       }
     },
+    "Showing last %@K of %@K characters" : {
+      "comment" : "Thinking window truncation hint",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Showing last %1$@K of %2$@K characters"
+          }
+        }
+      }
+    },
     "showing_last_k_chars" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -53714,6 +54087,35 @@
         }
       }
     },
+    "slash_clear_subtitle" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clear all messages in this session"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このセッションのすべてのメッセージを削除"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 세션의 모든 메시지 삭제"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "清空当前会话的所有消息"
+          }
+        }
+      }
+    },
     "slash_command_toggled" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -53739,6 +54141,93 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "斜杠命令切换"
+          }
+        }
+      }
+    },
+    "slash_compact_subtitle" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Compress conversation history into summary"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "会話履歴を要約に圧縮"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "대화 기록을 요약으로 압축"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "把对话历史压缩为摘要"
+          }
+        }
+      }
+    },
+    "slash_memory_off" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Memory off — tap to turn on"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "メモリ OFF — タップで ON"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "메모리 꺼짐 — 탭하여 켜기"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "记忆已关闭 — 点击开启"
+          }
+        }
+      }
+    },
+    "slash_memory_on" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Memory on — tap to turn off"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "メモリ ON — タップで OFF"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "메모리 켜짐 — 탭하여 끄기"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "记忆已开启 — 点击关闭"
           }
         }
       }
@@ -56052,7 +56541,7 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "## サブエージェント使用ガイド\n\nタスクが以下のいずれかに該当する場合、自分で順次処理するより **`dispatch_subagent`로 서브에이전트를 병렬/독립 dispatch하는 것을 우선**하세요：\n\n- **여러 차례 검증, 다중 소스 비교**가 필요한 작업(예: \"X와 Y의 차이/어느 쪽이 나은지 조사해 줘\")；\n- 작업이 **서로 독립적인 단위로 나뉘는** 경우(예: \"A, B, C를 각각 조사해 줘\")—— `tasks` 배열로 한 번에 병렬 dispatch；\n- 작업이 **많은 컨텍스트를 차지하는** 경우(장문 작성, 대량 자료 정리 등)——서브에이전트로 격리하면 메인 컨텍스트에 집중할 수 있습니다；\n- 사용자가 \"철저히 조사 / 꼼꼼히 비교 / 상세히 계획 / 완전한 보고서 작성\"을 명시적으로 요청한 경우。\n\n규칙：\n- `profile` 매개변수로 가장 적합한 역할을 선택하세요(아래 역할 목록 참조)；생략하면 기본「범용 어시스턴트」를 사용합니다.\n- 각 서브에이전트는 독립적으로 도구를 사용해 작업을 완료하고 자기완결형 요약을 반환합니다. 전체 내용이 필요하면 `read_subagent_result`로 페이지 단위로 읽으세요.\n- 서브에이전트는 최대 2계층까지 중첩 가능, 전역 동시 실행은 4개 이하입니다. 한도에 도달하면 반환 안내에 따라 기다리거나 직접 완료하세요.\n- **재사용**：각 서브에이전트에는 안정적인 `subagent_id`가 있습니다(아래 \"현재 세션의 서브에이전트\" 목록 참조). 후속 작업이 기존 서브에이전트와 관련되면 `dispatch_subagent`의 `subagent_id` 매개변수로 **같은** 서브에이전트에 이어서 dispatch하세요(역할과 컨텍스트가 유지됩니다). 매번 새로 만들지 마세요——서브에이전트는 지속적으로 대화할 수 있는 독립적 작업 파트너이지 일회용 도구가 아닙니다.\n- **종료**：서브에이전트의 작업이 완전히 끝나고 더 이상 필요 없으면 `close_subagent`로 닫으세요——세션과 아바타가 함께 제거되고 컨텍스트가 해제됩니다. 닫힌 후에는 재사용할 수 없습니다(필요하면 새로 dispatch하세요).\n- 간단한 작업에는 서브에이전트를 **dispatch하지 마세요**——오버헤드가 있으며 위의 복잡한 시나리오에서만 가치가 있습니다."
+            "value" : "## 서브에이전트 사용 가이드\n\n작업이 다음 중 하나에 해당하면, 직접 하나씩 처리하는 것보다 **`dispatch_subagent`로 서브에이전트를 병렬/독립 dispatch하는 것을 우선**하세요：\n\n- **여러 차례 검증, 다중 소스 비교**가 필요한 작업(예: \"X와 Y의 차이/어느 쪽이 나은지 조사해 줘\")；\n- 작업이 **서로 독립적인 단위로 나뉘는** 경우(예: \"A, B, C를 각각 조사해 줘\")—— `tasks` 배열로 한 번에 병렬 dispatch；\n- 작업이 **많은 컨텍스트를 차지하는** 경우(장문 작성, 대량 자료 정리 등)——서브에이전트로 격리하면 메인 컨텍스트에 집중할 수 있습니다；\n- 사용자가 \"철저히 조사 / 꼼꼼히 비교 / 상세히 계획 / 완전한 보고서 작성\"을 명시적으로 요청한 경우。\n\n규칙：\n- `profile` 매개변수로 가장 적합한 역할을 선택하세요(아래 역할 목록 참조)；생략하면 기본「범용 어시스턴트」를 사용합니다.\n- 각 서브에이전트는 독립적으로 도구를 사용해 작업을 완료하고 자기완결형 요약을 반환합니다. 전체 내용이 필요하면 `read_subagent_result`로 페이지 단위로 읽으세요.\n- 서브에이전트는 최대 2계층까지 중첩 가능, 전역 동시 실행은 4개 이하입니다. 한도에 도달하면 반환 안내에 따라 기다리거나 직접 완료하세요.\n- **재사용**：각 서브에이전트에는 안정적인 `subagent_id`가 있습니다(아래 \"현재 세션의 서브에이전트\" 목록 참조). 후속 작업이 기존 서브에이전트와 관련되면 `dispatch_subagent`의 `subagent_id` 매개변수로 **같은** 서브에이전트에 이어서 dispatch하세요(역할과 컨텍스트가 유지됩니다). 매번 새로 만들지 마세요——서브에이전트는 지속적으로 대화할 수 있는 독립적 작업 파트너이지 일회용 도구가 아닙니다.\n- **종료**：서브에이전트의 작업이 완전히 끝나고 더 이상 필요 없으면 `close_subagent`로 닫으세요——세션과 아바타가 함께 제거되고 컨텍스트가 해제됩니다. 닫힌 후에는 재사용할 수 없습니다(필요하면 새로 dispatch하세요).\n- 간단한 작업에는 서브에이전트를 **dispatch하지 마세요**——오버헤드가 있으며 위의 복잡한 시나리오에서만 가치가 있습니다."
           }
         },
         "zh-Hans" : {
@@ -56523,6 +57012,35 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "同步中..."
+          }
+        }
+      }
+    },
+    "sys_empty_reply_continue" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "(You only produced reasoning above and no visible reply. Based on that reasoning, write the complete user-facing answer now.)"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "（上記では思考のみが出力され、本文となる回答が出力されていません。その思考に基づき、ユーザーに向けた完全な回答を本文として出力してください。）"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "(위에서 추론만 출력되고 본문 답변이 없습니다. 해당 추론을 바탕으로 사용자에게 완전한 답변을 본문으로 출력하세요.)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "（你刚才只进行了思考，没有输出任何正文回答。请基于上面的思考给出面向用户的完整正文回答。）"
           }
         }
       }
@@ -57165,6 +57683,12 @@
         }
       }
     },
+    "Terminal" : {
+
+    },
+    "Terminal is not available in this tool view yet. Use Settings > Terminal." : {
+
+    },
     "terminal_banner_bound" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -57657,6 +58181,9 @@
           }
         }
       }
+    },
+    "The summary will be discarded and the messages it covered will become active again." : {
+
     },
     "the_agent_failed_or_was_interrupted" : {
       "extractionState" : "manual",
@@ -59735,7 +60262,7 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "텍스트转음성(TTS). 지정된 텍스트를 읽어줍니다."
+            "value" : "텍스트 음성 변환(TTS). 지정된 텍스트를 읽어줍니다."
           }
         },
         "zh-Hans" : {

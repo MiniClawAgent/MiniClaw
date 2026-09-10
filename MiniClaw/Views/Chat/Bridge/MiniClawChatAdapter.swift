@@ -14,10 +14,10 @@ enum MiniClawChatAdapter {
     // MARK: - 消息级转换
 
     /// 把 MiniClaw 消息转换为移植组件形态(含 blocks 拆分)
-    static func convert(_ message: ChatMessage) -> MiniClawKit.ChatMessage {
+    static func convert(_ message: ChatMessage) -> RenderMessage {
         // 2026-08-13 治本:id 注入——Kit ChatMessage.id 原为自动 UUID,与宿主 message.id
         // 不等,导致长按菜单 Edit/Retry 的 session.messages.first(where: id) 找不到 → no-op。
-        let kitMessage = MiniClawKit.ChatMessage(role: kitRole(message), content: message.content, id: message.id)
+        let kitMessage = RenderMessage(role: kitRole(message), content: message.content, id: message.id)
         kitMessage.blocks = buildBlocks(message)
         kitMessage.isAwaitingModelResponse = message.isStreaming
         // 终态状态行桥接（2026-09-05）：footer 状态行需要已停止/已中断/耗时。
@@ -30,7 +30,7 @@ enum MiniClawChatAdapter {
         // 图片缩略图/文件卡片(此前 convert 从不读 attachments,渲染恒空 → 附件全部不显示)。
         if message.role == .user {
             kitMessage.attachments = message.attachments.map { rel in
-                MiniClawKit.AttachmentMeta(path: "/var/miniclaw/\(rel)", size: Self.attachmentSize(rel), modified: Date())
+                AttachmentMeta(path: "/var/miniclaw/\(rel)", size: Self.attachmentSize(rel), modified: Date())
             }
         }
         return kitMessage
@@ -44,7 +44,7 @@ enum MiniClawChatAdapter {
         return size
     }
 
-    private static func kitRole(_ message: ChatMessage) -> MiniClawKit.ChatMessageRole {
+    private static func kitRole(_ message: ChatMessage) -> ChatMessageRole {
         switch message.role {
         case .user: return .user
         case .assistant, .tool: return .assistant
@@ -58,16 +58,16 @@ enum MiniClawChatAdapter {
     /// 正文按思考段/工具调用的 position 切分成多个片段,每段 order = 前一事件
     /// order + 0.5,实现「思考1→工具1→回复1→思考2→工具2→回复2」的真实穿插
     /// (与子代理会话 assistantSegments 的顺序规则一致)。
-    private static func buildBlocks(_ message: ChatMessage) -> [MiniClawKit.AssistantBlock] {
-        var items: [(order: Double, block: MiniClawKit.AssistantBlock)] = []
+    private static func buildBlocks(_ message: ChatMessage) -> [AssistantBlock] {
+        var items: [(order: Double, block: AssistantBlock)] = []
 
         // 收集事件(思考段 + 工具调用),按 timelineOrder 排序,含 position。
-        var events: [(order: Int, position: Int, block: MiniClawKit.AssistantBlock)] = []
+        var events: [(order: Int, position: Int, block: AssistantBlock)] = []
 
         // 2026-08-12 兜底:reasoningSegments 为空但 message.reasoning(单串)非空时,
         // 渲染一个完整思考块(旧数据/异常路径的降级,避免思考内容被静默隐藏)。
         if message.reasoningSegments.isEmpty, let reasoning = message.reasoning, !reasoning.isEmpty {
-            let block = MiniClawKit.AssistantBlock(id: UUID(), kind: .thinking, content: reasoning)
+            let block = AssistantBlock(id: UUID(), kind: .thinking, content: reasoning)
             block.isThinkingExpanded = false
             block.thinkingUserToggled = false
             events.append((0, 0, block))
@@ -76,7 +76,7 @@ enum MiniClawChatAdapter {
         for seg in message.reasoningSegments {
             // 2026-08-11 [Fix 重进会话跳屏·方案B]:传 seg.id(SwiftData 持久化),
             // 重建时复用 → contentKey 稳定 → memo 跨会话命中,首帧即精确高度。
-            let block = MiniClawKit.AssistantBlock(id: seg.id, kind: .thinking, content: seg.text)
+            let block = AssistantBlock(id: seg.id, kind: .thinking, content: seg.text)
             // 2026-08-10 用户要求:思考块默认折叠,哪怕用户上次展开过,
             // 每次重建(新消息/流式刷新)一律强制折叠,不保留任何展开状态。
             block.isThinkingExpanded = false
@@ -85,7 +85,7 @@ enum MiniClawChatAdapter {
         }
 
         for event in message.toolCalls {
-            let block = MiniClawKit.AssistantBlock(id: event.id, kind: toolKind(event.name, arguments: event.arguments), content: event.resultText)
+            let block = AssistantBlock(id: event.id, kind: toolKind(event.name, arguments: event.arguments), content: event.resultText)
             block.toolUseId = event.callID ?? event.id.uuidString
             block.toolInputArgs = event.arguments
             block.toolDuration = event.duration
@@ -94,7 +94,7 @@ enum MiniClawChatAdapter {
         }
 
         let hasTimeline = events.contains { $0.order > 0 }
-        let sortedEvents: [(order: Double, position: Int, block: MiniClawKit.AssistantBlock)]
+        let sortedEvents: [(order: Double, position: Int, block: AssistantBlock)]
         if hasTimeline {
             sortedEvents = events.sorted {
                 $0.order < $1.order || ($0.order == $1.order && $0.position < $1.position)
@@ -111,6 +111,16 @@ enum MiniClawChatAdapter {
         // block.timelineOrder——渲染层按 block.timelineOrder 兜底排序(2026-08-10),
         // 若只按元组排序不写回,渲染层读默认值 Int.max-1 会全部相等→按 id 乱序。
         let content = message.content
+        // [2026-09-09 诊断] position 超界 = 事件 position 与落盘 content 不同源
+        //（典型：流式中退出会话，segments/toolCalls 已落盘而 content 滞后）。
+        // clamp 会让中间正文段被 cursor 跳过 → 重进会话正文"消失"。
+        // 打 warn（低频异常路径）供真机日志一锤定音。
+        let overCount = sortedEvents.filter { $0.position > content.count || $0.position < 0 }.count
+        if overCount > 0 {
+            AppLogger.shared.warn(
+                "[Timeline] position out of range: contentCount=\(content.count) events=\(sortedEvents.count) over=\(overCount) msgId=\(message.id.uuidString.prefix(8))",
+                category: "Timeline", subsystem: "Bridge")
+        }
         var textCursor = 0
         for (order, position, block) in sortedEvents {
             block.timelineOrder = order
@@ -167,18 +177,25 @@ enum MiniClawChatAdapter {
         url
     }
 
-    /// 建一个文本块(复用 cacheRenderedContent + timelineOrder 写回)。
-    private static func makeTextBlock(messageID: UUID, startOffset: Int, content: String, order: Double) -> MiniClawKit.AssistantBlock {
-        let b = MiniClawKit.AssistantBlock(id: deterministicTextBlockID(messageID: messageID, startOffset: startOffset), kind: .text, content: content)
-        b.cacheRenderedContent()
+    /// 建一个文本块（timelineOrder 写回）。
+    /// [T-perf 2026-09-08] **不再在此调用 cacheRenderedContent()**——refresh() 每
+    /// 100ms 对全部历史消息 convert，而 bridgedMessage 的签名比对会丢弃 fresh
+    ///（签名相同复用 cached）→ 全量 cmark+渲染"算完就丢"，真机实测思考期间
+    /// 主线程 190-950ms/次饱和（滑动卡死+发热）。渲染上移到 bridgedMessage：
+    /// 仅"签名真变化"的消息（终态合并/新消息入缓存）才渲染一次。
+    /// [2026-09-09 改 internal] 流式合并（Bridge upsertTextBlock）也用同款确定性 id
+    /// 创建正文块：流式 → 终态块 id 不再换血，diffable 只 reconfigure 不全量重建，
+    /// 消除「回复刚结束界面又重放一遍」+ 高度缓存连坐失效。
+    static func makeTextBlock(messageID: UUID, startOffset: Int, content: String, order: Double) -> AssistantBlock {
+        let b = AssistantBlock(id: deterministicTextBlockID(messageID: messageID, startOffset: startOffset), kind: .text, content: content)
         b.timelineOrder = order
         return b
     }
 
     /// 把一段 markdown 拆成「文本 + 文件块」交错序列。
     /// 文件引用 = 非媒体扩展名的 markdown 图片/链接(排除 http/https)。
-    private static func splitFileBlocks(markdown: String, messageID: UUID, baseOrder: Double, startOffset: Int) -> [(order: Double, block: MiniClawKit.AssistantBlock)] {
-        var out: [(order: Double, block: MiniClawKit.AssistantBlock)] = []
+    private static func splitFileBlocks(markdown: String, messageID: UUID, baseOrder: Double, startOffset: Int) -> [(order: Double, block: AssistantBlock)] {
+        var out: [(order: Double, block: AssistantBlock)] = []
         let pattern = #"!\[[^\]]*\]\(([^)\s]+)\)|\[[^\]]*\]\(([^)\s]+)\)"#
         guard let regex = try? NSRegularExpression(pattern: pattern) else {
             out.append((baseOrder, makeTextBlock(messageID: messageID, startOffset: startOffset, content: markdown, order: baseOrder)))
@@ -204,7 +221,7 @@ enum MiniClawChatAdapter {
             let canonical = canonicalFileURL(url)
             let rawName = (canonical as NSString).lastPathComponent
             let fileName = rawName.removingPercentEncoding ?? rawName
-            let fb = MiniClawKit.AssistantBlock(id: deterministicTextBlockID(messageID: messageID, startOffset: startOffset + m.range.location), kind: .file(url: canonical), content: fileName)
+            let fb = AssistantBlock(id: deterministicTextBlockID(messageID: messageID, startOffset: startOffset + m.range.location), kind: .file(url: canonical), content: fileName)
             let o = baseOrder + Double(sub) * 0.05
             fb.timelineOrder = o
             out.append((o, fb))
@@ -223,6 +240,13 @@ enum MiniClawChatAdapter {
 
     /// [Fix 重进会话跳屏·方案B] 由 (消息 id + 片段起始偏移) 生成确定性 UUID:
     /// 内容切分稳定时,重进会话重建得到同一 id。偏移 -1 表示尾部正文片段。
+    /// [2026-09-09 崩溃修复] 提为 internal:流式 upsert 必须用同一个 id 做幂等
+    /// 判定——此前按 timelineOrder 匹配,与确定性 id 不同口径,同一 startOffset
+    /// 会生成两个 id 相同、order 不同的块 → diffable 重复 identifier 崩溃。
+    static func textBlockID(messageID: UUID, startOffset: Int) -> UUID {
+        deterministicTextBlockID(messageID: messageID, startOffset: startOffset)
+    }
+
     private static func deterministicTextBlockID(messageID: UUID, startOffset: Int) -> UUID {
         var h: UInt64 = 1469598103934665603 // FNV-1a 64
         let seed = "\(messageID.uuidString)|\(startOffset)"
@@ -250,7 +274,7 @@ enum MiniClawChatAdapter {
     /// 工具名 + 参数 → Kit 块类型(10 种 kind 映射),关联值填入真实操作名/路径/命令,
     /// 让工具卡显示真实操作名称(而非笼统的 "Browser action"/"Shell command")。
     /// 纯函数（无状态依赖）→ nonisolated：服务层（ToolExecution）也可调用。
-    nonisolated static func toolKind(_ name: String, arguments: String = "") -> MiniClawKit.AssistantBlockKind {
+    nonisolated static func toolKind(_ name: String, arguments: String = "") -> AssistantBlockKind {
         // 从参数 JSON 提取关键字段(command/path/action/url 等),用于关联值展示。
         var argDict: [String: Any] = [:]
         if let data = arguments.data(using: .utf8),
@@ -289,7 +313,7 @@ enum MiniClawChatAdapter {
     }
 
     /// 工具状态:执行中(无结果)→ running;完成 → success/failed/cancelled
-    static func toolStatus(for event: ToolCallEvent, message: ChatMessage) -> MiniClawKit.ToolBlockStatus? {
+    static func toolStatus(for event: ToolCallEvent, message: ChatMessage) -> ToolBlockStatus? {
         if event.wasInterrupted { return .cancelled }
         if event.resultText.isEmpty && message.isStreaming {
             return .running

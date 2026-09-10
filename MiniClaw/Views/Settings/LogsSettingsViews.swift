@@ -1,10 +1,9 @@
 import SwiftUI
 import UIKit
 
-// MARK: - Logs View（统一入口：运行日志列表 + 审计日志入口）
+// MARK: - Logs View（统一入口：运行日志列表 + 崩溃日志列表）
 
-/// 统一「日志」页：运行日志（按天调试日志，含启用开关）直接列表展示；
-/// 审计日志作为独立入口，点击进入后再列表展示全部审计内容。
+/// 统一「日志」页：运行日志（按天调试日志，含启用开关）与崩溃日志直接列表展示。
 struct LogsView: View {
     @State private var runtimeFiles: [AppLogger.LogFileEntry] = []
     @State private var crashFiles: [AppLogger.LogFileEntry] = []
@@ -26,7 +25,6 @@ struct LogsView: View {
         List {
             runtimeSection
             crashSection
-            auditEntrySection
         }
         .scrollContentBackground(.hidden)
         .background(ThemeBackground(slot: .settings))
@@ -135,85 +133,10 @@ struct LogsView: View {
         }
     }
 
-    // MARK: - 审计日志入口
-
-    private var auditEntrySection: some View {
-        Section {
-            NavigationLink {
-                AuditLogsView()
-            } label: {
-                HStack(spacing: 10) {
-                    Image(systemName: "doc.text.magnifyingglass")
-                        .foregroundStyle(.gray)
-                    Text(String(localized: "audit_log"))
-                    Spacer()
-                }
-            }
-        } header: {
-            Text(String(localized: "audit_log"))
-        } footer: {
-            Text(String(localized: "records_setting_changes_and_rollback_actions_tap_to_view_all_audit_content"))
-        }
-    }
-
     private func reload() {
         loggingEnabled = AppLogger.shared.isEnabled
         runtimeFiles = AppLogger.shared.listLogFiles()
         crashFiles = AppLogger.shared.listCrashLogFiles()
-    }
-}
-
-// MARK: - 审计日志（独立列表）
-
-/// 审计日志独立页：列出所有设置变更 / 回滚记录。
-struct AuditLogsView: View {
-    @State private var auditEntries: [AuditEntry] = []
-
-    private let auditFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.dateStyle = .short
-        f.timeStyle = .medium
-        return f
-    }()
-
-    var body: some View {
-        List {
-            if auditEntries.isEmpty {
-                Text(String(localized: "no_audit_records_yet_automatically_logged_after_any_config_change"))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            ForEach(auditEntries) { entry in
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack {
-                        Text(auditFormatter.string(from: entry.timestamp))
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        Text(entry.domain)
-                            .font(.caption2)
-                            .fontWeight(.bold)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(Color.purple.opacity(0.15))
-                            .foregroundStyle(.purple)
-                            .clipShape(Capsule())
-                    }
-                    Text(entry.summary)
-                        .font(.system(.caption, design: .monospaced))
-                }
-            }
-        }
-        .scrollContentBackground(.hidden)
-        .background(ThemeBackground(slot: .settings))
-        .listStyle(.plain)
-        .navigationTitle(String(localized: "audit_log"))
-        .navigationBarTitleDisplayMode(.inline)
-        .onAppear(perform: loadAudit)
-        .refreshable { loadAudit() }
-    }
-
-    private func loadAudit() {
-        auditEntries = SettingsStore.shared.auditEntries
     }
 }
 

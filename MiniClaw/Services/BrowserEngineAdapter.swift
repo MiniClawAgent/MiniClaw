@@ -18,17 +18,17 @@ final class BrowserEngineAdapter: ObservableObject {
     /// 2026-08-12:改为动态切换——setSession 后指向会话级池(与工具链同一池),
     /// 未绑定会话时回落 fallbackPool(首页手动浏览器入口)。
     private let fallbackPool = MiniClawTabPool()
-    private var sessionPool: MiniClawKit.MiniClawTabPool?
-    private var pool: MiniClawKit.MiniClawTabPool { sessionPool ?? fallbackPool }
-    private var pools: [String: MiniClawKit.MiniClawTabPool] = [:]
-    private let sharedPool = MiniClawKit.MiniClawTabPool()
+    private var sessionPool: MiniClawTabPool?
+    private var pool: MiniClawTabPool { sessionPool ?? fallbackPool }
+    private var pools: [String: MiniClawTabPool] = [:]
+    private let sharedPool = MiniClawTabPool()
 
     /// 会话级池(工具链共用)
-    func pool(for sessionID: UUID?) -> MiniClawKit.MiniClawTabPool {
+    func pool(for sessionID: UUID?) -> MiniClawTabPool {
         guard let sessionID else { return sharedPool }
         let key = sessionID.uuidString
         if let p = pools[key] { return p }
-        let p = MiniClawKit.MiniClawTabPool()
+        let p = MiniClawTabPool()
         p.sessionId = key
         pools[key] = p
         return p
@@ -179,20 +179,33 @@ final class BrowserEngineAdapter: ObservableObject {
             }
             .store(in: &subs)
         // 活跃 manager 状态
+        // [2026-09-09 并发违规治理] 以下 5 个 sink 缺 .receive(on:)：MiniClawBrowserEngine
+        // 的 isLoading/currentURL/pageTitle 有写入点在 WKWebView 回调 / Task 闭包里，
+        // 非 main 线程 emit 会触发 "Publishing changes from background threads"。
         if let manager = pool.activeManager {
-            manager.$canGoBack.sink { [weak self] _ in self?.objectWillChange.send() }.store(in: &subs)
-            manager.$canGoForward.sink { [weak self] _ in self?.objectWillChange.send() }.store(in: &subs)
-            manager.$isLoading.sink { [weak self] loading in
-                guard let self else { return }
-                if loading {
-                    self.loadingProgress = 0.1
-                } else {
-                    self.loadingProgress = 1.0
-                }
-                self.objectWillChange.send()
-            }.store(in: &subs)
-            manager.$pageTitle.sink { [weak self] _ in self?.rebindTabs() }.store(in: &subs)
-            manager.$currentURL.sink { [weak self] _ in self?.rebindTabs() }.store(in: &subs)
+            manager.$canGoBack
+                .receive(on: DispatchQueue.main)
+                .sink { [weak self] _ in self?.objectWillChange.send() }.store(in: &subs)
+            manager.$canGoForward
+                .receive(on: DispatchQueue.main)
+                .sink { [weak self] _ in self?.objectWillChange.send() }.store(in: &subs)
+            manager.$isLoading
+                .receive(on: DispatchQueue.main)
+                .sink { [weak self] loading in
+                    guard let self else { return }
+                    if loading {
+                        self.loadingProgress = 0.1
+                    } else {
+                        self.loadingProgress = 1.0
+                    }
+                    self.objectWillChange.send()
+                }.store(in: &subs)
+            manager.$pageTitle
+                .receive(on: DispatchQueue.main)
+                .sink { [weak self] _ in self?.rebindTabs() }.store(in: &subs)
+            manager.$currentURL
+                .receive(on: DispatchQueue.main)
+                .sink { [weak self] _ in self?.rebindTabs() }.store(in: &subs)
         }
         objectWillChange.send()
     }

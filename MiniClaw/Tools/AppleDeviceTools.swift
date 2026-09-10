@@ -142,14 +142,16 @@ struct AppleDeviceTool: AgentTool {
             monitor.pathUpdateHandler = { path in
                 let kind: String
                 if path.usesInterfaceType(.wifi) { kind = "Wi-Fi" }
-                else if path.usesInterfaceType(.cellular) { kind = "蜂窝网络" }
-                else if path.usesInterfaceType(.wiredEthernet) { kind = "有线网络" }
-                else if path.status == .unsatisfied { kind = "无网络" }
-                else { kind = "其他" }
-                let status = path.status == .satisfied ? "已连接" : "未连接"
+                else if path.usesInterfaceType(.cellular) { kind = String(localized: "net_kind_cellular") }
+                else if path.usesInterfaceType(.wiredEthernet) { kind = String(localized: "net_kind_wired") }
+                else if path.status == .unsatisfied { kind = String(localized: "net_kind_none") }
+                else { kind = String(localized: "net_kind_other") }
+                let status = path.status == .satisfied
+                    ? String(localized: "net_status_connected")
+                    : String(localized: "net_status_disconnected")
                 var extra = ""
-                if path.isExpensive { extra = "（蜂窝/昂贵链路）" }
-                else if path.isConstrained { extra = "（低数据模式）" }
+                if path.isExpensive { extra = String(localized: "net_extra_expensive") }
+                else if path.isConstrained { extra = String(localized: "net_extra_constrained") }
                 finish("\(kind) · \(status)\(extra)")
             }
             monitor.start(queue: DispatchQueue.global(qos: .utility))

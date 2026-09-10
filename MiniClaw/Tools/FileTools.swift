@@ -189,7 +189,7 @@ struct FileEditTool: AgentTool {
         // 严格匹配
         var ranges = Self.allRanges(of: oldStr, in: content)
 
-        // 模糊降级（2026-09-05，对齐 OpenMinis）：模型重发代码时常见智能引号
+        // 模糊降级（2026-09-05）：模型重发代码时常见智能引号
         // 变直引号、行尾空白丢失、连续空格合并——两边规范化后再匹配，但替换
         // 作用于原文精确范围（保留文件真实字节），成功消息注明 fuzzy。
         var fuzzy = false

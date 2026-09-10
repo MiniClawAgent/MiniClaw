@@ -157,9 +157,10 @@ struct ChatView: View {
     /// 进入会话时从磁盘恢复：把未发送草稿回填输入框、把排队消息恢复到内存字典。
     /// 保证杀后台 / 退出会话 / App 重启后，用户重新进入仍可继续编辑或推给 智能体。
     private func restorePersistedState() {
-        // 1. 草稿回填（无则保持空）
+        // 1. 草稿回填：先清空再回填。会话切换若复用本视图实例，上一会话的残留文本
+        //    会经 onChange → persistDraft 落盘，把 A 的草稿污染成 B 的草稿。
+        injectInput("")
         if let draft = PendingMessageStore.shared.loadDraft(for: session.id) {
-            inputText = draft
             injectInput(draft)
         }
         // 2. 排队消息恢复：仅在内存字典为空时从磁盘补入，避免与已有运行时队列重复。
@@ -190,6 +191,9 @@ struct ChatView: View {
                     runtime.streamingMessageID = nil
                 }
                 appState.chatRuntimes[session.id] = nil
+                // 清空会话时同步清除 /compact 预约：否则残留标志会让清空后的首轮对话
+                // 误触发一次强制压缩尝试（2026-09-08）。
+                appState.pendingManualCompact.remove(session.id)
                 SessionManager.shared.removeAllMessages(from: session)
                 AgentTaskStore.shared.clear(sessionID: session.id)
                 session.status = .completed
@@ -197,18 +201,26 @@ struct ChatView: View {
                 SessionManager.shared.persist(session)
 
             case "compact":
-                // 手动触发对话压缩（标记需要压缩，下次 run 时执行）
-                if let runtime = appState.chatRuntimes[session.id] {
-                    runtime.requestCompression = true
-                }
+                // 手动触发对话压缩（预约标志，下次 run 的前置压缩阶段强制执行）。
+                // 2026-09-08 修复：标志原挂在 runtime 上，而 runtime 仅在回复进行期间
+                // 存在——空闲会话 /compact 曾静默无效。改写会话级 AppState 预约，
+                // 空闲也生效（下次对话开始前压缩），并插入指示器给出可见反馈。
+                appState.pendingManualCompact.insert(session.id)
+                let indicator = ChatMessage(role: .system, content: String(localized: "compact_scheduled_indicator"))
+                indicator.session = session
+                session.messages.append(indicator)
+                session.updatedAt = Date()
+                SessionManager.shared.persist(session)
 
             default:
                 break
             }
-        case .toggle(let current):
-            // 记忆开关切换（/memory）
+        case .toggle:
+            // 记忆开关切换（/memory）。2026-09-08 修复：命令携带的是占位 .toggle(false)
+            //（菜单/直发两条路径都不携带真实状态），按它取反会恒置为开启——
+            // 改为直接读当前真实设置取反，菜单点击与直发两条路径均正确。
             var memorySettings = SettingsStore.shared.settings.memory
-            memorySettings.isEnabled = !current
+            memorySettings.isEnabled = !memorySettings.isEnabled
             SettingsStore.shared.set(memorySettings, domain: .memory, summary: String(localized: "slash_command_toggled"))
 
         case .thinkingPicker(selectedLevel: _, levels: _):
@@ -529,7 +541,6 @@ struct ChatView: View {
     /// 装配一个全新的 `AgentLoopEngine` + `ChatSessionRuntime`，并接好全部回调。
     /// 启动（全新回复）与恢复（冷启动重放开检查点）共用，避免两套重复逻辑。
     /// MCP 工具发现由调用方在引擎 run/resume 前完成，确保 schema 和 system prompt 使用同一份工具快照。
-    /// - Parameters:
     ///   - assistantMessage: 续写的助手气泡（全新的空气泡，或恢复时已有的那个）。
     ///   - routingPlan: 已解析的主模型路由计划。
 
@@ -542,12 +553,41 @@ struct ChatView: View {
     /// 让用户一进会话就能看到「system + 工具定义 + 历史」已占掉多少窗口，
     /// 而不是误导性的 0%（工具定义常年占数千 词元，绝非 0）。
     /// - Parameter force: true 时忽略已有快照强制重算（切换模型后窗口/阈值会变，必须重算）。
+    /// [T-perf 2026-09-08] MCP 工具发现预热：进入会话即后台预热工具列表缓存，
+    /// 避免首次发送时等待 1-2s 的网络发现（stale-while-revalidate 之外的补充）。
+    /// 独立于 syncContextSnapshot（其有快照命中早退路径，会把预热一起跳过）。
+    private func warmupMCPDiscovery() {
+        let servers = MCPConfigStore.shared.servers.filter { $0.isEnabled }
+        guard !servers.isEmpty else { return }
+        var tokens: [UUID: String] = [:]
+        for server in servers {
+            if let token = MCPConfigStore.shared.effectiveBearerToken(for: server.id) {
+                tokens[server.id] = token
+            }
+        }
+        Task.detached(priority: .utility) {
+            for server in servers {
+                _ = try? await MCPToolDiscoveryCache.shared.definitions(
+                    for: server,
+                    bearerToken: tokens[server.id]
+                )
+            }
+        }
+    }
+
     private func syncContextSnapshot(force: Bool = false) {
         if !force, let existing = ContextUsageStore.shared.snapshot(for: session.id) {
             contextSnapshot = existing
             return
         }
         Task { @MainActor in
+            // [T-perf-session-open 2026-09-08] 延迟到进入转场与首帧稳定之后再估算：
+            // 圆环晚 ~1.2s 出现用户无感，但避免与转场/首屏渲染争抢主线程
+            //（此前 PROMPT BUILD + buildHistory 在点击后立即执行，卡住进入 ~1s）。
+            // 发消息路径不受影响（startRun 自行构建 prompt 与精确用量）。
+            // MCP 预热已拆至 warmupMCPDiscovery()（随会话进入触发，不依赖本函数）。
+            try? await Task.sleep(nanoseconds: 1_200_000_000)
+            guard !Task.isCancelled else { return }
             guard let endpoint = appState.resolveModelRoutingPlan()?.endpoints.first else { return }
             let router = AgentRunService.shared.buildToolRouter(sessionID: session.id)
             let (stable, volatile) = await AgentRunService.shared.buildSystemPrompt(with: router, sessionID: session.id)
@@ -557,10 +597,18 @@ struct ChatView: View {
             messages.append(systemMessage)
             messages.append(contentsOf: AgentRunService.shared.buildHistory(session: session, userMessageID: UUID(), responseMessageID: UUID()).messages)
             let schemas = router.allSchemas()
-            let breakdown = ContextUsageEstimator.breakdown(
-                messages: messages,
-                tools: schemas.isEmpty ? nil : schemas
-            )
+            // [T-perf-session-open 2026-09-08] token 估算是对**全部历史消息**的逐字符
+            // 扫描（CJK per-char 成本更高）——20 条回复的会话可达数百 ms，此前与
+            // prompt 构建一起压在 @MainActor Task 里，卡住进入会话的转场（点击后
+            // ~1s 才可见）。估算为纯函数：挪后台执行，主线程只收结果更新圆环。
+            let detachedMessages = messages
+            let detachedSchemas = schemas
+            let breakdown = await Task.detached(priority: .userInitiated) {
+                ContextUsageEstimator.breakdown(
+                    messages: detachedMessages,
+                    tools: detachedSchemas.isEmpty ? nil : detachedSchemas
+                )
+            }.value
             let policy = ContextPolicy(
                 window: endpoint.contextLimitTokens,
                 reservedOutputTokens: endpoint.maxOutputTokens ?? 0
@@ -600,6 +648,9 @@ struct ChatView: View {
                     thresholdRatio: contextSnapshot.thresholdRatio,
                     measured: contextSnapshot.measured
                 )
+                // 锁定固有尺寸：`.frame` 只是期望值，导航栏宽度被长标题挤压时
+                // 仍会被压缩，Circle 会变形为扁椭圆、数字与弧线错位（真机复现）。
+                .fixedSize()
             }
         }
         ToolbarItem(placement: .topBarTrailing) {
@@ -672,7 +723,9 @@ struct ChatView: View {
     /// 右上角选项菜单按钮的圆形标签。
     private var sessionMenuLabel: some View {
         // 系统格式（与首页 toolbar 同款）：label 仅放图标，系统统一渲染。
+        // fixedSize 锁定固有尺寸，避免导航栏空间紧张时被压缩导致两个按钮错位。
         Image(systemName: "ellipsis")
+            .fixedSize()
     }
 
     /// 输入栏悬浮层(2026-08-11 拆分 body 避免类型推断超时)。
@@ -948,6 +1001,7 @@ struct ChatView: View {
             let lastAssistant = session.messages.last(where: { $0.role == .assistant })
             recoverIfNeeded()
             syncContextSnapshot()
+            warmupMCPDiscovery()
             consumePendingDeepLinkTask()
         }
         .onChange(of: appState.pendingDeepLinkTask?.id) { _ in
@@ -979,7 +1033,7 @@ struct ChatView: View {
             if url.isFileURL {
                 fileURL = url
             } else {
-                fileURL = MiniClawKit.MessageListModel.resolveMiniClawURL(url)
+                fileURL = MessageListModel.resolveMiniClawURL(url)
             }
             guard let fileURL, FileManager.default.fileExists(atPath: fileURL.path) else { return }
             // 2026-08-12:系统预览(Quick Look)——图片/PDF/音视频/文档统一用系统原生预览
@@ -1296,7 +1350,7 @@ struct ChatView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        // 实底背景（唐唐 2026-09-05 定稿，对齐 OpenMinis pill 做法）：
+        // 实底背景（唐唐 2026-09-05 定稿，pill 卡做法）：
         // 不用 ultraThinMaterial 实时模糊——悬浮条 3 层 blur 在列表滚动时每帧重采样，
         // 是「回到会话页翻历史整页抖动」的根因。已完成态用绿色实底表达。
         .background(subagentCapsuleBackground(sub.status))
@@ -1329,7 +1383,7 @@ struct ChatView: View {
         }
     }
 
-    /// 胶囊卡实底背景：常规/运行中 = systemGray6（对齐 OpenMinis pill）；
+    /// 胶囊卡实底背景：常规/运行中 = systemGray6（pill 卡设计）；
     /// 已完成 = 绿色实底（systemGray6 上叠绿调，保留完成态绿色语义，无实时模糊）。
     private func subagentCapsuleBackground(_ status: SubagentStatus) -> some View {
         Group {
@@ -1341,9 +1395,6 @@ struct ChatView: View {
         }
         .clipShape(RoundedRectangle(cornerRadius: 12))
     }
-
-
-    // MARK: - Actions
 
     /// 展示「附件将交由 智能体通过工具读取」的短暂提示，几秒后自动消失。
     @MainActor
@@ -1423,7 +1474,6 @@ struct ChatView: View {
             })
         )
     }
-
 
     // MARK: - 停止
 
@@ -1728,9 +1778,7 @@ struct ChatView: View {
     }
 }
 
-
 // MARK: - 块级段缓存（2026-08-09 崩溃修复）
 
 /// 穿插段纯性能缓存：引用类型，@State 持有它时内部写入不会触发 SwiftUI 更新，
 /// 也不会被视为「视图更新期间修改 State」（iOS 18 该行为是断言崩溃，非警告）。
-

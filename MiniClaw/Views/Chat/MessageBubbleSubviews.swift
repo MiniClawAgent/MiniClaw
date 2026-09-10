@@ -1,4 +1,5 @@
 import SwiftUI
+import MiniClawKit
 
 struct AttachmentCell: View {
     let path: String
@@ -100,6 +101,13 @@ struct AssistantStatusRow: View {
     /// 三点弹跳（开源参考实现对齐：easeInOut 0.4s 错峰 0.15s，offset -3↔1）
 
     var body: some View {
+        // 反色外阴影（2026-09-07 全局强制）：状态行与图标浮在可换背景上
+        // （背景图主题下看不清），与正文同款光晕塔，见 LegibleTextShadow。
+        statusContent.legibleTextShadow()
+    }
+
+    @ViewBuilder
+    private var statusContent: some View {
         if isPaused {
             HStack(spacing: 5) {
                 Image(systemName: "pause.circle.fill")

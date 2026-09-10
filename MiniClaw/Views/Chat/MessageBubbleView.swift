@@ -1,4 +1,5 @@
 import SwiftUI
+import MiniClawKit
 
 
 struct MessageBubbleView: View {
@@ -189,7 +190,7 @@ struct MessageBubbleView: View {
                     userAttachmentGallery
                 }
                 if !message.content.isEmpty {
-                    MarkdownContentView(content: message.content, isStreaming: false, onOpenURL: onOpenURL, onImageTap: onImageTap, sessionID: sessionID)
+                    MarkdownSurface(markdown: message.content, messageId: message.id, onOpenURL: onOpenURL)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 10)
                         // 开源参考实现对齐(2026-08-09):tertiarySystemFill 灰底 + primary 文字(原绿色 #A9EA7A)
@@ -243,10 +244,10 @@ struct MessageBubbleView: View {
             let items = interleavedRenderItems()
             if !items.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
-                    ForEach(Array(items.enumerated()), id: \.offset) { _, item in
+                    ForEach(items) { item in
                         switch item {
-                        case .text(let text):
-                            MarkdownContentView(content: text, isStreaming: effectiveIsStreaming, onOpenURL: onOpenURL, onImageTap: onImageTap, sessionID: sessionID)
+                        case .text(let text, _):
+                            MarkdownSurface(markdown: text, isStreaming: effectiveIsStreaming, messageId: message.id, onOpenURL: onOpenURL)
                         case .tool(let ev):
                             ToolCallCardView(event: ev,
                                              isExpanded: expandedTools.contains(ev.id),
@@ -264,7 +265,7 @@ struct MessageBubbleView: View {
                     }
                 }
             } else if !effectiveContent.isEmpty {
-                MarkdownContentView(content: effectiveContent, isStreaming: effectiveIsStreaming, onOpenURL: onOpenURL, onImageTap: onImageTap, sessionID: sessionID)
+                MarkdownSurface(markdown: effectiveContent, isStreaming: effectiveIsStreaming, messageId: message.id, onOpenURL: onOpenURL)
             }
 
             // 状态始终放在本条 智能体回复的最下方；尚无正文/工具时则自然紧跟头像显示。
@@ -296,7 +297,7 @@ struct MessageBubbleView: View {
         let events = toolCalls
         let segments = showThinking ? reasoningSegments : []
         guard !events.isEmpty || !segments.isEmpty else {
-            return content.isEmpty ? [] : [.text(content)]
+            return content.isEmpty ? [] : [.text(content, ordinal: 0)]
         }
 
         struct TimelineEntry {
@@ -332,13 +333,16 @@ struct MessageBubbleView: View {
 
         var result: [AssistantSegment] = []
         var textCursor = 0
+        // 文本段序号：与工具/思考段的 id 一起构成稳定渲染身份（见 AssistantSegment.id）。
+        var textOrdinal = 0
 
         for entry in timeline {
             let entryPos = min(max(entry.position, 0), content.count)
             if entryPos > textCursor {
                 let startIdx = content.index(content.startIndex, offsetBy: textCursor)
                 let endIdx = content.index(content.startIndex, offsetBy: entryPos)
-                result.append(.text(String(content[startIdx..<endIdx])))
+                result.append(.text(String(content[startIdx..<endIdx]), ordinal: textOrdinal))
+                textOrdinal += 1
             }
             result.append(entry.item)
             textCursor = entryPos
@@ -346,7 +350,8 @@ struct MessageBubbleView: View {
 
         if textCursor < content.count {
             let startIdx = content.index(content.startIndex, offsetBy: textCursor)
-            result.append(.text(String(content[startIdx..<content.endIndex])))
+            result.append(.text(String(content[startIdx..<content.endIndex]), ordinal: textOrdinal))
+            textOrdinal += 1
         }
 
         return result

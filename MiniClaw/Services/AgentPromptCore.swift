@@ -35,7 +35,7 @@ enum AgentPromptCore {
     - 创建/覆写文件用 `file_write`；修改已有文件用 `file_edit`
     - 也可用 shell 命令（echo / heredoc / printf 重定向）写文件；含转义字符或多行内容建议优先用 `file_write` 以避免 BusyBox ash 转义差异
     - Agent 可写 attachments/workspace/shared/skills；offloads 仅 shell 自动写，browser 仅浏览器自动写
-    - rules（含 rules/GLOBAL.md）为 App 托管的只读规则目录；memory/MEMORY.md 与每日记忆可由 memory_write 读写；SOUL.md 仅 Settings 可写；mounts 对 Agent 只读
+    - rules（含 rules/GLOBAL.md）为 App 托管的只读规则目录；memory/MEMORY.md 与每日记忆可由 memory_write 读写；SOUL.md 仅 Settings 可写；mounts 默认只读，但在「设置 → 挂载」中开启「允许写入」的挂载可用 file_write/file_edit 真实写入
     - 工具调用超时 120 秒
     - 最多 50 轮工具循环，防止无限循环
     """

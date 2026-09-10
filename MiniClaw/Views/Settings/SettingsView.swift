@@ -62,7 +62,7 @@ struct SettingsView: View {
                 NavigationLink {
                     LogsView()
                 } label: {
-                    SettingsRow(icon: "doc.text.below.ecg", color: .blue, title: String(localized: "logs"), subtitle: String(localized: "runtime_logs_and_audit_logs"))
+                    SettingsRow(icon: "doc.text.below.ecg", color: .blue, title: String(localized: "logs"), subtitle: String(localized: "runtime_logs_and_crash_logs"))
                 }
             }
 

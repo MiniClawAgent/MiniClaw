@@ -212,7 +212,7 @@ final class BrowserController: NSObject, ObservableObject {
     }
 
     /// 2026-08-10:引擎执行(共用池:UI 与工具同一引擎,标签同步)
-    private func engineExecute(input: MiniClawKit.MiniClawActionInput, sessionID: UUID?) async throws -> String {
+    private func engineExecute(input: MiniClawActionInput, sessionID: UUID?) async throws -> String {
         let pool = enginePool(for: sessionID)
         let result = try await pool.execute(action: input, singleTab: false)
         // 2026-08-12 治本:引擎截图写 tmp/browser_screenshots/(临时目录,Agent 在会话 browser/
@@ -251,7 +251,7 @@ final class BrowserController: NSObject, ObservableObject {
     }
 
     /// 引擎标签池(2026-08-10:与 UI 适配桥共用同一池,标签同步)
-    private func enginePool(for sessionID: UUID?) -> MiniClawKit.MiniClawTabPool {
+    private func enginePool(for sessionID: UUID?) -> MiniClawTabPool {
         BrowserEngineAdapter.shared.pool(for: sessionID)
     }
 

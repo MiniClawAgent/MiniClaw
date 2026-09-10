@@ -12,23 +12,77 @@ actor MCPToolDiscoveryCache {
     private var entries: [UUID: Entry] = [:]
     private let lifetime: TimeInterval = 300
 
+    /// [T-perf 2026-09-08] 失败负缓存：不可达服务器每次发送都同步等连接超时
+    /// （真机 SendTrace 实证单次发现 14.3s、Watchdog 主线程阻塞 8.8s）——
+    /// 失败后 60s 内直接快速跳过，不再拖累发送路径。
+    private var failures: [UUID: Date] = [:]
+    private let failureTTL: TimeInterval = 60
+    private let discoverTimeout: TimeInterval = 3
+
+    private struct DiscoveryTimeout: Error {}
+
     func definitions(
         for server: MCPServerConfig,
         bearerToken: String?,
         forceRefresh: Bool = false
     ) async throws -> [MCPRemoteToolDefinition] {
-        if !forceRefresh,
-           let entry = entries[server.id],
-           Date().timeIntervalSince(entry.fetchedAt) < lifetime {
-            AppLogger.shared.info("[MCP-发现] \(server.name): 缓存命中, \(entry.definitions.count) 个工具")
-            return entry.definitions
+        if !forceRefresh {
+            // 失败负缓存：近期失败的服务器快速跳过（不可达服务器每次连接都要等超时）
+            if let failedAt = failures[server.id],
+               Date().timeIntervalSince(failedAt) < failureTTL {
+                throw DiscoveryTimeout()
+            }
+            if let entry = entries[server.id] {
+                let age = Date().timeIntervalSince(entry.fetchedAt)
+                if age < lifetime {
+                    AppLogger.shared.info("[MCP-发现] \(server.name): 缓存命中, \(entry.definitions.count) 个工具")
+                    return entry.definitions
+                }
+                // [T-perf 2026-09-08] stale-while-revalidate：TTL 过期时**先用旧列表立即
+                // 返回**并后台刷新——此前过期即同步重拉（1-2s 网络发现），卡在发送路径
+                // 上（SendTrace 实证 +1.5s）。工具列表短时间内的变化延后一轮生效，可接受。
+                AppLogger.shared.info("[MCP-发现] \(server.name): 缓存过期(\(Int(age))s), 返回旧列表并后台刷新")
+                let token = bearerToken
+                let sid = server.id
+                let name = server.name
+                Task {
+                    do {
+                        let fresh = try await self.discoverWithTimeout(server: server, bearerToken: token)
+                        self.entries[sid] = Entry(definitions: fresh, fetchedAt: Date())
+                        self.failures[sid] = nil
+                        AppLogger.shared.info("[MCP-发现] \(name): 后台刷新完成, \(fresh.count) 个工具")
+                    } catch {
+                        self.failures[sid] = Date()
+                        AppLogger.shared.info("[MCP-发现] \(name): 后台刷新失败 \(error.localizedDescription)")
+                    }
+                }
+                return entry.definitions
+            }
         }
         AppLogger.shared.info("[MCP-发现] \(server.name): listTools 开始 (forceRefresh=\(forceRefresh))")
-        let client = await MCPClientManager.shared.client(for: server, bearerToken: bearerToken)
-        let definitions = try await client.listTools()
-        AppLogger.shared.info("[MCP-发现] \(server.name): listTools 完成, \(definitions.count) 个工具")
+        let definitions = try await discoverWithTimeout(server: server, bearerToken: bearerToken)
         entries[server.id] = Entry(definitions: definitions, fetchedAt: Date())
+        failures[server.id] = nil
         return definitions
+    }
+
+    /// 实际网络发现（带 3s 超时竞速）：不可达服务器不再拖满连接超时。
+    private func discoverWithTimeout(server: MCPServerConfig, bearerToken: String?) async throws -> [MCPRemoteToolDefinition] {
+        try await withThrowingTaskGroup(of: [MCPRemoteToolDefinition].self) { group in
+            group.addTask {
+                let client = await MCPClientManager.shared.client(for: server, bearerToken: bearerToken)
+                return try await client.listTools()
+            }
+            group.addTask {
+                try await Task.sleep(nanoseconds: UInt64(self.discoverTimeout * 1_000_000_000))
+                throw DiscoveryTimeout()
+            }
+            guard let first = try await group.next() else {
+                throw DiscoveryTimeout()
+            }
+            group.cancelAll()
+            return first
+        }
     }
 
     func tools(

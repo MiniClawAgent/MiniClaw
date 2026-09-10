@@ -162,13 +162,11 @@ final class BrowserTab: NSObject {
             WKUserScript(source: js, injectionTime: .atDocumentStart, forMainFrameOnly: true))
     }
 
-    deinit {
-        // WKUserContentController 是 MainActor 隔离;deinit 在 Swift 6 中非隔离,用 assumeIsolated
-        // (deinit 通常在拥有者释放线程执行,此处 removeScriptMessageHandler 是轻量清理)。
-        MainActor.assumeIsolated {
-            config.userContentController.removeScriptMessageHandler(forName: "miniclawUserGesture")
-        }
-    }
+    // deinit 已移除：deinit 是非隔离上下文、可能在任意线程执行，而
+    // `WKUserContentController` / `config` 均为 MainActor 隔离——在此处调用
+    // `MainActor.assumeIsolated` 一旦遇到后台线程释放就会 fatalError 崩溃
+    // （信号级硬崩溃、无日志、检查点被标 interrupted）。该清理本身也是冗余的：
+    // scriptMessageHandler 注册在随本对象一同释放的 config 上，无需手动摘除。
 
     func resolveNav(throwing error: Error? = nil) {
         guard !navResolved else { return }

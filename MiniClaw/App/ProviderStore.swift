@@ -141,8 +141,15 @@ enum ProviderFileStore {
             // OAuth 服务商的凭证只存 OAuthKeychainStorage（instanceId = provider.id），
             // 绝不写 APIKeyStore——避免与 API key 共用键空间、重启回填旧 令牌。
             if p.credentialType != "oauth", !key.isEmpty {
-                APIKeyStore.saveKey(key, for: p.id)
-                p.hasApiKey = true
+                do {
+                    try APIKeyStore.saveKey(key, for: p.id)
+                    p.hasApiKey = true
+                } catch {
+                    // 写入失败绝不谎报已保存，否则用户看到「已保存」却在请求时报认证失败。
+                    p.hasApiKey = false
+                    AppLogger.shared.error("ProviderStore: API Key 写入 Keychain 失败 provider=\(p.id.uuidString) err=\(error.localizedDescription)",
+                                           category: "ProviderStore")
+                }
             }
             p.apiKey = "" // 落盘前清空明文
             toSave.providers[i] = p
@@ -197,9 +204,15 @@ enum ProviderFileStore {
             }
             let legacyKey = p.apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
             if !legacyKey.isEmpty {
-                APIKeyStore.saveKey(legacyKey, for: p.id)
-                p.hasApiKey = true
-                p.apiKey = "" // 暂清，稍后从 Keychain 回填
+                do {
+                    try APIKeyStore.saveKey(legacyKey, for: p.id)
+                    p.hasApiKey = true
+                    p.apiKey = "" // 暂清，稍后从 Keychain 回填
+                } catch {
+                    p.hasApiKey = false
+                    AppLogger.shared.error("ProviderStore: 迁移 API Key 写入 Keychain 失败 provider=\(p.id.uuidString) err=\(error.localizedDescription)",
+                                           category: "ProviderStore")
+                }
             }
             if let stored = APIKeyStore.getKey(for: p.id), !stored.isEmpty {
                 p.apiKey = stored

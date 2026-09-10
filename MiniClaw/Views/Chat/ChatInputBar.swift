@@ -298,7 +298,33 @@ struct ChatInputBar: View {
                 kind: .disabled(String(localized: "current_model_not_supported"))
             )
         }
-        let base = SlashCommandOverlay.defaultCommands.map { $0.id == "thinking" ? thinkingCommand : $0 }
+        let memoryOn = SettingsStore.shared.settings.memory.isEnabled
+        let memoryCommand = SlashCommandItem(
+            id: "memory",
+            icon: "brain",
+            title: "/memory",
+            // 2026-09-08 修复：占位 .toggle(false) 未被真实状态替换——菜单恒显示"关"、
+            // 点击恒"开启"，记忆开关关不掉。改为注入真实状态 + 动态副标题。
+            subtitle: String(localized: memoryOn ? "slash_memory_on" : "slash_memory_off"),
+            kind: .toggle(memoryOn)
+        )
+        let base = SlashCommandOverlay.defaultCommands.map { cmd -> SlashCommandItem in
+            switch cmd.id {
+            case "thinking": return thinkingCommand
+            case "memory": return memoryCommand
+            case "clear":
+                // 固定命令副标题走 i18n（此前硬编码英文，四语环境下恒英文）。
+                return SlashCommandItem(id: cmd.id, icon: cmd.icon, title: cmd.title,
+                                        subtitle: String(localized: "slash_clear_subtitle"),
+                                        kind: cmd.kind, thinkingLevel: cmd.thinkingLevel)
+            case "compact":
+                return SlashCommandItem(id: cmd.id, icon: cmd.icon, title: cmd.title,
+                                        subtitle: String(localized: "slash_compact_subtitle"),
+                                        kind: cmd.kind, thinkingLevel: cmd.thinkingLevel)
+            default:
+                return cmd
+            }
+        }
         return base + SkillManager.shared.skillSlashCommands()
     }
 
@@ -696,9 +722,6 @@ struct ChatInputBar: View {
             TextField(textFieldPlaceholder, text: $draft,
                       axis: SettingsStore.shared.settings.chat.enterToSend ? .horizontal : .vertical)
                 .focused(focused)
-                .onChange(of: focused.wrappedValue) { now in
-                    // [KbdDiag 2026-08-11] 输入焦点变化(键盘弹出/收起直接信号)。
-                }
                 .lineLimit(SettingsStore.shared.settings.chat.enterToSend ? 1 : 6)
                 .submitLabel(SettingsStore.shared.settings.chat.enterToSend ? .send : .return)
                 .onSubmit {
@@ -707,18 +730,8 @@ struct ChatInputBar: View {
                     // 对 iPhone 软键盘无效，故改用 onSubmit 以覆盖主输入场景。
                     if SettingsStore.shared.settings.chat.enterToSend { performSend() }
                 }
-                .simultaneousGesture(
-                    DragGesture(minimumDistance: 20)
-                        .onEnded { value in
-                            // 下滑 → 收起键盘（输入框内任意位置下滑）
-                            if value.translation.height > 30 {
-                                focused.wrappedValue = false
-                            }
-                        }
-                )
-            .onChange(of: focused.wrappedValue) { now in
-                // [KbdDiag 2026-08-11] 输入焦点变化(键盘弹出/收起直接信号)。
-            }
+            // 下滑 → 收起键盘：挂在输入栏整体（而非仅 TextField）上，
+            // 2026-09-07 去除与 TextField 上逐字重复的第二份手势与两处空 onChange。
             .simultaneousGesture(
                 DragGesture(minimumDistance: 20)
                     .onEnded { value in

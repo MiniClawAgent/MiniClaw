@@ -18,8 +18,8 @@ settings:
     ALWAYS_SEARCH_USER_PATHS: NO
     # 2026-08-12:iSH 预编译静态库(libish.a/libish_emu.a)为 iOS17 构建,链接 16.0 目标
     # 产生版本警告(第三方二进制无法重编译);-Wl,-w 抑制链接器版本噪音警告。
-    OTHER_LDFLAGS:
-      - "-Wl,-w"
+    # 注:OTHER_LDFLAGS 只在此处定义一次。2026-09-07 前本键在文件里出现两次
+    # (此处 "-Wl,-w" 与下方 iSH 静态库),YAML 后者覆盖前者,抑制警告那条实际未生效。
     CODE_SIGN_STYLE: Automatic
     # 2026-08-13:固化团队 ID(命令行 Archive/CI 签名必需;Xcode 界面 Archive 不依赖此项)。
     DEVELOPMENT_TEAM: LZ84D5PQ38
@@ -42,7 +42,10 @@ settings:
       - "$(SRCROOT)/../第三方源码/ish-arm64/vdso/arm64"
       - "$(SRCROOT)/../第三方源码/ish-arm64/build-arm64-ios"
     # Link the three prebuilt iSH static libraries + sqlite3.
+    # -Wl,-w:iSH 预编译静态库为 iOS17 构建,链接 16.0 目标会产生版本警告,
+    # 第三方二进制无法重编译,故抑制该链接器噪音(须与库列表同处一份,否则被覆盖)。
     OTHER_LDFLAGS:
+      - "-Wl,-w"
       - "$(SRCROOT)/../第三方源码/ish-arm64/build-arm64-ios/libish.a"
       - "$(SRCROOT)/../第三方源码/ish-arm64/build-arm64-ios/libish_emu.a"
       - "$(SRCROOT)/../第三方源码/ish-arm64/build-arm64-ios/libfakefs.a"
@@ -63,6 +66,8 @@ targets:
       # AppIntents 单独编译为 Swift 5 模式：规避 iOS 26 SDK 的 AppIntent Sendable / @MainActor 严格并发冲突
       # （详见 MiniClaw/AppIntents/MiniClawIntents.swift 顶部注释）。
       - path: MiniClaw/AppIntents/MiniClawIntents.swift
+        compilerFlags: "-swift-version 5"
+      - path: MiniClaw/Views/Chat/Render/MarkdownAttachments.swift
         compilerFlags: "-swift-version 5"
       # 分享收件箱核心：与 ShareExtension 双编（扩展不可链接主 App 代码）
       - path: Shared

@@ -19,7 +19,7 @@ struct BackgroundSettingsView: View {
             } header: {
                 Text(String(localized: "status"))
             } footer: {
-                Text(String(localized: "coarse_location_keeps_the_app_running_in_the_background_it_is_enabled_only_when_background_run_is_on_and_permission_is_granted"))
+                Text(String(localized: "background_agent_status_footer"))
             }
 
             Section {

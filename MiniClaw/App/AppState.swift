@@ -523,6 +523,12 @@ final class AppState: ObservableObject {
     var sessionCompressionTurn: [UUID: Int] = [:]
     var sessionLastCompressionTurn: [UUID: Int] = [:]
 
+    /// 手动压缩预约（key = session.id）：/compact 写入，下次 run 的前置压缩阶段消费。
+    /// 2026-09-08 从 ChatSessionRuntime.requestCompression 挪来——runtime 仅在回复
+    /// 进行期间存在，空闲会话 /compact 曾因取不到 runtime 而静默无效；会话级字典
+    /// 跨 runtime 存活，空闲预约 → 下次对话前置阶段强制压缩，语义等价且架构更简。
+    var pendingManualCompact: Set<UUID> = []
+
     /// 排队中的用户消息（key = session.id）。智能体回复进行中用户继续发送的消息进入此队列，
     /// 在会话页以虚线气泡持续展示（带删除按钮）；当前回复完成后按 FIFO 逐条落盘并触发新回复。
     @Published var pendingUserMessages: [UUID: [PendingUserMessage]] = [:]

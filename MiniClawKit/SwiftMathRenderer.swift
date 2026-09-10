@@ -1,17 +1,17 @@
 // vendored SwiftMath 源码与本文件同属 MiniClawKit target(模块内直接可用,无需 import SwiftMath)
 import UIKit
 
-private let logger = AppLogger(category: "SwiftMathRenderer")
+private let logger = KitLog(category: "SwiftMathRenderer")
 
 /// Renders LaTeX math formulas to UIImage using SwiftMath (pure native, no WebView).
-enum SwiftMathRenderer {
+public enum SwiftMathRenderer {
 
     /// LRU-style cache keyed by "D:<latex>" or "I:<latex>".
     private static let cache = NSCache<NSString,SwiftMathRenderResult>()
     private static let cacheTune: Void = { cache.countLimit = 256 }()
 
     /// Render a LaTeX formula synchronously. Returns nil on parse error.
-    static func render(latex: String,displayMode: Bool,fontSize: CGFloat = 17) -> SwiftMathRenderResult? {
+    public static func render(latex: String,displayMode: Bool,fontSize: CGFloat = 17) -> SwiftMathRenderResult? {
         _ = cacheTune
 
         let key = keyFor(latex: latex,displayMode: displayMode,fontSize: fontSize) as NSString
@@ -106,7 +106,7 @@ enum SwiftMathRenderer {
     /// Render a LaTeX formula to UIImage by converting to Unicode text
     /// and drawing with the system font. Handles CJK inside \text{} and
     /// common math operators that SwiftMath's Latin Modern font can't show.
-    static func renderFallback(latex: String,displayMode: Bool,fontSize: CGFloat = 17) -> SwiftMathRenderResult? {
+    public static func renderFallback(latex: String,displayMode: Bool,fontSize: CGFloat = 17) -> SwiftMathRenderResult? {
         let key = ("F:" + keyFor(latex: latex, displayMode: displayMode, fontSize: fontSize)) as NSString
         if let cached = cache.object(forKey: key) { return cached }
 
@@ -221,9 +221,9 @@ enum SwiftMathRenderer {
 
 // MARK: - Render Result
 
-final class SwiftMathRenderResult: NSObject {
-    let image: UIImage
-    let size: CGSize
+public final class SwiftMathRenderResult: NSObject {
+    public let image: UIImage
+    public let size: CGSize
 
     init(image: UIImage,size: CGSize) {
         self.image = image

@@ -117,6 +117,53 @@ final class ChatSessionRuntime: ObservableObject, @MainActor Identifiable {
     /// 全局时间线序号计数器：每次创建新的思考段或工具调用时递增，
     /// 用于渲染时按真实发生顺序交错排列（而非按 position 堆叠）。
     @Published var nextTimelineOrder: Int = 1
+
+    // MARK: - 轮次安全锚点（2026-09-09 重试保内容）
+    //
+    /// 「最近安全点」快照：每个工具开始挂载时记录。重试 / 最终失败时回滚到该锚点
+    /// —— **已完成轮次的内容（历史正文/思考/工具）全部保留**，只丢弃当前轮的
+    /// 半截输出。此前重试清空整个 runtime 状态：HTTP 402/网络错误重试 5 次全挂
+    /// → 中断前所有 loop 内容从 UI 和落盘里一起消失（真机实证 onError 落盘
+    /// content=23字，只剩错误提示文案）。
+    struct RoundAnchor {
+        let contentCount: Int     // streamingContent 保留前缀长度
+        let order: Int            // nextTimelineOrder 回滚值（锚点后号段可复用）
+        let segmentCount: Int     // 保留前 N 个思考段
+        let toolCount: Int        // 保留前 N 个工具执行
+    }
+    private var roundAnchor: RoundAnchor?
+
+    /// 在每个工具开始挂载前调用：此刻之前的所有流式内容（历史轮 + 本轮已流出
+    /// 正文/思考）都已安全 —— 本轮重试只丢弃锚点之后的半截输出。
+    func markRoundSafePoint() {
+        commitStreamBuffer()
+        commitReasoningBuffer()
+        roundAnchor = RoundAnchor(
+            contentCount: streamingContent.count,
+            order: nextTimelineOrder,
+            segmentCount: streamingReasoningSegments.count,
+            toolCount: streamingToolExecutions.count)
+    }
+
+    /// 回滚到最近安全点：截断当前轮半截输出（正文截断回锚点长度、移除锚点后的
+    /// 思考段/工具执行），保留全部已完成轮次内容。无锚点时不做任何事。
+    func rollbackToRoundSafePoint() {
+        commitStreamBuffer()
+        commitReasoningBuffer()
+        guard let a = roundAnchor else { return }
+        if streamingContent.count > a.contentCount {
+            streamingContent = String(streamingContent.prefix(a.contentCount))
+        }
+        if streamingReasoningSegments.count > a.segmentCount {
+            streamingReasoningSegments.removeLast(streamingReasoningSegments.count - a.segmentCount)
+        }
+        if streamingToolExecutions.count > a.toolCount {
+            streamingToolExecutions.removeLast(streamingToolExecutions.count - a.toolCount)
+        }
+        nextTimelineOrder = a.order
+        pendingText = ""
+        pendingReasoning.removeAll()
+    }
     /// 是否正在响应（驱动输入栏「发送/停止」切换，跨重建保持准确）
     @Published var isResponding: Bool = false
     /// 是否处于「已暂停」状态（软暂停，可恢复）。
@@ -159,8 +206,8 @@ final class ChatSessionRuntime: ObservableObject, @MainActor Identifiable {
     /// 冷启动恢复暂停态时的 MCP 动态工具准备任务。
     /// 用户过快点击「继续」时，恢复流程会先等待此任务，避免 `resume()` 早于工具注册。
     var mcpPreparationTask: Task<Void, Never>?
-    /// 用户通过 /compact 手动请求压缩（下次引擎 run 时优先执行）。
-    var requestCompression: Bool = false
+    // /compact 手动压缩标志已挪至 AppState.pendingManualCompact（2026-09-08：
+    // runtime 仅在回复期间存在，空闲会话取不到 → 预约丢失；会话级字典跨 runtime 存活）。
 
     var id: UUID { sessionID }
 

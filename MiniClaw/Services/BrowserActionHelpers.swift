@@ -49,7 +49,7 @@ enum BrowserActionHelpers {
     ///   优先于 tabIndex 解析，换算成当前索引后走原链路；nil 则仅用 tabIndex。
     /// preset(mobile|desktop) → MiniClawUAProfile;兼容 Kit rawValue 拼写(mobile_safari|desktop_safari)。
     /// 2026-08-12 修复:此前只读 `user_agent` 键且值域不匹配,preset=desktop 静默回退 mobile_safari。
-    static func resolveUAProfile(_ params: [String: Any]) -> MiniClawKit.MiniClawUAProfile? {
+    static func resolveUAProfile(_ params: [String: Any]) -> MiniClawUAProfile? {
         if let preset = params["preset"] as? String {
             switch preset.lowercased() {
             case "mobile", "mobile_safari": return .mobileSafari
@@ -57,7 +57,7 @@ enum BrowserActionHelpers {
             default: return nil
             }
         }
-        return (params["user_agent"] as? String).flatMap(MiniClawKit.MiniClawUAProfile.init)
+        return (params["user_agent"] as? String).flatMap(MiniClawUAProfile.init)
     }
 
 
@@ -72,16 +72,16 @@ enum BrowserActionHelpers {
 
 
     /// 2026-08-10:动作参数 → 引擎 MiniClawActionInput(引擎优先路径)
-    static func engineInput(action: String, params: [String: Any]) -> MiniClawKit.MiniClawActionInput? {
-        guard let browserAction = MiniClawKit.MiniClawBrowserAction(rawValue: action) else { return nil }
-        return MiniClawKit.MiniClawActionInput(
+    static func engineInput(action: String, params: [String: Any]) -> MiniClawActionInput? {
+        guard let browserAction = MiniClawBrowserAction(rawValue: action) else { return nil }
+        return MiniClawActionInput(
             action: browserAction,
             url: params["url"] as? String,
             selector: params["selector"] as? String,
             text: params["text"] as? String,
             coordinateX: params["x"] as? Int,
             coordinateY: params["y"] as? Int,
-            direction: (params["direction"] as? String).flatMap(MiniClawKit.MiniClawActionInput.ScrollDirection.init),
+            direction: (params["direction"] as? String).flatMap(MiniClawActionInput.ScrollDirection.init),
             amount: params["amount"] as? Int,
             script: params["script"] as? String,
             userAgent: Self.resolveUAProfile(params),

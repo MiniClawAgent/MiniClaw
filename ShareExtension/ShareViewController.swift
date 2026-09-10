@@ -9,7 +9,7 @@ import Combine
 /// completion 常不回调——旧实现把 `completeRequest` 写在 completion 里，表现
 /// 就是「点了发送毫无反应、面板也不收起」）。
 ///
-/// 现行链路（方法与 OpenMinis 同思路，实现为自有代码）：
+/// 现行链路（自有实现，仅方法层面参考同类方案）：
 ///   扩展：抽取内容 → 文件**复制**进 App Group 共享目录 → 写 PendingTaskShare
 ///        → completeRequest（立即收起面板）
 ///   主 App：深链 / 冷启动 / 前台激活时读收件箱 → 建会话 → 走既有深链派发

@@ -7,7 +7,8 @@ import SwiftUI
 /// - `.aspectRatio(contentMode: .fill)` 等比填满 + 居中裁切 + ignoresSafeArea；
 ///   iPad 分屏/横竖屏切换由 GeometryReader 自适应，无需设备特判；
 /// - 解码用 ImageIO downsampling（按容器尺寸 × 屏幕缩放），不做全分辨率解码；
-/// - 暗色模式 = 单图 + 黑色遮罩（不透明度取包内 dimDark，缺省 0.35）。
+/// - 暗色模式 = 单图 + 黑色遮罩（不透明度取包内 dimDark，缺省 0.55）；
+/// - 浅色模式 = 无遮罩，除非主题声明 dimLight（0-1）——供亮壁纸主题自行压暗。
 struct ThemeBackground: View {
     enum Slot: String {
         case home, chat, settings
@@ -31,8 +32,15 @@ struct ThemeBackground: View {
                         .frame(width: geo.size.width, height: geo.size.height)
                         .clipped()
                         .overlay {
-                            if colorScheme == .dark {
+                            switch colorScheme {
+                            case .dark:
                                 Color.black.opacity(dimOpacity).ignoresSafeArea()
+                            default:
+                                // 浅色遮罩：仅当主题声明 dimLight > 0 才生效（缺省无遮罩，
+                                // 默认视觉零变化）；供亮壁纸主题自行压暗降纹理干扰。
+                                if dimLightOpacity > 0 {
+                                    Color.black.opacity(dimLightOpacity).ignoresSafeArea()
+                                }
                             }
                         }
                 } else {
@@ -48,6 +56,11 @@ struct ThemeBackground: View {
 
     private var dimOpacity: Double {
         min(max(manager.activeDeclaration()?.dimDark ?? 0.55, 0), 1)
+    }
+
+    /// 浅色遮罩：仅在主题声明 dimLight 时生效（缺省 nil → 0 → 不遮罩）。
+    private var dimLightOpacity: Double {
+        min(max(manager.activeDeclaration()?.dimLight ?? 0, 0), 1)
     }
 
     /// 无主题时的回退色：与各页面原生列表背景一致，保证默认视觉零变化。

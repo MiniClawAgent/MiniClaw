@@ -14,7 +14,7 @@ final class MiniClawChatBridge: ObservableObject {
     /// 适配列表直接消费的视图模型。注入 BrowserEngineAdapter 的共享标签池,
     /// 让浏览器工具指示器能打开真实引擎 WebView(BrowserSheetView),不再落入
     /// 空桩 ISHTerminalView(2026-08-10 修复:浏览器工具白屏)。
-    let vm = MiniClawKit.MessageListModel(browserTabPool: BrowserEngineAdapter.shared.pool(for: nil))
+    let vm = MessageListModel(browserTabPool: BrowserEngineAdapter.shared.pool(for: nil))
 
     private weak var session: ChatSession?
     private weak var appState: AppState?
@@ -28,7 +28,7 @@ final class MiniClawChatBridge: ObservableObject {
     /// Kit 对象缓存(按 MiniClaw 持久消息 id):内容签名不变则复用旧对象,
     /// 保持 message.id/block.id 稳定 → 列表高度缓存/contentKey memo 可命中,
     /// 消除每次刷新的全量缓存失效与估算↔实测落差(2026-08-10 滑动跳动/空白根因)。
-    private var bridgeCache: [String: MiniClawKit.ChatMessage] = [:]
+    private var bridgeCache: [String: RenderMessage] = [:]
     /// 当前观察的 runtime(流式实时:SwiftData 消息终态落盘,流式中 content 不变,
     /// 需订阅 runtime.streamingContent 驱动刷新;2026-08-10 切默认路径前接通)。
     private weak var observedRuntime: ChatSessionRuntime?
@@ -115,7 +115,17 @@ final class MiniClawChatBridge: ObservableObject {
         let endTransition = lastIsProcessing && !vm.isProcessing
         lastIsProcessing = vm.isProcessing
 
-        let messages = sorted.map { bridgedMessage(for: $0) }
+        // [2026-09-09 进入长会话卡顿] `bridgedMessage` 内会对未渲染的文本块**同步**
+        // 跑 cmark 解析 + 富文本构造，50+ 消息会话一次 refresh 就是上百次串行渲染
+        // = 主线程卡数秒（用户报告的「进入长会话 50+ 消息卡」）。
+        // 会话进入时视口在底部（最新消息），因此只对**尾部**若干条消息现场渲染；
+        // 其余留给 cell 首次配置时由 MarkdownView 按需渲染（不白屏，成本摊进滑动）。
+        // 已经渲染过的块（第二次进入、统一缓存命中）走零成本路径，不受影响。
+        let syncRenderTailCount = 20
+        let renderFrom = max(0, sorted.count - syncRenderTailCount)
+        let messages = sorted.enumerated().map { idx,m in
+            bridgedMessage(for: m, allowsSyncRender: idx >= renderFrom)
+        }
         // 流式实时合并(SwiftData 终态落盘,流式中 content 不更新):
         // 把 runtime 的实时缓冲(正文 streamingContent、思考段
         // streamingReasoningSegments、工具调用 streamingToolExecutions)合并进
@@ -148,23 +158,44 @@ final class MiniClawChatBridge: ObservableObject {
                     $0.order < $1.order || ($0.order == $1.order && $0.position < $1.position)
                 }
                 // 切分:每个事件前的正文片段 order = 事件order - 0.5;剩余排最后。
+                // [2026-09-09 流式切分收敛·治本] 先算出**目标 text 块集合**（与终态
+                // buildBlocks 完全同构：id=det(mid,startOffset)、order 同规则），再统一
+                // upsert + **孤儿清理**。此前边遍历边 upsert：工具 position 赋值与正文
+                // token 到达存在竞态（onToolExecutionBegin 时最后一批 token 可能尚未
+                // 进入 streamingContent/pendingText → position 少记），cursor 漂移后旧
+                // startOffset 的块不再被任何 upsert 命中、又不被删除 → 流式显示截短
+                //（真机：正文段只剩「三」一个字，重进会话才恢复完整）。目标集收敛后：
+                // 无论时序怎么抖，每次 refresh 后 text 块集合 = 当前 (events, content)
+                // 的正确切分，且 id 与终态完全一致 → 终态合并零跳变。
                 let content = runtime.streamingContent
+                var targets: [(startOffset: Int, content: String, order: Double)] = []
                 var cursor = 0
                 for (order, position) in events {
                     let p = min(max(position, 0), content.count)
                     if p > cursor {
                         let startIdx = content.index(content.startIndex, offsetBy: cursor)
                         let endIdx = content.index(content.startIndex, offsetBy: p)
-                        upsertTextBlock(content: String(content[startIdx..<endIdx]),
-                                        order: order - 0.5,
-                                        into: &lastAI.blocks)
+                        targets.append((cursor, String(content[startIdx..<endIdx]), order - 0.5))
                     }
                     cursor = max(cursor, p)
                 }
                 if cursor < content.count {
                     let startIdx = content.index(content.startIndex, offsetBy: cursor)
-                    upsertTextBlock(content: String(content[startIdx..<content.endIndex]),
-                                    order: Double(Int.max - 1),
+                    targets.append((cursor, String(content[startIdx..<content.endIndex]), Double(Int.max - 1)))
+                }
+                // 孤儿清理：不在目标集的 text 块 = 旧切分残留（position 漂移产物），
+                // 删除使其不再占据显示。thinking/tool 块不在本清理范围
+                //（§② 前缀匹配、§③ toolUseId 幂等各自管理）。
+                let targetIDs = Set(targets.map { MiniClawChatAdapter.textBlockID(messageID: lastAI.id, startOffset: $0.startOffset) })
+                let orphanIDs = lastAI.blocks.filter { $0.kind == .text && !targetIDs.contains($0.id) }.map(\.id)
+                if !orphanIDs.isEmpty {
+                    lastAI.blocks.removeAll { $0.kind == .text && !targetIDs.contains($0.id) }
+                }
+                for t in targets {
+                    upsertTextBlock(messageID: lastAI.id,
+                                    content: t.content,
+                                    startOffset: t.startOffset,
+                                    order: t.order,
                                     into: &lastAI.blocks)
                 }
             }
@@ -176,19 +207,10 @@ final class MiniClawChatBridge: ObservableObject {
                     b.kind == .thinking && !b.content.isEmpty && seg.text.hasPrefix(b.content)
                 }
                 if let existing = prefixMatch {
-                    // [ThinkBridge] 段文本回缩(变短/非前缀增长)是「展开闪一下就折叠」类
-                    // 问题的关键线索:文本回缩时前缀匹配会持续失败,块被重建、展开态丢失。
-                    if seg.text.count < existing.content.count {
-                        AppLogger.shared.info("[ThinkBridge] seg text SHRANK segId=\(seg.id.uuidString.prefix(8)) cachedLen=\(existing.content.count) segLen=\(seg.text.count) — prefix match仍命中,就地更新")
-                    }
                     existing.content = seg.text
                 } else {
                     // [Fix 重进会话跳屏·方案B] 传 seg.id 保持与终态 Adapter 重建一致。
-                    // [ThinkBridge] 走到这里 = 前缀匹配失败、思考块被整体重建:
-                    // 若用户刚展开过旧块,展开态随旧块被丢弃(点开闪一下即折叠)。
-                    // 下次复现请连同 [Collapse] HIT/POST 日志一起抓取。
-                    AppLogger.shared.info("[ThinkBridge] thinking block REBUILT segId=\(seg.id.uuidString.prefix(8)) segLen=\(seg.text.count) existingBlocks=\(lastAI.blocks.count) — 展开态将丢失(若用户刚点开)")
-                    let tb = MiniClawKit.AssistantBlock(id: seg.id, kind: .thinking, content: seg.text)
+                    let tb = AssistantBlock(id: seg.id, kind: .thinking, content: seg.text)
                     tb.isThinkingExpanded = false
                     tb.thinkingUserToggled = false
                     insertBlock(tb, order: Double(seg.timelineOrder), into: &lastAI.blocks)
@@ -286,9 +308,15 @@ final class MiniClawChatBridge: ObservableObject {
     /// 流式增长特例:同一消息 content 变长但 blocks 结构相同(仅文本块增量)
     /// 时,复用旧对象并就地更新文本块 content——保持 block.id 恒定,
     /// diffable 列表只 reconfigure 不重建,消除流式/切回 app 抖动。
-    private func bridgedMessage(for model: ChatMessage) -> MiniClawKit.ChatMessage {
+    private func bridgedMessage(for model: ChatMessage,
+                                allowsSyncRender: Bool = true) -> RenderMessage {
         let key = model.id.uuidString
         let fresh = MiniClawChatAdapter.convert(model)
+        // 同步渲染累计字符预算（条数之外再加一道"体积"闸门）：syncRenderTailCount 只限条数，
+        // 子代理一次返回几万字符时，尾部 20 条里夹着的超长消息同步渲染会把主线程卡住数秒
+        // （看门狗强杀嫌疑）。20000 字符约等于数屏正文，覆盖绝大多数正常消息；超预算的块跳过
+        // 同步渲染是安全的——cell 首次配置时 MarkdownView 会按需渲染（不白屏）。
+        let syncRenderCharBudget = 20000
         if let cached = bridgeCache[key] {
             // 内容签名完全一致:复用缓存对象(block.id 稳定,高度缓存可命中)。
             if blockSignature(cached) == blockSignature(fresh) {
@@ -298,18 +326,81 @@ final class MiniClawChatBridge: ObservableObject {
             // 已落盘部分(blocks 结构变化时也复用旧对象)。流式状态(正文/思考/工具)
             // 由 refresh() 的实时合并补充,若此处替换新对象会导致 block.id 全变、
             // 高度缓存连坐失效、bind4a 订阅断链——加剧「一次性吐出」(2026-08-10)。
+            // [2026-09-09 治本] **禁止在流式分支回写滞后快照**：
+            // `mergeTextContent` + `cached.content = fresh.content` 会把实时块内容
+            // 打回**滞后的落盘快照**（content 落盘有延迟），下一次 refresh 的
+            // runtime 实时合并又写回新值 → 同一块内容在「旧段/新段」之间反复横跳
+            // （真机日志实证：CACHE-WIPE 两段正文交替 20+ 次）、正文段被截短成
+            // 开头几个字（图 1「凌晨」）、结束后短值固化 + 渲染层 skip 锁死成空白
+            //（图 3 中间正文"消失"）。流式内容一律以 runtime 实时合并为唯一来源。
             if model.isStreaming {
-                mergeTextContent(cached, from: fresh)
                 cached.isAwaitingModelResponse = fresh.isAwaitingModelResponse
-                cached.content = fresh.content
                 return cached
             }
-            // 终态消息(isStreaming == false):**就地合并** fresh——blocks 整体替换为
-            // fresh 的(timelineOrder 正确排序,保留 2026-08-10 排序修复),但保留 cached
+            // 终态消息(isStreaming == false):**就地合并** fresh——保留 cached
             // 对象身份:footer 状态行/耗时绑定在 cached 上(@Published),换新对象会让
             // 已绑定 cell 收不到变更,终态耗时/状态要重进会话才显示(2026-09-05 修复)。
             cached.content = fresh.content
-            cached.blocks = fresh.blocks
+            // [2026-09-09 流式→终态跳变治本] **同 id 块就地同步字段，禁止整体替换
+            // blocks 数组**。身份统一后流式块与终态块 id 相同但**对象不同**：整体
+            // 替换后 cell 仍绑定旧 AssistantBlock（其 @Published 链随之停摆——
+            // Bridge 后续只更新新对象），而 applySnapshot 因 item 集合不变（id 相同）
+            // 短路、不 reconfigure → 已显示 cell 停在流式最后值，直到滚动触发
+            // 复用重配才跳到终态内容 = 「回复刚结束中间会话又刷出来 / 上下滑动
+            // 又变回不完整」（真机 IMG_4602/4603，2026-09-09 12:26）。
+            // 同 id 就地同步：对象身份稳定 → cell 实时刷新；且块级渲染缓存
+            // （cachedMarkdown/cachedAttributedString）不因换对象而连坐失效。
+            // 结构变化（新增/删除/换 id）才允许 fresh 新对象入列。
+            var oldByID: [UUID: AssistantBlock] = [:]
+            for b in cached.blocks { oldByID[b.id] = b }
+            var merged: [AssistantBlock] = []
+            merged.reserveCapacity(fresh.blocks.count)
+            for fb in fresh.blocks {
+                if let ob = oldByID[fb.id] {
+                    // 同 id：内容变了才清块级渲染缓存（正常路径流式块内容与终态
+                    // 一致——身份统一的初衷——缓存保留零成本；不一致说明切分漂移，
+                    // 清缓存换正确性）。thinking 展开态/用户手动标志保留旧对象的。
+                    if ob.content != fb.content {
+                        ob.content = fb.content
+                        ob.cachedMarkdown = nil
+                        ob.cachedAttributedString = nil
+                    }
+                    ob.kind = fb.kind
+                    ob.toolStatus = fb.toolStatus
+                    ob.toolSummary = fb.toolSummary
+                    ob.toolDuration = fb.toolDuration
+                    ob.toolInputArgs = fb.toolInputArgs
+                    ob.toolUseId = fb.toolUseId
+                    ob.imageFilePath = fb.imageFilePath
+                    ob.browserURL = fb.browserURL
+                    ob.wasBackgroundSuspended = fb.wasBackgroundSuspended
+                    ob.streamingFileContent = fb.streamingFileContent
+                    if ob.timelineOrder != fb.timelineOrder { ob.timelineOrder = fb.timelineOrder }
+                    merged.append(ob)
+                } else {
+                    merged.append(fb)
+                }
+            }
+            cached.blocks = merged
+            // [T-perf 2026-09-08] 签名真变化的终态消息：补文本块渲染缓存
+            //（cacheRenderedContent 内部接入进程级统一缓存——第二次进入零渲染；
+            // 同步主线程执行——后台化方案曾致所有会话白屏一秒，已回退）。
+            // [2026-09-09] 同步渲染**限量**：见 `syncRenderTailCount` 说明。
+            // 长会话（50+ 消息）若在此对全部历史块串行渲染，进入即主线程卡数秒。
+            // 非尾部消息跳过——cell 首次配置时 MarkdownView 会按需渲染（不白屏）。
+            if allowsSyncRender {
+                var charBudget = syncRenderCharBudget
+                let blocks = cached.blocks
+                for (i, blk) in blocks.enumerated() {
+                    guard blk.kind == .text, blk.cachedAttributedString == nil else { continue }
+                    // 至少保证最后一条消息一定渲染，避免最新内容不渲染导致白屏/闪烁。
+                    let isLast = i == blocks.count - 1
+                    let estimated = blk.content.count
+                    if !isLast, estimated > charBudget { continue }
+                    charBudget -= estimated
+                    blk.cacheRenderedContent()
+                }
+            }
             cached.error = fresh.error
             cached.usage = fresh.usage
             cached.streamInterruptCount = fresh.streamInterruptCount
@@ -321,11 +412,30 @@ final class MiniClawChatBridge: ObservableObject {
             return cached
         }
         bridgeCache[key] = fresh
+        // [T-perf 2026-09-08] 新消息首次入缓存：补文本块渲染缓存（同步——
+        // cacheRenderedContent 内部接入进程级统一缓存，第二次进入同会话零渲染；
+        // 后台化方案曾致所有会话白屏一秒，已回退）。流式中的消息跳过。
+        if !model.isStreaming {
+            // 同上：只渲染尾部消息的块（限量），避免长会话进入时主线程串行渲染。
+            if allowsSyncRender {
+                var charBudget = syncRenderCharBudget
+                let blocks = fresh.blocks
+                for (i, blk) in blocks.enumerated() {
+                    guard blk.kind == .text, blk.cachedAttributedString == nil else { continue }
+                    // 至少保证最后一条消息一定渲染，避免最新内容不渲染导致白屏/闪烁。
+                    let isLast = i == blocks.count - 1
+                    let estimated = blk.content.count
+                    if !isLast, estimated > charBudget { continue }
+                    charBudget -= estimated
+                    blk.cacheRenderedContent()
+                }
+            }
+        }
         return fresh
     }
 
     /// 块级结构签名(仅块数+类型,不含内容量):判断"能否就地复用"。
-    private func blockStructure(_ msg: MiniClawKit.ChatMessage) -> String {
+    private func blockStructure(_ msg: RenderMessage) -> String {
         var s = "\(msg.blocks.count)|"
         for b in msg.blocks {
             switch b.kind {
@@ -335,36 +445,6 @@ final class MiniClawChatBridge: ObservableObject {
             }
         }
         return s
-    }
-
-    /// 把 fresh 的文本块内容就地写进 cached 对应块(保持对象/block.id 不变)。
-    /// 思考块/工具块内容也可能增长(流式中),一并更新以保渲染正确。
-    /// 工具类块按 toolUseId 身份匹配(2026-09-05 修复):流式中块会增删,
-    /// 纯索引对位会把终态写到错位的块上——表现为「列表卡片已红、工具快照仍转圈」
-    /// (快照读的块 toolStatus 停留在 .running 永不等不到终态)。
-    private func mergeTextContent(_ cached: MiniClawKit.ChatMessage, from fresh: MiniClawKit.ChatMessage) {
-        for (i, cb) in cached.blocks.enumerated() {
-            // 工具类块(带 toolUseId):按调用 id 精确配对,不依赖索引。
-            if let tid = cb.toolUseId {
-                if let fb = fresh.blocks.first(where: { $0.toolUseId == tid }) {
-                    cb.content = fb.content
-                    if let ts = fb.toolStatus { cb.toolStatus = ts }
-                }
-                continue
-            }
-            // 文本/思考/信息块:索引 + kind 兼容(原有逻辑)。
-            guard i < fresh.blocks.count else { continue }
-            let fb = fresh.blocks[i]
-            switch (cb.kind, fb.kind) {
-            case (.text, .text), (.thinking, .thinking):
-                cb.content = fb.content
-            default:
-                if kindTag(cb.kind) == kindTag(fb.kind) {
-                    cb.content = fb.content
-                    if let ts = fb.toolStatus { cb.toolStatus = ts }
-                }
-            }
-        }
     }
 
     /// 工具/信息类块的粗粒度结构标签(不带关联值),用于就地复用的匹配判断。
@@ -387,7 +467,7 @@ final class MiniClawChatBridge: ObservableObject {
 
     /// 块级渲染签名(块类型+内容量+工具状态+流式标志):
     /// 签名相同 → 渲染等价 → 可安全复用旧对象(含 block.id/message.id)。
-    private func blockSignature(_ msg: MiniClawKit.ChatMessage) -> String {
+    private func blockSignature(_ msg: RenderMessage) -> String {
         var s = "\(msg.content.count)|\(msg.isAwaitingModelResponse)|"
         for b in msg.blocks {
             switch b.kind {
@@ -406,7 +486,7 @@ final class MiniClawChatBridge: ObservableObject {
     /// 按 timelineOrder 把新块插入 blocks,保持「思考→工具→正文」的真实发生顺序。
     /// 每个块都携带 timelineOrder(Double,正文片段用事件 order+0.5 穿插),插入时
     /// 按真实序号定位,不再用常数推断(旧实现 thinking=5/tool=10 导致多段思考逆序)。
-    private func insertBlock(_ block: MiniClawKit.AssistantBlock, order: Double, into blocks: inout [MiniClawKit.AssistantBlock]) {
+    private func insertBlock(_ block: AssistantBlock, order: Double, into blocks: inout [AssistantBlock]) {
         block.timelineOrder = order
         if order <= 0 {
             // 旧数据无 timelineOrder:排最前(可接受降级)
@@ -428,27 +508,57 @@ final class MiniClawChatBridge: ObservableObject {
     /// 必须增量,避免每 0.25s 重建 text block 导致高度缓存连坐失效。
     /// 防重复(2026-08-10):retry/重建后可能出现旧残留 text block(内容与新片段
     /// 相同但 timelineOrder 不同),更新前先移除这类重复块,避免同一段正文出现两次。
-    private func upsertTextBlock(content: String, order: Double, into blocks: inout [MiniClawKit.AssistantBlock]) {
+    /// [2026-09-09 身份统一] 新建块改用与终态 buildBlocks 同款的确定性 id
+    ///（messageID+startOffset）——此前流式块是随机 id、终态重建后 id 全变，
+    /// diffable 视为全新 item 全量重建 cell = 「回复刚结束界面又重放一遍」
+    /// + configureCell MISS + 高度缓存连坐失效。
+    private func upsertTextBlock(messageID: UUID, content: String, startOffset: Int,
+                                 order: Double, into blocks: inout [AssistantBlock]) {
         guard !content.isEmpty else { return }
-        // 移除内容完全相同的其他 text 块(旧残留,防正文重复)。
+        // [2026-09-09 崩溃修复] 幂等判定口径必须与 id 派生口径一致 —— **按 block.id**。
+        // 旧实现按 timelineOrder 匹配，而 id 只由 (messageID, startOffset) 派生：
+        // 同一段正文会先以「尾部整段」身份（order = Int.max-1, startOffset = 0）建成，
+        // 之后事件到达把该段切成 eventOrder-0.5 的新身份时，按 order 找不到既有块 →
+        // 再建一个**同 id**（同为 offset=0）的块；此时旧块内容（当时的整段正文）
+        // 与新内容（切到事件位置的前缀）不等，removeAll 那条去重又不命中 →
+        // 两个 id 相同的 assistantBlock 共存 → diffable 重复 identifier 崩溃。
+        let targetID = MiniClawChatAdapter.textBlockID(messageID: messageID, startOffset: startOffset)
+        // 移除内容完全相同但身份不同的 text 块(旧残留,防正文重复)。判定从
+        // timelineOrder 换为 id,与上面的幂等 key 同源。
         blocks.removeAll { b in
-            b.kind == .text && b.timelineOrder != order && b.content == content
+            b.kind == .text && b.id != targetID && b.content == content
         }
-        if let existing = blocks.first(where: { $0.kind == .text && $0.timelineOrder == order }) {
-            if existing.content != content { existing.content = content }
+        if let existing = blocks.first(where: { $0.kind == .text && $0.id == targetID }) {
+            // 同一段正文身份不变:就地更新内容与位置(保住高度缓存与渲染实例)。
+            if existing.content != content {
+                // [2026-09-09 诊断] 正常流式只增长（新内容以旧为前缀）。**变短** =
+                // 切分回退（重试回滚 / 事件 position 漂移 / 段切分点变化），曾表现
+                // 为「正文截短成开头几个字（图 1『好的，』）」。低频异常路径，打
+                // warn 供真机日志一锤定音；不阻断（截短是数据事实，渲染须跟随）。
+                if content.count < existing.content.count {
+                    AppLogger.shared.warn(
+                        "[TextUpsert] SHRINK block=\(existing.id.uuidString.prefix(8)) len \(existing.content.count)→\(content.count) startOffset=\(startOffset) msgId=\(messageID.uuidString.prefix(8)) — 切分回退，请带此日志复盘",
+                        category: "Bridge", subsystem: "Stream")
+                }
+                existing.content = content
+                existing.cachedMarkdown = nil
+                existing.cachedAttributedString = nil
+            }
+            if existing.timelineOrder != order { existing.timelineOrder = order }
         } else {
-            let tb = MiniClawKit.AssistantBlock(kind: .text, content: content)
+            let tb = MiniClawChatAdapter.makeTextBlock(
+                messageID: messageID, startOffset: startOffset, content: content, order: order)
             insertBlock(tb, order: order, into: &blocks)
         }
     }
 
     /// 既有块的时间线序号:直接读块上记录的 timelineOrder(正文默认 Int.max-1)。
-    private func blockOrder(of block: MiniClawKit.AssistantBlock) -> Double {
+    private func blockOrder(of block: AssistantBlock) -> Double {
         block.timelineOrder
     }
 
     /// 工具状态推断(流式中:执行中 running;结果回填后 success/failed/cancelled)。
-    private func toolStatus(for event: ToolCallEvent) -> MiniClawKit.ToolBlockStatus? {
+    private func toolStatus(for event: ToolCallEvent) -> ToolBlockStatus? {
         if event.wasInterrupted { return .cancelled }
         if event.resultText.isEmpty { return .running }
         return event.success ? .success : .failed(message: "")

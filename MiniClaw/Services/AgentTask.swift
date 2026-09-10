@@ -200,11 +200,20 @@ final class PendingMessageStore: @unchecked Sendable {
                 }
                 // 2026-08-13 治标：草稿落盘/清空完成后广播——首页会话行的笔图标
                 // (hasDraft) 是读时计算且列表不随草稿文件变化重绘，不广播会残留。
-                NotificationCenter.default.post(
-                    name: PendingMessageStore.pendingDraftDidChange,
-                    object: nil,
-                    userInfo: ["sessionID": sid]
-                )
+                // [2026-09-09 并发违规治理·B 类主源头] 本闭包跑在 ioQueue（后台串行
+                // 队列），NotificationCenter.post 是**同步、在调用线程分发**——订阅者
+                // (HomeView.onReceive) 会在后台线程收到并更新视图状态，触发
+                // "Publishing changes from background threads is not allowed"。
+                // 输入法每次候选变化经 300ms 防抖走到这里 → 每次必刷一条告警。
+                // 治本：post 本身 hop 回主线程（通知语义=「落盘完成」本就该在主线程
+                // 广播），一处修复覆盖现在与未来所有订阅者。
+                DispatchQueue.main.async {
+                    NotificationCenter.default.post(
+                        name: PendingMessageStore.pendingDraftDidChange,
+                        object: nil,
+                        userInfo: ["sessionID": sid]
+                    )
+                }
             } catch {
                 AppLogger.shared.error("保存输入草稿失败（session=\(sid.uuidString.prefix(8))）：\(error.localizedDescription)", category: "Agent", subsystem: "Draft")
             }

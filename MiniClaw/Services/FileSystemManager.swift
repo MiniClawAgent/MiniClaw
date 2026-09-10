@@ -366,7 +366,9 @@ final class FileSystemManager: @unchecked Sendable {
     /// rule 插件的语言子目录名集合（与内置包约定一致；用户导入包可选用其中之一组织多语言）。
     private static let ruleLanguageDirs: Set<String> = ["zh-Hans", "en", "ja", "ko"]
     /// 默认语言目录：当前语言无覆盖文件时回退（对齐旧 syncBundledRules 的"非 en 用中文默认"语义）。
-    private static let ruleDefaultLanguageDir = "zh-Hans"
+    /// 规则包默认语言回退目录（2026-09-08：内置规则包精简为仅英文，回退目标同步改 en；
+    /// 否则 zh/ja/ko 系统回退到不存在的 zh-Hans 目录 → 规则注入为空）。
+    private static let ruleDefaultLanguageDir = "en"
 
     /// 当前系统语言码（ja / ko / zh-Hans / en），供 rule/soul 插件语言目录取用。
     private var systemLanguageCode: String {
@@ -637,9 +639,12 @@ final class FileSystemManager: @unchecked Sendable {
         if normalized == "/var/MiniClaw/mounts" {
             return MountStore.shared.list().filter { $0.isMounted }.map { $0.name }.sorted()
         }
-        let url = resolvePath(path, sessionID: sessionID)
-        if path.hasPrefix("/var/MiniClaw/mounts/") {
-        }
+        // 与 file_read / file_write / delete 同源：走严格解析（强制 /var/MiniClaw/ 前缀、
+        // 拒绝 .. 与跨会话越界）。此前走 lenient 版 resolvePath，会放行任意绝对路径，
+        // 与工具描述「路径必须为 /var/MiniClaw/...」的对外契约不符。
+        // 注：挂载子路径 /var/MiniClaw/mounts/<name>/... 由 resolveAgentPath
+        // 内部的 resolveMountedURL 解析为真实外部 URL，行为不变。
+        let url = try resolveAgentPath(path, sessionID: sessionID)
         return try fileManager.contentsOfDirectory(atPath: url.path)
     }
 

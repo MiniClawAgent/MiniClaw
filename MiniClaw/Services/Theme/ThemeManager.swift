@@ -15,6 +15,9 @@ struct ThemePackageDecl: Codable {
     var settings: String? = nil
     /// 暗色模式遮罩不透明度（0-1，缺省 0.35）。
     var dimDark: Double? = nil
+    /// 浅色模式遮罩不透明度（0-1，**缺省无遮罩**）：主题作者按壁纸明暗自行声明
+    /// （亮壁纸可声明 0.2~0.4 降低纹理干扰）；不声明则浅色保持原样、默认视觉零变化。
+    var dimLight: Double? = nil
 
     /// 指定槽位的图片文件名；分槽位优先，回落单图。
     func fileName(for slot: ThemeBackground.Slot) -> String? {
@@ -37,10 +40,11 @@ struct ThemePackageDecl: Codable {
         chat = try c.decodeIfPresent(String.self, forKey: .chat)
         settings = try c.decodeIfPresent(String.self, forKey: .settings)
         dimDark = try c.decodeIfPresent(Double.self, forKey: .dimDark)
+        dimLight = try c.decodeIfPresent(Double.self, forKey: .dimLight)
     }
 
     private enum CodingKeys: String, CodingKey {
-        case id, name, image, home, chat, settings, dimDark
+        case id, name, image, home, chat, settings, dimDark, dimLight
     }
 }
 
