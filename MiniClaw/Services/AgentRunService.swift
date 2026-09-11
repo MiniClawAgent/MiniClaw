@@ -391,6 +391,9 @@ final class AgentRunService {
                 AgentTaskStore.shared.clear(sessionID: session.id)
                 // 方案A：终态落盘，进程被杀后回复文本/状态不丢，消除「空气泡」隐患。
                 SessionManager.shared.persist(session)
+                // [2026-09-11 审计修复] 排队消息续跑：与 onInterrupted 同口径——否则
+                // headless（快捷指令/Siri 后台）跑完或回复在后台完成时，队列永久滞留。
+                AppState.shared?.drainPendingQueueIfNeeded(sessionID: sessionID)
                 // iOS 27+ LongRunningIntent 官方路径：performBackgroundTask 轮询此信号作为「完成上报」。
                 AppState.shared?.markIntentEngineFinished(sessionID: sessionID, result: .success(assistantMessage.content))
             }
@@ -465,6 +468,8 @@ final class AgentRunService {
                 AgentTaskStore.shared.clear(sessionID: session.id)
                 // 方案A：出错终态同样落盘。
                 SessionManager.shared.persist(session)
+                // [2026-09-11 审计修复] 排队消息续跑：与 onInterrupted 同口径（原仅中断路径有）。
+                AppState.shared?.drainPendingQueueIfNeeded(sessionID: sessionID)
                 AppState.shared?.markIntentEngineFinished(sessionID: sessionID, result: .failure(AppState.DeepLinkAgentError.failed))
             }
         }

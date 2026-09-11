@@ -13,8 +13,6 @@ public final class MessageListLayout: UICollectionViewLayout {
     struct HeightEntry { var height: CGFloat; var source: HeightSource }
     private var heightEntries: [Int: HeightEntry] = [:]
 
-    private var precalcHeights: [Int: CGFloat] = [:]
-
     public func setEstimatedHeight(_ height: CGFloat,at index: Int) {
         setEntry(height, source: .estimated, at: index)
     }
@@ -571,6 +569,7 @@ public final class MessageListLayout: UICollectionViewLayout {
         os_unfair_lock_lock(&_memoLock)
         _sharedMeasuredHeights.removeAll()
         os_unfair_lock_unlock(&_memoLock)
+        memoHitLogAt.removeAll()
     }
 
     /// Clear per-instance cached heights (session change / reconfigure).
@@ -590,7 +589,6 @@ public final class MessageListLayout: UICollectionViewLayout {
     }
 
     public var debugCachedHeightCount: Int { heightEntries.count }
-    public var debugPrecalcHeightCount: Int { precalcHeights.count }
 }
 
 // MARK: - In-memory scroll diagnostics ring buffer

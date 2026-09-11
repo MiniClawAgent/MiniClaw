@@ -192,4 +192,21 @@ final class SubagentRuntimeRegistry: @unchecked Sendable {
             self.lock.unlock()
         }
     }
+
+    // MARK: - 跨启动复用水合
+
+    /// [2026-09-11] Registry 的 SQLite 快照不跨安装包存活（换包装测即清空），而
+    /// SubagentStore 的卡片与对话持久。历史里的旧短码据此水合回记录：身份取卡片，
+    /// 上下文取对话正文（user/assistant 对，不含工具/思考——足够续接且不膨胀）。
+    /// profile 落盘无此字段 → nil（派发带 profile 参数则覆盖，否则人设回落 general）。
+    static func rehydrateFromStore(sessionID: UUID, subagentIDToken: String) async -> SubagentRuntimeRecord? {
+        let snap = await MainActor.run {
+            SubagentStore.shared.rehydrationSnapshot(sessionID: sessionID, subagentIDToken: subagentIDToken)
+        }
+        guard let snap else { return nil }
+        let info = SubagentInfo(id: snap.id, name: snap.name, task: snap.task)
+        let history = snap.turns.map { ChatCompletionMessage(role: $0.role, content: $0.text) }
+        return SubagentRuntimeRecord(id: snap.id, info: info, focus: nil, profile: nil,
+                                     history: history, status: .completed)
+    }
 }

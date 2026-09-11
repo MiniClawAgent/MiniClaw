@@ -211,6 +211,18 @@ extension MessageCollectionView.Coordinator {
             // created RenderMessage/AssistantBlock objects (new UUIDs) — the
             //
             snapshotMessages = messages
+
+            // [2026-09-11 唐唐补充] 最终回复（loop 末轮）**后面不接任何指示器**，
+            // 借不到「指示器出现」的节律 → 改在「整轮结束」（isProcessing 由 true→
+            // false）时对最后一个文本块失效重测，避免最终回复少字/少行。
+            // 必须放在早退之前：终态那次 item 身份集合通常不变（footer 还是同一个
+            // item），早退会让后续所有失效逻辑都不执行。
+            let nowProcessing = vm.isProcessing
+            if lastWasProcessing,!nowProcessing {
+                reseedTrailingTextBlock(rows: newRows,messages: messages)
+            }
+            lastWasProcessing = nowProcessing
+
             if newRows == prevSnapshotIds { return }
             let oldRows = prevSnapshotIds
             let oldSet = Set(prevSnapshotIds)
@@ -226,6 +238,21 @@ extension MessageCollectionView.Coordinator {
             // 插入/删除点之后的错位条目不再残留），未匹配的新 item 由下方
             // purge+reseed 循环播种。apply 前调用。
             snapshotLayout?.remapHeights(oldIds: oldRows,newIds: newRows)
+
+            // [2026-09-11 唐唐思路] loop 结构决定「回复之后必接思考/工具指示器」——
+            // 指示器出现的那一刻 = 上一段文本块已定型（后面不可能再长字）。
+            // 利用这个天然节律：在 dataSource.apply **之前**先把上一段文本块的索引高度
+            // 作废并重测，让补齐发生在「新指示器渲染之前」——视觉顺序变成
+            // 「上一句收尾 → 指示器出现」，消除原来「新卡先出、旧句后跳」的割裂。
+            // 相比「给 HeightEntry 加内容版本」：不改结构、不动优先级、不引入新状态。
+            if !inserted.isEmpty {
+                let insertedSet = Set(inserted)
+                for item in inserted {
+                    guard let insIdx = newRows.firstIndex(of: item) else { continue }
+                    reseedTextBlock(before: insIdx,rows: newRows,messages: messages,insertedSet: insertedSet)
+                }
+            }
+
             snapshotLayout?.suppressContentOffsetAdjustment = true
             flushingNow = true
             cellConfigCount = 0
@@ -389,6 +416,91 @@ extension MessageCollectionView.Coordinator {
 
         /// 重新播种，否则该 item 落到 `estimatedItemHeight`(200pt) 并首次自测
         /// 大修正 → 重进会话上滑抖动（2026-09-06）。
+        /// 从行尾往前找第一个「已完结文本块」，把它作废并重测（供指示器插入时调用）。
+        ///
+        /// [2026-09-11 掉帧修复] reseed 处在插入的关键路径上，**禁止同步 TextKit
+        /// 全量精测**——含表格块一次 50-80ms 主线程，loop 中每个工具结果/思考块
+        /// 插入都触发 → 整页掉到 30fps（真机 09-11 实录）。只走两条便宜路径：
+        /// ① 统一缓存命中（内容定型后多半已有精确高度）→ 精确 precalc；
+        /// ② miss → 便宜估算；真实值由 cell 自 sizing 修正（本来就要跑）+
+        /// 流式结束的 scheduleHeightPrewarm 后台补齐统一缓存。
+        private func reseedTextBlock(before index: Int,
+                                     rows: [MessageListItem],
+                                     messages: [RenderMessage],
+                                     insertedSet: Set<MessageListItem>) {
+            guard let layout = viewController?.messageListLayout,
+                  let cv = viewController?.collectionView else { return }
+            guard case .assistantBlock(let mid,_) = rows[index] else { return }
+            var j = index-1
+            while j >= 0 {
+                if !Self.item(rows[j],belongsTo: mid) { return }
+                if case .assistantBlock(let m2,let b2) = rows[j],m2 == mid,
+                   !insertedSet.contains(rows[j]),
+                   let msg = messages.first(where: { $0.id == mid }),
+                   let blk = msg.blocks.first(where: { $0.id == b2 }),
+                   blk.kind == .text,!blk.content.isEmpty {
+                    let textWidth = max(cv.bounds.width-32,100)
+                    let uKey = MarkdownRenderCache.key(
+                        for: blk.content, fontSize: FontSettings.shared.scaledMessage(16.5))
+                    if let uH = MarkdownRenderCache.shared.cachedHeight(for: uKey, width: Int(textWidth)) {
+                        // [2026-09-11 修正] 仅在统一缓存有**真实精高**时才 purge+播种——
+                        // 此前缓存 MISS 时无条件 purge 后落粗估：把 cell 自 sizing 正在
+                        // 维护的实测高替换成偏矮估算，恰在指示器插入瞬间裁尾（真机
+                        // IMG_4663 实锤）。MISS 时不动条目：流式中活 cell 的高度由
+                        // 自 sizing 管线维护，比任何粗估都准。
+                        layout.purgeIndexEntry(at: j)
+                        layout.setPrecalcHeight(uH+4,at: j)
+                        AppLogger.shared.info(
+                            "[Reseed] HIT blk=\(b2.uuidString.prefix(8)) h=\(Int(uH)) idx=\(j)",
+                            category: "ChatList.Heights")
+                    } else {
+                        AppLogger.shared.info(
+                            "[Reseed] MISS-KEEP blk=\(b2.uuidString.prefix(8)) idx=\(j)（保留实测高）",
+                            category: "ChatList.Heights")
+                    }
+                    return
+                }
+                j -= 1
+            }
+        }
+
+        /// 整轮结束时的兜底：重测**最后一个文本块**（= 最终回复，后面没有指示器）。
+        /// 便宜路径原则同上（禁止同步精测，见 reseedTextBlock 注释）。
+        private func reseedTrailingTextBlock(rows: [MessageListItem],messages: [RenderMessage]) {
+            guard let layout = viewController?.messageListLayout,
+                  let cv = viewController?.collectionView else { return }
+            var j = rows.count-1
+            while j >= 0 {
+                if case .assistantBlock(let mid,let bid) = rows[j],
+                   let msg = messages.first(where: { $0.id == mid }),
+                   let blk = msg.blocks.first(where: { $0.id == bid }),
+                   blk.kind == .text,!blk.content.isEmpty {
+                    let textWidth = max(cv.bounds.width-32,100)
+                    let uKey = MarkdownRenderCache.key(
+                        for: blk.content, fontSize: FontSettings.shared.scaledMessage(16.5))
+                    if let uH = MarkdownRenderCache.shared.cachedHeight(for: uKey, width: Int(textWidth)) {
+                        // [2026-09-11 修正] 同 reseedTextBlock：MISS 不 purge（保留实测高）。
+                        layout.purgeIndexEntry(at: j)
+                        layout.setPrecalcHeight(uH+4,at: j)
+                        AppLogger.shared.info(
+                            "[Reseed] TAIL-HIT blk=\(bid.uuidString.prefix(8)) h=\(Int(uH)) idx=\(j)",
+                            category: "ChatList.Heights")
+                    } else {
+                        AppLogger.shared.info(
+                            "[Reseed] TAIL-MISS-KEEP blk=\(bid.uuidString.prefix(8)) idx=\(j)（保留实测高）",
+                            category: "ChatList.Heights")
+                    }
+                    // 终态这次不会走 layoutIfNeeded（身份集合未变时早退）→ 主动失效布局，
+                    // 推到下一 runloop 与项目既有惯例一致（避免 view update 事务内改布局）。
+                    DispatchQueue.main.async { [weak self] in
+                        self?.viewController?.messageListLayout?.invalidateLayout()
+                    }
+                    return
+                }
+                j -= 1
+            }
+        }
+
         private func seedHeight(at i: Int,item: MessageListItem,
                                 messages: [RenderMessage],width: CGFloat,
                                 isReseed: Bool = false) {
@@ -454,20 +566,20 @@ extension MessageCollectionView.Coordinator {
 
                 switch block.kind {
                 case .text:
-                    if let attrStr = block.cachedAttributedString {
+                    // [2026-09-11 尾部行裁切修复] 陈旧渲染结果**不得**用于精确 precalc：
+                    // 它按旧（短）内容算高 → 矮值播种 → 尾部行被裁，且会以「当前内容」
+                    // 为 key 回写统一高度缓存形成跨会话污染（重进会话继续命中）。
+                    // 判据与渲染侧 prebuilt 采用点同源（hasFreshRenderedContent）。
+                    if let attrStr = block.cachedAttributedString, block.hasFreshRenderedContent {
                         let textWidth = max(cvWidth-32,100)
                         let height: CGFloat
                         // [T-perf 2026-09-08] ① 先查进程级统一缓存 heights（与
                         // MarkdownView 渲染分支/后台预填充同 key 体系：content+字号，
                         // 宽度=textWidth 整数化）——重进会话/预填充后全部命中，零排版。
-                        // ② 再退 attrStringHeightCache（ObjectIdentifier 键——重进
-                        // 后对象重建必 miss，428 项 × TextKit1 全量排版 = 种子循环 5s）。
                         let uKey = MarkdownRenderCache.key(
                             for: block.content, fontSize: FontSettings.shared.scaledMessage(16.5))
                         if let uH = MarkdownRenderCache.shared.cachedHeight(for: uKey, width: Int(textWidth)) {
-                            height = uH  // 统一缓存高度与 attrStringHeightCache 同语义（均含 8pt inset）
-                        } else if let cached = attrStringHeightCache[ObjectIdentifier(attrStr)] {
-                            height = cached
+                            height = uH  // 统一缓存高度（含 8pt inset）
                         } else {
                             // [2026-09-09] 种子循环改走 CTFramesetter 快路径：
                             // `measureAttributedStringHeight` 是 TextKit1 全量排版，
@@ -485,7 +597,6 @@ extension MessageCollectionView.Coordinator {
                             } else {
                                 height = MarkdownView.ctFramesetterHeight(for: attrStr,width: textWidth) + 8
                             }
-                            attrStringHeightCache[ObjectIdentifier(attrStr)] = height
                             // 回写统一缓存（下次进入/预填充命中，不再重复计算）。
                             // 两条路径的返回值均含 8pt inset，语义一致。
                             MarkdownRenderCache.shared.store(
@@ -530,7 +641,6 @@ extension MessageCollectionView.Coordinator {
                     // cmark 渲染（50+ 消息 = 上百次串行解析 → 进入会话卡顿）。
                     // 未命中统一缓存时用便宜估算，精度由 cell 首次自 sizing 修正。
                     let h = Self.measureUserBubbleHeight(for: msg,cvWidth: effWidth,
-                                                         cache: &userBubbleHeightCache,
                                                          allowRender: false)
                     if let h {
                         layout.setPrecalcHeight(h,at: i)
@@ -558,8 +668,6 @@ extension MessageCollectionView.Coordinator {
 
         func reconfigureAllCells() {
             viewController?.messageListLayout?.clearHeightCache()
-            attrStringHeightCache.removeAll()
-            userBubbleHeightCache.removeAll()
             reconfigureVisibleCells()
         }
 

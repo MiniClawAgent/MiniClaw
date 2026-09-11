@@ -278,6 +278,8 @@ struct AudioPlayerView: View {
     @State private var isPlaying = false
     @State private var currentTime: TimeInterval = 0
     @State private var duration: TimeInterval = 1
+    @State private var timeObserverToken: Any?
+    @State private var endObserver: NSObjectProtocol?
 
     var body: some View {
         HStack(spacing: 10) {
@@ -311,7 +313,11 @@ struct AudioPlayerView: View {
             player.replaceCurrentItem(with: item)
             addTimeObserver()
         }
-        .onDisappear { player.pause() }
+        .onDisappear {
+            player.pause()
+            if let t = timeObserverToken { player.removeTimeObserver(t); timeObserverToken = nil }
+            if let o = endObserver { NotificationCenter.default.removeObserver(o); endObserver = nil }
+        }
     }
 
     private func togglePlay() {
@@ -321,13 +327,15 @@ struct AudioPlayerView: View {
 
     private func addTimeObserver() {
         // iOS16 兼容:闭包标注 @Sendable 的 API 内访问 MainActor 属性需 assumeIsolated(队列已是 .main)。
-        player.addPeriodicTimeObserver(forInterval: CMTime(seconds: 0.5, preferredTimescale: 600), queue: .main) { time in
+        timeObserverToken = player.addPeriodicTimeObserver(forInterval: CMTime(seconds: 0.5, preferredTimescale: 600), queue: .main) { time in
             MainActor.assumeIsolated {
                 currentTime = time.seconds
                 duration = player.currentItem?.duration.seconds ?? 1
             }
         }
-        NotificationCenter.default.addObserver(forName: .AVPlayerItemDidPlayToEndTime, object: player.currentItem, queue: .main) { _ in
+        // [2026-09-11 审计修复] 存 token 并在 onDisappear 移除——原实现每次打开
+        // 视频预览都叠加一组观察者且永不移除（AVPlayer 闭包持整组泄漏）。
+        endObserver = NotificationCenter.default.addObserver(forName: .AVPlayerItemDidPlayToEndTime, object: player.currentItem, queue: .main) { _ in
             MainActor.assumeIsolated {
                 isPlaying = false
                 player.seek(to: .zero)

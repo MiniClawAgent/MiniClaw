@@ -367,35 +367,48 @@ extension AssistantBlock {
             || content.contains("\n---") || content.hasPrefix("---")
     }
 
+    /// 已渲染结果是否**对应当前内容**（内容指纹一致），可直接用于高度计算。
+    ///
+    /// [2026-09-11 尾部行裁切修复] 陈旧 attr = 旧内容的渲染产物，其高度系统性偏小；
+    /// 用于播种/精确 precalc 会裁掉尾部行，还会以「当前内容」为 key 毒化进程级统一
+    /// 高度缓存（重进会话继续命中）。渲染侧 prebuilt 采用点早已用同一指纹校验
+    /// （cachedAttrContentCount），此处收口为单一事实源，供高度侧共用同一判据。
+    public var hasFreshRenderedContent: Bool {
+        guard let attr = cachedAttributedString, attr.length > 0 else { return false }
+        return cachedAttrContentCount == content.count
+    }
+
     @MainActor
     public func cacheRenderedContent() {
         guard !content.isEmpty else { return }
+        // [2026-09-11 尾部行裁切修复] 「追赶内容」——旧实现只在 cachedAttributedString
+        // == nil 时渲染，于是**流式期写入的中间态渲染结果永久滞留**：内容继续增长到
+        // 终值后块缓存仍指向旧内容，高度侧（applySnapshot 精确 precalc /
+        // estimateItemHeight）按旧内容算高 → 系统性矮值 → 播种矮高度 → 尾部行被裁；
+        // 矮值还会以「当前内容」为 key 写进统一高度缓存，重进会话继续命中
+        //（会话结束后 + 重进会话两个场景都复现，真机 IMG_4660/4661）。
+        // 判据与渲染侧 prebuilt 采用点同源（cachedAttrContentCount）。
+        guard !hasFreshRenderedContent else { return }
         let fontSize = FontSettings.shared.scaledMessage(16.5)
         let hasAttachmentSyntax = Self.hasRichSyntax(content)
         let cacheKey = hasAttachmentSyntax ? nil : MarkdownRenderCache.key(for: content, fontSize: fontSize)
-        if cachedAttributedString == nil, let cacheKey,
+        // 内容已变化 → 解析结果一并失效，必须重解析（旧实现只在 nil 时建，同样滞留）。
+        cachedMarkdown = MarkdownContent(prepareMarkdownForRender(content))
+        if let cacheKey,
            let cached = MarkdownRenderCache.shared.cachedAttributed(for: cacheKey),
            cached.length > 0 {
             // 统一缓存命中：跳过 cmark 解析 + 全量渲染（第二次进入零成本）。
             // [2026-09-09] 空 att 不采用（历史污染/defer 空产物），落走正常渲染。
-            if cachedMarkdown == nil {
-                cachedMarkdown = MarkdownContent(prepareMarkdownForRender(content))
-            }
             cachedAttributedString = cached
             cachedAttrContentCount = content.count
             return
         }
-        if cachedMarkdown == nil {
-            cachedMarkdown = MarkdownContent(prepareMarkdownForRender(content))
+        cachedAttributedString = autoreleasepool {
+            renderMarkdownBlocks(cachedMarkdown!.blocks)
         }
-        if cachedAttributedString == nil {
-            cachedAttributedString = autoreleasepool {
-                renderMarkdownBlocks(cachedMarkdown!.blocks)
-            }
-            cachedAttrContentCount = content.count
-            if let cacheKey, let attr = cachedAttributedString {
-                MarkdownRenderCache.shared.store(attributed: attr, key: cacheKey)
-            }
+        cachedAttrContentCount = content.count
+        if let cacheKey, let attr = cachedAttributedString {
+            MarkdownRenderCache.shared.store(attributed: attr, key: cacheKey)
         }
     }
 

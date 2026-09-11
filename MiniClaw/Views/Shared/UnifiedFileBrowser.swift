@@ -280,14 +280,21 @@ struct UnifiedFileBrowser: View {
                                  ByteCountFormatter.string(fromByteCount: Int64(entry.size), countStyle: .file))
             return
         }
-        do {
-            let data = try Data(contentsOf: entry.readURL)
-            let uti = (try? entry.readURL.resourceValues(forKeys: [.contentTypeKey]))?.contentType?.identifier
-                ?? "public.data"
-            UIPasteboard.general.setData(data, forPasteboardType: uti)
-            showToast(String(format: String(localized: "copied_file"), entry.name))
-        } catch {
-            showToast(String(format: String(localized: "copy_failed_format"), error.localizedDescription))
+        // [2026-09-11 审计修复] 大文件读取移出主线程（Data(contentsOf:) 50MB 可冻结主线程数百 ms~秒级）。
+        let readURL = entry.readURL
+        let name = entry.name
+        let uti = (try? readURL.resourceValues(forKeys: [.contentTypeKey]))?.contentType?.identifier
+            ?? "public.data"
+        Task.detached(priority: .userInitiated) {
+            let data = try? Data(contentsOf: readURL)
+            await MainActor.run {
+                guard let data else {
+                    showToast(String(format: String(localized: "copy_failed_format"), "read failed"))
+                    return
+                }
+                UIPasteboard.general.setData(data, forPasteboardType: uti)
+                showToast(String(format: String(localized: "copied_file"), name))
+            }
         }
     }
 

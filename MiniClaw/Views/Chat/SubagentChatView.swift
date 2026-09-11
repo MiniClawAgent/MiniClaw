@@ -5,8 +5,10 @@ import MiniClawKit
 /// 「智能体 ↔ 子代理」对话详情页。
 ///
 /// 从会话页输入框上方的悬浮头像点按弹出（底部 sheet + 下滑返回）。
-/// **完全复用主会话页的渲染组件**（`MessageBubbleView` / `ToolCallCardView` / `ReasoningBlockView`），
-/// 因此渲染形式、工具调用显示、工具指示器与主线**完全一致**：
+/// 复用消息级渲染组件（`MessageBubbleView` / `ToolCallCardView` / `ReasoningBlockView`）。
+/// [2026-09-11 审计备注] 主会话列表早已迁往块级栈（AssistantBlockView + MarkdownView），
+/// 仅子代理详情页仍走 MessageBubbleView——两侧缓存/分段逻辑独立，修一处不自动同步另一处。
+/// 因此渲染形式、工具调用显示与主线**相近但不同源**：
 ///   - 主 智能体分配给子代理的**任务** → 以 `.user` 角色呈现（绿色气泡，与普通会话里用户消息一致）；
 ///   - 子代理的**回复** → 以 `.assistant` 角色呈现（无聊天背景、✨ 头像 + 名称 + 正文 + 工具指示器 + 思考块）；
 ///   - 流式输出实时刷新，底部状态行显示「回复中 / 已完成 / 已中断」。

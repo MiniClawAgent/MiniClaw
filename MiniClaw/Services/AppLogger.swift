@@ -133,8 +133,21 @@ final class AppLogger: @unchecked Sendable {
         "MCP-OAuth", "MCP"
     ]
 
+    /// 诊断插桩静默类别（2026-09-11 降噪）：这些 category 的 info/debug
+    /// **既不落盘也不打印**。它们都是阶段性排查插桩——缓存观测（RenderCache：
+    /// 高度 memo / 渲染缓存的 STORE·MISS·HIT）、渲染统计（MarkdownRenderer）——
+    /// 诊断使命完成后会常驻刷屏（实测占单日日志 91%：8216/9038 行）。
+    /// 需要复现排查时把类别移出本集合即可恢复全量观测；WARN/ERROR/FAULT 不受影响
+    /// （始终保留，见 log 中的级别判断）。
+    private static let quietInfoCategories: Set<String> = [
+        "RenderCache", "MarkdownRenderer",
+    ]
+
     func log(category: String, subsystem: String? = nil, level: LogLevel, message: String) {
         guard appLoggerEnabledFlag else { return }
+        // 插桩静默：在 formatLine 之前短路，省掉无谓的格式化与线程 id 查询开销。
+        if level == .info || level == .debug, Self.quietInfoCategories.contains(category) { return }
+
         let line = formatLine(category: category, subsystem: subsystem ?? category, level: level, message: message)
         // 警告及以上镜像到控制台，便于真机/模拟器调试时直接看到。
         if level == .warn || level == .error || level == .fault

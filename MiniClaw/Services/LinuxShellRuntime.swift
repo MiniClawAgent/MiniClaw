@@ -96,15 +96,13 @@ final class LinuxShellRuntime: ShellRuntime, @unchecked Sendable {
     var isReady: Bool { MiniClawiSHIsBooted() }
 
     /// 沙盒内 rootfs 的部署目标路径（Application Support/MiniClaw/ish-rootfs）。
+    /// [2026-09-11 审计收敛] 委托 ShellRuntimeSupport.deployedRootfsURL()——全库
+    /// 唯一权威（gated 非抛出版），四处硬编码已收口。
     static func deployedRootfsURL() throws -> URL {
-        let fm = FileManager.default
-        let support = try fm.url(
-            for: .applicationSupportDirectory,
-            in: .userDomainMask,
-            appropriateFor: nil,
-            create: true
-        )
-        return support.appendingPathComponent("MiniClaw/ish-rootfs", isDirectory: true)
+        guard let url = RootfsMaintenance.deployedRootfsURL() else {
+            throw ShellError.launchFailed(-3)
+        }
+        return url
     }
 
     /// 能启动 `/bin/sh` 所必需的 fakefs 文件。仅检查目录存在会把中断拷贝留下的
@@ -287,49 +285,105 @@ final class LinuxShellRuntime: ShellRuntime, @unchecked Sendable {
         // 使容器内命令与 App 其余网络（NSURLSession 自动跟随系统代理）行为一致。
         let effectiveEnv = Self.mergeEnvironment(environment)
 
-        return try await withCheckedThrowingContinuation { continuation in
-            let guard_ = FinishOnceGuard()
-            var timeoutWork: DispatchWorkItem?
-
-            @Sendable func claimFinish() -> Bool { guard_.claim() }
-
-            let pid = ISHShellExecutor.executeCommand(
-                finalCommand,
-                environment: effectiveEnv.isEmpty ? nil : effectiveEnv,
-                lineCallback: { line, isStderr in
-                    onLine?(line, isStderr)
-                },
-                completion: { result in
-                    guard claimFinish() else { return }
-                    timeoutWork?.cancel()   // 已正常完成，取消待触发的超时定时器
-                    continuation.resume(returning: ShellResult(
-                        pid: Int32(result.pid),
-                        exitCode: Int32(result.exitCode),
-                        stdout: result.output,
-                        stderr: result.errorOutput,
-                        duration: result.duration,
-                        errorCode: result.error.rawValue
-                    ))
-                },
-                sessionFsContext: fsContext
-            )
-
-            if pid < 0 {
-                if claimFinish() {
-                    continuation.resume(throwing: ShellError.launchFailed(pid))
-                }
-                return
+        // [2026-09-11 审计修复] 任务取消传播：引擎停止/暂停时，正在执行的 iSH 命令
+        // 必须被终止且 continuation 恰好 resume 一次（原实现无取消桥——命令继续占用
+        // CPU 到自然结束，timeout<=0 时任务永久挂死）。
+        final class ShellContinuation: @unchecked Sendable {
+            private let lock = NSLock()
+            private var continuation: CheckedContinuation<ShellResult, any Error>?
+            func store(_ c: CheckedContinuation<ShellResult, any Error>) {
+                lock.lock(); continuation = c; lock.unlock()
             }
-
-            if timeout > 0 {
-                let work = DispatchWorkItem { [weak self] in
-                    guard claimFinish() else { return }
-                    self?.cancel(pid: pid)
-                    continuation.resume(throwing: ShellError.timeout)
-                }
-                timeoutWork = work
-                DispatchQueue.main.asyncAfter(deadline: .now() + timeout, execute: work)
+            /// 取走续体（恰一次）；已取走/未存入返回 nil。
+            func take() -> CheckedContinuation<ShellResult, any Error>? {
+                lock.lock(); defer { lock.unlock() }
+                let c = continuation
+                continuation = nil
+                return c
             }
+        }
+        final class CancelSync: @unchecked Sendable {
+            private let lock = NSLock()
+            private var pid: Int32 = -1
+            private var cancelled = false
+            /// 登记子进程 pid；取消先到时返回 true（调用方需立即终止该 pid）。
+            func register(newPid: Int32) -> Bool {
+                lock.lock(); defer { lock.unlock() }
+                pid = newPid
+                return cancelled
+            }
+            /// 取消到达：登记意图并返回当前 pid（尚未启动返回 -1）。
+            func cancelRequested() -> Int32 {
+                lock.lock(); defer { lock.unlock() }
+                cancelled = true
+                return pid
+            }
+        }
+
+        let box = ShellContinuation()
+        let cancelSync = CancelSync()
+
+        return try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { continuation in
+                box.store(continuation)
+                let guard_ = FinishOnceGuard()
+                var timeoutWork: DispatchWorkItem?
+
+                @Sendable func claimFinish() -> Bool { guard_.claim() }
+
+                let pid = ISHShellExecutor.executeCommand(
+                    finalCommand,
+                    environment: effectiveEnv.isEmpty ? nil : effectiveEnv,
+                    lineCallback: { line, isStderr in
+                        onLine?(line, isStderr)
+                    },
+                    completion: { result in
+                        guard claimFinish(), let cont = box.take() else { return }
+                        timeoutWork?.cancel()   // 已正常完成，取消待触发的超时定时器
+                        cont.resume(returning: ShellResult(
+                            pid: Int32(result.pid),
+                            exitCode: Int32(result.exitCode),
+                            stdout: result.output,
+                            stderr: result.errorOutput,
+                            duration: result.duration,
+                            errorCode: result.error.rawValue
+                        ))
+                    },
+                    sessionFsContext: fsContext
+                )
+
+                if pid < 0 {
+                    if claimFinish(), let cont = box.take() {
+                        cont.resume(throwing: ShellError.launchFailed(pid))
+                    }
+                    return
+                }
+
+                // 子进程已启动；若取消早于启动到达，立即终止并上报。
+                if cancelSync.register(newPid: Int32(pid)) {
+                    self.cancel(pid: Int32(pid))
+                    if claimFinish(), let cont = box.take() {
+                        cont.resume(throwing: CancellationError())
+                    }
+                    return
+                }
+
+                if timeout > 0 {
+                    let work = DispatchWorkItem { [weak self] in
+                        guard claimFinish(), let cont = box.take() else { return }
+                        self?.cancel(pid: pid)
+                        cont.resume(throwing: ShellError.timeout)
+                    }
+                    timeoutWork = work
+                    DispatchQueue.main.asyncAfter(deadline: .now() + timeout, execute: work)
+                }
+            }
+        } onCancel: { [weak self] in
+            let pid = cancelSync.cancelRequested()
+            // pid<0 = 子进程尚未启动：register 时会补终止；take()=nil = 已正常结束。
+            guard pid >= 0, let cont = box.take() else { return }
+            self?.cancel(pid: pid)
+            cont.resume(throwing: CancellationError())
         }
     }
 

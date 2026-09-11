@@ -1,7 +1,7 @@
 import Foundation
 import os.log
 
-private let logger = Logger(subsystem: "com.neartop.miniclaw", category: "OAuthCallback")
+private let logger = OAuthLog(category: "OAuthCallback")
 
 /// Result from an OAuth callback containing the authorization code and state.
 struct OAuthCallbackResult: Sendable {

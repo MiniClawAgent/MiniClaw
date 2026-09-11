@@ -1,15 +1,6 @@
 import SwiftUI
 import Combine
 
-struct DismissImmersiveCoversListener: ViewModifier {
-    let onDismiss: () -> Void
-
-    func body(content: Content) -> some View {
-        content.onReceive(NotificationCenter.default.publisher(for: .dismissAllImmersivePresentations)) { _ in
-            onDismiss()
-        }
-    }
-}
 
 struct ToolCapsuleView: View {
     @ObservedObject var block: AssistantBlock
@@ -448,10 +439,6 @@ struct TypingIndicator: View {
                     .offset(y: dotOffsets[i] ? -3 : 1)
             }
         }
-        .onReceive(NotificationCenter.default.publisher(for: .soulMdChanged)) { _ in
-            let n = SoulStore.cachedMetadata.name.trimmingCharacters(in: .whitespacesAndNewlines)
-            soulName = n.isEmpty ? "MiniClaw" : n
-        }
         .font(.system(size: 15,weight: .medium))
         .foregroundStyle(ChatColors.tertiaryText)
         .padding(.top,0)
@@ -825,44 +812,3 @@ struct ShimmerOverlay: View {
     }
 }
 
-struct ThinkingLevelSheetView: View {
-    let currentLevel: ThinkingLevel
-    let availableLevels: [ThinkingLevel]
-    let onSelect: (ThinkingLevel) -> Void
-
-    var body: some View {
-        NavigationStack {
-            List {
-                thinkingRow(level: .off,isSelected: !currentLevel.isEnabled)
-                Section {
-                    ForEach(availableLevels,id: \.self) { level in
-                        thinkingRow(level: level,isSelected: currentLevel == level)
-                    }
-                }
-            }
-            .navigationTitle(String(localized: "Thinking Intensity"))
-            .navigationBarTitleDisplayMode(.inline)
-        }
-    }
-
-    private func thinkingRow(level: ThinkingLevel,isSelected: Bool) -> some View {
-        Button {
-            onSelect(level)
-        } label: {
-            HStack {
-                Image("ThinkingIcon")
-                    .resizable()
-                    .frame(width: 16,height: 16)
-                    .opacity(level == .off ? 0.4 : 1.0)
-                Text(level.displayName)
-                    .foregroundStyle(.primary)
-                Spacer()
-                if isSelected {
-                    Image(systemName: "checkmark")
-                        .foregroundStyle(ChatColors.primaryText)
-                        .fontWeight(.semibold)
-                }
-            }
-        }
-    }
-}

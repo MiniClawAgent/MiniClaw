@@ -46,8 +46,9 @@ struct PendingUserMessage: Identifiable, Equatable, Codable {
         text = try c.decode(String.self, forKey: .text)
         attachments = try c.decodeIfPresent([String].self, forKey: .attachments) ?? []
         skillName = try c.decodeIfPresent(String.self, forKey: .skillName)
-        dlXSuccess = try c.decode(URL.self, forKey: .dlXSuccess)
-        dlXError = try c.decode(URL.self, forKey: .dlXError)
+        // decodeIfPresent：升级前落盘的队列无此二键，硬 decode 会让整个排队队列静默丢失。
+        dlXSuccess = try c.decodeIfPresent(URL.self, forKey: .dlXSuccess)
+        dlXError = try c.decodeIfPresent(URL.self, forKey: .dlXError)
     }
 }
 
@@ -150,7 +151,19 @@ final class ChatSessionRuntime: ObservableObject, @MainActor Identifiable {
     func rollbackToRoundSafePoint() {
         commitStreamBuffer()
         commitReasoningBuffer()
-        guard let a = roundAnchor else { return }
+        guard let a = roundAnchor else {
+            // [2026-09-11 审计修复] 首个工具挂载前 = 没有任何「已安全」内容：
+            // 首轮流式半截失败必须整段丢弃，否则重试成功后新 token 接在半截之后
+            // 重复落盘（引擎侧 streamedText 已清、runtime 侧未清的口径分裂）。
+            streamingContent = ""
+            streamingReasoningSegments.removeAll()
+            streamingToolExecutions.removeAll()
+            streamingToolOrders.removeAll()
+            nextTimelineOrder = 1
+            pendingText = ""
+            pendingReasoning.removeAll()
+            return
+        }
         if streamingContent.count > a.contentCount {
             streamingContent = String(streamingContent.prefix(a.contentCount))
         }

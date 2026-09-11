@@ -136,7 +136,11 @@ final class BackgroundTaskCoordinator {
         }
         cont?.resume()
         // 重新申请一个后台任务，以防再次进后台。begin() 为 async，这里以 Task 派发（已在主线程）。
-        Task { await BackgroundTaskCoordinator.shared.begin() }
+        // [2026-09-11 审计修复] 仅当确有 Agent 在跑时才重申请——否则白耗宽限期（到期清理 + 日志噪声）。
+        Task { @MainActor in
+            guard AppState.shared.chatRuntimes.values.contains(where: { $0.isResponding }) else { return }
+            await BackgroundTaskCoordinator.shared.begin()
+        }
     }
 
     @MainActor

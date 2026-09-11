@@ -106,8 +106,17 @@ actor RemoteMCPClient {
     func shutdown() async {
         legacyReaderTask?.cancel()
         legacyReaderTask = nil
+        // [2026-09-11 审计修复] 两个带 delegate 的 session 都要 invalidate——
+        // delegate 被 session 强引用，不 invalidate 则 client 重建/重连时整组泄漏。
+        session.invalidateAndCancel()
         streamingSession.invalidateAndCancel()
         failLegacyStream(CancellationError())
+    }
+
+    deinit {
+        // 兜底：未走 shutdown 直接释放时同样断开 delegate 引用环。
+        session.invalidateAndCancel()
+        streamingSession.invalidateAndCancel()
     }
 
     func listTools() async throws -> [MCPRemoteToolDefinition] {

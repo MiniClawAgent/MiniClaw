@@ -149,9 +149,43 @@ final class TextFadeAnimator {
         }
     }
 
-    /// 第二道保险（由宿主在「内容未变、非流式」时按 2s 节流调用）：同一套精确核对。
+    /// 第二道保险（由宿主在「内容未变、非流式」时按 2s 节流调用）：
+    /// ① 记录式精确核对（batchSeeds）；② 纯透明扫描兜底（见 sweepTransparentResidue）。
     func healResidueIfNeeded() {
         healBatchResidue()
+        sweepTransparentResidue()
+    }
+
+    /// [2026-09-11 终态兜底] alpha < 0.01 的前景色**必为** fade 逃逸残留——seed 后
+    /// 动画器销毁（cell 复用/catch-up 重渲）或记录被 maxRetainedSeeds 淘汰时，
+    /// 记录式自愈覆盖不到，字符以透明态占位（真机截图：「有行高但没有内容填充」）。
+    /// 正式正文没有全透明色（合法半透明如 secondaryLabel=0.6 远离阈值）→ 还原安全：
+    /// 保留原 RGB、alpha 拉满。动画进行中跳过（避免把渐隐中间态刷成终态）。
+    private func sweepTransparentResidue() {
+        guard words.isEmpty,let storage,let traits = resolvedTraits else { return }
+        let len = storage.length
+        guard len > 0 else { return }
+        var fixes: [(NSRange, UIColor)] = []
+        storage.enumerateAttribute(.foregroundColor,in: NSRange(location: 0,length: len),options: []) { value,range,_ in
+            guard let color = value as? UIColor else { return }
+            let resolved = color.resolvedColor(with: traits)
+            var a: CGFloat = 0,r: CGFloat = 0,g: CGFloat = 0,b: CGFloat = 0,w: CGFloat = 0
+            if resolved.getRed(&r,green: &g,blue: &b,alpha: &a) {
+                if a < 0.01 { fixes.append((range, UIColor(red: r,green: g,blue: b,alpha: 1))) }
+            } else if resolved.getWhite(&w,alpha: &a) {
+                if a < 0.01 { fixes.append((range, UIColor(white: w,alpha: 1))) }
+            }
+        }
+        guard !fixes.isEmpty else { return }
+        let healedChars = fixes.reduce(0) { $0 + $1.0.length }
+        storage.beginEditing()
+        for (range,color) in fixes {
+            storage.addAttribute(.foregroundColor,value: color,range: range)
+        }
+        storage.endEditing()
+        requestRedraw()
+        AppLogger(category: "FadeLeak").warning(
+            "[FadeLeak] SWEEP-TRANSPARENT \(healedChars)字符 alpha<0.01 已拉满 — 逃逸 seed 兜底")
     }
 
     private static func alpha(of color: UIColor,traits: UITraitCollection) -> CGFloat {
@@ -239,7 +273,10 @@ final class TextFadeAnimator {
         storage.endEditing()
 
         if staleDropped>0 {
-            AppLogger(category: "FadeLeak").warning(
+            // [2026-09-11 降噪] 这是**正常容错路径**（越界 word 的字符已被新内容替换、
+            // 位置上是新内容自己的颜色，无需恢复）→ info：不镜像控制台，避免流式回退时
+            // 每帧刷屏；落盘保留聚合计数供复盘（单帧已聚合，不逐条）。
+            AppLogger(category: "FadeLeak").info(
                 "[FadeLeak] STALE-DROP \(staleDropped)个 word 越界（storageLen=\(storageLen) 首个=\(staleSample)）— 内容已被替换，无需恢复")
         }
 

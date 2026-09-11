@@ -19,9 +19,6 @@ private struct BridgedAssistantHeader: View {
                 .foregroundStyle(ChatColors.primaryText)
         }
         .legibleTextShadow()
-        .onReceive(NotificationCenter.default.publisher(for: .soulMdChanged)) { _ in
-            soulMeta = SoulStore.cachedMetadata
-        }
         .padding(.top,4)
         .padding(.bottom,0)
         .frame(maxWidth: .infinity,alignment: .leading)
@@ -126,13 +123,14 @@ extension MessageCollectionView {
         var itemToIndex: [MessageListItem: Int] = [:]
 
         var prevSnapshotIds: [MessageListItem] = []
+        /// 上一次 applySnapshot 时「整轮是否仍在跑」（用于检测整轮结束这一时刻，
+        /// 触发最终回复块的重测——最终回复后面不接指示器，借不到那个节律）。
+        var lastWasProcessing: Bool = false
         var snapshotMessages: [RenderMessage] = []
 
         var cellBridgeMap: [UUID: CellStateBridge] = [:]
 
-        var attrStringHeightCache: [ObjectIdentifier: CGFloat] = [:]
         /// Caches accurate user-bubble
-        var userBubbleHeightCache: [String: CGFloat] = [:]
 
         var thinkingToggleSub: AnyCancellable?
 
@@ -612,12 +610,10 @@ extension MessageCollectionView {
                 note: Self.nbDump(viewController?.collectionView))
             #endif
             AppLogger(category: "ChatList.Scroll").info("[Scroll][rebind] coordinator vm \(hadOld ? "changed" : "was nil") → rebinding subscriptions + resyncing flags")
-            // [回看裁剪修复 2026-09-10] rebind = 离开会话再回来（同挂载视图换会话/
-            // 换 vm）。索引高度条目按 item 身份重映射会原样带走旧实测值，而块内容
-            // 可能已在离屏期间原地增长——旧矮高度被 .measured 优先级永久压住。
-            // 清索引条目（**保留进程级 contentKey memo**，方案 C 设计如此），
-            // 让随后的播种直接读 memo：回到任意一段 = 直接读该内容完成时的缓存。
-            viewController?.messageListLayout?.clearHeightCache(keepingSharedMemo: true)
+            // [2026-09-11 回滚] 昨晚在此加的 clearHeightCache(keepingSharedMemo: true)
+            // 会把重进会话变成「高度全空 + 同帧全量重播种」，与 PLAF 放行分支叠加时
+            // SwiftUI ViewGraph 报 EXC_BREAKPOINT（DictionaryStorage 过度释放）。
+            // 双 memo 合并后种子直读静态 memo（content-keyed、自带失效），此清理无收益。
             subscriptions.removeAll()
             lastMessageSub?.cancel(); lastMessageSub = nil
             lastMessageBlockCountSub?.cancel(); lastMessageBlockCountSub = nil
@@ -746,8 +742,7 @@ extension MessageCollectionView {
                     let cv = self.viewController?.collectionView
                     let layout = self.viewController?.messageListLayout
                     let cachedCount = layout?.debugCachedHeightCount ?? 0
-                    let precalcCount = layout?.debugPrecalcHeightCount ?? 0
-                    AppLogger(category: "ChatList.Scroll").info("[Scroll][forceScrollToBottom] window=\(cv?.window != nil) contentSize=\(String(format: "%.0f", cv?.contentSize.height ?? 0)) bounds=\(String(format: "%.0f", cv?.bounds.height ?? 0)) adjInsetBot=\(String(format: "%.0f", cv?.adjustedContentInset.bottom ?? 0)) heightCache=\(cachedCount) precalc=\(precalcCount) visibleCells=\(cv?.visibleCells.count ?? 0)")
+                    AppLogger(category: "ChatList.Scroll").info("[Scroll][forceScrollToBottom] window=\(cv?.window != nil) contentSize=\(String(format: "%.0f", cv?.contentSize.height ?? 0)) bounds=\(String(format: "%.0f", cv?.bounds.height ?? 0)) adjInsetBot=\(String(format: "%.0f", cv?.adjustedContentInset.bottom ?? 0)) heightCache=\(cachedCount) visibleCells=\(cv?.visibleCells.count ?? 0)")
                     self.vm?.setStreamingUIUpdatesSuspended(false)
                     self.scrollMode = .autoScrolling
                     self.lastJumpedUserId = nil
@@ -775,8 +770,6 @@ extension MessageCollectionView {
                         // 重进会话种子直接命中实测高度 → 上滑零修正零抖动。
                         // 字体变更走 reconfigureAllCells 全量清 memo。
                         self.viewController?.messageListLayout?.clearHeightCache(keepingSharedMemo: true)
-                        self.attrStringHeightCache.removeAll()
-                        self.userBubbleHeightCache.removeAll()
                         // window (bind1 set pendingSnapshotFlag) is now satisfied.
                         //
                         self.pendingSnapshotFlag = false

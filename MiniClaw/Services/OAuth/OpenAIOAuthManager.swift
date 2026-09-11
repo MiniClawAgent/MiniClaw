@@ -4,7 +4,14 @@ import SafariServices
 import CryptoKit
 import os.log
 
-private let logger = Logger(subsystem: "com.neartop.miniclaw", category: "OpenAIOAuth")
+private let logger = OAuthLog(category: "OpenAIOAuth")
+
+/// OAuth 授权链路日志（统一转发 AppLogger——原 os.Logger 不落运行日志文件，排障盲区）。
+struct OAuthLog {
+    let category: String
+    func info(_ message: String) { AppLogger.shared.info(message, category: "OAuth·\(category)") }
+    func error(_ message: String) { AppLogger.shared.error(message, category: "OAuth·\(category)") }
+}
 
 /// OpenAI OAuth implementation using PKCE flow.
 @MainActor

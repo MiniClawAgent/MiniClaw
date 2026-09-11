@@ -4,7 +4,7 @@ import SafariServices
 import CryptoKit
 import os.log
 
-private let logger = Logger(subsystem: "com.neartop.miniclaw", category: "AnthropicOAuth")
+private let logger = OAuthLog(category: "AnthropicOAuth")
 
 /// Anthropic (Claude) OAuth implementation using PKCE flow.
 @MainActor

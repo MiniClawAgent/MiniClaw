@@ -926,6 +926,18 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
 
             if validToolCalls.isEmpty && invalidToolCalls.isEmpty {
                 consecutiveInvalidToolRounds = 0
+                // [2026-09-11 根因修复] 纯文本收尾（含并入排队消息的续跑）此前从不把
+                // 最终 assistant 回复写回 messages：主会话每轮从 SessionStore 重建
+                // 历史不受影响，但子代理复用依赖 engine.messages 续接上下文
+                // （runSubagent 终态持久化 history = child.messages），缺失导致复用
+                // 请求出现**连续 user 消息**，模型回退作答旧任务——2026-09-11 三轮
+                // 复用实测：第2轮乙、第3轮甲乙丙全部返回第1轮旧结果；[Cache指纹]
+                // hist 每轮仅 +1 条（全 user、零 assistant）实锤。
+                messages.append(ChatCompletionMessage(
+                    role: "assistant",
+                    content: streamedText.isEmpty ? nil : streamedText,
+                    reasoningContent: streamedReasoning.isEmpty ? nil : streamedReasoning
+                ))
                 if let next = await state.takeNextInput() {
                     messages.append(ChatCompletionMessage(role: "user", content: next))
                     continue
@@ -1849,13 +1861,23 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
     /// （三子代理测试实证：5 次调用全失败直至熔断）。Registry 带 lock 且是幂等
     /// 关闭的唯一依据（remove 后即解析不到 → 自然报「已关闭，无需重复」）。
     @MainActor
-    private func prefixResolveSubagentToken(_ token: String, sessionID: UUID) -> UUID? {
+    private func prefixResolveSubagentToken(_ token: String, sessionID: UUID) async -> UUID? {
         let short = token.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         guard short.count >= 4, UUID(uuidString: token) == nil else { return nil }
         let matches = SubagentRuntimeRegistry.shared.allRecords(for: sessionID)
             .filter { $0.id.uuidString.lowercased().hasPrefix(short) }
             .map(\.id)
-        return matches.count == 1 ? matches[0] : nil
+        if matches.count == 1 { return matches[0] }
+        // [2026-09-11 跨启动水合] Registry MISS ≠ 子代理不存在：Store 的卡片/对话
+        // 持久且 UI 常驻，历史里的旧短码据此水合回 Registry（否则 MISS → 静默新建，
+        // 同一子代理每轮变成不同新实例——2026-09-11 三轮复测实锤）。唯一前缀匹配才水合。
+        guard matches.isEmpty,
+              let rec = await SubagentRuntimeRegistry.rehydrateFromStore(sessionID: sessionID, subagentIDToken: short) else { return nil }
+        SubagentRuntimeRegistry.shared.upsert(sessionID: sessionID, record: rec)
+        AppLogger.shared.info(
+            "[SubagentDispatch] token=\(short) → 自 Store 水合 \(rec.id.uuidString.prefix(8))（跨启动续接）",
+            category: "Agent", subsystem: "Subagent")
+        return rec.id
     }
 
     private func executeTool(_ tc: ToolCall) async -> ToolResult {
@@ -2080,10 +2102,19 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
             guard let token = resolvedSpecs[i].reuseToken else { continue }
             let hit = await prefixResolveSubagentToken(token, sessionID: parentSessionID)
             resolvedSpecs[i] = resolvedSpecs[i].withReuseID(hit)
-            AppLogger.shared.warn(
-                "[SubagentDispatch] reuse token=\(token) → \(hit?.uuidString.prefix(8) ?? "MISS(新建)")",
-                category: "Agent", subsystem: "Subagent"
-            )
+            // [2026-09-11 降噪] 命中复用是正常路径 → info（不镜像控制台）；
+            // 只有解析失败（MISS=新建）才值得 WARN 提醒短码/UUID 口径不一致。
+            if let hit {
+                AppLogger.shared.info(
+                    "[SubagentDispatch] reuse token=\(token) → \(hit.uuidString.prefix(8))",
+                    category: "Agent", subsystem: "Subagent"
+                )
+            } else {
+                AppLogger.shared.warn(
+                    "[SubagentDispatch] reuse token=\(token) → MISS(新建)",
+                    category: "Agent", subsystem: "Subagent"
+                )
+            }
         }
 
         // 单任务：保持既有串行路径（无并发开销、事件顺序与旧版一致）。

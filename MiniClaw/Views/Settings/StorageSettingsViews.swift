@@ -240,18 +240,24 @@ struct StorageSettingsView: View {
             let base = SessionFileRouter.sessionsHostBase
             var ov = StorageOverview()
             var rows: [SessionStorageRow] = []
-            let subs = SessionFileRouter.sessionSubdirs  // workspace/attachments/browser/offloads
+            // [2026-09-11 修复] sessionSubdirs 实为 5 个（含 subagent），旧注释漏写；
+            // 且 subagent 此前**无归类分支**——它计入会话占用列表却不进任何概览分类，
+            // 造成「会话占用合计 ≠ 概览五类之和」的口径漏项。
+            let subs = SessionFileRouter.sessionSubdirs
             for (id, title, updated) in sessions {
                 let sessionDir = base.appendingPathComponent(id.uuidString, isDirectory: true)
                 var sessionBytes: Int64 = 0
                 for sub in subs {
                     let size = fs.sizeOfDirectory(sessionDir.appendingPathComponent(sub))
                     sessionBytes += size
-                    if sub == "workspace" || sub == "offloads" { ov.workspace += size }
-                    else if sub == "attachments" { ov.attachments += size }
-                    else if sub == "browser" { ov.sessionCache += size }
+                    switch sub {
+                    case "workspace", "offloads": ov.workspace += size
+                    case "attachments": ov.attachments += size
+                    // browser/ 与 subagent/ 都属「会话缓存」（可重建，见 StorageOverview 定义）
+                    case "browser", "subagent": ov.sessionCache += size
+                    default: break
+                    }
                 }
-                // 会话缓存：子代理运行期记录已随会话数据入库 SQLite(可重建)，不再单独统计文件。
                 rows.append(SessionStorageRow(id: id, title: title, updatedAt: updated, bytes: sessionBytes))
             }
             rows.sort { $0.bytes > $1.bytes }
@@ -321,17 +327,24 @@ struct StorageSettingsView: View {
         isBusy = true
         DispatchQueue.global(qos: .userInitiated).async { [self] in
             let fm = FileManager.default
+            let fs = FileSystemManager.shared
             let base = SessionFileRouter.sessionsHostBase
+            // [2026-09-11 验证性反馈] 先统计后删除——与「清理旧附件」同口径，把实际
+            // 释放字节写进结果提示。此前只弹固定文案，而会话缓存本就常为 0，
+            // 用户无法区分「清掉了」与「本来就没有」。
+            var freed: Int64 = 0
             if let sessionDirs = try? fm.contentsOfDirectory(atPath: base.path) {
                 for s in sessionDirs where UUID(uuidString: s) != nil {
                     // 仅清各会话的浏览器数据（截图/下载，可重建）；runtimeRecords
                     // 不是缓存——子代理复用/关闭依赖它（2026-09-05 修复，不再删除）。
-                    removeContents(of: base.appendingPathComponent(s).appendingPathComponent("browser"))
+                    let browserDir = base.appendingPathComponent(s).appendingPathComponent("browser")
+                    freed += fs.sizeOfDirectory(browserDir)
+                    removeContents(of: browserDir)
                 }
             }
             DispatchQueue.main.async {
                 isBusy = false
-                cleanupMessage = String(localized: "session_cache_cleared")
+                cleanupMessage = String(format: String(localized: "session_cache_cleared_bytes"), fmt(freed))
                 showCleanupResult = true
                 reload()
             }

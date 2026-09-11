@@ -115,9 +115,10 @@ struct RuntimeStatusSnapshot {
 
 // MARK: - 路径与大小工具
 
-private func expectedRootfsURL() -> URL {
-    let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-    return support.appendingPathComponent("MiniClaw/ish-rootfs", isDirectory: true)
+private func expectedRootfsURL() -> URL? {
+    // [2026-09-11 审计收敛] rootfs 路径唯一权威 = ShellRuntimeSupport.deployedRootfsURL()，
+    // 此前本地重拼一份且 Application Support 取失败时行为与其它三处不一致。
+    return RootfsMaintenance.deployedRootfsURL()
 }
 
 private func directorySize(_ url: URL) -> UInt64? {
@@ -154,13 +155,13 @@ func gatherRuntimeStatus(performLiveProbe: Bool) async -> RuntimeStatusSnapshot 
     }
     let rootURL = expectedRootfsURL()
     let fm = FileManager.default
-    let deployed = fm.fileExists(atPath: rootURL.path)
-    let size = deployed ? directorySize(rootURL) : nil
+    let deployed = rootURL.map { fm.fileExists(atPath: $0.path) } ?? false
+    let size = deployed ? rootURL.map { directorySize($0) } : nil
 
     // 不启动 runtime 的前提下，从 rootfs 文件树识别 Alpine 标记
     var detectedRelease: String? = nil        // Alpine 版本（如 3.20.0），来自 etc/alpine-release
     var detectedArch: String? = "aarch64"     // 编译目标架构（GUEST_ARM64）
-    if deployed {
+    if deployed, let rootURL {
         let rel = rootURL.appendingPathComponent("etc/alpine-release")
         if let s = (try? String(contentsOf: rel, encoding: .utf8))?.trimmingCharacters(in: .whitespacesAndNewlines),
            !s.isEmpty {
@@ -215,8 +216,8 @@ func gatherRuntimeStatus(performLiveProbe: Bool) async -> RuntimeStatusSnapshot 
         bootedState: bootedState,
         bootPhase: bootPhase,
         rootfsDeployed: deployed,
-        rootfsPath: deployed ? rootURL.path : nil,
-        rootfsSizeBytes: size,
+        rootfsPath: deployed ? rootURL?.path : nil,
+        rootfsSizeBytes: size.flatMap { $0 },
         alpineDetected: alpineDetected,
         alpineRelease: detectedRelease,
         alpineArch: detectedArch,

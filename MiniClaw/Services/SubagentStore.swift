@@ -151,7 +151,10 @@ final class SubagentStore: ObservableObject {
                     if let idx = m.reasoningSegments.firstIndex(where: { $0.index == index }) {
                         m.reasoningSegments[idx].text += piece
                     } else {
-                        m.reasoningSegments.append(ReasoningSegment(index: index, text: piece, position: m.text.count, timelineOrder: order))
+                        // 锚点 = 已提交正文 + 未提交缓冲（真实流式位置）。只算已提交正文
+                        // 会在轮次边界把思考块插进上一轮回复中间（主链路 2026-09-09 同族修复）。
+                        let pendingLen = pendingSubagentText[sid]?[subID]?.count ?? 0
+                        m.reasoningSegments.append(ReasoningSegment(index: index, text: piece, position: m.text.count + pendingLen, timelineOrder: order))
                     }
                 }
             }
@@ -161,6 +164,7 @@ final class SubagentStore: ObservableObject {
         pendingSubagentText = [:]
         for (sid, bySub) in texts {
             var touched = false
+            var probeLen = 0, probeSegs = 0, probeCalls = 0
             for (subID, piece) in bySub where !piece.isEmpty {
                 guard let conv = conversations[sid]?[subID] else { continue }
                 // 终态守卫：同上，迟到正文增量不落、不翻流式态。
@@ -169,8 +173,19 @@ final class SubagentStore: ObservableObject {
                 m.text += piece
                 m.isStreaming = true
                 touched = true
+                probeLen = m.text.count
+                probeSegs = m.reasoningSegments.count
+                probeCalls = m.toolCalls.count
             }
-            if touched { scheduleSave(sessionID: sid) }
+            if touched {
+                // [2026-09-11 观测] 正文提交计数探针：与 [SubagentData] toolCall+ 联用，
+                // 判定「子代理会话页内容重复」是数据层（此处 counts 翻倍/重复追加）
+                // 还是渲染层（数据 counts 正常、界面重复）。
+                AppLogger.shared.info(
+                    "[SubagentData] text+ sub=\(sid.uuidString.prefix(8)) textLen=\(probeLen) segments=\(probeSegs) toolCalls=\(probeCalls)",
+                    category: "SubagentData")
+                scheduleSave(sessionID: sid)
+            }
         }
     }
 
@@ -216,6 +231,33 @@ final class SubagentStore: ObservableObject {
 
     func conversation(for sessionID: UUID, subagentID: UUID) -> SubagentConversation? {
         conversations[sessionID]?[subagentID]
+    }
+
+    /// [2026-09-11 跨启动复用水合] Registry 的 SQLite 快照不跨安装包存活，而本 Store
+    /// 的卡片/对话持久且 UI 常驻显示。模型从会话历史引用旧短码时，引擎据此把
+    /// Store 里的「身份 + 对话正文」水合回 Registry——复用真正续接而非每次新建。
+    /// 短码对「卡片 ∪ 对话键」做唯一前缀匹配；无对话（只有卡片）返回 nil（无可续上下文）。
+    func rehydrationSnapshot(sessionID: UUID, subagentIDToken: String) -> (id: UUID, name: String, task: String, turns: [(role: String, text: String)])? {
+        let token = subagentIDToken.lowercased()
+        var ids = Set((cards[sessionID] ?? []).map(\.id))
+        if let convKeys = conversations[sessionID] { ids.formUnion(convKeys.keys) }
+        let hits = ids.filter { $0.uuidString.lowercased().hasPrefix(token) }
+        guard hits.count == 1, let id = hits.first,
+              let conv = conversations[sessionID]?[id], !conv.messages.isEmpty else { return nil }
+        let name = cards[sessionID]?.first(where: { $0.id == id })?.name ?? conv.name
+        var task = ""
+        var turns: [(role: String, text: String)] = []
+        for m in conv.messages where !m.text.isEmpty {
+            switch m.role {
+            case .task:
+                if task.isEmpty { task = m.text }
+                turns.append((role: "user", text: m.text))
+            case .response:
+                turns.append((role: "assistant", text: m.text))
+            }
+        }
+        guard !turns.isEmpty else { return nil }
+        return (id, name, task, turns)
     }
 
     // MARK: - 写入（由 ChatView 的 onSubagentEvent 在主线程调用）
@@ -286,8 +328,15 @@ final class SubagentStore: ObservableObject {
         guard let conv = conversations[sessionID]?[info.id] else { return }
         let m = currentOrNewResponse(conv)
         var ev = event
-        ev.position = m.text.count
+        // 锚点含未提交缓冲（真实流式位置），与思考段锚点同口径——否则轮次边界
+        // 尾包还在缓冲时工具卡会插进上一轮正文中间。
+        ev.position = m.text.count + (pendingSubagentText[sessionID]?[info.id]?.count ?? 0)
         m.toolCalls.append(ev)
+        // [2026-09-11 观测] 「子代理会话页内容整段重复」定位探针：数据层每次
+        // 追加都可见——若日志 toolCalls 计数与界面卡片数一致，则重复在渲染层。
+        AppLogger.shared.info(
+            "[SubagentData] toolCall+ sub=\(info.id.uuidString.prefix(8)) callID=\(event.callID ?? "nil") pos=\(ev.position) toolCalls=\(m.toolCalls.count) textLen=\(m.text.count) msgs=\(conv.messages.count)",
+            category: "SubagentData")
         scheduleSave(sessionID: sessionID)
     }
 

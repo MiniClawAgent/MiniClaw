@@ -49,6 +49,7 @@ final class MarkdownRenderCache {
     private var hitLogAt: [String: CFAbsoluteTime] = [:]
 
     private func logHit(_ kind: String,key: String) {
+        touch(key)  // LRU 续期（2026-09-11 审计发现：日志化改造时遗失 touch，缓存退化为 FIFO——已恢复）
         let now = CFAbsoluteTimeGetCurrent()
         if let t = hitLogAt[key],now-t < 1.0 { return }
         hitLogAt[key] = now
@@ -131,6 +132,7 @@ final class MarkdownRenderCache {
     func removeAll() {
         entries.removeAll(keepingCapacity: false)
         order.removeAll(keepingCapacity: false)
+        hitLogAt.removeAll()
     }
 
     /// 注册内存告警监听（进程内一次）。缓存可重建，宁可丢也不被杀。
@@ -401,10 +403,48 @@ struct MarkdownView: UIViewRepresentable {
         if _curW>1 {
             context.coordinator.lastRenderedWidth = _curW
         }
+        // [Probe 2026-09-11] 显示链断点定位：每次 updateUIView 的入参摘要（mdCnt 变化
+        // 或 1s 节流）。[Render] 探针多轮 0 行 vs 流式正常显示——先证明 updateUIView
+        // 到底有没有被 SwiftUI 携带新内容调用。
+        do {
+            let changed = markdown != context.coordinator.lastMarkdown
+            let now = CACurrentMediaTime()
+            if changed || now - context.coordinator.lastProbeAt > 1.0 {
+                context.coordinator.lastProbeAt = now
+                AppLogger(category: "RenderProbe").info(
+                    "[Probe] ENTER blk=\(blockId?.uuidString.prefix(8) ?? "?") mdCnt=\((markdown as NSString).length) lastMd=\((context.coordinator.lastMarkdown as NSString).length) changed=\(changed ? 1 : 0) streaming=\(isStreaming ? 1 : 0) stale=\(context.coordinator.streamSnapshotStale ? 1 : 0) storageLen=\(textView.textStorage.length)")
+            }
+        }
+        // [2026-09-11 强制收敛] 去重守卫补 storage 完整性检查：storage 缺了 markdown
+        // 结尾的纯散文行 = 显示停在旧短快照（流式终帧丢在节流复用上、追赶回调丢失
+        // 的场景）→ 不许去重，强制走重渲追平。真机 SHORT-DISPLAY 实锤：
+        // storageLen=367 mdLen=743（blk=74AFA8CF/16C9CF57，恰为 TAIL-HIT 全高块 →
+        // 「有行高但无内容填充」的空白区）。纯散文行判定与渲染侧 TAIL-MISS 同口径
+        //（剔除语法符/数字行，宁漏不误）；仅 !isStreaming 检查——流式期的落后由
+        // streamSnapshotStale+catch-up 管辖，不在此重复。
+        var storageMissingTail = false
+        if !isStreaming, markdown == context.coordinator.lastMarkdown,
+           !fontChanged, !context.coordinator.streamSnapshotStale {
+            let syntax = "*|`#~[]()>+-·0123456789"
+            let probe = markdown.split(whereSeparator: { $0.isNewline }).reversed()
+                .map { $0.trimmingCharacters(in: .whitespaces) }
+                .first { $0.count >= 6 && !$0.contains(where: { syntax.contains($0) }) }
+            if let probe {
+                storageMissingTail = !textView.textStorage.string.contains(probe)
+                if storageMissingTail {
+                    let now = CACurrentMediaTime()
+                    if now - context.coordinator.lastShortLogAt > 1.0 {
+                        context.coordinator.lastShortLogAt = now
+                        AppLogger(category: "RenderProbe").warning(
+                            "[Probe] SHORT-DISPLAY blk=\(blockId?.uuidString.prefix(8) ?? "?") storageLen=\(textView.textStorage.length) mdCnt=\(markdown.count) — 去重放行强制重渲")
+                    }
+                }
+            }
+        }
         // [尾包修复 2026-09-10] `streamSnapshotStale` 必须放行：内容没变但 storage 停在
         // 缺尾旧快照（上一轮走了流式节流复用，窗长见 Coordinator.streamThrottleWindow）时，正是本条 updateUIView 要追平。
         guard markdown != context.coordinator.lastMarkdown || fontChanged
-            || context.coordinator.streamSnapshotStale else {
+            || context.coordinator.streamSnapshotStale || storageMissingTail else {
             let shouldRecover = textView.window != nil
                 && textView.needsAttachmentRecovery
                 && !textView.hasScheduledRecoveryForCurrentContent
@@ -974,23 +1014,6 @@ struct MarkdownView: UIViewRepresentable {
 
         //
         let useMeasureTextView = bindingLen != storageLen
-        // STREAM-EST disabled again.
-        // message (user report, macOS, "MiniClaw Feedback Review" — the shell
-        let disableStreamEst = true
-        if !disableStreamEst,
-           useMeasureTextView,
-           let prevHeight = coord.lastFullMeasureHeight[widthKey],
-           coord.lastFullMeasureBindingLen >= 64,// anchor must represent enough characters
-           prevHeight >= 30,// and a real laid-out block
-           bindingLen>coord.lastFullMeasureBindingLen,
-           bindingLen-coord.lastFullMeasureBindingLen<128 { // tighter delta window
-            let prevLen = coord.lastFullMeasureBindingLen
-            let pxPerChar = prevHeight/CGFloat(prevLen)
-            let delta = CGFloat(bindingLen-prevLen)
-            let rawEstimate = prevHeight+delta*pxPerChar
-            let estimated = min(rawEstimate,prevHeight*1.5,1200)
-            return CGSize(width: width,height: estimated)
-        }
 
         if bindingLen != coord.cachedSizeMarkdownCount {
             coord.cachedSizes.removeAll(keepingCapacity: true)
@@ -1127,11 +1150,6 @@ struct MarkdownView: UIViewRepresentable {
                     // 挂在完整内容的 key/指纹下，回看时 :902/:1051 永久命中矮高度。
                     coord.cachedSizes[widthKey] = h
                     coord.cachedSizeMarkdownCount = bindingLen
-                    if bindingLen>0 {
-                        coord.lastFullMeasureBindingLen = bindingLen
-                        coord.lastFullMeasureHeight[widthKey] = h
-                        coord.lastFullMeasureAt = CFAbsoluteTimeGetCurrent()
-                    }
                 }
                 let _renderW = uiView.bounds.width
                 if _renderW <= 0 || abs(width-_renderW)<0.5 {
@@ -1204,14 +1222,6 @@ struct MarkdownView: UIViewRepresentable {
                         coord.cachedSizes.removeValue(forKey: firstKey)
                     }
                     coord.cachedSizeMarkdownCount = bindingLen
-                    if bindingLen>0 {
-                        coord.lastFullMeasureBindingLen = bindingLen
-                        coord.lastFullMeasureHeight[widthKey] = h
-                        coord.lastFullMeasureAt = CFAbsoluteTimeGetCurrent()
-                        if coord.lastFullMeasureHeight.count>12,let firstKey = coord.lastFullMeasureHeight.keys.first {
-                            coord.lastFullMeasureHeight.removeValue(forKey: firstKey)
-                        }
-                    }
                     let renderW = uiView.bounds.width
                     if renderW <= 0 || abs(width-renderW)<0.5 {
                         uiView.lastComputedHeight = h
@@ -1261,17 +1271,6 @@ struct MarkdownView: UIViewRepresentable {
             }
         }
 
-        if bindingLen>0 && size.height>0 {
-            coord.lastFullMeasureBindingLen = bindingLen
-            coord.lastFullMeasureHeight[widthKey] = size.height
-            coord.lastFullMeasureAt = CFAbsoluteTimeGetCurrent()
-            // [T-perf 2026-09-08] 同 cachedSizes：cap 4 → 12（402/370 双宽共存）
-            if coord.lastFullMeasureHeight.count>12 {
-                if let firstKey = coord.lastFullMeasureHeight.keys.first {
-                    coord.lastFullMeasureHeight.removeValue(forKey: firstKey)
-                }
-            }
-        }
 
         let totalMs = (CFAbsoluteTimeGetCurrent()-t0)*1000
         coord.sizeThatFitsTotalMs += totalMs
@@ -1470,6 +1469,9 @@ struct MarkdownView: UIViewRepresentable {
         var lastRenderedWidth: CGFloat = -1
         /// [FadeLeak] 尾部透明残留扫描的节流时间戳（early-return 分支，2s/次）。
         var lastFadeResidueScanAt: CFTimeInterval = 0
+        /// [Probe 2026-09-11] 显示链探针节流。
+        var lastProbeAt: CFTimeInterval = 0
+        var lastShortLogAt: CFTimeInterval = 0
         /// 当前渲染的内容身份（blockId 优先，缺省
         /// messageId）。换块判定用：cell 复用/块重配把同一 textView 更新为另一块
         /// 的内容时必须 cancelAll（见 updateUIView 内注释）。
@@ -1479,9 +1481,6 @@ struct MarkdownView: UIViewRepresentable {
         var sizeThatFitsTotalMs: Double = 0
         var streamRenderCount: Int = 0
         ///
-        var lastFullMeasureBindingLen: Int = 0
-        var lastFullMeasureHeight: [Int: CGFloat] = [:]
-        var lastFullMeasureAt: CFAbsoluteTime = 0
         var renderer = MarkdownNSRenderer(baseFontSize: FontSettings.shared.scaledMessage(16.5))
 
         weak var fadeTextView: MarkdownTextView?

@@ -497,13 +497,20 @@ class SelfSizingCell: UICollectionViewCell {
 
         if let cached = lastCalcH,
            abs(layoutAttributes.size.width-attrs.size.width)<1 {
-            // [回看裁剪修复 2026-09-10] lastCalcH 只做 ≤2pt 微差平滑；super.PLAF 的
-            // hosting 实测与缓存差 >2pt（典型=块内容离屏期间原地增长）必须放行——
-            // 否则高度冻结在旧值，尾部行被裁，且流结束后无 reconfigure 不会再有
-            // PLAF 机会（两天「块错位/丢字」实锤链之一）。放行时同步推进 lastCalcH，
+            // [2026-09-11 崩溃修复] super.PLAF 的 hosting 实测与 NegMeasure 家族
+            // 同源——可能返回损坏值（2026-09-09 真机实录 -40，EXC_BAD_ACCESS 同在
+            // ViewGraphGeometryObservers.needsUpdate）。损坏值原被 cached 短路掩盖；
+            // 放行分支必须同样拦截：非有限/负值一律弃用实测、维持 cached。
+            let measured = attrs.size.height
+            guard measured.isFinite,measured >= 0,cached.isFinite,cached >= 0 else {
+                attrs.size.height = max(cached.isFinite ? cached : 0,0)
+                return attrs
+            }
+            // [回看裁剪修复 2026-09-10] lastCalcH 只做 ≤2pt 微差平滑；实测与缓存差
+            // >2pt（典型=块内容离屏期间原地增长）放行真实高度，并推进 lastCalcH
             // 让短窗 dedup(:401) 与后续 pass 读到新值，避免振荡。
-            if abs(attrs.size.height-cached) > 2 {
-                lastCalcH = attrs.size.height
+            if abs(measured-cached) > 2 {
+                lastCalcH = measured
                 lastMeasureMedia = CACurrentMediaTime()
             } else {
                 attrs.size.height = cached

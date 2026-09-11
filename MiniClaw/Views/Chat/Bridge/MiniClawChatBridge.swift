@@ -247,6 +247,18 @@ final class MiniClawChatBridge: ObservableObject {
         let now = Date()
         let throttled = now.timeIntervalSince(lastRefreshAt) < 0.25 && !force && !endTransition
         if fp == lastFingerprint || (throttled && !force) { return }
+        // [Probe 2026-09-11] 终态合并观测：回复结束这次刷新合并进的各文本块长度——
+        // 对照 Persist 的 content 字数，若 textLens 偏短 = 终帧合并缺尾（Bridge 层病）；
+        // 若 textLens 完整而界面仍短 = cell 未被 reconfigure（列表层病）。
+        if endTransition {
+            let lastAI = messages.last(where: { $0.role == .assistant })
+            let textLens = (lastAI?.blocks ?? []).compactMap { b -> Int? in
+                b.kind == .text ? b.content.count : nil
+            }
+            AppLogger.shared.warning(
+                "[BridgeProbe] endTransition contentCnt=\(lastAI?.content.count ?? -1) textLens=\(textLens) fpSame=\(fp == lastFingerprint ? 1 : 0) throttled=\(throttled ? 1 : 0) suspended=\(vm.streamingUIUpdatesSuspended ? 1 : 0)",
+                category: "BridgeProbe")
+        }
 
         // [2026-08-14 流式滑动抖动修复·方案1] 用户拖动列表期间组件置
         // `streamingUIUpdatesSuspended`（scrollViewWillBeginDragging → deferSelfSizing）。
@@ -392,7 +404,10 @@ final class MiniClawChatBridge: ObservableObject {
                 var charBudget = syncRenderCharBudget
                 let blocks = cached.blocks
                 for (i, blk) in blocks.enumerated() {
-                    guard blk.kind == .text, blk.cachedAttributedString == nil else { continue }
+                    // [2026-09-11 尾部行裁切修复] 不再以「缓存缺失」为前置条件——
+                    // 陈旧缓存必须追赶内容（由 cacheRenderedContent 内部按内容指纹
+                    // 判定，内容没变时零成本直接返回）。
+                    guard blk.kind == .text else { continue }
                     // 至少保证最后一条消息一定渲染，避免最新内容不渲染导致白屏/闪烁。
                     let isLast = i == blocks.count - 1
                     let estimated = blk.content.count
@@ -421,7 +436,10 @@ final class MiniClawChatBridge: ObservableObject {
                 var charBudget = syncRenderCharBudget
                 let blocks = fresh.blocks
                 for (i, blk) in blocks.enumerated() {
-                    guard blk.kind == .text, blk.cachedAttributedString == nil else { continue }
+                    // [2026-09-11 尾部行裁切修复] 不再以「缓存缺失」为前置条件——
+                    // 陈旧缓存必须追赶内容（由 cacheRenderedContent 内部按内容指纹
+                    // 判定，内容没变时零成本直接返回）。
+                    guard blk.kind == .text else { continue }
                     // 至少保证最后一条消息一定渲染，避免最新内容不渲染导致白屏/闪烁。
                     let isLast = i == blocks.count - 1
                     let estimated = blk.content.count

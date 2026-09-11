@@ -685,13 +685,18 @@ struct ChatView: View {
                 .font(.subheadline)
                 .fontWeight(.semibold)
                 .lineLimit(1)
+                .minimumScaleFactor(0.7)
                 .onTapGesture { showSoulSettings = true }
             Text(headerModelName)
                 .font(.caption2)
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
+                .minimumScaleFactor(0.7)
                 .onTapGesture { showModelManagement = true }
         }
+        // [2026-09-11] 不加宽度约束：柔性 .frame(maxWidth:) 会被 UIKit titleView
+        // 布局撑满可用区域导致整体左锚定（真机实测）。超宽问题从源头收——
+        // 占位标题只取首条消息前 8 字 + 单字符省略号（见 headerTitle）。
     }
 
     /// 标题区展示的标题：AI 尚未改名前（titleIsPlaceholder，即占位标题）显示首条用户消息
@@ -706,8 +711,10 @@ struct ChatView: View {
                 return localizedDefault(session.title)
             }
             let trimmed = first.trimmingCharacters(in: .whitespacesAndNewlines)
-            let prefix = String(trimmed.prefix(10))
-            return trimmed.count > 10 ? prefix + "..." : prefix
+            // [2026-09-11] 占位标题取 8 字 + 单字符省略号：principal 超宽会被 UIKit
+            // 改为靠左排布（此前 10 字+"..." 在真机上必然超宽 → 标题靠左）。
+            let prefix = String(trimmed.prefix(8))
+            return trimmed.count > 8 ? prefix + "…" : prefix
         }
         return localizedDefault(session.title)
     }

@@ -32,7 +32,6 @@ private final class ImageTapGesture: UITapGestureRecognizer {
 
     @objc func handleTap() {
         if let messageId,let sourceURL {
-            MarkdownImageTapRouter.postTap(messageId: messageId,sourceURL: sourceURL)
             // 2026-08-12 治本:图片点击同时进入系统预览通道(宿主监听
             // .miniClawOpenURLRequested → QLPreviewController)。source 归一为
             // miniclaw:// 文件语义(图片/PDF/音视频统一系统预览)。
@@ -1521,7 +1520,10 @@ final class TableAttachment: NSTextAttachment {
         }
         let now = CFAbsoluteTimeGetCurrent()
         if now-hotLastFlush >= 1.0,hotCallCount>0 {
-            if hotCallCount >= 20 || hotTotalMs >= 30 {
+            // [2026-09-11 降噪] 只在**真慢**（1s 内累计 ≥30ms）时输出汇总行。
+            // 原条件 `hotCallCount >= 20 ||` 让常态（totalMs=0.0）也每秒刷一条，
+            // 属 HangFix 排查期插桩的遗留噪音——表格附件性能问题已解，保留阈值触发即可。
+            if hotTotalMs >= 30 {
                 flushLine = "[HangFix][AttachBounds] TableAttachment.attachmentBounds calls=\(hotCallCount) totalMs=\(String(format: "%.1f", hotTotalMs)) avg=\(String(format: "%.2f", hotTotalMs / Double(hotCallCount)))ms max=\(String(format: "%.2f", hotMaxMs))ms hit=\(hotCacheHits) miss=\(hotCacheMisses) in last \(String(format: "%.1f", now - hotLastFlush))s"
             }
             hotCallCount = 0

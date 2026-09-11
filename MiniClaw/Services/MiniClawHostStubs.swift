@@ -83,20 +83,8 @@ func noff_try_objc(_ body: () throws -> Void) -> Bool {
 
 // MARK: - 三件套依赖桩(2026-08-09 第三批)
 
-/// 思考强度档位
-struct MiniClawAudioPreviewView: View {
-    let fileURL: URL
-    var body: some View {
-        HStack {
-            Image(systemName: "speaker.wave.2")
-            Text("Audio")
-        }
-    }
-}
 
 extension Notification.Name {
-    static let soulMdChanged = Notification.Name("soulMdChanged")
-    static let dismissAllImmersivePresentations = Notification.Name("dismissAllImmersivePresentations")
 }
 
 // MARK: - 会话活动追踪桩
@@ -145,8 +133,6 @@ final class MiniClawOpenURLBroker: ObservableObject {
     @Published var pendingURL: URL?
     var toolSheetVisible = false
     var toolSheetOpenURL: URL?
-    func open(_ url: URL) {}
-    func openInToolSheet(_ url: URL) { pendingURL = url }
     func consume() { pendingURL = nil }
     static func isWebScheme(_ scheme: String?) -> Bool {
         guard let scheme = scheme?.lowercased() else { return false }
@@ -216,7 +202,6 @@ public enum ChatColors {
 public final class SessionActivityTracker: ObservableObject {
     nonisolated(unsafe) static let shared = SessionActivityTracker()
     func isActive(_ sessionId: String) -> Bool { false }
-    func recordEvent(_ name: String) {}
 }
 
 // MARK: - 环境键(原 ChatSessionIdEnvironment)
@@ -321,13 +306,6 @@ struct StreamingHangLogger {
     }
 }
 
-// MARK: - 媒体视图桩(占位;接入 MiniClaw 播放器/预览时替换)
-enum MarkdownImageTapRouter {
-    static let tappedNotification = Notification.Name("MarkdownImageTapRouterTapped")
-    static func postTap(messageId: UUID?,sourceURL: String?) {
-        NotificationCenter.default.post(name: tappedNotification,object: nil)
-    }
-}
 
 // MARK: - VM 契约(MessageListModel 精简版,2026-08-10 重建)
 // 列表组件消费的视图模型契约:宿主(MiniClawChatBridge)持有并驱动。
@@ -397,7 +375,6 @@ public final class MessageListModel: ObservableObject {
 
     public func appendToInputText(_ text: String) {}
     public func appendSystemInfo(_ text: String,icon: String) {}
-    public func retryFromMessage(_ id: UUID) {}
     public func retryFromToolBlock(blockId: UUID) {}
     // 2026-08-12 治本:朗读菜单(Read Selection/Read from Start)从空桩改为真实 TTS。
     public func speakText(_ text: String?) {
@@ -449,31 +426,8 @@ public struct SoulMetadata: Equatable {
 public enum SoulStore {
     /// 缓存元数据(宿主在 MiniClawChatBridge.attach 时刷新)
     nonisolated(unsafe) public static var cachedMetadata = SoulMetadata(name: "MiniClaw")
-    public static let soulMdChanged = Notification.Name("SoulMetadataChanged")
 }
 
-/// 思考强度档位(原 LLMTypes.ThinkingLevel,列表仅用 off/isEnabled/比较)
-public enum ThinkingLevel: String,Codable,Hashable,CaseIterable,Comparable {
-    case off,low,medium,high,xhigh,max,ultra
-
-    public static func<(lhs: ThinkingLevel,rhs: ThinkingLevel) -> Bool {
-        allCases.firstIndex(of: lhs)!<allCases.firstIndex(of: rhs)!
-    }
-
-    public var isEnabled: Bool { self != .off }
-
-    public var displayName: String {
-        switch self {
-        case .off: return String(localized: "Off")
-        case .low: return String(localized: "Low")
-        case .medium: return String(localized: "Med")
-        case .high: return String(localized: "High")
-        case .xhigh: return String(localized: "XHigh")
-        case .max: return String(localized: "Max")
-        case .ultra: return String(localized: "Ultra")
-        }
-    }
-}
 
 // MARK: - ToolLiveSheet 依赖补全(2026-08-10)
 
@@ -565,12 +519,10 @@ public struct ZoomableImageView: View {
 /// Application Support/MiniClaw/ish-rootfs)
 public final class RootfsManager {
     nonisolated(unsafe) public static let shared = RootfsManager()
-    public let dataPath: URL = {
-        let fm = FileManager.default
-        let support = fm.urls(for: .applicationSupportDirectory,in: .userDomainMask).first
-            ?? fm.temporaryDirectory
-        return support.appendingPathComponent("MiniClaw/ish-rootfs", isDirectory: true)
-    }()
+    // [2026-09-11 审计收敛] 统一走 ShellRuntimeSupport.deployedRootfsURL()（此前
+    // 本地重拼 + tmp 回退，会让 rootfs 路径静默指向 tmp 与其它三处分裂）。
+    public let dataPath: URL = RootfsMaintenance.deployedRootfsURL()
+        ?? FileManager.default.temporaryDirectory.appendingPathComponent("MiniClaw/ish-rootfs", isDirectory: true)
     private init() {}
 }
 
@@ -622,24 +574,6 @@ public func miniClawMediaCacheKey(for source: String) -> String {
     return base
 }
 
-/// 全屏视频播放器(简化版:AVPlayerViewController 包装;原版为自定义 pull-to-dismiss)
-public struct MiniClawVideoFullscreenPlayer: UIViewControllerRepresentable {
-    let fileURL: URL
-    public init(fileURL: URL) { self.fileURL = fileURL }
-
-    public func makeUIViewController(context: Context) -> AVPlayerViewController {
-        let vc = AVPlayerViewController()
-        vc.player = AVPlayer(url: fileURL)
-        vc.showsPlaybackControls = true
-        return vc
-    }
-
-    public func updateUIViewController(_ vc: AVPlayerViewController,context: Context) {
-        if vc.player?.currentItem?.asset as? AVURLAsset != AVURLAsset(url: fileURL) {
-            vc.player = AVPlayer(url: fileURL)
-        }
-    }
-}
 
 // MARK: - 语音朗读状态(2026-08-10 重建,原版 VoiceOutputState 精简)
 
@@ -912,13 +846,6 @@ private struct TileImage: View {
 
 /// VM 缓存(原版 ChatLifecycleSupport.ViewModelCache 的轻量版:桥接场景
 /// 由 MiniClawChatBridge 持有 VM,此处仅提供 get 接口)
-public final class ViewModelCache {
-    nonisolated(unsafe) public static let shared = ViewModelCache()
-    private var cache: [String: MessageListModel] = [:]
-    public init() {}
-    public func get(for sid: String) -> MessageListModel? { cache[sid] }
-    public func set(_ vm: MessageListModel,for sid: String) { cache[sid] = vm }
-}
 
 extension MessageListModel {
     /// 会话 workspace 目录(原版 miniclawWorkspacePersistentDir)

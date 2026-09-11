@@ -62,12 +62,28 @@ extension MessageCollectionView.Coordinator {
         /// - cell: .padding(.horizontal, 16) on the whole row
         /// 进程级持久缓存（2026-09-08）：此前调用方每次传入新建的 throwaway 字典，
         /// 缓存形同虚设 → 种子循环对每条 user 消息反复 UILabel/boundingRect 测量
-        ///（386-item 会话种子循环 1411ms 的主要构成）。仅主线程访问。
-        nonisolated(unsafe) static var userBubbleMemo: [String: CGFloat] = [:]
-        /// 进程级 memo 的清理入口（会话切换/清高度缓存时调用，仅主线程）。
-        static func clearUserBubbleMemo() { userBubbleMemo.removeAll(keepingCapacity: false) }
+        ///（386-item 会话种子循环 1411ms 的主要构成）。
+        /// [2026-09-11 审计收敛] 与实例侧 userBubbleHeightCache 双轨合一（同 key 同值
+        /// 两份拷贝、失效路径分叉）；并发策略对齐 _sharedMeasuredHeights（os_unfair_lock）。
+        private nonisolated(unsafe) static var _userBubbleLock = os_unfair_lock_s()
+        private nonisolated(unsafe) static var _userBubbleMemo: [String: CGFloat] = [:]
+        static func userBubbleMemoValue(forKey key: String) -> CGFloat? {
+            os_unfair_lock_lock(&_userBubbleLock)
+            defer { os_unfair_lock_unlock(&_userBubbleLock) }
+            return _userBubbleMemo[key]
+        }
+        static func setUserBubbleMemoValue(_ h: CGFloat,forKey key: String) {
+            os_unfair_lock_lock(&_userBubbleLock)
+            defer { os_unfair_lock_unlock(&_userBubbleLock) }
+            _userBubbleMemo[key] = h
+        }
+        /// 进程级 memo 的清理入口（会话切换/清高度缓存时调用）。
+        static func clearUserBubbleMemo() {
+            os_unfair_lock_lock(&_userBubbleLock)
+            defer { os_unfair_lock_unlock(&_userBubbleLock) }
+            _userBubbleMemo.removeAll(keepingCapacity: false)
+        }
         static func measureUserBubbleHeight(for message: RenderMessage,cvWidth: CGFloat,
-                                            cache: inout [String: CGFloat],
                                             allowRender: Bool = true) -> CGFloat? {
             var text = message.content
             if let start = text.range(of: "<user-attached-files>") {
@@ -97,7 +113,7 @@ extension MessageCollectionView.Coordinator {
             }
 
             let key = "\(text.count)|\(Int(usableTextWidth))|\(Int(fontSize))|\(attachCount)|\(text.hashValue)"
-            if let cached = cache[key] { return cached }
+            if let cached = userBubbleMemoValue(forKey: key) { return cached }
 
             // [2026-09-09 同源修复] 用户气泡正文改由 MarkdownSurface（cmark +
             // UITextView）渲染后，高度必须**同源**：此前用 UILabel 量纯文本，与
@@ -109,7 +125,7 @@ extension MessageCollectionView.Coordinator {
             let renderKey = MarkdownRenderCache.key(for: text, fontSize: fontSize)
             if let h = MarkdownRenderCache.shared.cachedHeight(for: renderKey, width: Int(usableTextWidth)) {
                 let total = h+20+attachH+1
-                cache[key] = total
+                setUserBubbleMemoValue(total,forKey: key)
                 return total
             }
             // [2026-09-09] 种子循环（applySnapshot 对**全部** item 调 seedHeight）
@@ -144,7 +160,7 @@ extension MessageCollectionView.Coordinator {
             // 原 CJK +7 补偿已删：那是补偿 UILabel 与 SwiftUI Text 的行盒差异，
             // 现在测量与渲染同走 TextKit，不再需要。
             let total = measured+20+attachH+1
-            cache[key] = total
+            setUserBubbleMemoValue(total,forKey: key)
             return total
         }
 
@@ -232,7 +248,7 @@ extension MessageCollectionView.Coordinator {
                 case .systemInfo: return 36
                 case .user:
                     // Use the SAME accurate
-            if let h = Self.measureUserBubbleHeight(for: msg,cvWidth: width,cache: &Self.userBubbleMemo) {
+            if let h = Self.measureUserBubbleHeight(for: msg,cvWidth: width) {
                 return h
             }
                     let tw = max(width-hPad,100)
@@ -255,7 +271,10 @@ extension MessageCollectionView.Coordinator {
                       let block = msg.blocks.first(where: { $0.id == blockId }) else { return 44 }
                 switch block.kind {
                 case .text:
-                    if let attrStr = block.cachedAttributedString {
+                    // [2026-09-11 尾部行裁切修复] 仅**新鲜**渲染结果可用于精确高度：
+                    // 陈旧 attr 按旧内容算高 → 矮值 → 尾部行被裁。判据与 precalc 路径、
+                    // 渲染侧 prebuilt 采用点共用同一事实源（hasFreshRenderedContent）。
+                    if let attrStr = block.cachedAttributedString, block.hasFreshRenderedContent {
                         let textWidth = max(width-32,100)
                         let textH = MarkdownView.ctFramesetterHeight(for: attrStr,width: textWidth)
                         return textH+12

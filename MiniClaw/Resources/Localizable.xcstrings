@@ -3532,9 +3532,6 @@
         }
       }
     },
-    "Audio" : {
-
-    },
     "audio_input" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -51810,6 +51807,35 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "已清理会话缓存"
+          }
+        }
+      }
+    },
+    "session_cache_cleared_bytes" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Session cache cleared (%@ freed)"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "セッションキャッシュをクリアしました（%@ 解放）"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "세션 캐시 정리됨(%@ 확보)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已清理会话缓存（释放 %@）"
           }
         }
       }

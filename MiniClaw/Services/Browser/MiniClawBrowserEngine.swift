@@ -1976,14 +1976,6 @@ extension MiniClawBrowserEngine: @preconcurrency WKDownloadDelegate {
                 BrowserDownloadCenter.shared.finished(id: entryId, sizeText: sizeText)
             }
             logger.info("✅ Download finished: \(name) (\(sizeText))")
-            if let sid = self.sessionIdProvider?(), !sid.isEmpty {
-                // Name + size only — the full
-                self.notifySessionChat(
-                    sid: sid,
-                    text: "Downloaded \(name.middleTruncated()) (\(sizeText))",
-                    icon: "checkmark.circle"
-                )
-            }
         }
     }
 
@@ -1998,14 +1990,7 @@ extension MiniClawBrowserEngine: @preconcurrency WKDownloadDelegate {
             }
             if let dest { try? FileManager.default.removeItem(at: dest) }
             logger.error("Download failed: \(name) — \(error.localizedDescription)")
-            if let sid = self.sessionIdProvider?(), !sid.isEmpty {
-                self.notifySessionChat(sid: sid, text: "Download failed: \(name.middleTruncated()) — \(error.localizedDescription)", icon: "xmark.circle")
-            }
         }
-    }
-
-    private func notifySessionChat(sid: String, text: String, icon: String) {
-        ViewModelCache.shared.get(for: sid)?.appendSystemInfo(text, icon: icon)
     }
 
     /// cancel(_:), so this is the only cleanup path.

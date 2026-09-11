@@ -95,51 +95,25 @@ struct RunAgentTaskIntent: LiveActivityIntent, ProgressReportingIntent {
 
 #if compiler(>=6.4)
         // ===== iOS 27+ 官方长任务路径（LongRunningIntent）=====
+        // 编译器 ≥6.4（iOS 27 SDK）才有 onCancel 重载与 CancellableIntent；
+        // API 运行时要求 iOS 27.0+，26.x 及以下设备走下方 headless 兜底。
         // 任务放进 performBackgroundTask：系统扩展后台执行时间（突破 30s 限制）；
         // 期间必须定期更新 progress（官方硬性要求，否则系统取消扩展提前终止）；
         // 整轮完成才返回——perform 未返回期间快捷指令持续显示执行中，
         // 完成时经返回值（回复全文）+ 完成通知双路上报。
-        let reply = try await performBackgroundTask { () -> String? in
-            // 定期上报进度（系统要求）：totalUnitCount=0 为不确定进度，
-            // completedUnitCount 递增表示持续活跃（进度数据源：引擎 词元/阶段，后续可细化）。
-            progress.totalUnitCount = 100
-            progress.localizedDescription = String(localized: "intent_processing")
-            let deadline = Date().addingTimeInterval(Self.finishTimeoutSeconds)
-            while Date() < deadline {
-                try Task.checkCancellation()
-                // 引擎整轮完成（onComplete/onError/onInterrupted 写入信号）→ 上报结果。
-                if let replyText = try AppState.shared?.consumeIntentEngineFinished(sessionID: session.id) {
-                    return replyText
-                }
-                progress.completedUnitCount += 1
-                try? await Task.sleep(for: .milliseconds(500))
-            }
-            throw IntentError.timeout
-        } onCancel: { _ in
-            // 用户取消（Siri「取消」等）：通知引擎停止，避免后台继续空跑。
-            Task { @MainActor in
-                let sid = session.id
-                if let engine = AppState.shared?.chatRuntimes[sid] { engine.cancel() }
-                AppState.shared?.markIntentEngineFinished(sessionID: sid, result: .failure(IntentError.timeout))
-                // 2026-08-12 修复：取消同样写终态，否则 status 卡 .running → 首页图标转圈
-                // (runLoop 被 cancel 后静默返回，不触发 onComplete/onError 回调)。
-                if let s = SessionManager.shared.session(id: sid),
-                   s.status == .running || s.status == .retrying {
-                    s.status = .completed
-                    s.updatedAt = Date()
-                    SessionManager.shared.persist(s)
-                }
-            }
+        // onCancel 是 @Sendable 闭包：只捕获 Sendable 的 sid（ChatSession 非 Sendable）。
+        let sid = session.id
+        if #available(iOS 27.0, *) {
+            let reply = try await performLongTask(sessionID: sid)
+            return .result(value: reply, dialog: IntentDialog("task_complete"))
         }
-        return .result(value: reply ?? "", dialog: IntentDialog("task_complete"))
-#else
-        // ===== iOS 26 及以下：现有 headless 路径 =====
+#endif
+        // ===== headless 路径（运行时 iOS 27 以下，或旧编译器）=====
         // 系统无官方后台延长 API，保持「等引擎启动即返回 + eager 保活 + LiveActivity + 完成通知」；
         // progress 定期更新仅作 Siri 进度显示（无延长能力）。
         // 等引擎真正开始 run 后再返回（消除「返回了但引擎没启动」窗口）。
         await waitForEngineStart(sessionID: session.id, progress: progress)
         return .result(value: String(localized: "started"), dialog: IntentDialog("task_started_notice"))
-#endif
     }
 
     /// 官方长任务路径的完成兜底超时（秒）：任何链路故障都不会让快捷指令无限转圈。
@@ -351,30 +325,19 @@ struct ContinueSessionIntent: LiveActivityIntent, ProgressReportingIntent {
 
 #if compiler(>=6.4)
         // ===== iOS 27+ 官方长任务路径（LongRunningIntent）=====
+        // 编译器 ≥6.4（iOS 27 SDK）才有 onCancel 重载与 CancellableIntent；
+        // API 运行时要求 iOS 27.0+，26.x 及以下设备走下方 headless 兜底。
         // 官方路径必须等到整轮完成才返回（保持 performBackgroundTask 扩展窗口，突破 30s 限制）；
         // waitForResult 仅影响 dialog 措辞，返回值恒为整轮回复文本（快捷指令总能拿到结果）。
-        let reply = try await performBackgroundTask { () -> String? in
-            progress.totalUnitCount = 100
-            progress.localizedDescription = String(localized: "intent_processing")
-            let deadline = Date().addingTimeInterval(Self.finishTimeoutSeconds)
-            while Date() < deadline {
-                try Task.checkCancellation()
-                if let replyText = try AppState.shared?.consumeIntentEngineFinished(sessionID: session.id) {
-                    return replyText
-                }
-                progress.completedUnitCount += 1
-                try? await Task.sleep(for: .milliseconds(500))
-            }
-            throw IntentError.timeout
-        } onCancel: { _ in
-            Task { @MainActor in
-                if let engine = AppState.shared?.chatRuntimes[session.id] { engine.cancel() }
-                AppState.shared?.markIntentEngineFinished(sessionID: session.id, result: .failure(IntentError.timeout))
-            }
+        // onCancel 是 @Sendable 闭包：只捕获 Sendable 的 sid（ChatSession 非 Sendable）。
+        // onCancel 是 @Sendable 闭包：只捕获 Sendable 的 sid（ChatSessionEntity 引用非 Sendable）。
+        let sid = session.id
+        if #available(iOS 27.0, *) {
+            let reply = try await performLongTask(sessionID: sid)
+            return .result(value: reply, dialog: IntentDialog(waitForResult ? "task_complete" : "task_started_processing"))
         }
-        return .result(value: reply ?? "", dialog: IntentDialog(waitForResult ? "task_complete" : "task_started_processing"))
-#else
-        // ===== iOS 26 及以下：现有 headless 路径 =====
+#endif
+        // ===== headless 路径（运行时 iOS 27 以下，或旧编译器）=====
         // 等引擎真正开始 run 后再返回（headless 无 UI，用户感知 = 通知；保证引擎已启动）。
         await waitForEngineStart(sessionID: session.id, progress: progress)
 
@@ -397,7 +360,6 @@ struct ContinueSessionIntent: LiveActivityIntent, ProgressReportingIntent {
             }
         }
         return .result(value: reply, dialog: IntentDialog("task_complete"))
-#endif
     }
 
     enum IntentError: LocalizedError {
@@ -417,9 +379,93 @@ struct ContinueSessionIntent: LiveActivityIntent, ProgressReportingIntent {
 }
 
 #if compiler(>=6.4)
+@available(iOS 27.0, *)
+extension RunAgentTaskIntent {
+    /// 长任务轮询体。**必须非隔离**：performBackgroundTask 的 operation 按 sending
+    /// 语义检查，@MainActor 闭包传不进去（Xcode 26.6 / iOS 27 SDK 实测报
+    /// SendingRisksDataRace）。self 满足 AppIntent: Sendable 可跨隔离；AppState 消费
+    /// 显式跳回主 actor。取消经 onCancel → engine.cancel()（与 App 内停止同口径）。
+    fileprivate func performLongTask(sessionID sid: UUID) async throws -> String {
+        try await performBackgroundTask { () -> String in
+            // 定期上报进度（系统要求）：completedUnitCount 递增表示持续活跃。
+            progress.totalUnitCount = 100
+            progress.localizedDescription = String(localized: "intent_processing")
+            let deadline = Date().addingTimeInterval(Self.finishTimeoutSeconds)
+            while Date() < deadline {
+                try Task.checkCancellation()
+                // 引擎整轮完成（onComplete/onError/onInterrupted 写入信号）→ 上报结果。
+                if let replyText = try await MainActor.run(body: { () -> String? in
+                    try AppState.shared?.consumeIntentEngineFinished(sessionID: sid)
+                }) {
+                    return replyText
+                }
+                progress.completedUnitCount += 1
+                try? await Task.sleep(for: .milliseconds(500))
+            }
+            throw IntentError.timeout
+        } onCancel: { _ in
+            // 用户取消（Siri「取消」等）：通知引擎停止，避免后台继续空跑。
+            Task { @MainActor in
+                if let runtime = AppState.shared?.chatRuntimes[sid] { runtime.engine.cancel() }
+                AppState.shared?.markIntentEngineFinished(sessionID: sid, result: .failure(IntentError.timeout))
+                // 2026-08-12 修复：取消同样写终态，否则 status 卡 .running → 首页图标转圈
+                // (runLoop 被 cancel 后静默返回，不触发 onComplete/onError 回调)。
+                if let s = SessionManager.shared.session(id: sid),
+                   s.status == .running || s.status == .retrying {
+                    s.status = .completed
+                    s.updatedAt = Date()
+                    SessionManager.shared.persist(s)
+                }
+            }
+        }
+    }
+}
+#endif
+
+#if compiler(>=6.4)
+@available(iOS 27.0, *)
+extension ContinueSessionIntent {
+    /// 同 RunAgentTaskIntent.performLongTask：非隔离轮询体（sending 检查）。
+    fileprivate func performLongTask(sessionID sid: UUID) async throws -> String {
+        try await performBackgroundTask { () -> String in
+            progress.totalUnitCount = 100
+            progress.localizedDescription = String(localized: "intent_processing")
+            let deadline = Date().addingTimeInterval(Self.finishTimeoutSeconds)
+            while Date() < deadline {
+                try Task.checkCancellation()
+                if let replyText = try await MainActor.run(body: { () -> String? in
+                    try AppState.shared?.consumeIntentEngineFinished(sessionID: sid)
+                }) {
+                    return replyText
+                }
+                progress.completedUnitCount += 1
+                try? await Task.sleep(for: .milliseconds(500))
+            }
+            throw IntentError.timeout
+        } onCancel: { _ in
+            Task { @MainActor in
+                if let runtime = AppState.shared?.chatRuntimes[sid] { runtime.engine.cancel() }
+                AppState.shared?.markIntentEngineFinished(sessionID: sid, result: .failure(IntentError.timeout))
+            }
+        }
+    }
+}
+#endif
+
+#if compiler(>=6.4)
 // iOS 27+ 官方长任务协议遵循（LongRunningIntent : ProgressReportingIntent）。
 // 采用条件编译：iOS 26.5 SDK 无此符号，旧编译器整块跳过（不解析、不报错）；
 // Xcode 27 / iOS 27 SDK 下自动启用 performBackgroundTask 官方长任务路径（突破 30s 后台限制）。
+// 2026-09-11（Xcode 26.6 / iOS 27 SDK）：带 onCancel: 的 performBackgroundTask 重载
+// 额外要求 Self : CancellableIntent（anyAppleOS 26.4+ 空协议，无成员），此处一并补齐。
+// 协议可用性（CancellableIntent=26.4 / LongRunningIntent=27.0）高于类型可用性（iOS 17），
+// 遵循扩展必须显式标注类型自己的 @available，否则编译器在 iOS 16 上下文报「类型仅 iOS 17+ 可用」。
+@available(iOS 17.0, *)
 extension RunAgentTaskIntent: LongRunningIntent {}
+@available(iOS 17.0, *)
 extension ContinueSessionIntent: LongRunningIntent {}
+@available(iOS 17.0, *)
+extension RunAgentTaskIntent: CancellableIntent {}
+@available(iOS 17.0, *)
+extension ContinueSessionIntent: CancellableIntent {}
 #endif

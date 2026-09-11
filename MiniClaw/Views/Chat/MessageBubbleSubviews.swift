@@ -11,6 +11,25 @@ struct AttachmentCell: View {
         "png", "jpg", "jpeg", "gif", "webp", "heic", "heif", "bmp", "tiff"
     ]
 
+    /// [2026-09-11 审计修复] 缩略图降采样缓存：body 每次求值都在主线程全尺寸解码
+    /// （12MP 照片单次 ~100-300ms + 40-90MB 位图），滚动/流式刷新反复触发 → 掉帧 +
+    /// 内存峰值。改为 ImageIO 缩略图（目标 400px ≈ 200pt@2x）+ 按 path 进程级缓存。
+    private static let thumbCache = NSCache<NSString, UIImage>()
+
+    private static func downsampledThumbnail(at path: String) -> UIImage? {
+        if let cached = thumbCache.object(forKey: path as NSString) { return cached }
+        let opts: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceThumbnailMaxPixelSize: 400,
+        ]
+        guard let src = CGImageSourceCreateWithURL(URL(fileURLWithPath: path) as CFURL, nil),
+              let cg = CGImageSourceCreateThumbnailAtIndex(src, 0, opts as CFDictionary) else { return nil }
+        let ui = UIImage(cgImage: cg)
+        thumbCache.setObject(ui, forKey: path as NSString)
+        return ui
+    }
+
     private var isImage: Bool {
         AttachmentCell.imageExts.contains((path as NSString).pathExtension.lowercased())
     }
@@ -35,7 +54,7 @@ struct AttachmentCell: View {
 
     var body: some View {
         let url = resolvedURL
-        if isImage, let ui = UIImage(contentsOfFile: url.path) {
+        if isImage, let ui = Self.downsampledThumbnail(at: url.path) {
             // 等比缩小：用紧贴图片真实宽高比的紧框（而非 200x200 letterbox），
             // 这样图片才会真正靠右、且圆角作用于图片本身而非透明外框。
             let cgW = max(ui.size.width, 1)
@@ -62,24 +81,6 @@ struct AttachmentCell: View {
             .frame(width: 110, alignment: .leading)
             .background(Color(.secondarySystemBackground))
             .clipShape(RoundedRectangle(cornerRadius: 10))
-        }
-    }
-}
-
-// MARK: - 块级组件（2026-08-09 块级拆分提取）
-
-/// 智能体消息头部：头像 + 名字。
-struct AssistantHeaderView: View {
-    let agentName: String
-
-    var body: some View {
-        HStack(spacing: 6) {
-            Text("✨")
-                .font(.system(size: 18))
-            Text(agentName)
-                .font(.body)
-                .fontWeight(.bold)
-                .foregroundStyle(Color(red: 0.098, green: 0.549, blue: 0.996))
         }
     }
 }
