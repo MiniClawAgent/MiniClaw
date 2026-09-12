@@ -250,6 +250,12 @@ enum ContentPart: Codable {
         case imageURL = "image_url"
         case inputAudio = "input_audio"
         case file
+        // DeepSeek Files API 的引用是**扁平**形状（官方规范，亦见本项目
+        // DeepSeekFilesClient 头注释）：`{"type":"file","file_id":"file-api-…"}`。
+        // 旧的「嵌在 file 下」写法会被服务商判为「没有 file_id/file_data」→ HTTP 400。
+        case fileData = "file_data"
+        case fileId = "file_id"
+        case filename
     }
 
     enum ImageCodingKeys: String, CodingKey {
@@ -286,12 +292,22 @@ enum ContentPart: Codable {
                 format: try nested.decode(String.self, forKey: .format)
             )
         case "file":
-            let nested = try container.nestedContainer(keyedBy: FileCodingKeys.self, forKey: .file)
-            self = .file(
-                fileData: try? nested.decode(String.self, forKey: .fileData),
-                fileId: try? nested.decode(String.self, forKey: .fileId),
-                filename: try? nested.decode(String.self, forKey: .filename)
-            )
+            // 优先按**扁平**形状解（现行编码 + DeepSeek 官方形状）。
+            let flatData = try? container.decode(String.self, forKey: .fileData)
+            let flatId = try? container.decode(String.self, forKey: .fileId)
+            let flatName = try? container.decode(String.self, forKey: .filename)
+            if flatData != nil || flatId != nil {
+                self = .file(fileData: flatData, fileId: flatId, filename: flatName)
+            } else if let nested = try? container.nestedContainer(keyedBy: FileCodingKeys.self, forKey: .file) {
+                // 兼容旧检查点里可能残留的嵌套形状 `{"type":"file","file":{…}}`。
+                self = .file(
+                    fileData: try? nested.decode(String.self, forKey: .fileData),
+                    fileId: try? nested.decode(String.self, forKey: .fileId),
+                    filename: try? nested.decode(String.self, forKey: .filename)
+                )
+            } else {
+                self = .file(fileData: nil, fileId: nil, filename: flatName)
+            }
         default:
             throw DecodingError.dataCorruptedError(forKey: .type, in: container, debugDescription: String(format: String(localized: "err_unknown_content_part"), String(describing: type)))
         }
@@ -314,11 +330,29 @@ enum ContentPart: Codable {
             try nested.encode(data, forKey: .data)
             try nested.encode(format, forKey: .format)
         case .file(let fileData, let fileId, let filename):
+            // 守卫：两个 payload 都没有时**绝不产出 file 块** —— 服务商对空 file 块直接
+            // 400「file must have a file_id or file_data」（2026-09-12 真机实证：
+            // 工具图片注入产出空 file 块 → `.messages[6]: file must have a file_id or file_data`）。
+            // 退化为文本占位，宁可少一张图也不让整轮请求失败。
+            guard fileData?.isEmpty == false || fileId?.isEmpty == false else {
+                try container.encode("text", forKey: .type)
+                try container.encode(filename ?? "", forKey: .text)
+                return
+            }
             try container.encode("file", forKey: .type)
-            var nested = container.nestedContainer(keyedBy: FileCodingKeys.self, forKey: .file)
-            try nested.encodeIfPresent(fileData, forKey: .fileData)
-            try nested.encodeIfPresent(fileId, forKey: .fileId)
-            try nested.encodeIfPresent(filename, forKey: .filename)
+            // **扁平**编码（DeepSeek 官方规范）：file_id / file_data 置于顶层。
+            // 两条服务商明文规则（2026-09-12 真机各撞过一次）：
+            //   ① 没有 file_id 也没有 file_data → 400「file must have a file_id or file_data」；
+            //   ② **带 file_id 时不得再带 filename** → 400「file cannot have filename when
+            //      file_id is present」。
+            // 故：file_id 优先且**只发 file_id**；否则只发 file_data。filename 一律不发 ——
+            // 它对本服务商纯属多余字段（我们注入的图名恒为 miniclaw-screenshot.jpg），
+            // 而多余字段正是上面两条 400 的来源。
+            if let fileId, !fileId.isEmpty {
+                try container.encode(fileId, forKey: .fileId)
+            } else if let fileData, !fileData.isEmpty {
+                try container.encode(fileData, forKey: .fileData)
+            }
         }
     }
 }

@@ -152,7 +152,21 @@ extension MessageCollectionView.Coordinator {
         }
 
         /// Base contentInset.top (without sub-viewport overflowH compensation).
+        ///
+        /// [T2 修正 2026-09-12] **顶部留白 = 常量**（`appBaseContentInsetTop`，iOS26+ 为 0）。
+        /// 之前的两次模型错误：
+        ///   ① 用「容器瞬时安全区」当数据源 → 它在 116 ↔ 0 之间切换；
+        ///   ② 用 `navBar.frame.maxY`(=116) 当留白 → 那是**导航栏在窗口中的位置**，
+        ///      而不是「CV 缺失的覆盖量」。稳态 `safeAreaInsets.top == 0` 恰好证明
+        ///      **CV 的 frame 本来就在导航栏下方** ⇒ 顶部留白**本就应为 0**，加上 116 就多出大片空白。
+        /// 常量 0 同时带来关键性质：**该值不切换** ⇒ `.never` 下 `adjustedContentInset` 恒定
+        /// ⇒ UIKit 无需补偿 ⇒ 入口期不再位移。
         public var baseContentInsetTop: CGFloat {
+            appBaseContentInsetTop
+        }
+
+        /// App 自有顶部基础留白（与设备无关的那部分）。
+        public var appBaseContentInsetTop: CGFloat {
             if #available(iOS 26,*) { return 0 } else { return 8 }
         }
 
@@ -173,7 +187,10 @@ extension MessageCollectionView.Coordinator {
             // 键盘弹出收起」时 CoreGraphics NaN 告警成片的直接来源。
             // 布局未就绪就整体跳过——补偿每帧重算且幂等，下一帧自然会补上。
             guard cv.bounds.height > 1 else { return false }
-            let safeAreaTop = cv.safeAreaInsets.top
+            // [T2] 用**稳定的顶部留白**（= `baseContentInsetTop`，取 window 安全区 + 导航栏 frame）
+            // 替代会切换的 `cv.safeAreaInsets.top`：否则顶端一换，`visibleH → overflowH →
+            // desiredBottomInset` 全跟着变，底部留白变化 ⇒ 整块内容位移（传导路径）。
+            let safeAreaTop = baseContentInsetTop
             let bottomInsetBase = baseBottomInset
             let visibleH = cv.bounds.height-safeAreaTop-bottomInsetBase
             let overflowH = cv.contentSize.height-visibleH
@@ -210,20 +227,50 @@ extension MessageCollectionView.Coordinator {
             }
             if scrollMode == .autoScrolling {
                 //
-                let pinBottomInset = bottomInsetBase+cv.safeAreaInsets.bottom
+                // [T2] `baseBottomInset` 现已含底部安全区，故不再二次叠加（否则多 34pt）。
+                let pinBottomInset = bottomInsetBase
                 let rawTarget = cv.contentSize.height-cv.bounds.height+pinBottomInset
                 let inflatedMaxOff = cv.contentSize.height-cv.bounds.height+cv.adjustedContentInset.bottom
                 let topLimit = -cv.adjustedContentInset.top
                 let target = min(max(rawTarget,topLimit),inflatedMaxOff)
+                let offsetBefore = cv.contentOffset.y
                 if target>topLimit-0.5 && abs(cv.contentOffset.y-target)>0.5 {
-                    cv.contentOffset.y = target
+                    // [T1 2026-09-12] 转场期间同样不直接写 offset（此写入不经 `setContentOffset`，
+                    // 探针抓不到，但同属「转场期提交 offset」这一类）——推迟到转场完成后的贴底。
+                    if viewController?.transitionCoordinator == nil {
+                        cv.contentOffset.y = target
+                    }
+                    // [2026-09-13 键盘 bug·让贴底自证] 键盘展开时 base 由 103 变小到 69，必须重新贴底；
+                    // 而那一步**是否真的执行、用了哪个 base** 此前完全没有记录（`[Keyboard]` 只在
+                    // base 变化那一刻打，贴底之后的 offset 看不到）⇒ 无法判断"没生效"还是"算错了"。
+                    AppLogger.shared.info(
+                        "[PinToBottom] base=\(String(format: "%.1f", pinBottomInset)) raw=\(String(format: "%.1f", rawTarget)) clamped=\(String(format: "%.1f", target)) from=\(String(format: "%.1f", offsetBefore)) deferred=\(viewController?.transitionCoordinator == nil ? 0 : 1) cvH=\(String(format: "%.1f", cv.bounds.height)) cs=\(String(format: "%.1f", cv.contentSize.height)) adjB=\(String(format: "%.1f", cv.adjustedContentInset.bottom))",
+                        category: "ChatList.Settle")
                 }
             }
             return needsCompensation
         }
 
+        /// [T1 2026-09-12] 转场期间被推迟的贴底请求存放在 Coordinator 主体声明处
+        /// （`MessageCollectionView.pendingEntryPin` —— 扩展不能声明存储属性）。
+
         public func scrollToBottomNow(animated: Bool = false) {
             guard let cv = viewController?.collectionView else { return }
+            // [T1 2026-09-12 · 入会话时序] push 转场期间容器的顶部安全区**尚未就位**
+            //（真机实测 `safeAreaInsets.top` 116 ↔ 0 翻转），此时提交 offset 会与转场赛跑：
+            // 入口窗口内出现 4 次 animated offset 写入（delta −33/+26/+5.7/−34）
+            // ⇒ 用户看到的「重进会话，首次上滑整屏上下弹」。
+            // 治法与本因同源：**整个转场期间不提交任何 offset**，转场完成后再执行一次。
+            // 转场之外（流式跟随、点按回底等）此闸门不生效，行为不变。
+            if let tc = viewController?.transitionCoordinator {
+                pendingEntryPin = animated
+                tc.animate(alongsideTransition: nil) { [weak self] _ in
+                    guard let self, let a = self.pendingEntryPin else { return }
+                    self.pendingEntryPin = nil
+                    self.scrollToBottomNow(animated: a)
+                }
+                return
+            }
             // Sub-viewport overflowH path: re-evaluate compensation, then pin.
             if applySubViewportCompensation(caller: "scrollToBottom") {
                 syncScrollFlags()
@@ -917,11 +964,28 @@ extension MessageCollectionView.Coordinator {
 
             let savedOffset = cv.contentOffset.y
             flushingNow = true
-            layout.applyDeferredHeights()
+            // [2026-09-12 抖动根因·解除跳动] 视口**上方**的高度变化会 1:1 平移可见内容
+            // （解冻后 offset 是数值恢复的），所以原子应用之后必须把该合计值锚回 offset，
+            // 否则呈现为「停下瞬间整屏跳一下」。真机实录 aboveΣ = −648.6pt（19 个工具胶囊
+            // 各自从兜底 200pt 收缩到真实的 36/39.7pt）。
+            let aboveSum = layout.applyDeferredHeights()
+            if abs(aboveSum) > 0.5 { cv.contentOffset.y = savedOffset + aboveSum }
 
             layout.suppressContentOffsetAdjustment = true
             layout.invalidateLayout()
             layout.suppressContentOffsetAdjustment = false
+            // [2026-09-12] 上面那次强制重排**关闭了布局自带的 offset 补偿**，所以期间发生的
+            // 「视口上方高度变化」没有任何锚定（真机实测 aboveΣ=-183.7pt）⇒ 停手瞬间整屏平移。
+            // 这里把这批量一次性锚回，与 `aboveSum`（延后项）相加，两者互不重叠。
+            let settleAbove = layout.takePendingAboveShift()
+            if abs(settleAbove) > 0.5 {
+                cv.contentOffset.y = savedOffset + aboveSum + settleAbove
+            }
+            // [2026-09-13] 把 settle 期补偿量打进日志：残留抖动不必再靠截图反推，
+            // 直接看这一行是否为 0 即可判定"停手不再挪动"。
+            AppLogger.shared.info(
+                "[SettleAnchor] deferredΣ=\(String(format: "%+.1f", aboveSum)) pendingΣ=\(String(format: "%+.1f", settleAbove)) applied=\(abs(settleAbove) > 0.5 ? 1 : 0) offset \(String(format: "%.1f", savedOffset))→\(String(format: "%.1f", cv.contentOffset.y))",
+                category: "ChatList.Settle")
             flushingNow = false
 
             if scrollMode == .userBrowsing {

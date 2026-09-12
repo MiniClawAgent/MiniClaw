@@ -547,8 +547,17 @@ private struct FileBlockView: View {
         .clipShape(RoundedRectangle(cornerRadius: 8))
         .contentShape(RoundedRectangle(cornerRadius: 8))
         .onTapGesture {
-            if let u = URL(string: url) {
-                NotificationCenter.default.post(name: .miniClawOpenURLRequested, object: u)
+            // [2026-09-12 修复·勿再整串编码] **禁止**对整串做
+            // `addingPercentEncoding(withAllowedCharacters: .urlPathAllowed)`：
+            // 实测 `miniclaw://shared/今日科技新闻-20260912.md` →
+            // `miniclaw%3A//shared/…`，**scheme 被毁**（scheme=nil）⇒ 统一解析器接不到 ⇒ 点击无反应。
+            // 中文 `URL(string:)` 本来就能正确解析（scheme/host/path 均正确）；
+            // 只有**空格**会让它返回 nil —— 此时仅把空格替换为 %20 再试。
+            let constructed = URL(string: url)
+                ?? URL(string: url.replacingOccurrences(of: " ", with: "%20"))
+            AppLogger.shared.info("[FileOpen] tap raw=\"\(url)\" constructed=\(constructed?.absoluteString ?? "nil") scheme=\(constructed?.scheme ?? "nil") host=\(constructed?.host ?? "nil")", category: "FileOpen")
+            if let constructed {
+                NotificationCenter.default.post(name: .miniClawOpenURLRequested, object: constructed)
             }
         }
     }
@@ -570,6 +579,10 @@ struct AssistantBlockView: View {
     var toolSnapshots: [ToolSnapshotItem] = []
     /// 快照桥（主会话 cell 传入）：透传给浮层，结果快照更新时浮层实时刷新。
     var snapshotBridge: CellStateBridge? = nil
+    /// [2026-09-12 裁尾修复] 本块可用的**真实内容宽度**（= cell 宽 − 2×块内边距），由
+    /// `BridgedAssistantBlock` 传入并透传给 `MarkdownView.sizeThatFits`。nil（非列表场景）时
+    /// MarkdownView 退回自解析链。见 MarkdownView.contentWidth 的完整根因说明。
+    var contentWidth: CGFloat? = nil
     @Binding var highlightedBlockId: UUID?
     @Binding var detailBlock: AssistantBlock?
     /// 链接打开（MarkdownRenderedText 的 onOpenLink 转发到环境 OpenURLAction，
@@ -739,7 +752,10 @@ struct AssistantBlockView: View {
             },
             // [2026-09-09 截短锁死修复] prebuilt 内容指纹：采用点据此校验缓存是否
             // 对应当前内容（nil=缓存尚未建立，同样放行走渲染路径）。
-            prebuiltContentCount: block.cachedAttrContentCount
+            prebuiltContentCount: block.cachedAttrContentCount,
+            // [2026-09-12 裁尾修复] 透传真实内容宽度：让首次（理想尺寸）pass 也按内容宽排版，
+            // 避免按边界宽测出偏矮高度被 fixedSize(vertical:) 钉死 → 尾部行被裁。
+            contentWidth: contentWidth
         )
         .fixedSize(horizontal: false,vertical: true)
         .modifier(MiniClawOpenURLHandler())

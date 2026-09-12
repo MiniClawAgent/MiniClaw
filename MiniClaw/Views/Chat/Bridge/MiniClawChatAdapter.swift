@@ -142,7 +142,16 @@ enum MiniClawChatAdapter {
         if textCursor < content.count {
             let startIdx = content.index(content.startIndex, offsetBy: textCursor)
             let segment = String(content[startIdx..<content.endIndex])
-            for (o, b) in splitFileBlocks(markdown: segment, messageID: message.id, baseOrder: Double(Int.max - 1), startOffset: textCursor) {
+            // [2026-09-12 文件指示器错位修复] 尾部片段（= 最终回复）此前用
+            // `baseOrder: Double(Int.max - 1)`。该量级下 **Double 的精度间隔是 2048**，
+            // 于是 splitFileBlocks 内部的 `baseOrder + 0.05*k` **全部被吞掉** → 尾部里的
+            // 文本块与文件块拿到**完全相同**的 order → `sorted`（不保证稳定）把文件块
+            // 排到了正文之前 ⇒ 真机表现为「文件指示器总在最终回复上面」（截图实证）。
+            // （同款坑在本文件 110-112 行的注释里已记录：默认值 Int.max-1 会让 order 全相等。）
+            // 修法：基准取**实际最大事件 order + 0.5** —— 仍严格大于所有事件与事件前正文段
+            // （后者是 eventOrder - 0.5），同时保持在 Double 精确表示范围内，子序 0.05*k 不丢。
+            let tailBase = (sortedEvents.map(\.order).max() ?? 0) + 0.5
+            for (o, b) in splitFileBlocks(markdown: segment, messageID: message.id, baseOrder: tailBase, startOffset: textCursor) {
                 items.append((o, b))
             }
         }

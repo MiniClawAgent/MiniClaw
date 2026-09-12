@@ -196,6 +196,11 @@ struct SessionTokenUsageView: View {
     var body: some View {
         NavigationStack {
             List {
+                // 缓存分类置顶（2026-09-12 唐唐要求）：第一行命中率用「存储概览」同款分段横条，
+                // 第二/三行缓存读取/写入沿用文字行。
+                if let d = data {
+                    cacheSection(d)
+                }
                 if let snapshot = contextSnapshot, snapshot.tokens > 0 {
                     contextSection(snapshot)
                 }
@@ -210,12 +215,6 @@ struct SessionTokenUsageView: View {
                     Section(String(localized: "tokens_session_total")) {
                         UsageRow(label: String(localized: "input_with_cache"), value: compact(d.input), color: .blue)
                         UsageRow(label: String(localized: "output"), value: compact(d.output), color: .green)
-                    }
-
-                    Section(String(localized: "cache_session_total")) {
-                        UsageRow(label: String(localized: "cache_reads"), value: compact(d.cachedRead ?? 0), color: .purple)
-                        UsageRow(label: String(localized: "cache_write"), value: compact(d.cachedWrite ?? 0), color: .indigo)
-                        UsageRow(label: String(localized: "cache_hit_rate"), value: sessionHitRate(d), color: .orange)
                     }
 
                     Section(String(localized: "speed")) {
@@ -295,6 +294,77 @@ struct SessionTokenUsageView: View {
 
     private var windowString: String {
         compact(contextWindow(for: session))
+    }
+
+    /// 缓存分类区块（置顶）：**视觉与「设置 → 存储 → 存储概览」严格同款**——
+    /// 标题行（左标题 + 右数值）→ 分段横条（高 14 / 圆角 7 / 段间 1pt）→ 圆点图例（adaptive 最小列宽 140）。
+    /// 命中率口径与 `sessionHitRate` 同源：命中 = 缓存读取，未命中 = 输入 − 缓存读取。
+    private func cacheSection(_ d: SessionTokenUsageData) -> some View {
+        let hit = Double(d.cachedRead ?? 0)
+        let miss = Double(max(d.input - (d.cachedRead ?? 0), 0))
+        return Section {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    Text(String(localized: "cache_hit_rate"))
+                        .font(.headline)
+                    Spacer()
+                    Text(sessionHitRate(d))
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                cacheHitBar(hit: hit, miss: miss)
+                cacheHitLegend(hit: hit, miss: miss)
+            }
+            .padding(.vertical, 4)
+            UsageRow(label: String(localized: "cache_reads"), value: compact(d.cachedRead ?? 0), color: .purple)
+            UsageRow(label: String(localized: "cache_write"), value: compact(d.cachedWrite ?? 0), color: .indigo)
+        } header: {
+            Text(String(localized: "cache_session_total"))
+        }
+    }
+
+    /// 分段横条：命中（与「缓存读取」同色，语义同源）/ 未命中（灰）。
+    /// 尺寸与圆角逐字对齐存储概览的 `storageBar`，保证两页视觉统一。
+    private func cacheHitBar(hit: Double, miss: Double) -> some View {
+        let total = max(hit + miss, 1)
+        return GeometryReader { geo in
+            HStack(spacing: 1) {
+                if hit > 0 {
+                    Rectangle()
+                        .fill(Color.purple)
+                        .frame(width: max(2, geo.size.width * CGFloat(hit / total)))
+                }
+                if miss > 0 {
+                    Rectangle()
+                        .fill(Color.gray)
+                        .frame(width: max(2, geo.size.width * CGFloat(miss / total)))
+                }
+            }
+            .frame(height: 14, alignment: .leading)
+        }
+        .frame(height: 14)
+        .clipShape(RoundedRectangle(cornerRadius: 7))
+    }
+
+    /// 图例：色点 + 标签 + 百分比（存储概览图例同排版）。
+    private func cacheHitLegend(hit: Double, miss: Double) -> some View {
+        let total = max(hit + miss, 1)
+        return LazyVGrid(
+            columns: [GridItem(.adaptive(minimum: 140), alignment: .leading)],
+            alignment: .leading, spacing: 6
+        ) {
+            hitLegendItem(color: .purple, label: String(localized: "cache_hits"), percent: hit / total * 100)
+            hitLegendItem(color: .gray, label: String(localized: "cache_misses"), percent: miss / total * 100)
+        }
+    }
+
+    private func hitLegendItem(color: Color, label: String, percent: Double) -> some View {
+        HStack(spacing: 5) {
+            Circle().fill(color).frame(width: 8, height: 8)
+            Text(label + " " + String(format: "%.1f%%", percent))
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+        }
     }
 
     private func sessionHitRate(_ d: SessionTokenUsageData) -> String {

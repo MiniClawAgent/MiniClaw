@@ -279,6 +279,31 @@ extension MessageCollectionView.Coordinator {
                     }
                 }
 
+                // [2026-09-13 行间空白根治] 上面那段只重播「本次**新增**（inserted）」的 item，
+                // 但 `remapHeights` 是**按 item 身份**重建高度表的：任何**未匹配**的 index 都会丢条目，
+                // 而它们不在 `inserted` 里 ⇒ **无人重播** ⇒ 永久空条目 ⇒ 布局回落兜底，
+                // 列表凭空长出上百 pt（真机实录同一会话 totalH 在 **2390 ↔ 2675** 之间交替，
+                // `flow` 从 `[w:118,h:25,b:40,b:36…]` 变成 `[w:200,h:200,b:44,b:44…]` ——
+                // 肉眼就是"行间空行 / 一停手内容缩小视图变了"）。
+                // 铁证：header 的播种分支写死 28，绝不可能出现 200 ⇒ 那些 index 根本没条目。
+                // 这里补一次**按缺失条目全扫**：与 inserted 是否为空无关，成本仅 O(n) 字典查询。
+                if let layout = snapshotLayout {
+                    let sweepWidth = cv.bounds.width
+                    var swept = 0
+                    for (i, item) in newRows.enumerated() where layout.cachedHeight(at: i) == nil {
+                        seedHeight(at: i, item: item, messages: messages,
+                                   width: sweepWidth, isReseed: true)
+                        swept += 1
+                    }
+                    // [2026-09-13] 补播之后**必须让布局重排一次**：上面的 `dataSource.apply` 已经让布局
+                    // 跑过一遍，而那时这些 index 还没有条目 ⇒ 回落到兜底（真机实录拖动期
+                    // `flow=[w:200, h:28, …]`、停手 `flow=[w:118, h:25, …]`，顶部两项差 82pt，
+                    // 肉眼即"顶部用户消息与 AI 回复在抖"）。不重排的话那些帧会一直停在兜底值。
+                    // 门控 `!deferSelfSizing`：手势进行中不主动改几何（与"浏览期冻结"一致），
+                    // 交给 settle 的既有 `invalidateLayout()` 收口。
+                    if swept > 0, !layout.deferSelfSizing { layout.invalidateLayout() }
+                }
+
                 cv.layoutIfNeeded()
                 snapshotLayout?.suppressContentOffsetAdjustment = false
                 flushingNow = false
@@ -407,7 +432,9 @@ extension MessageCollectionView.Coordinator {
                             MarkdownRenderCache.shared.store(attributed: r.attr, key: r.key)
                         }
                         for (w, h) in r.heights {
-                            MarkdownRenderCache.shared.store(height: h, key: r.key, width: w)
+                            // [2026-09-12 裁尾修复] **只补不覆盖**：本栈与渲染引擎不同源
+                            //（实测同内容同宽度矮 12.3pt），覆盖会毒化屏上测量 → 裁尾。
+                            MarkdownRenderCache.shared.storeHeightIfAbsent(height: h, key: r.key, width: w)
                         }
                     }
                 }
@@ -594,15 +621,26 @@ extension MessageCollectionView.Coordinator {
                             // TextKit 精测（违反此前提曾致 cell 高度错误撑出大空白）。
                             if AssistantBlock.hasRichSyntax(block.content) {
                                 height = Self.measureAttributedStringHeight(attrStr,width: textWidth)
+                                // [2026-09-12 裁尾修复·含附件块不回写缓存] 本分支测的是
+                                // `block.cachedAttributedString`，而**渲染路径对含附件的块会
+                                // 重新渲染**（附件实例与 renderer 身份耦合，不能跨上下文共享）
+                                // ⇒ 两者**输入不同**，实测差一行（真机实证：播种 1361 vs 渲染
+                                // 1379，同一块同一宽度）。矮值一旦进统一缓存，屏上
+                                // `sizeThatFits` 就命中它 → representable 高度被钉死 → 末行
+                                // 永久被裁（`branch=measure src=unified-cache h=1361` 反复出现，
+                                // 而屏上 TextKit 需要 1379）。故本分支**不回写**：权威值由渲染
+                                // 路径按新渲染串实测后写回（`sizeThatFits` 的 mtv/尾部路径），
+                                // 口径与渲染同源。下方非附件分支的输入与渲染一致，仍照常回写。
                             } else {
                                 height = MarkdownView.ctFramesetterHeight(for: attrStr,width: textWidth) + 8
+                                // 回写统一缓存（下次进入/预填充命中，不再重复计算）。
+                                // 非附件块：本路径输入（cachedAttributedString）与渲染路径
+                                // 完全相同（`pending = pre`），故回写安全、口径同源。
+                                MarkdownRenderCache.shared.store(
+                                    height: height, key: uKey, width: Int(textWidth))
                             }
-                            // 回写统一缓存（下次进入/预填充命中，不再重复计算）。
-                            // 两条路径的返回值均含 8pt inset，语义一致。
-                            MarkdownRenderCache.shared.store(
-                                height: height, key: uKey, width: Int(textWidth))
                         }
-                        layout.setPrecalcHeight(height+4,at: i)
+                        layout.setPrecalcHeight(height+SelfSizingCell.assistantBlockVerticalChrome,at: i)
                         #if DEBUG
                         if !isReseed,ScrollMetricsRecorder.shared.isEnabled {
                             let c = block.content

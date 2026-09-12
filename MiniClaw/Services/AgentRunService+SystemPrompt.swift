@@ -88,6 +88,13 @@ extension AgentRunService {
         // 每次记忆更新后整段缓存失效、命中率归零，故必须放在断点之后。
 
         // === 易变段开始：以下内容置于 system prompt 末尾，避免污染 KV 缓存前缀 ===
+        //
+        // 段内排序判据（2026-09-11）：**变化频率升序**——volatile 整段都位于缓存边界
+        // 之后（OpenAI 追加为末尾独立 user 消息 / Anthropic 并入最后一条 user，均在
+        // cache_control 断点之后），故内部排序不影响稳定前缀的命中；它只决定「首个
+        // 变化点右侧还有多少内容一起 miss」。因此越易变的段必须越靠后：
+        //   工具清单(MCP 注册后冻结) → 环境变量/挂载(改设置才变) → 跨会话摘要 →
+        //   近期记忆 → 长期记忆 → 环境快照(每小时) → 子代理段(每次派发/关闭都变，收尾)
 
         // 3.5 可用工具列表(会话中 MCP 工具可增减,每轮更新;schema 权威在 tools: 参数)
         // 追加引擎保留工具 dispatch_subagent：它由引擎拦截执行（不在 toolRouter 注册表），
@@ -96,20 +103,11 @@ extension AgentRunService {
         toolNames.append("dispatch_subagent")
         toolNames.append("close_subagent")
         toolNames.sort()
-        // 3.4.5 当前会话的子代理清单（A 方案：让 智能体每轮「看见」可复用/可关闭的子代理）。
-        // 数据来自 SubagentRuntimeRegistry（跨轮次/跨重启存活）；无子代理时不注入。
-        // 属易变内容（随子代理增删变化），放缓存断点之后，不进前缀。
-        let liveSubagentRecords = SubagentRuntimeRegistry.shared.allRecords(for: sessionID)
-        if let liveSection = SubAgentGuide.liveSubagentsSection(records: liveSubagentRecords) {
-            volatileParts.append(liveSection)
-        }
         volatileParts.append("""
         ## 可用工具 (\(toolNames.count) 个) — 完整列表如下，仅可调用此处列出的工具名
         \(toolNames.map { "- `\($0)`" }.joined(separator: "\n"))
 
         **再次强调：** 上方列表是你唯一可用的工具。没有「搜索」「新闻」「联网」「查询」等通用工具。如需浏览网页请用 `browser` 工具；如需执行命令请用 `shell_execute`；其他需求请用文字回答。
-
-        **子代理操作铁律：** 派发子代理**只能**通过 `dispatch_subagent` 工具；关闭子代理**只能**通过 `close_subagent` 工具。在回复文本中声称「已派发/已关闭」**不会产生任何实际效果**——没有对应工具调用，子代理不会被创建或关闭。
         """)
 
         // 3.5.1 环境变量(设置页可改,不进前缀)
@@ -153,24 +151,43 @@ extension AgentRunService {
             volatileParts.append(crossSection)
         }
 
-        // 8. 长期记忆 + 9. 近期记忆（受「记忆开关」守卫；关闭时不注入）。
+        // 8. 近期记忆 + 9. 长期记忆（受「记忆开关」守卫；关闭时不注入）。
         // 记忆内容会随会话复盘被 memory_write 改写，属于「易变内容」，必须放在 volatile 段
         // （缓存断点之后），否则每次记忆更新都会让稳定前缀失效、缓存命中率归零。
+        // 段内顺序：**长期记忆靠后**——向量检索开启时其检索 query 取「当前会话最新一条
+        // 用户消息」，命中片段每轮都变，且它是 volatile 里体量最大的一段；放在前面会连带
+        // 打掉其后的全部段。近期记忆（今日+昨日）变化频率低于它，故置于其前。
         if SettingsStore.shared.settings.memory.isEnabled {
-            if let longTermSection = await longTermMemorySection(fs: fs, sessionID: sessionID) {
-                volatileParts.append(longTermSection)
-            }
-
             // 9. 近期记忆（今日 + 昨日）；getRecentMemory 内部同步读 2 个文件，卸载到后台执行避免主线程阻塞。
             let recentMemory = await Task.detached(priority: .userInitiated) { MemoryManager.shared.getRecentMemory(days: 2) }.value
             if !recentMemory.isEmpty {
                 volatileParts.append(String(format: String(localized: "agent_recent_memory_inject"), recentMemory))
             }
+
+            if let longTermSection = await longTermMemorySection(fs: fs, sessionID: sessionID) {
+                volatileParts.append(longTermSection)
+            }
         }
 
         // 每条新用户消息生成一次；不自动注入设备名称、标识、电量等非必要信息。
-        // 时间戳最易变，必须放在 system prompt 最末尾（volatile 段），让前面的稳定段能够命中缓存。
+        // 时间已改为小时级粒度（见 currentEnvironmentPromptSection），比子代理清单稳定，
+        // 故置于子代理段之前（次末位）——不再自称「最末尾」，以免与下方事实不符。
         volatileParts.append(currentEnvironmentPromptSection())
+
+        // 3.4.5 子代理操作铁律 + 当前会话的子代理清单（**成对收尾**：短码就近可读）。
+        // 铁律**无条件**注入——它防的是「回复文本里声称已派发/已关闭」的假执行，与是否
+        // 有存活子代理无关，故不能跟着清单一起被条件带上。清单来自 SubagentRuntimeRegistry
+        // （跨轮次/跨重启存活），无子代理时只注入铁律。
+        // 这一段是 volatile 里变化最频繁的（每次 dispatch_subagent / close_subagent 都变），
+        // 放最末使变化只损失自身，不打掉前面的记忆/环境段。
+        // 铁律文案取自 SubAgentGuide.ironRule —— 它同时是引擎 skill_load 后重排易变段时的
+        // 切分点，两侧共用同一常量（此处不得内联复制字面量，否则重排会失步）。
+        let liveSubagentRecords = SubagentRuntimeRegistry.shared.allRecords(for: sessionID)
+        var subagentTail = SubAgentGuide.ironRule
+        if let liveSection = SubAgentGuide.liveSubagentsSection(records: liveSubagentRecords) {
+            subagentTail += "\n\n" + liveSection
+        }
+        volatileParts.append(subagentTail)
 
         return (
             stable: stableParts.joined(separator: "\n\n"),
@@ -233,8 +250,23 @@ extension AgentRunService {
 // MARK: - 环境快照（Step C：自 ChatView 迁入）
 
     /// 为本轮对话生成一次隐私最小化的本机环境快照。
+    ///
+    /// [2026-09-11 改为小时级粒度] 时间取整到整点（分钟/秒清零），
+    /// 使该段文本在**一小时内逐字节稳定** → KV 缓存前缀照常命中，不再因分钟跳动而断裂。
+    /// 代价是时间仅精确到整点——文案中已明确标注，并保留「需要精确时间请另行获取」的指引。
+    /// DateFormatter 为静态复用（创建成本高，且 iOS 7+ 线程安全）。
 
-// MARK: - 环境快照（Step C：自 ChatView 迁入）
+    private static let hourlyFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd HH:00"
+        return f
+    }()
+
+    private static let hourlyISOFormatter: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withColonSeparatorInTimeZone]
+        return f
+    }()
 
     func currentEnvironmentPromptSection(now: Date = Date()) -> String {
         let timeZone = TimeZone.autoupdatingCurrent
@@ -242,11 +274,14 @@ extension AgentRunService {
         calendar.timeZone = timeZone
         let locale = Locale.autoupdatingCurrent
 
-        let localFormatter = DateFormatter()
-        localFormatter.calendar = calendar
-        localFormatter.locale = locale
+        // [2026-09-11] 取整到整点：分钟/秒清零 → 一小时内该段文本逐字节相同，
+        // system prompt 前缀缓存不受时间流逝影响（每轮请求重拼也不破坏命中）。
+        let hourlyNow = calendar.dateInterval(of: .hour, for: now)?.start ?? now
+
+        let localFormatter = Self.hourlyFormatter
         localFormatter.timeZone = timeZone
-        localFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+        let isoFormatter = Self.hourlyISOFormatter
+        isoFormatter.timeZone = timeZone
 
         let weekdayFormatter = DateFormatter()
         weekdayFormatter.calendar = calendar
@@ -254,11 +289,7 @@ extension AgentRunService {
         weekdayFormatter.timeZone = timeZone
         weekdayFormatter.dateFormat = "EEEE"
 
-        let isoFormatter = ISO8601DateFormatter()
-        isoFormatter.timeZone = timeZone
-        isoFormatter.formatOptions = [.withInternetDateTime, .withColonSeparatorInTimeZone]
-
-        let offsetSeconds = timeZone.secondsFromGMT(for: now)
+        let offsetSeconds = timeZone.secondsFromGMT(for: hourlyNow)
         let offsetSign = offsetSeconds >= 0 ? "+" : "-"
         let absoluteOffset = abs(offsetSeconds)
         let offsetHours = absoluteOffset / 3_600
@@ -271,14 +302,14 @@ extension AgentRunService {
 
         return """
         ## 当前运行环境
-        - 当前本地时间：\(localFormatter.string(from: now))
-        - ISO 8601 时间：\(isoFormatter.string(from: now))
+        - 当前本地时间（小时级近似）：\(localFormatter.string(from: hourlyNow))
+        - ISO 8601 时间：\(isoFormatter.string(from: hourlyNow))
         - 当前时区：\(timeZone.identifier)（UTC\(utcOffset)）
-        - 当前星期：\(weekdayFormatter.string(from: now))
+        - 当前星期：\(weekdayFormatter.string(from: hourlyNow))
         - 系统语言与地区：\(languageCode)-\(regionCode)
         - 日历系统：\(calendarIdentifier)
 
-        涉及“今天、明天、昨天、现在、稍后”等相对日期或时间时，必须以上述本地时间和时区为准。该信息是本轮开始时的设备环境快照；如需在长时间工具执行后确认精确到秒的最新时间，应重新获取可靠时间信息。
+        涉及“今天、明天、昨天、现在、稍后”等相对日期或时间时，必须以上述本地时间和时区为准（时间精度为整点）。如需精确到秒的最新时间（如计时、限流窗口判断），必须通过工具或系统接口重新获取，不得沿用本快照时间。
         """
     }
 

@@ -6,9 +6,9 @@
 
 ## 一、源码来源
 
-- **真身仓库：`https://github.com/OpenMinis/ish-arm64`（master 分支）**
+- **真身仓库：`见 第三方源码/ish-arm64-来源.md（不入 git）`（master 分支）**
 - ⚠️ 不是 `jiangdi0924/ish-arm64`（它的精简 fork，master 里**没有** `ISHShellExecutor`，
-  README 提到但文件不存在）。OpenMinis 是其上游（PR #1 from OpenMinis/feature-arm64）。
+  README 提到但文件不存在）。该 fork 是其上游（PR #1 from 上游/feature-arm64）。
 - 必需文件：`app/ISHShellExecutor.h/.m`、`app/DebugServer.c/.h`、`vdso/arm64/`、
   `kernel/`、`fs/`、`emu/`、`asbestos/`、`tools/`、`meson.build`、`meson_options.txt`
 
@@ -16,7 +16,7 @@
 
 ```sh
 curl -L -o ish.tar.gz \
-  https://codeload.github.com/OpenMinis/ish-arm64/tar.gz/refs/heads/master
+  见 第三方源码/ish-arm64-来源.md（不入 git）
 tar xzf ish.tar.gz
 # 解压出 ish-arm64-master/ → 放到 ../第三方源码/ish-arm64（相对 MiniClaw 仓库根）
 ```
@@ -57,7 +57,7 @@ meson setup build-host -Dguest_arch=arm64 && ninja -C build-host tools/fakefsify
 
 ## 五、应用 MiniClaw 定制（sessionFsContext）
 
-上游 `ISHShellExecutor` 从未有 `sessionFsContext`（该文件在 OpenMinis 仓库只有 2 次提交，
+上游 `ISHShellExecutor` 从未有 `sessionFsContext`（该文件在 iSH 上游仓库只有 2 次提交，
 2026-05-16）。MiniClaw 的会话文件隔离依赖它 —— **patch 已存档于本目录
 `ish-arm64-customization.patch`**：
 
@@ -75,6 +75,12 @@ patch -p1 < ../../MiniClaw/docs/ish-arm64-customization.patch
    **static** 函数，外部不可调）→ `fs_chdir(task->fs, dir)`。失败仅记日志，回退默认 cwd。
 3. includes 增补：`kernel/fs.h`（MAX_PATH/generic_open/generic_statat/O_RDONLY_）、
    `fs/path.h`（AT_PWD）、`misc.h`（IS_ERR）。
+4. [`fs/fake.c`] 变更通知队列的 label 改为中性标识 `com.neartop.miniclaw.ish.fakechange`。
+   原 label 含第三方产品名，会作为**字符串字面量链进 App 二进制**（`strings` 可见）；
+   dispatch queue 的 label 仅用于诊断（崩溃日志/调试器），改名无功能影响。
+   改后须重建 `libish.a`：`cd 第三方源码/ish-arm64/build-arm64-ios && ninja libish.a`
+   （注意：直接 `ninja` 会在 host 工具 `tools/fakefsify` 处失败——它把 macOS 版
+   libarchive 链进 iOS target，属已知环境问题，与本改动无关；**只构建 `libish.a` 目标即可**）。
 
 语义源（工程内，勿动）：`MiniClaw/Services/SessionFileRouter.swift` 三个 `@_cdecl`：
 `miniclaw_session_resolve_host_path` / `miniclaw_session_reverse_host_path` /

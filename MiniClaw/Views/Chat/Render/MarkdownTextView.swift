@@ -852,7 +852,17 @@ final class MarkdownTextView: UITextView,UIGestureRecognizerDelegate {
                     view = existingView
                 }
                 reusedIds.insert(attachId)
-                view.frame = CGRect(origin: boundingRect.origin,size: view.frame.size)
+                // [抖动诊断 2026-09-12] 附件（尤其图片）视图 frame 发生**实际位移**时打一条。
+                // 高度稳定但图片位置在跳 = 视觉上的「抖」，此前只查了高度与 offset，
+                // 遗漏了「附件视图重定位」这条路径（本会话特征 = 消息含一张大图）。
+                let newFrame = CGRect(origin: boundingRect.origin,size: view.frame.size)
+                if view.frame != newFrame, attachment is ImageAttachment {
+                    let cv = findCollectionView()
+                    AppLogger.shared.info(
+                        "[Jitter] IMG-FRAME y \(String(format: "%.1f", view.frame.origin.y))→\(String(format: "%.1f", newFrame.origin.y)) h=\(String(format: "%.1f", view.frame.height)) x=\(String(format: "%.1f", newFrame.origin.x)) tcW=\(String(format: "%.1f", self.textContainer.size.width)) boundsH=\(String(format: "%.1f", self.bounds.height)) scroll=\((cv?.isDragging ?? false) ? "drag" : ((cv?.isDecelerating ?? false) ? "decel" : "idle"))",
+                        category: "Jitter")
+                }
+                view.frame = newFrame
             } else if let codeBlock = attachment as? CodeBlockAttachment {
                 // Try to reuse the previous view at the same index via updateExistingAttachView.
                 if let previousView = codeBlockViewCache[codeBlock.blockIndex] {
@@ -953,11 +963,6 @@ final class MarkdownTextView: UITextView,UIGestureRecognizerDelegate {
         #if DEBUG
         // Capture immediately after attachment views
         // (via rebuildAttachViews), so this is the most likely site where
-        MessageListSnapshotCollector.captureIfEnabled(
-            from: self,
-            trigger: "mtv.refreshAttachViews",
-            triggerDetail: String(format: "%p", Int(bitPattern: Unmanaged.passUnretained(self).toOpaque()))
-        )
         #endif
     }
 
@@ -1113,21 +1118,6 @@ final class MarkdownTextView: UITextView,UIGestureRecognizerDelegate {
                 }
             }
         }
-        #if DEBUG
-        // Capture render snapshot — disabled by default.
-        let msgId = (self.delegate as? MarkdownView.Coordinator)?.renderer.messageId?.uuidString.prefix(8)
-        MarkdownSnapshotCollector.captureIfEnabled(
-            textView: self,
-            phase: "afterLayoutSubviews",
-            messageId: msgId.map(String.init),
-            isMeasureView: false
-        )
-        MessageListSnapshotCollector.captureIfEnabled(
-            from: self,
-            trigger: "mtv.layoutSubviews",
-            triggerDetail: String(format: "%p", Int(bitPattern: Unmanaged.passUnretained(self).toOpaque()))
-        )
-        #endif
     }
 
     private let cellSizeLogger = AppLogger(category: "CellSize")
@@ -1197,6 +1187,28 @@ final class MarkdownTextView: UITextView,UIGestureRecognizerDelegate {
         }
         let delta = newHeight-previousHeight
 
+        // [2026-09-12 裁尾修复+诊断] **引擎文本实测上报** + 零歧义欠高探针。
+        //
+        // 上报量 = `newHeight`（本视图在自身 `bounds.width` 下刚测出的文本高），**单调取大**。
+        // **刻意不含 cell 当前高度**：cell 被抬高后 SwiftUI 不会跟着抬高本视图，任何含
+        // cell 高的增量都会每轮再叠一次差值 → 高度跑飞（真机 1365→1383→…→1455，
+        // 消息中间大块空白）。由 List 层在提交点用「本值 + 固定装饰」作为下限。
+        //
+        // 探针判据 `cell.bounds.height < newHeight`：cell 比屏上文本实测更矮 ⇒ 必然裁内容。
+        // 不依赖任何装饰差推算（原 `FIRST-MEASURE CORRECTION` 用 `>8` 阈值，会漏掉 4pt 级裁字）。
+        if let cell = findCell() as? SelfSizingCell, newHeight > 1 {
+            // **最新实测覆盖，不取单调最大**：流式期间渲染会带「表格尾拆分 + 纯文本后缀」，
+            // 布局比流式结束后的**最终渲染更高**；若取 max，该历史高值会作为下限残留
+            // → 流式结束后 cell 下方出现空白（真机 IMG_4703 之后的新症状，重进会话清零即恢复）。
+            // 旧值的「串内容」风险由 `engineTextContentKey` 判定兜住（见其声明处说明）。
+            cell.engineTextHeight = newHeight
+            cell.engineTextContentKey = cell.contentKey
+            cell.engineTextValid = true
+            if cell.bounds.height > 4, cell.bounds.height < newHeight - 0.5 {
+                cellSizeLogger.info("[CellSize] UNDER-HEIGHT cellH=\(String(format: "%.1f", cell.bounds.height)) textNeed=\(String(format: "%.1f", newHeight)) delta=\(String(format: "%.1f", newHeight-cell.bounds.height)) viewH=\(String(format: "%.1f", bounds.height)) measureW=\(String(format: "%.1f", measureWidth)) tcW=\(String(format: "%.1f", textContainer.size.width)) storage=\(textStorage.length) prevH=\(String(format: "%.1f", previousHeight)) — cell 比文本所需更矮，内容必然被裁")
+            }
+        }
+
         // Height genuinely moved. Decide the
         let cvOpt = findCollectionView()
         let layout = cvOpt?.collectionViewLayout as? MessageListLayout
@@ -1260,7 +1272,12 @@ final class MarkdownTextView: UITextView,UIGestureRecognizerDelegate {
             guard let cell = findCell() as? SelfSizingCell,
                   cell.bounds.height>4,
                   abs(cell.bounds.height-newHeight)>8 else { return }
-            cellSizeLogger.info("[invalidateCell] FIRST-MEASURE CORRECTION cellH=\(String(format: "%.1f", cell.bounds.height)) newH=\(String(format: "%.1f", newHeight)) — cell committed a conflicting height, invalidating")
+            // [2026-09-12 说明] 此处曾临时加过「写回 memo + 统一缓存」以求收敛。真凶
+            //（后台预热用异源 NSLayoutManager 栈把同源高度覆盖成矮值）修复后已回退：
+            // 写回值需要 `cell 高 − 文本视图高` 作装饰差，而该差值在「cell 与文本视图
+            // 处于不同内容代际」（复用中 / idx=-1）时会失真，实测把 1217pt 抬到 2354.3pt
+            // → 消息中间出现大块空白。**兜底不得依赖瞬时不一致的两个量之差。**
+            cellSizeLogger.info("[invalidateCell] FIRST-MEASURE CORRECTION cellH=\(String(format: "%.1f", cell.bounds.height)) newH=\(String(format: "%.1f", newHeight)) cellW=\(String(format: "%.1f", cell.bounds.width)) measureW=\(String(format: "%.1f", measureWidth)) tcW=\(String(format: "%.1f", textContainer.size.width)) storage=\(textStorage.length) — cell committed a conflicting height, invalidating")
         }
 
         if let cell = findCell() as? SelfSizingCell {

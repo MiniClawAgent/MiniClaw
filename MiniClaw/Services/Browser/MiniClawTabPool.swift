@@ -788,7 +788,12 @@ public final class MiniClawTabPool: ObservableObject {
             do { let r = try await operation(); box.finish(.success(r)) }
             catch { box.finish(.failure(error)) }
         }
-        let timer = DispatchSource.makeTimerSource(queue: .global(qos: .utility))
+        // 必须用主队列：本类型是 @MainActor，setEventHandler 的闭包会**继承主 actor 隔离**，
+        // 若 timer 挂后台队列，闭包在后台线程入口处即被 Swift 运行时隔离校验拦下
+        // （_swift_task_checkIsolatedSwift → dispatch_assert_queue 失败 →
+        // _dispatch_assert_queue_fail 直接 brk 崩溃，栈落在本方法的闭包上）。
+        // 看门狗只做「记一行日志 + 恢复 continuation」，放主队列成本可忽略。
+        let timer = DispatchSource.makeTimerSource(queue: .main)
         timer.schedule(deadline: .now()+deadline)
         timer.setEventHandler {
             logger.warning("[DeadTimeout] FIRED tab=\(targetId) action=\(action)")

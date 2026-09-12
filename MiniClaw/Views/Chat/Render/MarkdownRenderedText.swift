@@ -149,6 +149,8 @@ struct MarkdownRenderedText: UIViewRepresentable {
     func sizeThatFits(_ proposal: ProposedViewSize, uiView: MarkdownRenderView, context: Context) -> CGSize? {
         guard let width = proposal.width, width > 0 else { return nil }
         let widthKey = Int(width)
+        // [STF-RT 诊断 2026-09-12] 只读探针：记录本块测量实际收到的宽度与缓存结果。
+        AppLogger(category: "MarkdownSTF").info("[STF-RT] enter proposal=\(String(format: "%.1f", width)) widthKey=\(widthKey)")
         let renderCacheKey = MarkdownRenderCache.key(
             for: markdown,
             fontSize: FontSettings.shared.scaledMessage(16.5)
@@ -156,12 +158,14 @@ struct MarkdownRenderedText: UIViewRepresentable {
 
         // ① 统一缓存 heights 命中：直接返回（widthKey = Int(width)）。
         if let cachedH = MarkdownRenderCache.shared.cachedHeight(for: renderCacheKey, width: widthKey) {
+            AppLogger(category: "MarkdownSTF").info("[STF-RT] HIT w=\(String(format: "%.1f", width)) h=\(String(format: "%.1f", cachedH))")
             return CGSize(width: width, height: cachedH)
         }
 
         // ② miss：退回 MarkdownRenderView 的 TextKit usedRect 计算（便宜）。
         let size = uiView.sizeThatFits(CGSize(width: width, height: .greatestFiniteMagnitude))
         MarkdownRenderCache.shared.store(height: size.height, key: renderCacheKey, width: widthKey)
+        AppLogger(category: "MarkdownSTF").info("[STF-RT] MISS→measure w=\(String(format: "%.1f", width)) h=\(String(format: "%.1f", size.height)) viewW=\(String(format: "%.1f", uiView.bounds.width))")
         return size
     }
 }

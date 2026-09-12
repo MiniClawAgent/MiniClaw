@@ -149,7 +149,10 @@ struct ContextRingIndicator: View {
 
     var body: some View {
         ZStack {
-            // 圆底与右上角选项按钮同色（secondarySystemBackground），视觉上成为一组按钮。
+            // [2026-09-11] 自绘圆底**保留**（唐唐要求）：与右侧「更多」按钮共用同一视觉规格。
+            // 关掉系统共享玻璃底（sharedBackgroundVisibility(.hidden)）后系统不再给底，
+            // 由我们自绘——好处是颜色/材质完全受控，不再随系统玻璃的 vibrancy 漂移
+            //（此前「同一个环两种深浅」即系统玻璃采样背景 + 语义动态色联动所致）。
             Circle()
                 .fill(Color(.secondarySystemBackground))
             Circle()

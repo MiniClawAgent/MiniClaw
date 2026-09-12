@@ -1067,9 +1067,34 @@ final class ImageAttachment: NSTextAttachment {
             imgLogger.info("[MiniClawImage][MakeView] rendering LOADED image src=\(self.source) imgSize=\(img.size.width)x\(img.size.height) containerWidth=\(width)")
             return makeImageView(img,width: width)
         } else {
+            // [2026-09-13 A 方案·本地图同步出首帧] 数据就在本机磁盘（真机日志实证
+            // `[Load] read N bytes from localPath=…`），走异步必然**先画占位符、再换真图**
+            // ⇒ 肉眼「像从占位符变成实际图片」（真机实录 `rendering PLACEHOLDER` →
+            // `rendering LOADED image`）。这里对**本地来源**同步解码并直接出首帧；
+            // http(s) 不在此列（可能长耗时，仍走原异步路径）。
+            if let img = syncLoadLocalImageIfPossible() {
+                return makeImageView(img,width: width)
+            }
             imgLogger.info("[MiniClawImage][MakeView] rendering PLACEHOLDER src=\(self.source) containerWidth=\(width) fileNotFound=\(self.fileNotFound) retriesRemaining=\(self.retriesRemaining)")
             return makePlaceholderView(width: width)
         }
+    }
+
+    /// [2026-09-13 A 方案] 仅对**本地**来源（`miniclaw://` 且已解析到磁盘文件）做同步首帧。
+    /// 返回 nil = 无法同步（远程 / 文件缺失 / 解码失败），交由既有异步路径与占位符兜底。
+    @MainActor
+    private func syncLoadLocalImageIfPossible() -> UIImage? {
+        guard let u = URL(string: source), u.scheme == "miniclaw",
+              let fileURL = resolveMiniClawFileURLForNativeText(url: u),
+              let data = try? Data(contentsOf: fileURL),
+              let img = downsampleImageData(data)
+        else { return nil }
+        NativeMediaImageCache.shared.set(img,for: miniClawMediaCacheKey(for: source))
+        NativeMediaImageCache.shared.recordSize(img.size,forSource: source)
+        setLoadedImage(img)
+        resolvedFileURL = fileURL
+        imgLogger.info("[MiniClawImage][MakeView] SYNC-LOCAL 首帧直出 src=\(source) size=\(img.size.width)x\(img.size.height) — 不经占位符")
+        return img
     }
 
     private func makeImageView(_ img: UIImage,width: CGFloat) -> UIView {

@@ -95,6 +95,13 @@ final class OpenAIStreamDelegate: NSObject, URLSessionDataDelegate, @unchecked S
         }
         if let statusCode = responseStatusCode, statusCode >= 400 {
             let bodyText = String(data: responseBody.prefix(240), encoding: .utf8) ?? ""
+            // [2026-09-11 诊断增强] 把服务端错误体写入日志。此前只记 `status=xxx`
+            //（见 didReceive response），排查「子代理报 400」时拿不到任何原因，只能靠猜。
+            // 400/422 的 body 通常直接点明请求哪里不合法（如 tool_calls 未配对、
+            // assistant content 为空串、字段非法），是定位的唯一线索。
+            AppLogger.shared.warn(
+                "适配器错误详情 status=\(statusCode) body=\(bodyText)",
+                category: "LLMClient", subsystem: "Adapter")
             let classified = errorClassifier(statusCode, bodyText)
                 ?? LLMError.invalidResponse(statusCode)
             finish(failure: classified)

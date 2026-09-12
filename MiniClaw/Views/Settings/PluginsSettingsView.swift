@@ -183,8 +183,10 @@ private struct SkillDetailView: View {
 
     @Environment(\.dismiss) private var dismiss
     @State private var showUpdateImporter = false
-    @State private var showFile = false
-    @State private var fileView: (name: String, content: String)?
+    /// 待全屏预览的插件内文件（统一机制：与文件管理器同款 `FilePreviewView`，
+    /// 不再自造 sheet + 自读文本渲染——那是「所有文件打开走统一套机制」的唯一例外，
+    /// 且在读取失败/相对路径失真时会渲染成空白页）。
+    @State private var fileToView: FileBrowserItem?
     @State private var alertMsg = ""
     @State private var showAlert = false
     /// 导出产出的临时 .mpk（非 nil 即弹出系统分享面板）。
@@ -284,12 +286,12 @@ private struct SkillDetailView: View {
             Section(String(localized: "files")) {
                 ForEach(SkillManager.shared.skillFiles(directoryName: skill.directoryName), id: \.self) { rel in
                     Button {
-                        if let content = SkillManager.shared.fileContent(
+                        guard let url = SkillManager.shared.pluginFileURL(
                             directoryName: skill.directoryName, relativePath: rel
-                        ) {
-                            fileView = (rel, content)
-                            showFile = true
-                        }
+                        ) else { return }
+                        // 与文件管理器同款呈现：交给 FilePreviewView 按类型分派（文本/代码/图片/PDF/元信息兜底）。
+                        let size = (try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? UInt64) ?? 0
+                        fileToView = FileBrowserItem(id: url, readURL: url, name: rel, isDir: false, size: size)
                     } label: {
                         Text(rel)
                             .font(.system(.footnote, design: .monospaced))
@@ -363,24 +365,10 @@ private struct SkillDetailView: View {
         } message: {
             Text(alertMsg)
         }
-        .sheet(isPresented: $showFile) {
-            NavigationStack {
-                ScrollView {
-                    if let fv = fileView {
-                        Text(fv.content)
-                            .font(.system(.footnote, design: .monospaced))
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding()
-                    }
-                }
-                .navigationTitle(fileView?.name ?? String(localized: "files"))
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .confirmationAction) {
-                        Button(String(localized: "done")) { showFile = false }
-                    }
-                }
-            }
+        // 统一机制：与文件管理器（UnifiedFileBrowser）**逐字同款**的呈现链路——
+        // FilePreviewView 自带文件名导航栏 / 分享 / 下滑关闭，并按类型分派查看器。
+        .fullScreenCover(item: $fileToView) { item in
+            FilePreviewView(fileURL: item.readURL)
         }
     }
 

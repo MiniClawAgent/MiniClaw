@@ -39,9 +39,12 @@ struct CrashReportComposer {
         systemTotalMB: String,
         lastLogLines: String,
         stack: String,
-        logReference: String
+        logReference: String,
+        contextLine: String = ""
     ) -> String {
-        """
+        // 带默认值：信号处理器那条调用点（AppLogger，async-signal-safe 上下文）无需改动。
+        let contextSection = contextLine.isEmpty ? "" : "\nRuntime context: \(contextLine)"
+        return """
         === MiniClaw Crash Report ===
         Date:    \(date)
         Type:    \(type)
@@ -51,7 +54,7 @@ struct CrashReportComposer {
         Log file: \(logReference)
 
         Last Phase: \(lastPhase)
-        Memory:  \(memoryMB) MB
+        Memory:  \(memoryMB) MB\(contextSection)
 
         --- Memory State (at last phase change) ---
         App footprint:    \(memoryMB) MB
@@ -84,13 +87,39 @@ struct CrashReportComposer {
     }
 }
 
+/// 崩溃现场落盘快照：由**当前进程**在相位变化与周期心跳时写入，供**下次启动**的异常退出
+/// 检测读取。
+///
+/// 为什么必须落盘（2026-09-11 真机复盘）：`phaseLock` 与内存读数都是进程内状态，新进程启动时
+/// 读到的只能是它自己的初值 —— 表现为每份报告都写 "Last Phase: Unknown (since <本次启动时刻>)"
+/// 与启动瞬间的 ~15MB，**死前真实状态全部丢失**；实测「被外部 SIGKILL」与「真实崩溃」产出的
+/// 报告完全同形，无法区分。落盘后即可报出死前相位（Active/Background）与内存，从而区分
+/// 「后台被系统回收」与「前台真崩」。
+private struct CrashStateSnapshot: Codable {
+    var phase: String
+    var sinceEpoch: Double
+    var writtenAtEpoch: Double
+    var memoryMB: Double?
+    /// 后台剩余时间（秒）；nil = 采集时不在后台任务中。是「后台回收」判定的关键信号。
+    var bgTimeRemaining: Double?
+}
+
 final class CrashReporter: @unchecked Sendable {
     static let shared = CrashReporter()
 
     private let queue = DispatchQueue(label: "com.neartop.miniclaw.crashreporter")
     private let fileManager = FileManager.default
     private let aliveMarkerName = ".crashalive"
+    /// 现场落盘文件名（跨进程可读，见 CrashStateSnapshot 注释）。
+    private let stateMarkerName = ".crashstate"
     private var terminateObserver: NSObjectProtocol?
+    /// 心跳定时器：周期刷新落盘快照里的内存读数，使死前内存最多滞后一个周期。
+    private var heartbeatTimer: DispatchSourceTimer?
+
+    /// 心跳周期（秒）。取 30s：足够贴近死前内存真值，又不至于频繁写盘。
+    private static let heartbeatInterval: TimeInterval = 30
+    /// 最近一次落盘快照（内存态副本，供心跳沿用相位与后台剩余时间）。
+    private let stateLock = OSAllocatedUnfairLock<CrashStateSnapshot?>(initialState: nil)
 
     private var logsDir: URL {
         FileSystemManager.shared.miniClawRoot.appendingPathComponent("logs", isDirectory: true)
@@ -112,9 +141,67 @@ final class CrashReporter: @unchecked Sendable {
 
     // MARK: - 相位追踪
 
-    /// 由 MiniClawApp 的场景相位桥调用，记录当前相位与进入时间。
-    func notePhase(_ desc: String) {
-        phaseLock.withLock { $0 = (phase: desc, since: Date()) }
+    /// 由 MiniClawApp 的场景相位桥调用，记录当前相位与进入时间，并**立即落盘**——
+    /// 相位是判断「后台被回收 / 前台真崩」的关键证据，绝不能只留在内存里（进程一被 SIGKILL
+    /// 就全丢了，下次启动只能读到 Unknown）。
+    /// - Parameter bgTimeRemaining: 后台剩余秒数，由**主线程调用点**采集传入（见
+    ///   `currentBackgroundTimeRemaining()`）。本类刻意保持 nonisolated —— 崩溃报告器一旦
+    ///   绑定 @MainActor，主线程卡死时就再也写不出报告，那正是最需要它的时刻。
+    func notePhase(_ desc: String, bgTimeRemaining: Double? = nil) {
+        let since = Date()
+        phaseLock.withLock { $0 = (phase: desc, since: since) }
+        writeState(phase: desc, since: since, bgTimeRemaining: bgTimeRemaining)
+    }
+
+    /// 读取后台剩余时间（秒）。`UIApplication.shared` 是 main-actor 隔离属性，
+    /// 故本方法标注 @MainActor，由主线程调用点（场景相位桥）调用；不在后台任务中时
+    /// UIApplication 返回极大值，归一为 nil。读取失败一律返回 nil，绝不因此影响落盘。
+    @MainActor
+    static func currentBackgroundTimeRemaining() -> Double? {
+        let remain = UIApplication.shared.backgroundTimeRemaining
+        return remain.isFinite && remain < 1_000_000 ? remain : nil
+    }
+
+    // MARK: - 现场落盘（跨进程可读）
+
+    private var stateFileURL: URL { logsDir.appendingPathComponent(stateMarkerName) }
+
+    /// 写一份现场快照（更新内存态副本 + 异步落盘），不阻塞调用线程。
+    private func writeState(phase: String, since: Date, bgTimeRemaining: Double?) {
+        let snapshot = CrashStateSnapshot(
+            phase: phase,
+            sinceEpoch: since.timeIntervalSince1970,
+            writtenAtEpoch: Date().timeIntervalSince1970,
+            memoryMB: appMemoryMB(),
+            bgTimeRemaining: bgTimeRemaining
+        )
+        stateLock.withLock { $0 = snapshot }
+        queue.async { [snapshot] in
+            guard let data = try? JSONEncoder().encode(snapshot) else { return }
+            try? data.write(to: self.stateFileURL, options: .atomic)
+        }
+    }
+
+    /// 读取上一轮进程遗留的快照（启动检测调用，此时本次进程尚未写过任何相位）。
+    private func loadPersistedState() -> CrashStateSnapshot? {
+        guard let data = try? Data(contentsOf: stateFileURL) else { return nil }
+        return try? JSONDecoder().decode(CrashStateSnapshot.self, from: data)
+    }
+
+    /// 周期刷新落盘快照的内存读数；相位与后台剩余时间沿用最近一次落盘值
+    /// （心跳跑在 reporter 队列，不读 UIApplication）。
+    private func startHeartbeat() {
+        heartbeatTimer?.cancel()
+        let timer = DispatchSource.makeTimerSource(queue: queue)
+        timer.schedule(deadline: .now() + Self.heartbeatInterval, repeating: Self.heartbeatInterval)
+        timer.setEventHandler { [weak self] in
+            guard let self else { return }
+            let (phase, since) = self.phaseLock.withLock { $0 }
+            let bg = self.stateLock.withLock { $0?.bgTimeRemaining }
+            self.writeState(phase: phase, since: since, bgTimeRemaining: bg)
+        }
+        timer.resume()
+        heartbeatTimer = timer
     }
 
     // MARK: - 异常退出检测（启动）
@@ -127,7 +214,12 @@ final class CrashReporter: @unchecked Sendable {
     func checkAbnormalExit() {
         let marker = logsDir.appendingPathComponent(aliveMarkerName)
         if fileManager.fileExists(atPath: marker.path) {
-            let (phase, since) = phaseLock.withLock { $0 }
+            // 优先采用**上一轮进程落盘**的现场：相位/内存/后台剩余时间才反映死前真实状态。
+            // 内存态 phaseLock 在本次启动时必然是初值 Unknown（见 CrashStateSnapshot 注释）。
+            let persisted = loadPersistedState()
+            let (memPhase, memSince) = phaseLock.withLock { $0 }
+            let phase = persisted?.phase ?? memPhase
+            let since = persisted.map { Date(timeIntervalSince1970: $0.sinceEpoch) } ?? memSince
             let reason: String
             if phase == "Background" {
                 reason = "Background Termination (system reclaimed memory — normal)"
@@ -136,11 +228,25 @@ final class CrashReporter: @unchecked Sendable {
             }
             // 回填信号处理器抓到的真实调用栈（若有），使启动检测报告也带回溯。
             let stack = lastSignalCrashStack()
-            writeReport(type: reason, stack: stack, lastPhase: phase, lastPhaseSince: since)
+            writeReport(
+                type: reason,
+                stack: stack,
+                lastPhase: phase,
+                lastPhaseSince: since,
+                memoryMBOverride: persisted?.memoryMB,
+                contextLine: Self.describePersistedState(persisted)
+            )
             try? fileManager.removeItem(at: marker)
         }
         // 写新标记。
         try? "alive".write(to: marker, atomically: true, encoding: .utf8)
+        // 本次进程立刻覆盖一份自己的现场（否则上一轮的快照会残留、下次被误读成「本次死前状态」），
+        // 并启动心跳周期刷新内存读数。
+        let launchAt = Date()
+        phaseLock.withLock { $0 = (phase: "Launching", since: launchAt) }
+        stateLock.withLock { $0 = nil }
+        writeState(phase: "Launching", since: launchAt, bgTimeRemaining: nil)
+        startHeartbeat()
         // 优雅退出时清除标记（系统后台回收时不会触发，从而下次启动可检测）。
         terminateObserver = NotificationCenter.default.addObserver(
             forName: UIApplication.willTerminateNotification,
@@ -149,6 +255,21 @@ final class CrashReporter: @unchecked Sendable {
             try? FileManager.default.removeItem(at: marker)
             self?.notePhase("Terminated")
         }
+    }
+
+    /// 把落盘现场转成报告里的一行上下文：人读友好 + 直接给出判定倾向。
+    private static func describePersistedState(_ s: CrashStateSnapshot?) -> String {
+        guard let s else {
+            return "无现场落盘（进程从未进入任何场景相位，或该版本尚未带落盘机制）"
+        }
+        var parts: [String] = []
+        parts.append("死前内存 " + (s.memoryMB.map { String(format: "%.0f", $0) + "MB" } ?? "n/a"))
+        parts.append("后台剩余 " + (s.bgTimeRemaining.map { String(format: "%.0f", $0) + "s" } ?? "n/a"))
+        parts.append("现场落盘于 " + Self.timeFormatter.string(from: Date(timeIntervalSince1970: s.writtenAtEpoch)))
+        parts.append("判定提示：" + (s.phase == "Background"
+            ? "死前在后台 → 疑似被系统回收（非崩溃）"
+            : "死前在前台 → 更像真实崩溃，需结合调用栈"))
+        return parts.joined(separator: " · ")
     }
 
     // MARK: - 信号崩溃栈回填
@@ -202,7 +323,14 @@ final class CrashReporter: @unchecked Sendable {
     /// 同步写入（文件体积小、耗时低），以在进程终止前完成。
     /// 文本统一由 `CrashReportComposer` 构造，与信号路径共用同一模板。
     @discardableResult
-    func writeReport(type: String, stack: String?, lastPhase: String? = nil, lastPhaseSince: Date? = nil) -> URL {
+    func writeReport(
+        type: String,
+        stack: String?,
+        lastPhase: String? = nil,
+        lastPhaseSince: Date? = nil,
+        memoryMBOverride: Double? = nil,
+        contextLine: String? = nil
+    ) -> URL {
         let now = Date()
         let (phase, since) = phaseLock.withLock { $0 }
         let curPhase = lastPhase ?? phase
@@ -210,7 +338,9 @@ final class CrashReporter: @unchecked Sendable {
 
         let dateStr = Self.dateFormatter.string(from: now)
         let sinceStr = Self.timeFormatter.string(from: curSince)
-        let footprint = appMemoryMB()
+        // 启动检测报告传入上一轮落盘的内存值——现场内存只能由死前那个进程测得，
+        // 本进程此刻刚启动（~15MB），直接采会严重失真（2026-09-11 复盘结论）。
+        let footprint = memoryMBOverride ?? appMemoryMB()
         let footprintStr = footprint.map { String(format: "%.0f", $0) } ?? "N/A"
         let totalMemMB = Double(ProcessInfo.processInfo.physicalMemory) / (1024 * 1024)
         let lastLines = AppLogger.shared.lastLogLines(count: 20)
@@ -227,7 +357,8 @@ final class CrashReporter: @unchecked Sendable {
             systemTotalMB: String(format: "%.0f", totalMemMB),
             lastLogLines: lastLines,
             stack: stackBlock,
-            logReference: AppLogger.shared.crashLogPath()
+            logReference: AppLogger.shared.crashLogPath(),
+            contextLine: contextLine ?? ""
         )
 
         let name = crashFileName(for: now)

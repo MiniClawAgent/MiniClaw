@@ -310,7 +310,10 @@ final class SkillManager {
     /// 线程治理（2026-08-09）：正文读盘经 loadSkillBody（后台读盘），不再主线程同步 IO。
     func loadedSkillBodies(for sessionID: UUID?) async -> String {
         guard let sid = sessionID else { return "" }
-        let names = loadedSkillNamesBySession[sid] ?? []
+        // 按名字排序（2026-09-11）：`Set` 的迭代顺序受 Swift 每进程随机 hash 种子影响，
+        // 跨 App 重启可能变序 → 同一组已加载技能在不同进程里产出不同文本，易变段字节漂移，
+        // 重启后首次请求白付一次缓存 miss。排序后顺序由技能名唯一确定。
+        let names = (loadedSkillNamesBySession[sid] ?? []).sorted()
         guard !names.isEmpty else { return "" }
         var sections: [String] = []
         for name in names {
@@ -465,11 +468,15 @@ final class SkillManager {
         }
     }
 
-    /// 读取插件内某个文件的正文（相对路径）。
-    func fileContent(directoryName: String, relativePath: String) -> String? {
+    /// 插件内某个文件的真实 URL（相对路径）。
+    ///
+    /// **文件打开统一走 `FilePreviewView`**：详情页把 URL 交给统一预览组件即可，
+    /// 不再自己读成 String 再自渲染（那套自造 sheet 在读取失败/相对路径失真时会渲染成空白页，
+    /// 且是「所有文件打开走统一套机制」这条规矩的唯一例外）。
+    func pluginFileURL(directoryName: String, relativePath: String) -> URL? {
         guard let dir = pluginDir(named: directoryName) else { return nil }
         let url = dir.appendingPathComponent(relativePath)
-        return try? String(contentsOf: url, encoding: .utf8)
+        return FileManager.default.fileExists(atPath: url.path) ? url : nil
     }
 
     /// 从文件更新指定技能：解压/取出后覆盖原目录。

@@ -29,14 +29,21 @@ extension MessageCollectionView.Coordinator {
                     CGSize(width: width, height: .greatestFiniteMagnitude), nil).height
                 return ceil(ctHeight) + 8
             }
-            let storage = NSTextStorage(attributedString: attrStr)
-            let container = NSTextContainer(size: CGSize(width: width,height: .greatestFiniteMagnitude))
-            container.lineFragmentPadding = 0
-            let lm = NSLayoutManager()
-            lm.addTextContainer(container)
-            storage.addLayoutManager(lm)
-            lm.ensureLayout(for: container)
-            return ceil(lm.usedRect(for: container).height)+8
+            // [2026-09-12 裁尾修复·测量引擎同源] 本函数原设计（见上方注释）就是用**离屏
+            // MarkdownTextView**（与屏上渲染同一个类、同一 MiniClawLayoutManager、
+            // 同一 textContainerInset）作真实引擎；实测代码却退化成「裸 NSLayoutManager +
+            // NSTextContainer」自建栈。两者在同一字符串、同一宽度下**差 12.3pt**
+            // （真机实证：本栈 usedRect+8 = 1699，屏上 MarkdownTextView.sizeThatFits = 1711.3，
+            // 仅差一个 line fragment 的舍入累积）→ 播种把这个矮值写进统一缓存
+            // （`[SEED] idx=173 src=textkit uiH=1699`）→ 屏上 `sizeThatFits` 命中同一缓存
+            // → cell 少 12.3pt（1703 而非 1715.3）→ 尾部半行永久被裁。
+            // 恢复同源：直接用与渲染完全相同的类测量（`measureTextView` 与
+            // MarkdownView.sizeThatFits 的 mtv 路径是同一个实例、同一口径）。
+            let mtv = Self.measureTextView
+            mtv.textContainer.size = CGSize(width: width,height: .greatestFiniteMagnitude)
+            mtv.textStorage.setAttributedString(attrStr)
+            // 返回值语义不变：MarkdownTextView.sizeThatFits 已含 textContainerInset(8pt)。
+            return ceil(mtv.sizeThatFits(CGSize(width: width,height: .greatestFiniteMagnitude)).height)
         }
 
         /// 是否含任意 NSTextAttachment（决定能否走 CT 快路径）。
@@ -276,6 +283,18 @@ extension MessageCollectionView.Coordinator {
                     // 渲染侧 prebuilt 采用点共用同一事实源（hasFreshRenderedContent）。
                     if let attrStr = block.cachedAttributedString, block.hasFreshRenderedContent {
                         let textWidth = max(width-32,100)
+                        // [2026-09-12 裁尾修复·估算必须同源] 此前无条件走 CTFramesetter（`+12`）。
+                        // CT 与渲染引擎（MarkdownTextView）在同一内容/宽度下矮 12.3pt
+                        // （真机实证：CT 1891→ 估算 1703，而屏上真实需要 1715.3）→ 滑动中新
+                        // 创建的 cell 以该估算为初始高度 → `FIRST-MEASURE CORRECTION`
+                        // cellH=1703 vs newH=1711.3。优先读**统一高度缓存**（由与渲染同源的
+                        // 测量写入，含 8pt textContainerInset），命中即与渲染一致；
+                        // miss 才退回 CT 粗估（首帧占位语义不变）。
+                        let uKeyEst = MarkdownRenderCache.key(
+                            for: block.content, fontSize: FontSettings.shared.scaledMessage(16.5))
+                        if let uH = MarkdownRenderCache.shared.cachedHeight(for: uKeyEst, width: Int(textWidth)) {
+                            return uH+SelfSizingCell.assistantBlockVerticalChrome   // uH 已含 8pt inset，+4 = 块上下 padding
+                        }
                         let textH = MarkdownView.ctFramesetterHeight(for: attrStr,width: textWidth)
                         return textH+12
                     }

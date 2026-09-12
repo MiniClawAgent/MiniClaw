@@ -2,6 +2,20 @@ import Foundation
 import UIKit
 import PDFKit
 
+/// file 系列工具的路径约定文案（**单一来源**，四个工具描述共用，避免同类文案多处各写一份而漂移）。
+///
+/// 为什么需要它（2026-09-11 真机复盘）：同一个物理位置存在**两套虚拟路径**——
+/// ① iSH guest（shell）视角：`/var/MiniClaw/sessions/<uuid>/<子目录>`；
+/// ② Swift file 工具视角：`/var/MiniClaw/<子目录>`（会话隔离由 sessionID **隐式**完成，
+///   路径里没有 `sessions/<uuid>` 这一段）。
+/// 模型看到 `shell_execute` 的 `[env] cwd`（guest 视角）后，拿它去拼 `file_read` 的路径 →
+/// 首段 `sessions` 不在会话独享白名单（只有 workspace/attachments/browser/offloads）→
+/// 落到共享分支解析成 `Documents/MiniClaw/sessions/<uuid>/…` → 必然「文件未找到」。
+/// 故把约定写进工具描述，让模型一上手就有正确坐标。
+enum FileToolPaths {
+    static var conventionNote: String { String(localized: "file_tools_path_convention") }
+}
+
 struct FileReadTool: AgentTool {
     let name = "file_read"
     /// 当前会话 ID：注入后该工具读取的文件走本会话的隔离命名空间
@@ -11,7 +25,7 @@ struct FileReadTool: AgentTool {
         type: "function",
         function: ToolSchema.FunctionDef(
             name: "file_read",
-            description: String(localized: "file_read_tool_desc"),
+            description: String(localized: "file_read_tool_desc") + FileToolPaths.conventionNote,
             parameters: JSONSchema(
                 type: "object",
                 properties: [
@@ -57,7 +71,7 @@ struct ListDirTool: AgentTool {
         type: "function",
         function: ToolSchema.FunctionDef(
             name: "list_dir",
-            description: String(localized: "list_dir_tool_desc"),
+            description: String(localized: "list_dir_tool_desc") + FileToolPaths.conventionNote,
             parameters: JSONSchema(
                 type: "object",
                 properties: [
@@ -100,7 +114,7 @@ struct FileWriteTool: AgentTool {
         type: "function",
         function: ToolSchema.FunctionDef(
             name: "file_write",
-            description: String(localized: "file_write_tool_desc"),
+            description: String(localized: "file_write_tool_desc") + FileToolPaths.conventionNote,
             parameters: JSONSchema(
                 type: "object",
                 properties: [
@@ -147,7 +161,7 @@ struct FileEditTool: AgentTool {
         type: "function",
         function: ToolSchema.FunctionDef(
             name: "file_edit",
-            description: String(localized: "file_edit_tool_desc"),
+            description: String(localized: "file_edit_tool_desc") + FileToolPaths.conventionNote,
             parameters: JSONSchema(
                 type: "object",
                 properties: [

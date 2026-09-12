@@ -72,12 +72,37 @@ public final class MessageListViewController: UIViewController {
         let cv = NoAnimationCollectionView(frame: view.bounds,collectionViewLayout: messageListLayout)
         cv.owningViewController = self
         collectionView = cv
+        // [2026-09-13 撤销] 恢复 CV 自己跟随容器 bounds（原行为）。曾改为 Auto Layout 约束并把底边
+        // 上移 34pt，导致小横条区域露出背景、键盘顶起距离变化 —— 已撤销。
         collectionView.autoresizingMask = [.flexibleWidth,.flexibleHeight]
         collectionView.backgroundColor = .clear
         collectionView.keyboardDismissMode = .onDrag
         collectionView.alwaysBounceVertical = true
-        collectionView.contentInsetAdjustmentBehavior = .automatic
+        // [T2 修正 2026-09-12 · 单一所有权 + 常量数据源]
+        // 「重进会话首次上滑整屏弹」的位移源 = 容器 `safeAreaInsets.top` 在 116 ↔ 0 之间切换，
+        // UIKit 按 `adjustedContentInset` 变化自动补偿 `contentOffset`（同一 CV、frame 不变、
+        // 我们的代码不动）。两件事必须同时成立才能根治：
+        //   ① `.never` —— 留白只由 App 决定，UIKit 不介入补偿；
+        //   ② 数据源为**不切换的量** —— 顶部留白 = `appBaseContentInsetTop`（iOS26+ 为 0）。
+        // 曾用「容器瞬时安全区」当数据源（会切）或用 `navBar.frame.maxY`(=116) 当留白
+        // （那是导航栏在窗口中的位置，而稳态 `safeAreaInsets.top == 0` 已证明 CV 的 frame
+        // 本就在导航栏下方 ⇒ 留白本就应为 0），后者会多出 116pt 空白。
+        // `.never` 下底部安全区由 CV 的**底边约束**让出（见下方 `bottomAnchor`），
+        // 不再叠加进 `contentInset.bottom` —— 同一份留白只能有一处。
+        collectionView.contentInsetAdjustmentBehavior = .never
         view.addSubview(collectionView)
+
+        // [2026-09-13 撤销·勿重犯] 曾把 CV 底边**缩短 34pt**（钉在 `view.bottomAnchor` − 常量），
+        // 目的是避开「cell 底边落入 CV 最后 34pt 时被 UIKit 授予安全区，宿主自 sizing 把它计进高度」
+        // 造成的 ±34 污染。**已撤销**，因为它付出了不该付的代价：
+        //   ① 底部 34pt 不再被 CV 覆盖 ⇒ **小横条区域重新露出容器背景**（这是唐唐此前特意去掉的）；
+        //   ② 因此改变了键盘顶起时内容上推的距离。
+        // 现恢复 CV **全幅铺到底**（原行为），污染改由 **cell 内部**把安全区归零来解决
+        // （见 `SelfSizingCell.safeAreaInsets`），不再触碰 CV 几何。
+        // 历史错路（勿再回头）：`.ignoresSafeArea()` 加在 hosting 内容上无效；`contentView
+        //   .insetsLayoutMarginsFromSafeArea = false` 无效（margin 非载体）；`viewDidLayoutSubviews`
+        //   里改 frame 会引发布局循环（真机 = 首页极卡顿）；`safeAreaLayoutGuide.bottomAnchor`
+        //   会被键盘撑大（CV 高度塌 340pt、offset 不动 ⇒ 整屏跳位）。
     }
 
     /// scrolls them back into view the MarkdownTextView is hosted
@@ -151,12 +176,40 @@ final class NoAnimationCollectionView: UICollectionView {
     ///
     private var lastPreWarmW: CGFloat = 0
 
+    /// [恢复 2026-09-13] **稳定的底部安全区**（home indicator）：优先取 **window** 的值
+    /// （键盘不会改 window，容器瞬时态才会 ⇒ 用 window 才不会随键盘跳动）。
+    /// 曾随「CV 底边上移」一并删除，撤销后必须还原（`bottomPadVal` 依赖它）。
+    var stableBottomSafeArea: CGFloat {
+        if let w = window, w.safeAreaInsets.bottom > 0 { return w.safeAreaInsets.bottom }
+        return safeAreaInsets.bottom
+    }
+
+    /// [抖动诊断 2026-09-12] CV 的 **frame.origin** 上一次的值。
+    /// 既有 `[WatchdogProbe][cv-bounds]` 只在**尺寸**变化时打；**位置**变化不打 —— 而
+    /// 「整屏内容一起小幅上下弹」正是「CV 自身被移动」的典型表现（尺寸不变、位置在动）。
+    private var lastFrameOrigin: CGPoint = CGPoint(x: -9999, y: -9999)
+    private var lastFrameSize: CGSize = CGSize(width: -9999, height: -9999)
+
     #if DEBUG
     private var lastBounds: CGSize = .zero
     private static let watchdogProbe = AppLogger(category: "ChatList.Watchdog")
     #endif
 
     override func layoutSubviews() {
+        // [抖动诊断 2026-09-12 · 移到守卫之前] 原先此探针放在 `isApplyingSnapshot` 守卫**之后**，
+        // 而「CV 被布局两次」恰好发生在会话入口的快照应用期间 ⇒ 一直被漏掉（假阴性）。
+        // 现在无条件先比对 frame（尺寸+原点），再走原守卫链。
+        if frame.origin != lastFrameOrigin || bounds.size != lastFrameSize {
+            if lastFrameOrigin.x > -9000 {
+                let ptr = String(format: "%p", Int(bitPattern: Unmanaged.passUnretained(self).toOpaque()))
+                AppLogger.shared.info(
+                    "[Jitter] CV-FRAME ptr=\(ptr) origin \(String(format: "%.1f", lastFrameOrigin.y))→\(String(format: "%.1f", frame.origin.y)) size \(String(format: "%.1f", lastFrameSize.height))→\(String(format: "%.1f", bounds.height)) safeTop=\(String(format: "%.1f", safeAreaInsets.top)) insetT=\(String(format: "%.1f", contentInset.top)) offsetY=\(String(format: "%.1f", contentOffset.y)) applyingSnapshot=\(isApplyingSnapshot ? 1 : 0)",
+                    category: "Jitter")
+            }
+            lastFrameOrigin = frame.origin
+            lastFrameSize = bounds.size
+        }
+
         guard !isApplyingSnapshot else { return }
         guard UIApplication.shared.applicationState != .background else {
             return
@@ -201,6 +254,13 @@ final class NoAnimationCollectionView: UICollectionView {
             }
             let delta = finalOffset.y-preOffset.y
             if delta.isFinite && finalOffset.y.isFinite && abs(delta)>0.5 {
+                // [抖动诊断 2026-09-12] 只在本分支**真的触发 offset 动画**时打（低频）。
+                // 本分支会用 0.2s 动画**主动改 contentOffset**；若「并非真正流式」时
+                // `streamingCellIndex` 仍非 nil（状态陈旧），就会在手指间隙反复触发 ⇒ 可见抖动。
+                // 真机判据：抖动若源于此，日志将成串出现本行；且 `tracking=0 decel=0`。
+                AppLogger.shared.info(
+                    "[ScrollGrow] animateOffset \(String(format: "%.1f", preOffset.y))→\(String(format: "%.1f", finalOffset.y)) delta=\(String(format: "%+.1f", delta)) tracking=\(isTracking ? 1 : 0) decel=\(isDecelerating ? 1 : 0) streamingIdx=\((collectionViewLayout as? MessageListLayout)?.streamingCellIndex.map(String.init) ?? "nil") contentH=\(String(format: "%.0f", contentSize.height))",
+                    category: "ScrollGrow")
                 setContentOffset(preOffset,animated: false)
                 UIView.animate(withDuration: 0.20,
                                delay: 0,
@@ -240,9 +300,38 @@ final class NoAnimationCollectionView: UICollectionView {
     override func scrollRectToVisible(_ rect: CGRect,animated: Bool) {
     }
 
+    /// [抖动诊断 2026-09-12] 安全区变化会改 `adjustedContentInset`（= contentInset + safeArea），
+    /// 从而在**不走 `setContentOffset`** 的前提下让整块内容位移 —— 与「整屏一起上下弹」吻合。
+    override func safeAreaInsetsDidChange() {
+        super.safeAreaInsetsDidChange()
+        // [抖动诊断 2026-09-12] 打**对象地址**：若日志里出现两个不同 ptr 交替 ⇒ 是**两个 CV 实例**
+        // 在切换（SwiftUI 入口期重建列表），而不是同一个 CV 的安全区在变 —— 这能解释
+        // 「frame 不变 + 我们代码不写 offset，但两组状态交替」。同时打 frame.origin 供比对。
+        let ptr = String(format: "%p", Int(bitPattern: Unmanaged.passUnretained(self).toOpaque()))
+        // [T2 前置验证 2026-09-12] 探明 116 的**稳定来源**：窗口安全区（状态栏，转场期间不切换）
+        // + 导航栏 frame 高（同一个 bar，转场期间稳定）。若二者之和 == 116 ⇒ 可以据此
+        // 在 `.never` 下用稳定源提供顶部留白（不切换 ⇒ UIKit 不需要补偿 ⇒ 不弹）。
+        let winTop = window?.safeAreaInsets.top ?? -1
+        let navH = owningViewController?.navigationController?.navigationBar.frame.height ?? -1
+        let navMaxY = owningViewController?.navigationController?.navigationBar.frame.maxY ?? -1
+        AppLogger.shared.info(
+            "[Jitter] SAFE-AREA ptr=\(ptr) originY=\(String(format: "%.1f", frame.origin.y)) b=\(String(format: "%.1f", safeAreaInsets.bottom)) t=\(String(format: "%.1f", safeAreaInsets.top)) winTop=\(String(format: "%.1f", winTop)) navH=\(String(format: "%.1f", navH)) navMaxY=\(String(format: "%.1f", navMaxY)) adjustedB=\(String(format: "%.1f", adjustedContentInset.bottom)) insetT=\(String(format: "%.1f", contentInset.top)) insetB=\(String(format: "%.1f", contentInset.bottom)) offsetY=\(String(format: "%.1f", contentOffset.y))",
+            category: "Jitter")
+    }
+
     var offsetLocked: Bool = false
 
     override func setContentOffset(_ contentOffset: CGPoint,animated: Bool) {
+        // [抖动诊断 2026-09-12 · 已去掉 drag/decel 门] 进入会话时的位移发生在**静止态**，
+        // 旧门把它滤掉了。程序化改 offset 本就低频（仅锚定路径），全量打印以便验证 F3(b)。
+        do {
+            let d = contentOffset.y - self.contentOffset.y
+            if abs(d) > 0.5 {
+                AppLogger.shared.info(
+                    "[Jitter] SET-OFFSET \(String(format: "%.1f", self.contentOffset.y))→\(String(format: "%.1f", contentOffset.y)) delta=\(String(format: "%+.1f", d)) animated=\(animated ? 1 : 0) tracking=\(isDragging ? 1 : 0) decel=\(isDecelerating ? 1 : 0) insetT=\(String(format: "%.1f", contentInset.top)) insetB=\(String(format: "%.1f", contentInset.bottom))",
+                    category: "Jitter")
+            }
+        }
         if offsetLocked {
             let delta = abs(contentOffset.y-self.contentOffset.y)
             if delta>1 {
@@ -326,6 +415,19 @@ final class NoAnimationCollectionView: UICollectionView {
 }
 
 class SelfSizingCell: UICollectionViewCell {
+    /// [2026-09-13] **让 cell 永不感知窗口底部安全区**。
+    ///
+    /// 这是「±34 污染」在**不触碰 CV 几何**前提下的替代修法。陈因：CV 全幅铺到屏幕底时它自身
+    /// `safeAreaInsets.bottom == 34`，凡是**底边落入这最后 34pt** 的 cell 都会被 UIKit 授予同样的
+    /// 底部安全区，而 `UIHostingConfiguration` 的宿主自 sizing 会**把它原样计进 cell 高度**
+    /// （真机实证 `[JITTER] delta ≡ cvSafeB`，20/20 条严格同值）⇒ 相邻块凭空多出间距、且随滚动位置变化。
+    ///
+    /// 曾用「把 CV 底边上移 34pt」来规避，但代价是**小横条区域露出容器背景**（唐唐此前特意去掉的）
+    /// 且改变了键盘顶起距离 ⇒ 已撤销。此处改从**入口**切断：cell 内容本就不该为窗口安全区预留空间
+    /// （底部留白由 CV 的 `contentInset.bottom` 统一负责）。若 UIKit 不采纳此覆写也不会更差 ——
+    /// 回到与覆写前完全相同的行为。
+    override var safeAreaInsets: UIEdgeInsets { .zero }
+
     override init(frame: CGRect) {
         super.init(frame: frame)
         contentView.clipsToBounds = true
@@ -340,25 +442,22 @@ class SelfSizingCell: UICollectionViewCell {
 
     private var lastCalcH: CGFloat?
 
-    /// The width at which `lastCalcH` was measured. Used by the
-    /// short-window dedup so a width change still re-measures.
+    /// `lastCalcH` 是在哪个宽度下测得的。**去重判据只看宽度**：宽度变了就必须重测。
     private var lastCalcW: CGFloat?
 
-    /// CACurrentMediaTime() of the last successful self-measure. Within a
-    /// short window after a measure, repeated `preferredLayoutAttributesFitting`
-    /// calls (UICollectionView fires several per frame on bounds change /
-    /// scroll begin / pinch / etc.) reuse the cached height *without* calling
-    /// `super.preferredLayoutAttributesFitting` or `systemLayoutSizeFitting`.
-    /// This shrinks the window where the main thread races with SwiftUI's
-    /// async display-link thread mutating ViewGraphGeometryObservers
-    /// (FB13213926) — the recurring crash on the
-    /// `nswtsUU8p6mRY9Pj7c7tU.xccrashpoint`. Set high enough to absorb the
-    /// burst of measure calls one collection-view layout pass triggers,
-    /// low enough that genuine content/state changes still re-measure
-    /// promptly (applyContentConfiguration / clearCachedHeight reset it
-    /// to nil unconditionally).
+    /// CACurrentMediaTime() of the last successful self-measure。**仅诊断用**。
+    ///
+    /// [2026-09-12] 它原先还参与「50ms 内复用缓存」的判据（`measureDedupWindow`），该判据已删除：
+    /// 宽度匹配的缓存不会因「旧」而失效，时间窗只制造额外的 view-graph 重入（FB13213926 崩溃窗口）。
+    /// 字段照旧在 seed/smooth/live 三处写入、在 applyContentConfiguration / clearCachedHeight /
+    /// prepareForReuse 三处清空，供日志与断点判断「最后一次真实测量是什么时候」。
     private var lastMeasureMedia: CFTimeInterval?
-    private static let measureDedupWindow: CFTimeInterval = 0.050 // 50 ms
+
+    /// markdown 块在 cell 内的**固定垂直装饰**（不含文本本身）：`AssistantBlockView` 的
+    /// `.padding(.vertical, 2)` × 2 = 4pt，与 `seedHeight` 的 `setPrecalcHeight(height+4)`、
+    /// `estimateItemHeight` 的 `uH+4` 同源；此前该值散落在多处硬编码，收敛到此处单点定义。
+    /// 用途：`preferredLayoutAttributesFitting` 的引擎下限 = 屏上文本实测 + 本值。
+    static let assistantBlockVerticalChrome: CGFloat = 4
 
     /// Pre-seeded height from the layout's
     /// measured on a previous appearance. Unlike `lastCalcH`, this is
@@ -369,6 +468,32 @@ class SelfSizingCell: UICollectionViewCell {
     /// Stable content key for the item this
     var contentKey: String?
 
+    /// [2026-09-12 裁尾修复·引擎实测文本高] 屏上 `MarkdownTextView` 自测出的**文本高度**
+    /// （不含 cell 装饰）。由 `invalidateCellSizeIfChanged` 单调取大写入，
+    /// `preferredLayoutAttributesFitting` 提交时用 `本值 + assistantBlockVerticalChrome`
+    /// 作为下限。
+    ///
+    /// 为什么必须只依赖它（而不含 cell 当前高度）：cell 被抬高后 **SwiftUI 不会跟着抬高
+    /// 文本视图**（真机实证：cell 1365→1455 期间 `bounds.height` 恒为 1361）。任何把
+    /// 「cell 当前高」计入增量的公式都会每轮再叠一次差值 → **跑飞**（实测 1365→1383→1401
+    /// →1419→1437→1455，消息中间出现大块空白）。本值只来自视图自身测量，增量恒定 ⇒ 收敛。
+    var engineTextHeight: CGFloat = 0
+    /// 该实测值是在**哪个内容键**下取得的。PLAF 只在 `本字段 == 当前 contentKey` 时应用下限。
+    ///
+    /// 为什么不能只看 `contentKey != nil`：`configureCell` 对流式 cell 会显式把
+    /// `contentKey` 置 nil，于是「非 nil」守卫恰好把**流式 cell**（最需要下限的地方）
+    /// 全部挡掉 —— 真机实证：`UNDER-HEIGHT` 48 条而 `HOST-FLOOR` 0 条，流式末句被截
+    /// 且下一轮更新才自愈。改为键相等判定后，流式时两侧同为 nil 亦成立；而 cell 被
+    /// 重新配置成别的条目时键不等 → 不套用上一内容的实测（防虚高）。
+    var engineTextContentKey: String?
+    var engineTextValid: Bool = false
+
+    /// [抖动诊断 2026-09-12] 上一次提交的高度 + 对应的完整内容键。
+    /// **按 key 变化重置**（不挂在 `applyContentConfiguration`：滑动时每 pass 都重新配置，
+    /// 会每次清零导致探针恒不触发 —— 真机实证 0 条）。
+    private var jitterPrevH: CGFloat = 0
+    private var jitterPrevKey: String?
+
     #if DEBUG
     /// Stable content-hash identity (set by
     var metricsTag: String?
@@ -378,6 +503,7 @@ class SelfSizingCell: UICollectionViewCell {
         guard height >= 4,width>1 else { return }
         seedH = height
         seedW = width
+        traceSet("configureCell→seed", height, width)
     }
 
     func applyContentConfiguration(_ config: any UIContentConfiguration) {
@@ -389,23 +515,99 @@ class SelfSizingCell: UICollectionViewCell {
         // Drop any prior seed — content just
         seedH = nil
         seedW = nil
+        // [2026-09-12 裁尾修复] 引擎文本实测属于「上一版内容」的值，必须与 lastCalcH/seedH
+        // 同生命周期清零，否则会把旧内容的最小高度带给新内容（→ 空白）。
+        engineTextHeight = 0
+        engineTextContentKey = nil
+        engineTextValid = false
     }
 
     private static let sizingLogger = AppLogger(category: "ChatList.CellMetrics")
 
+    /// [PLAF 诊断 2026-09-12] 只读探针：标记本次 cell 高度来自哪条短路分支。
+    /// 用于定位「cell 提交高度恒为 1703.0 而实测 1711.3 → 尾部半行被裁」。
+    /// 只读、不写任何状态，不可能引发循环；定位完成后删除。
+    private func tracePLAF(_ branch: String,_ h: CGFloat,_ w: CGFloat,_ reqW: CGFloat? = nil) {
+        let r = reqW.map { String(format: " reqW=%.1f", $0) } ?? ""
+        let full = contentKey ?? "nil"
+        // key 放宽到 90 字符：`b:<mid>:<bid>:<n>` 全长 > 76，截断到 20 就看不到内容长度 `n`，
+        // 而「内容在两版之间来回」正是抖动的一种根因 —— 必须能看到 n。
+        Self.sizingLogger.info("[PLAF] branch=\(branch) h=\(String(format: "%.1f", h)) w=\(String(format: "%.1f", w))\(r)\(Self.scrollPhaseTag(from: self)) key=\(String(full.prefix(90)))")
+        // [抖动专报 2026-09-12 修正版] **按内容键变化重置**（旧版挂在 applyContentConfiguration，
+        // 而滑动时每个 pass 都重新配置 cell ⇒ 每次清零 ⇒ 永远没有「上一次」可比 ⇒ 0 条）。
+        // 不再限制在 drag/decel：真机实证该抖动在 `scroll=idle off=0` 时同样发生。
+        if jitterPrevKey == full {
+            if jitterPrevH > 1, abs(h - jitterPrevH) > 0.5 {
+                // [±34 归因探针 2026-09-12] 真机实证「同一 key 高度恰好差 34.0」（34 = home
+                // indicator 安全区高）。假设：cell 落入底部安全区带时，其 contentView 的
+                // safeAreaInsets.bottom 变 34，而宿主 SwiftUI 自 sizing 把它计进了内容高。
+                // 三者必须同时打印才能证伪：`cvSafeB`（cell 实际看到的底部安全区）、
+                // `cellBot`（cell 底边在 CV 内容坐标中的位置）、`cvH`（CV 视口高）。
+                // 若 `cvSafeB` 与 h 的 +34 同相 ⇒ 假设成立；若恒为 0 ⇒ 另寻来源。
+                let cvSafeB: CGFloat
+                let cvMarginB: CGFloat
+                let cellBot: CGFloat
+                let cvH: CGFloat
+                if let cv = self.superview as? UICollectionView {
+                    cvSafeB = self.contentView.safeAreaInsets.bottom
+                    // `UICollectionViewCell.contentView.insetsLayoutMarginsFromSafeArea` 默认 true：
+                    // 落在 home indicator 区带的 cell，其 layoutMargins.bottom 会被自动 +34，
+                    // 任何锚到 layoutMarginsGuide 的约束即多 34pt。这是自 sizing 的经典坑。
+                    cvMarginB = self.contentView.layoutMargins.bottom
+                    cellBot = self.frame.maxY - cv.contentOffset.y
+                    cvH = cv.bounds.height
+                } else {
+                    cvSafeB = -1; cvMarginB = -1; cellBot = -1; cvH = -1
+                }
+                Self.sizingLogger.warning("[JITTER] key=\(full) prevH=\(String(format: "%.1f", jitterPrevH)) newH=\(String(format: "%.1f", h)) delta=\(String(format: "%+.1f", h - jitterPrevH)) branch=\(branch)\(Self.scrollPhaseTag(from: self)) cvSafeB=\(String(format: "%.1f", cvSafeB)) cvMarginB=\(String(format: "%.1f", cvMarginB)) cellBot=\(String(format: "%.1f", cellBot)) cvH=\(String(format: "%.1f", cvH))")
+                // [±34 归因兜底 2026-09-12] 若 `.ignoresSafeArea()` 未生效，本行直接指认
+                // 「哪一层子视图比 contentView 矮了那个 34」——`h` 帧高 / `b` bounds 高。
+                let tree = self.contentView.subviews.map { v in
+                    "\(type(of: v)) h\(String(format: "%.1f", v.frame.height)) b\(String(format: "%.1f", v.bounds.height))"
+                }.joined(separator: " | ")
+                Self.sizingLogger.warning("[JITTER-TREE] key=\(String(full.prefix(44))) contentH=\(String(format: "%.1f", self.contentView.bounds.height)) subs=[\(tree)]")
+            }
+        } else {
+            jitterPrevKey = full
+        }
+        jitterPrevH = h
+    }
+
+    /// [抖动诊断 2026-09-12] 滚动状态标签。抖动 = **滑动期间**同一 cell 被反复提交不同高度，
+    /// 故必须把「当时是否在拖动/惯性」写进台账，才能从日志里筛出滑动窗口内的震荡序列。
+    /// 取 cpuType 无开销；只读。
+    static func scrollPhaseTag(from view: UIView) -> String {
+        guard let cv = view.superview as? UICollectionView else { return " scroll=none" }
+        let phase = cv.isDragging ? "drag" : (cv.isDecelerating ? "decel" : "idle")
+        return " scroll=\(phase) off=\(Int(cv.contentOffset.y))"
+    }
+
+    /// [PLAF 写入台账 2026-09-12] 记录每个「高度缓存被写入」的时刻与当时的宽度，
+    /// 用于定位「height 在宽度 A 测出、却在宽度 B 被使用」的张冠李戴。
+    /// 只读、不写状态。
+    private func traceSet(_ src: String,_ h: CGFloat,_ w: CGFloat) {
+        Self.sizingLogger.info("[PLAF-SET] src=\(src) h=\(String(format: "%.1f", h)) w=\(String(format: "%.1f", w))\(Self.scrollPhaseTag(from: self)) key=\(contentKey.map { String($0.prefix(20)) } ?? "nil")")
+    }
+
+
     override func preferredLayoutAttributesFitting(
         _ layoutAttributes: UICollectionViewLayoutAttributes
     ) -> UICollectionViewLayoutAttributes {
-        // Short-window dedup BEFORE super: when UIKit fires repeated
-        // self-sizing calls within `measureDedupWindow`, return the cached
+        // [2026-09-12 去重判据收紧] 缓存命中**只按宽度匹配**判定，取消原先的 50ms 时间窗。
+        //
+        // 判据：宽度仍匹配的缓存高度**不会因为「旧」而失效**。所有真正的失效都是**显式**的 ——
+        // `applyContentConfiguration`（换内容）、`prepareForReuse`（复用）、`clearCachedHeight`
+        // （异步图片/重排/字体变化）三处都无条件把 `lastCalcH` 置 nil，无遗漏。
+        // 所以时间窗买不到任何正确性，只在**已静止的界面**上买来更多
+        // `super.preferredLayoutAttributesFitting` 重入 —— 而那条路径正是 FB13213926
+        // 崩溃窗口（本项目亦多次命中）。`lastMeasureMedia` 保留为诊断字段（照旧写、照旧清）。
         if let cached = lastCalcH,
            let cachedW = lastCalcW,
-           let lastT = lastMeasureMedia,
-           abs(layoutAttributes.size.width-cachedW)<1,
-           CACurrentMediaTime()-lastT<Self.measureDedupWindow {
+           abs(layoutAttributes.size.width-cachedW)<1 {
             let copy = layoutAttributes.copy() as! UICollectionViewLayoutAttributes
             copy.size.width = cachedW
             copy.size.height = cached
+            tracePLAF("dedup", cached, cachedW, layoutAttributes.size.width)
             return copy
         }
 
@@ -413,8 +615,18 @@ class SelfSizingCell: UICollectionViewCell {
         //
         // neither write lastCalcH nor mutate the height (which previously
         guard superview is UICollectionView,window != nil,contentConfiguration != nil else {
+            tracePLAF("guard-fail", layoutAttributes.size.height, layoutAttributes.size.width)
             return layoutAttributes
         }
+
+        // [2026-09-12 裁尾修复·引擎实测下限] 只在「实测时的内容键 == 当前内容键」时成立。
+        // 流式 cell 的 contentKey 恒为 nil（configureCell 显式置 nil）⇒ 两侧同为 nil 也成立，
+        // 故流式 cell 同样受下限保护（此前用「非 nil」守卫把流式全挡掉，导致流式末句被截、
+        // 下一轮更新才自愈）。cell 被重新配置成别的条目时键不等 → 不套用旧实测（防虚高）。
+        let engineFloor: CGFloat = {
+            guard engineTextValid, engineTextContentKey == contentKey, engineTextHeight > 0 else { return 0 }
+            return engineTextHeight + Self.assistantBlockVerticalChrome
+        }()
 
         // A. non-streaming cells ALSO short-circuit while streaming is
         // active (their content isn't changing mid-stream; an in-place
@@ -442,7 +654,8 @@ class SelfSizingCell: UICollectionViewCell {
                 // MarkdownRenderView 的测量本身便宜（usedRect），实测不再昂贵。
                 let copy = layoutAttributes.copy() as! UICollectionViewLayoutAttributes
                 copy.size.width = cachedW
-                copy.size.height = cached
+                copy.size.height = max(cached, engineFloor)
+                tracePLAF("defer-cached", copy.size.height, cachedW, layoutAttributes.size.width)
                 return copy
             }
             if isStreamingItem,
@@ -455,7 +668,10 @@ class SelfSizingCell: UICollectionViewCell {
                layout.hasPrecalcHeight(at: item),
                let precalc = layout.precalcHeight(at: item) {
                 let copy = layoutAttributes.copy() as! UICollectionViewLayoutAttributes
-                copy.size.height = precalc
+                // [2026-09-12 裁尾修复] 流式 cell 走这条短路；precalc 由每个 chunk 重新播种，
+                // 但播种值可能滞后于引擎实测（含附件块尤其），故同样取引擎下限。
+                copy.size.height = max(precalc, engineFloor)
+                tracePLAF("precalc", copy.size.height, layoutAttributes.size.width, layoutAttributes.size.width)
                 return copy
             }
         }
@@ -468,11 +684,24 @@ class SelfSizingCell: UICollectionViewCell {
            abs(cv.bounds.width-sw)<1 {
             seedH = nil
             seedW = nil
-            lastCalcH = sh
+        // [2026-09-12 裁尾修复] 播种值可能比引擎实测矮（同内容下播种源自
+        // block.cachedAttributedString，渲染路径对含附件块会重新渲染；真机 1361 vs 1379）。
+        // 播种短路会跳过一切实测，故必须在此取引擎下限 = 文本实测 + 固定装饰。
+        // 守卫 `contentKey != nil`：未登记内容键的 cell（复用/过渡态）其 engineTextHeight
+        // 可能属于**上一个内容**（真机 `[PLAF] HOST-FLOOR … key=nil` 与
+        // `UNDER-HEIGHT cellH=91.3 textNeed=184.7` 即此类），用之抬升会虚高。
+        let engineMinCell = engineFloor
+            let seededH = max(sh, engineMinCell)
+            if seededH > sh + 0.5 {
+                Self.sizingLogger.info("[PLAF] SEED-FLOOR seed=\(String(format: "%.1f", sh))→\(String(format: "%.1f", seededH)) textH=\(String(format: "%.1f", engineTextHeight)) key=\(contentKey ?? "nil") — 播种值低于引擎实测，按同源下限抬高")
+            }
+            lastCalcH = seededH
             lastCalcW = layoutAttributes.size.width
             lastMeasureMedia = CACurrentMediaTime()
+            traceSet("seed→lastCalc", seededH, layoutAttributes.size.width)
             let copy = layoutAttributes.copy() as! UICollectionViewLayoutAttributes
-            copy.size.height = sh
+            copy.size.height = seededH
+            tracePLAF("seed", seededH, layoutAttributes.size.width, layoutAttributes.size.width)
             return copy
         }
 
@@ -489,11 +718,16 @@ class SelfSizingCell: UICollectionViewCell {
             if let cached = lastCalcH {
                 let copy = layoutAttributes.copy() as! UICollectionViewLayoutAttributes
                 copy.size.height = cached
+                tracePLAF("super-throw-cached", cached, copy.size.width)
                 return copy
             }
+            tracePLAF("super-throw-none", layoutAttributes.size.height, layoutAttributes.size.width)
             return layoutAttributes
         }
         let attrs = superAttrs
+        // 内容配置代际：`applyContentConfiguration` 每次换内容就 +1。**同一 gen 内
+        // 内容未变**，是判定「实测值可信度」的依据（见下方 smooth 分支的塌行守卫）。
+        let gen = cfgGen
 
         if let cached = lastCalcH,
            abs(layoutAttributes.size.width-attrs.size.width)<1 {
@@ -504,21 +738,38 @@ class SelfSizingCell: UICollectionViewCell {
             let measured = attrs.size.height
             guard measured.isFinite,measured >= 0,cached.isFinite,cached >= 0 else {
                 attrs.size.height = max(cached.isFinite ? cached : 0,0)
+                tracePLAF("nonfinite-clamp", attrs.size.height, attrs.size.width, layoutAttributes.size.width)
                 return attrs
             }
             // [回看裁剪修复 2026-09-10] lastCalcH 只做 ≤2pt 微差平滑；实测与缓存差
             // >2pt（典型=块内容离屏期间原地增长）放行真实高度，并推进 lastCalcH
             // 让短窗 dedup(:401) 与后续 pass 读到新值，避免振荡。
             if abs(measured-cached) > 2 {
+                // [2026-09-12 用户气泡塌行修复] 同一内容配置（gen 未变）内，宿主实测
+                // **小于**已知高度时**不得采纳**。真机实证：用户气泡是
+                // `HStack { Spacer(minLength: 60); Text }`，SwiftUI 的「理想尺寸」pass 会以
+                // 不受约束的宽度量该 Text → 19 个字排成 1 行（48.0），而真实约束下是
+                // 2 行（67.7）；此前直接采纳 → 气泡边滑边塌成一行（IMG_4695/4697，
+                // `[PLAF] smooth h=48.0` 与 `[PLAF] seed h=67.7` 反复交替）。
+                // 判据只用**同内容内**的已知值（不涉及跨内容代际的量差，故不会像
+                // engineMinHeight 那样算出荒谬偏移）：同内容内高度只会增长，
+                // 真正变短必然换 contentKey（key 含内容长度 `w:<mid>:<n>:<a>`）
+                // → 新内容走 applyContentConfiguration 重置 → 本守卫自然失效。
+                if measured < cached - 2, cfgGen == gen {
+                    attrs.size.height = cached
+                    tracePLAF("smooth-keep-shorter", cached, attrs.size.width, layoutAttributes.size.width)
+                    return attrs
+                }
                 lastCalcH = measured
                 lastMeasureMedia = CACurrentMediaTime()
+                traceSet("smooth→lastCalc(lastCalcW未更新)", measured, -1)
             } else {
                 attrs.size.height = cached
             }
+            tracePLAF("smooth", attrs.size.height, attrs.size.width, layoutAttributes.size.width)
             return attrs
         }
 
-        let gen = cfgGen
         let targetSize = CGSize(width: layoutAttributes.size.width,height: UIView.layoutFittingCompressedSize.height)
         let start = CACurrentMediaTime()
         //
@@ -576,7 +827,10 @@ class SelfSizingCell: UICollectionViewCell {
         if layoutAttributes.size.height<4 && fittingSize.height>20 {
             Self.sizingLogger.info("[TextDrift] ⚠️ CELL GREW FROM ~0: idx=\(idx) \(String(format: "%.0f", layoutAttributes.size.height))→\(String(format: "%.0f", fittingSize.height))pt — potential text overlap during this transition")
         }
-        guard cfgGen == gen else { return attrs }
+        guard cfgGen == gen else {
+            tracePLAF("cfggen-changed", attrs.size.height, attrs.size.width)
+            return attrs
+        }
         // [NegMeasure 2026-09-10] SwiftUI hosting 在「思考块收起 + 同帧子代理活动卡
         // 更新」时会返回**负测量值**（真机实测 -40，崩溃现场 idx=44 est=340→pref=-40，
         // EXC_BAD_ACCESS in ViewGraphGeometryObservers.needsUpdate）。负高度一旦回流
@@ -590,23 +844,37 @@ class SelfSizingCell: UICollectionViewCell {
         } else {
             clampedFit = fittingSize.height
         }
-        attrs.size.height = clampedFit
+        // [2026-09-12 裁尾修复·引擎实测下限] 宿主实测（SwiftUI hosting 的
+        // systemLayoutSizeFitting）**不得低于屏上渲染引擎实测所需**。
+        // 下限 = `engineTextHeight`（屏上 MarkdownTextView 自测的文本高，**只取该值本身**）
+        //        + `assistantBlockVerticalChrome`（固定装饰常量）。
+        // **绝不含「cell 当前高」**：cell 被抬高后 SwiftUI 不会跟着抬高文本视图
+        // （真机：cell 1365→1455 期间 bounds.height 恒 1361），任何含 cell 当前高的公式
+        // 都会每轮再叠一次差值 → 跑飞（1365→1383→1401→1419→1437→1455，中间大块空白）。
+        // 本式增量恒定 ⇒ 必然收敛。守卫 `contentKey != nil` 防复用态用旧内容实测虚抬。
+        let engineMinCell = engineFloor
+        let flooredFit = engineMinCell > 0 ? max(clampedFit, engineMinCell) : clampedFit
+        if flooredFit > clampedFit + 0.5 {
+            Self.sizingLogger.info("[PLAF] HOST-FLOOR idx=\(idx) host=\(String(format: "%.1f", clampedFit))→\(String(format: "%.1f", flooredFit)) textH=\(String(format: "%.1f", engineTextHeight)) key=\(contentKey ?? "nil") — 宿主实测低于引擎实测，按同源下限抬高")
+        }
+        attrs.size.height = flooredFit
         if fittingSize.height >= 4 {
-            lastCalcH = fittingSize.height
+            lastCalcH = flooredFit
             lastCalcW = layoutAttributes.size.width
             lastMeasureMedia = CACurrentMediaTime()
+            traceSet("live→lastCalc req=\(String(format: "%.1f", layoutAttributes.size.width)) actual=W", flooredFit, fittingSize.width)
             // Memoize the real height under the
             if let key = contentKey,
                let cv = superview as? UICollectionView,
                let layout = cv.collectionViewLayout as? MessageListLayout {
-                layout.recordMeasuredHeight(forKey: key,height: fittingSize.height,boundsWidth: cv.bounds.width)
+                layout.recordMeasuredHeight(forKey: key,height: flooredFit,boundsWidth: cv.bounds.width)
             }
         }
-        #if DEBUG
-        // Capture message-list snapshot right after
-        let cellPtr = String(format: "%p", Int(bitPattern: Unmanaged.passUnretained(self).toOpaque()))
-        MessageListSnapshotCollector.captureIfEnabled(from: self, trigger: "cell.PLAF", triggerDetail: cellPtr)
-        #endif
+        // [2026-09-12 删除死代码] 此处原有 `#if DEBUG` 的 `MessageListSnapshotCollector
+        // .captureIfEnabled(from:trigger:triggerDetail:)` 调用，而该类型**在整个工程里已不存在**
+        // （全库 grep 零命中）。之所以一直没报错：工程的 `SWIFT_ACTIVE_COMPILATION_CONDITIONS`
+        // 里从来没有 `DEBUG` 定义 ⇒ 所有 `#if DEBUG` 从未参与编译。补齐 DEBUG 后它立刻变成硬错误。
+        tracePLAF("live", attrs.size.height, attrs.size.width, layoutAttributes.size.width)
         return attrs
     }
 

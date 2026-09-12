@@ -131,8 +131,21 @@ struct MiniClawApp: App {
                     @unknown default: desc = "Unknown"
                     }
                     AppLogger.shared.info("Scene phase → \(desc)", category: "Lifecycle", subsystem: "Lifecycle")
-                    CrashReporter.shared.notePhase(desc)
+                    CrashReporter.shared.notePhase(
+                        desc,
+                        // 主线程上下文，可取 UIApplication 的后台剩余时间（判别「后台回收」的关键）。
+                        bgTimeRemaining: CrashReporter.currentBackgroundTimeRemaining()
+                    )
                     ScenePhaseMonitor.shared.set(desc)
+                    #if DEBUG
+                    // [2026-09-12 滚动度量出口] 退后台/失活时把整个事件环落盘为 scroll-metrics.json。
+                    // 录制开关**不在这里**检查：相位回调对初始值不触发（启动时已是 active），
+                    // 挂这里会导致录制从未开启 —— 改为在 `ScrollMetricsRecorder.record` 里做
+                    // 一次性检查（首次记录尝试时执行，不依赖任何生命周期钩子）。
+                    if newPhase == .inactive || newPhase == .background {
+                        ScrollMetricsRecorder.shared.dumpToFile()
+                    }
+                    #endif
                     // App 进入 active 后主动触发一次 iSH/Alpine 启动（用已修正的稳定路径）。
                     // 冷启动早期异步 do_boot 易失败，此刻进程/文件系统/场景均已就绪，
                     // 与「检测」同一时机，成功率最高；再由首页轮询兜底重试。

@@ -134,8 +134,17 @@ final class MarkdownRenderView: UIView {
         }
         layoutManager.ensureLayout(for: textContainer)
         let used = layoutManager.usedRect(for: textContainer)
-        return CGSize(width: UIView.noIntrinsicMetric, height: ceil(used.height) + 8)
+        let h = ceil(used.height) + 8
+        // [STF-IC 诊断 2026-09-12] 只读探针：记录 intrinsic 取高时「容器宽度 vs 视图实际宽度」，
+        // 用于判断自 sizing 时 bounds 是否已更新为新宽度（决定"先同步容器再测量"这一修法是否成立）。
+        if icLogCount < 300 {
+            icLogCount += 1
+            AppLogger(category: "MarkdownSTF").info("[STF-IC] container=\(String(format: "%.1f", width)) bounds=\(String(format: "%.1f", bounds.width)) h=\(String(format: "%.1f", h)) storage=\(textStorage.length)")
+        }
+        return CGSize(width: UIView.noIntrinsicMetric, height: h)
     }
+
+    private var icLogCount = 0
 
     /// 高度变化时通知宿主（cell 自 sizing 经 preferredLayoutAttributesFitting 拾取）。
     func invalidateCellSizeIfNeeded() {

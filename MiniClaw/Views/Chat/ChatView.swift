@@ -38,7 +38,12 @@ struct ChatView: View {
     @State private var showProviderSettings: Bool = false
     /// 上下文占用快照的本地镜像（数据源是 `ContextUsageStore`，引擎写、UI 读）。
     /// 进入会话时先做一次本地估算兜底，随后由引擎的真值/校准估算持续刷新。
-    @State private var contextSnapshot: ContextUsageSnapshot = .empty
+    // [2026-09-11 删除] 原 `@State private var contextSnapshot: ContextUsageSnapshot = .empty`：
+    // 该状态在 ChatView 内**只被写、从不被读**（唯一读取点 `contextUsageCaption` 已随圆环入口
+    // 移除），却在 `syncContextSnapshot()` 里于**进入后 ~1.2s** 才被赋值 → 每次赋值都让 body
+    // 重算 → toolbar 整体重建 → 系统播放 bar button 更新动画 = 真机实测的「选项图标慢慢淡入」。
+    // 用量数据仍由全局 `ContextUsageStore` 承载（syncContextSnapshot 继续写它），用量页照常读取。
+    // 子代理（general-purpose-2）穷尽排查确认：菜单内容与标题依赖均非元凶，唯此延迟状态写入是。
     @State private var activeSubagentConversation: SubagentConversation? = nil
     /// 长按胶囊待确认关闭的子代理（弹二次确认框；确认才走 SubagentLifecycle.close）。
     @State private var pendingRemoveSubagent: SubagentCard? = nil
@@ -52,11 +57,27 @@ struct ChatView: View {
     /// 悬浮层总高度(2026-08-11 重写):onGeometryChange 测整个 chatOverlay 真实内容高度
     /// (排队消息 + 子代理头像 + 附件提示 + 输入栏),不含键盘。键盘展开/收起不改该值,
     /// 故消息距输入栏距离在无键盘态与有键盘态恒定(= 列表 contentInset.bottom - 8)。
-    @State private var inputBarHeight: CGFloat = 0
+    /// [F3(b) 2026-09-12] 初值**不取 0**：0 → 实测值 的跳变会让底部留白在进入会话时变一次
+    /// （真机实证 `contentInset.bottom` 8 → 69），内容因此整体位移一次；即便顶部留白已锚定，
+    /// 底部这一次跳变仍会造成「进入后第一次上滑整屏弹」。改为**持久化上一次实测值**作为初值，
+    /// 使进入时即为稳定值（首装/清数据后第一次仍会学习一次，属可接受的一次性成本）。
+    @State private var inputBarHeight: CGFloat = ChatView.persistedBarHeight(forKey: "chat.inputBarHeight")
     @State private var inputBarHeightDebounce: Task<Void, Never>?
     /// 悬浮内容条(排队/子代理/附件)高度,照 floatingBarHeight 语义:
     /// 列表 bottomInset = inputBarHeight + floatingBarHeight + 8。
-    @State private var floatingBarHeight: CGFloat = 0
+    @State private var floatingBarHeight: CGFloat = ChatView.persistedBarHeight(forKey: "chat.floatingBarHeight")
+
+    /// [F3(b) 2026-09-12] 读取上一次实测栏高作为初值（无记录/异常值返回 0）。
+    static func persistedBarHeight(forKey key: String) -> CGFloat {
+        let v = UserDefaults.standard.double(forKey: key)
+        return v > 1 ? CGFloat(v) : 0
+    }
+
+    /// 记录实测栏高（仅记非 0：0 是「该栏当前不显示」的合法状态，不应成为下次的初值）。
+    static func persistBarHeight(_ h: CGFloat, forKey key: String) {
+        guard h > 1 else { return }
+        UserDefaults.standard.set(Double(h), forKey: key)
+    }
     /// 输入栏最近一次 on-screen 高度(onGeometryChange 上报,debounce 提交时读最新值)。
     /// [KbdDiag 2026-08-11] 上次打日志的高度(去重,避免刷屏)。
     /// 必须 @State:onGeometryChange 的 action 是 @escaping 非 mutating 闭包,
@@ -576,8 +597,10 @@ struct ChatView: View {
     }
 
     private func syncContextSnapshot(force: Bool = false) {
-        if !force, let existing = ContextUsageStore.shared.snapshot(for: session.id) {
-            contextSnapshot = existing
+        // [2026-09-11] 本函数只负责把用量**写入全局 `ContextUsageStore`**（用量页读取），
+        // 不再写 ChatView 本地状态（见 contextSnapshot 删除说明）——进入后 1.2s 的估算落地
+        // 时不再触发 body 重算，工具栏因此不会重建/淡入。
+        if !force, ContextUsageStore.shared.snapshot(for: session.id) != nil {
             return
         }
         Task { @MainActor in
@@ -621,7 +644,6 @@ struct ChatView: View {
                 breakdown: breakdown,
                 updatedAt: Date()
             )
-            contextSnapshot = snapshot
             ContextUsageStore.shared.update(snapshot, for: session.id)
         }
     }
@@ -635,46 +657,62 @@ struct ChatView: View {
     /// 避免 body 巨型链式表达式触发编译器类型检查超时。
     @ToolbarContentBuilder
     private var chatToolbarItems: some ToolbarContent {
+        // [2026-09-11 实验记录] topBarLeading 走不通：UIKit 会把该位置的 item 当**按钮**
+        // 渲染——iOS 27 液态玻璃给它加胶囊底，且按图标体量预期尺寸 → 标题溢出玻璃底外
+        //（真机实测「背景没框住标题」）。导航栏两侧只接受图标体量内容，标题仍回 principal。
         ToolbarItem(placement: .principal) {
             sessionHeaderToolbar
+                // [2026-09-11 双保险] 内容更新不播过渡动画：抑制 bar button 的
+                // 「更新动画」（首次进入时的反复淡入即由此累积而成）。详见 onAppear 说明。
+                .transaction { $0.animation = nil }
         }
+        // [2026-09-11 唐唐拍板] 右上角**完全照首页同款做法**（HomeView.swift:205）：
+        // 单个系统 ToolbarItem(.topBarTrailing) + Menu，label 仅放 `Image(systemName:)`，
+        // 无自绘底 / 无 frame / 无 fixedSize / 无 sharedBackgroundVisibility——
+        // 玻璃底、尺寸、位置全交系统原生渲染（首页一直如此且从未错位/变色）。
+        // 原自绘「上下文用量环」不再常驻显示，入口并入菜单（首项显示当前用量）。
         ToolbarItem(placement: .topBarTrailing) {
+            sessionOptionsMenu
+                // [2026-09-11 双保险] 同 principal：更新静默生效，不播 bar button 更新动画。
+                .transaction { $0.animation = nil }
+        }
+    }
+
+    /// 会话页右上角选项菜单（外观与首页 optionsMenu 同款，内容为会话专属项）。
+    ///
+    /// [2026-09-11] 菜单内容**保持完全不依赖动态状态**（治本第二步）。
+    /// 第一步曾把首项从「上下文占用 42%」（读 `contextSnapshot`）改成静态文案，但淡入依旧——
+    /// 子代理穷尽排查后确认：真正的重建源是 `contextSnapshot` 这个**延迟 1.2s 写入的本地状态**
+    /// 本身，它让 ChatView body 在进入后重算 → toolbar 重建 → 系统播放 bar button 更新动画。
+    /// 该状态已整个删除（只写不读），故现在 body 不再被延迟重算，菜单也就不会重建。
+    /// 首页 optionsMenu 因纯静态 + 无同类延迟写入，从无此现象——这是二者的真正差别。
+    private var sessionOptionsMenu: some View {
+        Menu {
             Button {
                 showTokenUsage = true
             } label: {
-                ContextRingIndicator(
-                    ratio: contextSnapshot.ratio,
-                    unlimited: contextSnapshot.isUnlimited,
-                    thresholdRatio: contextSnapshot.thresholdRatio,
-                    measured: contextSnapshot.measured
-                )
-                // 锁定固有尺寸：`.frame` 只是期望值，导航栏宽度被长标题挤压时
-                // 仍会被压缩，Circle 会变形为扁椭圆、数字与弧线错位（真机复现）。
-                .fixedSize()
+                Label(String(localized: "context_usage"), systemImage: "gauge.with.needle")
             }
-        }
-        ToolbarItem(placement: .topBarTrailing) {
-            Menu {
-                Button {
-                    showFileManager = true
-                } label: {
-                    Label(String(localized: "file_management_for_the_current_session"), systemImage: "folder")
-                }
-                Button {
-                    showSessionTerminal = true
-                } label: {
-                    Label(String(localized: "terminal"), systemImage: "terminal")
-                }
-                Button {
-                    showSessionBrowser = true
-                } label: {
-                    Label(String(localized: "browser"), systemImage: "safari")
-                }
-
-                // 后续选项在此追加
+            Divider()
+            Button {
+                showFileManager = true
             } label: {
-                sessionMenuLabel
+                Label(String(localized: "file_management_for_the_current_session"), systemImage: "folder")
             }
+            Button {
+                showSessionTerminal = true
+            } label: {
+                Label(String(localized: "terminal"), systemImage: "terminal")
+            }
+            Button {
+                showSessionBrowser = true
+            } label: {
+                Label(String(localized: "browser"), systemImage: "safari")
+            }
+
+            // 后续选项在此追加
+        } label: {
+            Image(systemName: "ellipsis")
         }
     }
 
@@ -694,13 +732,16 @@ struct ChatView: View {
                 .minimumScaleFactor(0.7)
                 .onTapGesture { showModelManagement = true }
         }
-        // [2026-09-11] 不加宽度约束：柔性 .frame(maxWidth:) 会被 UIKit titleView
-        // 布局撑满可用区域导致整体左锚定（真机实测）。超宽问题从源头收——
-        // 占位标题只取首条消息前 8 字 + 单字符省略号（见 headerTitle）。
+        // [2026-09-12 唐唐拍板改回居中] 去掉 09-11 的「定宽 260pt + leading」——那套的
+        // 目的是让标题靠左以避开超宽挪位，但视觉上标题就不在中间了。
+        // 现恢复原样：**不加任何宽度约束**，交给系统把 principal 居中
+        //（09-11 记录过：柔性 .frame(maxWidth:) 会被 UIKit titleView 撑满可用区导致左锚定，
+        //  所以这里既不加定宽也不加柔性宽度）。标题字符数同步回到原样，见 headerTitle。
+        // 已知代价（09-11 记录的原始现象）：正式标题超过约 9 个字时 UIKit 会把 principal 挪偏左。
     }
 
     /// 标题区展示的标题：AI 尚未改名前（titleIsPlaceholder，即占位标题）显示首条用户消息
-    /// 前 10 个字（超出部分用 "..." 截断）；AI 自动改标题 / 用户手动改名后显示会话标题（自动同步）。
+    /// 前 8 个字（超出部分用单字符省略号截断）；AI 自动改标题 / 用户手动改名后**完整显示**会话标题。
     private var headerTitle: String {
         // 显示标题：默认占位标题（"新会话"）走 i18n（存量数据为中文默认值，显示层兜底本地化）。
         func localizedDefault(_ title: String) -> String {
@@ -711,8 +752,10 @@ struct ChatView: View {
                 return localizedDefault(session.title)
             }
             let trimmed = first.trimmingCharacters(in: .whitespacesAndNewlines)
-            // [2026-09-11] 占位标题取 8 字 + 单字符省略号：principal 超宽会被 UIKit
-            // 改为靠左排布（此前 10 字+"..." 在真机上必然超宽 → 标题靠左）。
+            // [2026-09-12 唐唐拍板改回] 只对**占位标题**截断：正文取原样，超过 8 字才补省略号。
+            // 09-11 曾把「占位标题」与「正式标题」两分支统一收口到 8 字，副作用是
+            // AI 自动命名 / 用户手动改名的正式标题也被砍到 8 字——本条撤销该副作用，
+            // 正式标题回到完整显示（与更早的实现一致）。
             let prefix = String(trimmed.prefix(8))
             return trimmed.count > 8 ? prefix + "…" : prefix
         }
@@ -727,13 +770,9 @@ struct ChatView: View {
         return appState.currentModelDisplayName
     }
 
-    /// 右上角选项菜单按钮的圆形标签。
-    private var sessionMenuLabel: some View {
-        // 系统格式（与首页 toolbar 同款）：label 仅放图标，系统统一渲染。
-        // fixedSize 锁定固有尺寸，避免导航栏空间紧张时被压缩导致两个按钮错位。
-        Image(systemName: "ellipsis")
-            .fixedSize()
-    }
+    // [2026-09-11 删除] 旧的 sessionMenuLabel（自绘 27pt 圆底 + 44 盒）已废弃：
+    // 右上角改为完全照首页做法（sessionOptionsMenu，label 仅 `Image(systemName:)`，
+    // 系统原生渲染），自绘底不再需要。
 
     /// 输入栏悬浮层(2026-08-11 拆分 body 避免类型推断超时)。
     /// 悬浮内容条(排队消息 + 子代理头像 + 附件提示):照 floatingToolPreview
@@ -996,20 +1035,31 @@ struct ChatView: View {
             chatToolbarItems
         }
         .onAppear {
-            lastMessageID = session.messages.last?.id
-            BrowserController.shared.setSession(session.id)
-            // 2026-08-12:浏览器 UI 标签池绑定到当前会话(与工具链同一池,指示器/工具/浏览器标签同步)
-            BrowserEngineAdapter.shared.setSession(session.id)
-            // 2026-08-12 修复:播种 lastResponding——若进入时 agent 已在回复中,
-            // 完成翻转 true→false 才不会被漏检(否则排队消息不自动续跑)。
-            lastResponding = isResponding
-            restorePersistedState()
+            // [2026-09-11 「重复淡入」修复] 下面这一串状态更新会让 ChatView body 连续重算
+            //（真机探针实测：首次进入 body 重算 7 次、菜单构建 7 次）→ toolbar 随之重建
+            // → 系统对 bar button 播放「更新动画」；因集中发生在进入转场前后，视觉上就是
+            // 「选项图标反复淡入」。
+            // 对照实验（同批探针）：首页菜单同样被重建 12 次却**毫无可见动画**——
+            // 说明重建本身不是病因，"更新发生在转场语境下"才是。故此处用「禁动画事务」
+            // 把这批更新包住：状态照常生效，但不产生任何过渡动画。
+            var tx = Transaction()
+            tx.disablesAnimations = true
+            withTransaction(tx) {
+                lastMessageID = session.messages.last?.id
+                BrowserController.shared.setSession(session.id)
+                // 2026-08-12:浏览器 UI 标签池绑定到当前会话(与工具链同一池,指示器/工具/浏览器标签同步)
+                BrowserEngineAdapter.shared.setSession(session.id)
+                // 2026-08-12 修复:播种 lastResponding——若进入时 agent 已在回复中,
+                // 完成翻转 true→false 才不会被漏检(否则排队消息不自动续跑)。
+                lastResponding = isResponding
+                restorePersistedState()
+                recoverIfNeeded()
+                syncContextSnapshot()
+                warmupMCPDiscovery()
+                consumePendingDeepLinkTask()
+            }
             // 调试日志（2026-08-08）：重进会话后的回复状态全链路追踪。
             let lastAssistant = session.messages.last(where: { $0.role == .assistant })
-            recoverIfNeeded()
-            syncContextSnapshot()
-            warmupMCPDiscovery()
-            consumePendingDeepLinkTask()
         }
         .onChange(of: appState.pendingDeepLinkTask?.id) { _ in
             consumePendingDeepLinkTask()
@@ -1039,16 +1089,44 @@ struct ChatView: View {
             let fileURL: URL?
             if url.isFileURL {
                 fileURL = url
+            } else if url.scheme?.lowercased() == "miniclaw",
+                      // [2026-09-12 文件打不开·真因] 必须走**统一解析器**
+                      // `FileSystemManager.resolveMiniClawResourceURL`：它的 host 表覆盖
+                      // `shared/workspace/mounts/attachments/browser/offloads/memory/rules/skills`。
+                      // 此前用的 `MiniClawHostStubs.resolveMiniClawURL(url)` 只覆盖
+                      // 「会话目录 + skills/memory」两类，**`shared` 直接返回 nil**
+                      // ⇒ 真机 `miniclaw://shared/今日科技新闻-20260912.md` 被吞掉、
+                      // 统一预览的 `guard fileExists` 直接 return（点击毫无反应）。
+                      let unified = FileSystemManager.shared.resolveMiniClawResourceURL(
+                          url.absoluteString, sessionID: session.id) {
+                fileURL = unified
+            } else if let resolved = MessageListModel.resolveMiniClawURL(url) {
+                fileURL = resolved
             } else {
-                fileURL = MessageListModel.resolveMiniClawURL(url)
+                // 兜底：AI 偶尔输出**裸路径**（相对名/裸绝对路径，`canonicalFileURL` 是空实现），
+                // 既非 file:// 也非 miniclaw:// —— 复用同一套解析器逐个 host 试探。
+                fileURL = MessageListModel.resolveLooseFilePath(url.path, sessionID: session.id)
             }
-            guard let fileURL, FileManager.default.fileExists(atPath: fileURL.path) else { return }
+            guard let fileURL, FileManager.default.fileExists(atPath: fileURL.path) else {
+                // [2026-09-12] 此前这里静默 return，导致「点了没反应」在日志里毫无痕迹。
+                // 打一条 info（用户主动点击触发，低频）便于一次性定位。
+                AppLogger.shared.info("[FileOpen] FAIL url=\"\(url.absoluteString)\" scheme=\(url.scheme ?? "nil") host=\(url.host ?? "nil") resolved=\(fileURL?.path ?? "nil") exists=false", category: "FileOpen")
+                return
+            }
+            AppLogger.shared.info("[FileOpen] OK url=\"\(url.absoluteString)\" resolved=\(fileURL.path)", category: "FileOpen")
             // 2026-08-12:系统预览(Quick Look)——图片/PDF/音视频/文档统一用系统原生预览
             // 呈现(替代此前分享面板;分享仍可从 QL 底部动作获得)。
             previewFileURL = fileURL
         }
         .onChange(of: session.messages.count) { _ in
             lastMessageID = session.messages.last?.id
+        }
+        // [F3(b) 2026-09-12] 记住实测栏高，作为下次进入的初值（消除 0→实测 的一次性跳变）。
+        .onChange(of: inputBarHeight) { h in
+            ChatView.persistBarHeight(h, forKey: "chat.inputBarHeight")
+        }
+        .onChange(of: floatingBarHeight) { h in
+            ChatView.persistBarHeight(h, forKey: "chat.floatingBarHeight")
         }
         .onChange(of: session.modelName) { _ in
             // 切换模型 = 换了上下文窗口与压缩阈值，圆环必须按新窗口重算。
@@ -1336,9 +1414,13 @@ struct ChatView: View {
     }
 
     /// 单张子代理胶囊卡。
-    /// 样式（唐唐 2026-09-05 定稿）：背景与排队消息一致（ultraThinMaterial 实心圆角框）；
-    /// 任务完成后背景改「绿色磨砂」（对齐思考/工具指示器完成态的绿），不改边框颜色；
-    /// 出错/已取消保留细边框（对齐工具指示器的 0.5pt 细线）。
+    /// 样式（唐唐 2026-09-12 定稿）：**背景恒为卡片常规实底**（去掉完成态的绿底，
+    /// 底色与排队消息卡同系）；**状态一律用「思考指示器同款 0.5pt 描边圈」表达**——
+    /// 已完成=绿、出错/已中断=红、已取消=灰、运行中=无圈。
+    /// 高度对齐思考指示器（`ReasoningBlockView`：内容高 + 上下各 10 ≈ 36pt）：本卡
+    /// 24pt 头像 + 上下各 6 = 36pt。
+    /// 圈与底色用**同一个圆角矩形**（background → clipShape → overlay(strokeBorder)，
+    /// 与 ReasoningBlockView 逐字同序），保证描边严格贴合卡片边缘、不出现半像素缝。
     private func subagentCapsule(_ sub: SubagentCard) -> some View {
         HStack(spacing: 8) {
             // 首字母圆头像（紫色实心，白字）
@@ -1356,16 +1438,17 @@ struct ChatView: View {
                 .lineLimit(1)
         }
         .padding(.horizontal, 12)
-        .padding(.vertical, 8)
+        .padding(.vertical, 6)
         // 实底背景（唐唐 2026-09-05 定稿，pill 卡做法）：
         // 不用 ultraThinMaterial 实时模糊——悬浮条 3 层 blur 在列表滚动时每帧重采样，
-        // 是「回到会话页翻历史整页抖动」的根因。已完成态用绿色实底表达。
-        .background(subagentCapsuleBackground(sub.status))
+        // 是「回到会话页翻历史整页抖动」的根因。底色恒为常规实底，不再随状态变绿。
+        .background(Color(UIColor.systemGray6))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
         .overlay {
-            // 状态边框：仅出错/已取消保留，粗细对齐工具/思考指示器的 0.5pt 细线
-            if let border = subagentCapsuleBorder(sub.status) {
+            // 状态圈：思考指示器同款 0.5pt 细描边（已完成=绿 / 出错=红 / 取消=灰）
+            if let ring = subagentCapsuleRing(sub.status) {
                 RoundedRectangle(cornerRadius: 12)
-                    .strokeBorder(border, lineWidth: 0.5)
+                    .strokeBorder(ring, lineWidth: 0.5)
             }
         }
         .contentShape(RoundedRectangle(cornerRadius: 12))
@@ -1381,26 +1464,16 @@ struct ChatView: View {
         .accessibilityLabel(Text(sub.name))
     }
 
-    /// 胶囊卡状态边框颜色（nil = 无边框）。已完成不靠边框表达（绿实底承担）。
-    private func subagentCapsuleBorder(_ status: SubagentStatus) -> Color? {
+    /// 胶囊卡状态圈颜色（nil = 运行中，不画圈）。
+    /// 2026-09-12：完成态**不再用绿底**，改为思考指示器同款的一圈绿色（0.5pt 细描边）；
+    /// 出错/已中断=红、已取消=灰，与工具/思考指示器的状态语言完全一致。
+    private func subagentCapsuleRing(_ status: SubagentStatus) -> Color? {
         switch status {
+        case .completed: return .green
         case .error: return .red
         case .cancelled: return .gray
-        case .completed, .running: return nil
+        case .running: return nil
         }
-    }
-
-    /// 胶囊卡实底背景：常规/运行中 = systemGray6（pill 卡设计）；
-    /// 已完成 = 绿色实底（systemGray6 上叠绿调，保留完成态绿色语义，无实时模糊）。
-    private func subagentCapsuleBackground(_ status: SubagentStatus) -> some View {
-        Group {
-            if status == .completed {
-                Color(UIColor.systemGray6).overlay(Color.green.opacity(0.18))
-            } else {
-                Color(UIColor.systemGray6)
-            }
-        }
-        .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 
     /// 展示「附件将交由 智能体通过工具读取」的短暂提示，几秒后自动消失。
@@ -1435,6 +1508,12 @@ struct ChatView: View {
         // 被模型原生模态拒收的附件（含图片——图片改由 apple-vision 工具兜底读取）
         // 统一在输入栏上方弹一条提示，用户可点按关闭。
         let (allowedAttachments, droppedNames, droppedPaths) = AgentRunService.filterAttachments(attachments, endpoint: firstEndpoint)
+        // [Attach 诊断 2026-09-12] 记下附件模态判定的**全部现场**：端点能力 + 每个附件的扩展名
+        // + 最终放行/丢弃名单。用于一次定位「图片没走原生输入」到底是哪一种：
+        //   ①端点 inputImage 为 false（模型能力判定）②扩展名被判成非图片 ③附件路径/迁移失败。
+        AppLogger.shared.info(
+            "[Attach] model=\(firstEndpoint.modelName) inputImage=\(firstEndpoint.supportsImageInput) inputAudio=\(firstEndpoint.supportsAudioInput) inputVideo=\(firstEndpoint.supportsVideoInput) total=\(attachments.count) allowed=\(allowedAttachments.count) exts=[\(attachments.map { ($0 as NSString).pathExtension.lowercased() }.joined(separator: ","))] dropped=[\(droppedNames.joined(separator: ","))]",
+            category: "Attach")
         showAttachmentNotice(droppedNames: droppedNames)
 
         // 对于因模型不支持而被丢弃的附件，在用户消息中注入路径提示，
@@ -1476,9 +1555,9 @@ struct ChatView: View {
             injectedSkill: injectedSkill,
             thinkingLevel: thinkingLevel,
             deepLinkCallback: deepLinkCallback,
-            uiHooks: AgentRunService.UIHooks(onContextUsage: { [self] snapshot in
-                contextSnapshot = snapshot
-            })
+            // 用量回调不再写 ChatView 本地状态（见 contextSnapshot 删除说明）；
+            // 用量由 AgentRunService / ContextUsageStore 侧统一承载。
+            uiHooks: AgentRunService.UIHooks(onContextUsage: { _ in })
         )
     }
 
@@ -1646,9 +1725,8 @@ struct ChatView: View {
             assistantMessage: bubble,
             routingPlan: routingPlan,
             deepLinkCallback: nil,
-            uiHooks: AgentRunService.UIHooks(onContextUsage: { [self] snapshot in
-                contextSnapshot = snapshot
-            })
+            // 同上：不再写本地状态。
+            uiHooks: AgentRunService.UIHooks(onContextUsage: { _ in })
         )
         // 断点恢复（冷启动续跑）：计时起点不可靠，按用户规则不显示耗时。
         runtime.taskTimingInvalid = true

@@ -3,11 +3,38 @@ import UIKit
 import Combine
 import Foundation
 
+/// 块内容的左右内边距（单侧）。
+/// [2026-09-12 裁尾修复] 测量与渲染必须使用**同一个内容宽度**：
+/// 内容能拿到的宽度 = cell 宽度 − 2×blockHPadding。此前 `.frame(maxWidth:)` 直接用了 cell 宽度，
+/// 于是测量按更宽的宽度排版（行数偏少）、高度比真实需要矮约一行 → 尾部半行被裁。
+/// 真机实证：cell 宽 402、渲染内容宽 370（402−32 = 370 ✓），而测量按 402 得出 1703，
+/// 真实需要 1711.3（370 下），差 8.3pt ≈ 一行。
+private let blockHPadding: CGFloat = 16
+
+
 struct BridgedAssistantBlock: View {
     @ObservedObject var block: AssistantBlock
     @ObservedObject var message: RenderMessage
     @ObservedObject var bridge: CellStateBridge
     var maxWidth: CGFloat
+    /// [2026-09-12 裁尾修复] 宿主的**真实 cell 宽度**（= collectionView.bounds.width）。
+    ///
+    /// 为什么不复用 `maxWidth`：`maxWidth` 来自 `coord.maxContentWidth`，而 ChatView 传的是
+    /// **0**（语义 = 不设内容宽上限），所以 `maxWidth>0 ? … : nil` 一路落 nil，既让
+    /// `.frame(maxWidth:)` 成为 no-op，也让传给 MarkdownView 的 contentWidth 为 nil。
+    /// 没有真实内容宽，`MarkdownView.sizeThatFits` 在「理想尺寸 pass」（proposal.width == nil、
+    /// bounds == 0）只能退回**屏幕宽 402**，按 402 排版行数偏少 → 高度偏矮 12.3pt，被
+    /// `.fixedSize(vertical: true)` 钉死 → 尾部半行永久被裁（真机 `[STF] rawProposal=nil
+    /// contentW=nil w=402.0` 实证）。由 cell 显式传入 402 后，真实内容宽 = 402 − 2×16 = 370。
+    var cellWidth: CGFloat = 0
+
+    /// 本块的真实内容宽度（cell 宽 − 两侧块内边距）。单一事实源：与下方
+    /// `.padding(.horizontal, blockHPadding)` 用的是同一个 `blockHPadding`。
+    private var resolvedContentWidth: CGFloat? {
+        let base = cellWidth > 1 ? cellWidth : (maxWidth > 1 ? maxWidth : 0)
+        guard base > 1 else { return nil }
+        return max(0, base - 2*blockHPadding)
+    }
 
     var blockAccessibilityId: String {
         switch block.kind {
@@ -43,12 +70,15 @@ struct BridgedAssistantBlock: View {
             browserPool: bridge.browserPool,
             toolSnapshots: bridge.toolSnapshots,
             snapshotBridge: bridge,
+            // [2026-09-12 裁尾修复] 真实内容宽度 = cell 宽 − 2×块内边距，与下面 frame 用的是
+            // 同一个量（单一事实源），保证「测量宽度」与「渲染宽度」按构造一致。
+            contentWidth: resolvedContentWidth,
             highlightedBlockId: .constant(nil),
             detailBlock: $bridge.detailBlock
         )
-        .frame(maxWidth: maxWidth>0 ? maxWidth : nil,alignment: .leading)
+        .frame(maxWidth: maxWidth>0 ? max(0, maxWidth-2*blockHPadding) : nil,alignment: .leading)
         .frame(maxWidth: .infinity)
-        .padding(.horizontal,16)
+        .padding(.horizontal,blockHPadding)
         .opacity(message.isCompactedHistory ? 0.5 : 1.0)
         .accessibilityIdentifier(blockAccessibilityId)
         // (same pattern as BridgedAssistantFooter).
@@ -243,9 +273,9 @@ struct BridgedAssistantFooter: View {
             }
         }
         .frame(maxWidth: .infinity,alignment: .leading)
-        .frame(maxWidth: maxWidth>0 ? maxWidth : nil,alignment: .leading)
+        .frame(maxWidth: maxWidth>0 ? max(0, maxWidth-2*blockHPadding) : nil,alignment: .leading)
         .frame(maxWidth: .infinity)
-        .padding(.horizontal,16)
+        .padding(.horizontal,blockHPadding)
         .padding(.vertical,hasFooterContent ? 2 : 0)
         .opacity(message.isCompactedHistory ? 0.5 : 1.0)
         .accessibilityIdentifier("assistantFooter")

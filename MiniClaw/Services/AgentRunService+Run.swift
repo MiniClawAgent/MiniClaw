@@ -226,7 +226,7 @@ extension AgentRunService {
 
     private static let titleGenerationSystemPrompt = """
     你是会话标题、图标与配色生成器。请根据用户的第一条消息，生成：
-    1. 一句简短的中文会话标题（不超过 10 个汉字，提炼核心意图，不要原样照抄整句话）；
+    1. 一句简短的中文会话标题（**不超过 8 个字**，提炼核心意图，不要原样照抄整句话；会话页标题栏空间有限，超长会被截断）;
     2. 一个能代表该会话主题的 SF Symbols 图标名称（仅用英文小写与点号）。请结合对话主题选取恰当的图形，并尽量让不同会话之间的图标彼此区分、风格多样——不要总是使用同一批固定图标，也不要照搬下面示例，需因地制宜。
        参考维度（仅举例，务必按主题变通）：
        - 写作 / 文档：pencil.line、book.fill、doc.text.fill
@@ -253,7 +253,9 @@ extension AgentRunService {
             let after = String(t[range.upperBound...]).trimmingCharacters(in: .whitespaces)
             if !after.isEmpty, after.count < t.count { t = after }
         }
-        if t.count > 20 { t = String(t.prefix(20)) }
+        // [2026-09-11] 硬上限 8 字与会话页标题栏防护（principalSafe）同口径：
+        // 模型不守 prompt 字数约束时的最终兜底，标题不会再被显示层二次截断。
+        if t.count > 8 { t = String(t.prefix(8)) }
         return t
     }
 

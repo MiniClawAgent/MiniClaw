@@ -54,7 +54,12 @@ extension MessageCollectionView {
         /// contentInset.bottom — it reads this base and adds overflowH.
         public var baseBottomInset: CGFloat = 0
 
-        var decelDisplayLink: CADisplayLink?
+        /// [Swift 6] `deinit` 是 nonisolated，而本类因服从 `UICollectionViewDelegate`（该协议在
+        /// iOS 26 SDK 中为 `@MainActor`）被主线程隔离 ⇒ 无法从 `deinit` 访问隔离存储属性。
+        /// 该链表的创建/失效**只在主线程**（`startDecelDisplayLink` / `stopDecelDisplayLink` 均由
+        /// 滚动回调调用），故用 `nonisolated(unsafe)` 标注，让 `deinit` 里那一次 `invalidate()`
+        /// 合法（它只是尽力清理；正常路径由 `stopDecelDisplayLink` 显式失效）。
+        nonisolated(unsafe) var decelDisplayLink: CADisplayLink?
 
         var decelDLLastTimestamp: CFTimeInterval = 0
 
@@ -102,6 +107,9 @@ extension MessageCollectionView {
         public var onScreenshotImage: ((UIImage) -> Void)?
         public var maxContentWidth: CGFloat = 0
         public var lastInputFocused: Bool = false
+
+        /// [T1 2026-09-12] 转场期间被推迟的贴底请求（`nil` = 无；见 `scrollToBottomNow` 的说明）。
+        var pendingEntryPin: Bool?
 
         #if DEBUG
         deinit {
@@ -382,7 +390,10 @@ extension MessageCollectionView {
                         block: block,
                         message: message,
                         bridge: bridge,
-                        maxWidth: width
+                        maxWidth: width,
+                        // [2026-09-12 裁尾修复] 显式给真实 cell 宽度（maxContentWidth 为 0，
+                        // 无法据此推内容宽）→ 内容宽 = cvW − 2×16，与渲染宽度按构造一致。
+                        cellWidth: viewController?.collectionView.bounds.width ?? 0
                     )
                     .transaction { $0.disablesAnimations = true }
                     .environmentObject(vm)
@@ -973,6 +984,15 @@ public struct MessageCollectionView: UIViewControllerRepresentable {
 
     public func updateUIViewController(_ vc: MessageListViewController,context: Context) {
         let coord = context.coordinator
+        // [2026-09-13 键盘「被错误抬高」· 时序修复] **必须先写 `lastInputFocused`，再算留白**。
+        // 该值被 `updateUIVC` 里两处读取：① `bottomPadVal` 的键盘门控（键盘展开不再计入被代替的 34）；
+        // ② base 变化后的「重新贴底」条件。而它原先在本函数**更后方**（约 1070 行）才赋值
+        // ⇒ 整个 pass 读到的是**上一轮的旧值**，键盘首帧恒为 `false`。
+        // 真机实证（新构建）：`focused=1 base=69 cvH=758 offsetY=1737.7` 而 **`[PinToBottom]` 一条都没有**
+        // ⇒ 重贴底从未触发，偏移一直停在按旧 base(103) 算出的 `cs−cvH+103`（正确值应为 +69，差 34pt）。
+        // 「焦点是否变化」也在同处判定（下方 B2 贴底逻辑要用），避免被本行覆盖而失效。
+        let focusChanged = inputFocused != coord.lastInputFocused
+        coord.lastInputFocused = inputFocused
         // The coordinator captured `vm` once in
         // platform VC (and coordinator) across ChatView re-creations, so when
         // the ViewModelCache hands the re-created view a NEW MessageListModel
@@ -993,23 +1013,54 @@ public struct MessageCollectionView: UIViewControllerRepresentable {
         // it reads coord.baseBottomInset and adds overflowH on top when needed.
         //
         // dead space — observed as ~100pt gapH between the last bubble
-        let bottomPadVal: CGFloat = inputBarHeight+floatingBarHeight+8
+        // [2026-09-13 撤销] 恢复「`contentInset.bottom` 显式包含底部安全区」的原行为 ——
+        // CV 已恢复全幅铺到底（见 `MessageListViewController.viewDidLoad`），故这里必须把
+        // 安全区加回来，否则末条消息会被输入栏/小横条压住。当初为配合"CV 底边上移 34pt"
+        // 而删掉的那一项已还原，两处必须成对，不能只改一边。
+        let bottomSafe = (vc.collectionView as? NoAnimationCollectionView)?.stableBottomSafeArea ?? 0
+        // [2026-09-13 键盘展开距离修正] 键盘展开时 `floatingBarHeight`(48) 与 `bottomSafe`(34)
+        // **都已被键盘取代**：浮动栏被收起、home indicator 被键盘盖住 ⇒ 再计入就会把内容多顶 ~82pt
+        // （真机 `[Keyboard]` 实测：`151 = 61+48+8+34` 两项同时计入，而键盘展开时应为 `61+8 = 69`；
+        //  截图里末条消息与输入栏之间多出的那段空隙正对应这 ~90pt）。
+        // 信号用既有的 `coord.lastInputFocused`（由 ChatView 焦点态传入，非新造状态）。
+        // 注意：**键盘自身高度不在本式内**（列表由系统推挤，手动注入会把消息额外垫高，见 980 行注释）。
+        let kbUp = coord.lastInputFocused
+        let bottomPadVal: CGFloat = inputBarHeight
+            + (kbUp ? 0 : floatingBarHeight)
+            + 8
+            + (kbUp ? 0 : bottomSafe)
         let baseChanged = abs(coord.baseBottomInset-bottomPadVal)>0.5
         if baseChanged {
             let cv = vc.collectionView!
-            let wasSmaller = coord.baseBottomInset<bottomPadVal
             let wasNearBottomBefore = coord.isNearBottom()
             coord.baseBottomInset = bottomPadVal
             // [KbdDiag 2026-08-11] baseBottomInset 写入打点:base = inputBarHeight + floatingBarHeight + 8。
-            AppLogger(category: "ChatList.Keyboard").info("[Keyboard] baseBottomInset \(String(format: "%.1f", coord.baseBottomInset))←\(String(format: "%.1f", bottomPadVal)) inputBarHeight=\(String(format: "%.1f", inputBarHeight)) floatingBarHeight=\(String(format: "%.1f", floatingBarHeight))")
+            // [2026-09-13] 改为 `AppLogger.shared` 写法：原为内联临时 logger（`AppLogger(category:)`），
+            // **整行会被静默丢弃**（实例级缓冲未达阈值即释放）⇒ 「键盘展开时 inset 由哪几项组成」
+            // 一直没有数据，导致只能靠猜。此行是判断「是否有哪一项被重复计入」的唯一依据。
+            AppLogger.shared.info(
+                "[Keyboard] focused=\(coord.lastInputFocused ? 1 : 0) baseBottomInset \(String(format: "%.1f", coord.baseBottomInset))←\(String(format: "%.1f", bottomPadVal)) inputBarHeight=\(String(format: "%.1f", inputBarHeight)) floatingBarHeight=\(String(format: "%.1f", floatingBarHeight)) bottomSafe=\(String(format: "%.1f", bottomSafe)) cvInsetB=\(String(format: "%.1f", vc.collectionView.contentInset.bottom)) adjB=\(String(format: "%.1f", vc.collectionView.adjustedContentInset.bottom)) cvH=\(String(format: "%.1f", vc.collectionView.bounds.height)) offsetY=\(String(format: "%.1f", vc.collectionView.contentOffset.y)) cs=\(String(format: "%.1f", vc.collectionView.contentSize.height)) winSafeB=\(String(format: "%.1f", vc.view.window?.safeAreaInsets.bottom ?? -1)) vcSafeB=\(String(format: "%.1f", vc.view.safeAreaInsets.bottom))",
+                category: "ChatList.Keyboard")
             cv.contentInset.bottom = bottomPadVal
-            if wasSmaller && (coord.scrollMode == .autoScrolling || wasNearBottomBefore) {
+            // [2026-09-13 键盘「被错误抬高」· 最终修法] 键盘展开时 base 变小（103→69）后必须重新贴底。
+            // 上一版只改了**调用点**的条件，但真正执行贴底的 `applySubViewportCompensation` 内部
+            // 还有一道门控 `if scrollMode == .autoScrolling` —— 而键盘弹出这一路 `scrollMode`
+            // 并非 `.autoScrolling` ⇒ 贴底被内层门控拦掉（真机实证：35 条 `[PinToBottom]` **全是 base=103**，
+            // 一条 base=69 都没有；于是 offset 停在 `cs−cvH+103 = 2111.7`，正确值是 2077.7，差 34pt）。
+            // 故这里显式带上键盘态：输入框聚焦（键盘/面板展开）时，base 一变就重新贴底。
+            if coord.scrollMode == .autoScrolling || wasNearBottomBefore || coord.lastInputFocused {
                 coord.scrollMode = .autoScrolling
                 coord.scrollToBottomNow(animated: false)
             }
         }
 
         // [T-first-msg-top-gapH 2026-07-18] Apply the top inset. User report
+        // [2026-09-12 F3(b) 回退] 曾在此加「inset 变化时平移 offset 锚定可见内容」——
+        // **错误**：该 inset 的变化来自 CV frame 在入口期被布局两次，两态本就视觉等价
+        //（CV 下移 116 + inset 0 ≡ CV 在 0 + inset 116）；再平移 offset 会打破等价并把
+        // UIKit 的自动补偿重复计一次 ⇒ offset 被来回拉 ∓116（真机 `[Jitter] INSET-TOP`
+        // 与 `SAFE-AREA` 交替成环）。T2 起 `baseContentInsetTop` 为**常量**、且 CV 为
+        // `.never`，该 inset 根本不再变化 ⇒ 无需锚定，直接赋值即可。
         let cvTop = vc.collectionView!
         if abs(cvTop.contentInset.top-coord.baseContentInsetTop)>0.5 {
             cvTop.contentInset.top = coord.baseContentInsetTop
@@ -1023,7 +1074,7 @@ public struct MessageCollectionView: UIViewControllerRepresentable {
             coord.flushPendingSnapshotIfNeeded(caller: "updateUIVC-backstop")
         }
 
-        if inputFocused != coord.lastInputFocused {
+        if focusChanged {
             let wasNearBottom = coord.scrollMode == .autoScrolling && coord.isNearBottom()
             coord.lastInputFocused = inputFocused
             if inputFocused {

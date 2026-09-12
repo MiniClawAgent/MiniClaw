@@ -302,14 +302,35 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
         self.systemVolatile = volatile
     }
 
-    /// 重算 system 易变段 = 基础易变段（ChatView 传入的挂载列表 + 时间戳）+ 本会话已加载技能正文。
+    /// 重算 system 易变段 = 基础易变段（ChatView 传入的挂载列表 + 时间戳）+ 本会话已加载技能正文
+    /// （技能正文插在尾部「子代理段」**之前**，见下）。
     /// 已加载技能正文由 `SkillManager` 按会话隔离维护，随 `skill_load` 调用累积；
     /// 注入到缓存断点之后的易变段，绝不进入缓存前缀，故对 KV 缓存命中率零影响。
     /// 同时刷新 `self.systemVolatile` 与 messages 中 system 消息的 `volatileSuffix`，
     /// 使同一次 run / resume 内、skill_load 之后的后续模型调用立即看到技能正文。
     private func rebuildVolatile() async {
         let skills = await SkillManager.shared.loadedSkillBodies(for: sessionID)
-        let combined = [baseVolatile, skills].filter { !$0.isEmpty }.joined(separator: "\n\n")
+        // 技能正文插在「子代理段」**之前**（2026-09-11）：该段（铁律 + 存活子代理短码）
+        // 是易变段里变化最频繁的一节，且短码须与铁律相邻才便于取用，故必须恒定收尾。
+        // 切分点 = SubAgentGuide.ironRule：与构造侧共用同一常量，任何一侧都不得复制字面量。
+        let combined: String
+        if skills.isEmpty {
+            // 无技能正文：逐字节沿用构造侧结果，不让任何分隔符漂移扰动缓存
+            //（本函数每轮 run / resume 都会走，属高频路径）。
+            combined = baseVolatile
+        } else if let range = baseVolatile.range(of: SubAgentGuide.ironRule) {
+            // head 末尾已含构造侧 join 的 "\n\n" 连接符，故此处只需为 skills 补后置分隔符。
+            let head = String(baseVolatile[..<range.lowerBound])
+            let tail = String(baseVolatile[range.lowerBound...])
+            combined = head + skills + "\n\n" + tail
+        } else {
+            // 标记缺失（构造侧未注入子代理段 / 两侧失步）：退回「技能正文追加到末尾」。
+            // 不静默降级——记 warning 让失步可见，同时保证技能正文绝不丢。
+            AppLogger.shared.warn(
+                "[Volatile] 子代理段标记缺失，技能正文退回追加到易变段末尾",
+                category: "Cache", subsystem: "Context")
+            combined = [baseVolatile, skills].filter { !$0.isEmpty }.joined(separator: "\n\n")
+        }
         self.systemVolatile = combined
         if let idx = messages.firstIndex(where: { $0.role == "system" }) {
             messages[idx].volatileSuffix = combined
@@ -1034,35 +1055,17 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
                 emitInterrupted()
                 return
             }
-            if let reason = breakerWarnReason {
-                AppLogger.shared.warn(String(format: String(localized: "loop_idle_warning"), reason), category: "Agent", subsystem: "AgentLoop")
-                messages.append(ChatCompletionMessage(
-                    role: "user",
-                    content: String(format: String(localized: "loop_idle_system_hint"), reason)
-                ))
-            }
-
             // skill_load 可能在本批次内改变了本会话已加载技能集合：刷新易变段，
             // 使下一轮模型调用在 system 易变段看到新加载的技能正文（缓存前缀不受影响）。
+            // 注意：本函数只改 system 消息的 volatileSuffix，不 append 消息，位置无约束。
             await rebuildVolatile()
 
-            // ─── 检索收敛预算（任务级空转防护）───
-            // 连续工具调用达到阈值仍无用户可见输出 → 注入一次收敛提示（不强制终止，
-            // 由模型自行总结收尾），避免「多平台反复搜索永不收尾」（招标查询案例 30+ 轮）。
-            if !executed.isEmpty {
-                toolCallsSinceOutput += executed.count
-            }
-            if toolCallsSinceOutput >= Self.convergenceToolCallBudget, !convergenceHintInjected {
-                convergenceHintInjected = true
-                let hint = String(format: String(localized: "loop_no_output_hint"), toolCallsSinceOutput)
-                    + String(localized: "search_give_up_hint")
-                    + String(localized: "read_subagent_result_suffix")
-                    + String(localized: "ask_user_hint")
-                messages.append(ChatCompletionMessage(role: "user", content: hint))
-                AppLogger.shared.warn(String(format: String(localized: "loop_search_converge"), toolCallsSinceOutput), category: "Agent", subsystem: "AgentLoop")
-            }
-
             var trippedFailureCircuit: (name: String, result: ToolResult)?
+            // [2026-09-11] 工具产出图片的合成 user 消息**先收集、不在循环内插入**：
+            // 同一批次有多个 tool call 时，循环内插入会把 user 消息夹在两条 tool 消息之间，
+            // 打断 `assistant(tool_calls) → tool…` 的紧邻关系 → 端点直接 400
+            // （与同日「收敛提示」那处同类，真机已有实证）。整批 tool 消息落盘后统一追加。
+            var pendingToolImageMessages: [ChatCompletionMessage] = []
             for (tc, result) in executed {
                 let toolMsg = ChatCompletionMessage(
                     role: "tool",
@@ -1073,11 +1076,12 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
                 messages.append(toolMsg)
 
                 // [2026-09-07 工具图片注入] apple-image 等工具产出的 base64 图片，
-                // 按当前端点的图片输入能力分流：支持 → 在 tool 消息后追加合成 user
-                // 消息（image_url part，与用户附件同一条编码路径），视觉模型原生
-                // 看图；不支持 → 不注入，apple-vision OCR 文本兜底（纯文本模型行为
-                // 与历史一致）。Chat Completions 的 tool 消息不支持图片内容，
-                // 合成 user 消息是各兼容端点的通用做法。
+                // 按当前端点的图片输入能力分流：支持 → 追加合成 user 消息（image_url
+                // part，与用户附件同一条编码路径），视觉模型原生看图；不支持 → 不注入，
+                // apple-vision OCR 文本兜底（纯文本模型行为与历史一致）。
+                // Chat Completions 的 tool 消息不支持图片内容，合成 user 消息是各兼容
+                // 端点的通用做法。**消息先入 pendingToolImageMessages，整批 tool 消息
+                // 落盘后再统一追加**（见循环前说明），避免打断 tool_calls 的紧邻关系。
                 if let servedEndpoint, servedEndpoint.supportsImageInput,
                    let b64 = result.data?["base64"] as? String,
                    let mime = result.data?["mime_type"] as? String, mime.hasPrefix("image/"),
@@ -1090,13 +1094,13 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
                     //    （官方对"请求体会超限"场景的推荐做法，HTTP 413 官方解法）；
                     // ② 其他端点 → image_url data URI 内联（OpenAI 兼容标准格式，
                     //    配 JPEG 降采样与注入预算）。
-                    // 两者失败互相回退；预算（最多 3 张）在注入后统一执行。
+                    // 两者失败互相回退；预算（最多 3 张）在整批追加后统一执行。
                     var injected = false
                     if servedEndpoint.providerType == .deepSeek,
                        let baseURL = URL(string: servedEndpoint.url).map({ $0.absoluteString }),
                        let fileId = try? await DeepSeekFilesClient.uploadJPEG(
                            baseURL: baseURL, apiKey: servedEndpoint.apiKey, jpeg: jpegData) {
-                        messages.append(ChatCompletionMessage(
+                        pendingToolImageMessages.append(ChatCompletionMessage(
                             role: "user",
                             messageContent: .parts([
                                 .text(hint),
@@ -1107,7 +1111,7 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
                         injected = true
                     }
                     if !injected {
-                        messages.append(ChatCompletionMessage(
+                        pendingToolImageMessages.append(ChatCompletionMessage(
                             role: "user",
                             messageContent: .parts([
                                 .text(hint),
@@ -1116,8 +1120,6 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
                             name: "tool_image"
                         ))
                     }
-                    // 注入预算：上下文中工具图片最多保留 3 张（HTTP 413 防线）
-                    Self.enforceToolImageBudget(messages: &messages)
                 }
 
                 let signature = toolFailureSignature(tc)
@@ -1132,6 +1134,14 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
                         break
                     }
                 }
+            }
+
+            // 整批 tool 消息落盘后，再统一追加本轮收集到的工具图片消息（见循环前说明），
+            // 并一次性执行注入预算——上下文中工具图片最多保留 3 张（HTTP 413 防线）。
+            // 预算函数按 `name == "tool_image"` 扫全数组，只依赖最终状态，与调用时机无关。
+            if !pendingToolImageMessages.isEmpty {
+                messages.append(contentsOf: pendingToolImageMessages)
+                Self.enforceToolImageBudget(messages: &messages)
             }
 
             // 安全点②：本轮工具结果已落库、上下文完整后，若请求暂停 → 落地为 .paused。
@@ -1151,6 +1161,42 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
                 await state.markStopped()
                 emitInterrupted()
                 return
+            }
+
+            // ─── 提示注入（必须晚于本轮**全部工具结果**落盘）───
+            // 协议铁律：`assistant(tool_calls)` 之后必须紧跟它每一个 `tool_call_id` 的
+            // `tool` 响应消息。下面两条提示都是 role=user，若在工具结果之前 append，就会把
+            // 这组紧邻关系打断 → 端点直接 400。真机实证（2026-09-11）：
+            //   23:08:01.678 收敛提示注入 → 23:08:01.689 请求发起 → 23:08:02.462 status=400
+            //   「An assistant message with 'tool_calls' must be followed by tool messages
+            //    responding to each 'tool_call_id'. (insufficient tool messages following
+            //    tool_calls message)」→ agent 当场停止。
+            // 放在此处还有一层好处：上面两条早退路径（暂停 / 失败熔断）直接 return，
+            // 正在终止的轮次不再注入提示。
+
+            // 空转断路器警告（warn 级，仅提示不终止）
+            if let reason = breakerWarnReason {
+                AppLogger.shared.warn(String(format: String(localized: "loop_idle_warning"), reason), category: "Agent", subsystem: "AgentLoop")
+                messages.append(ChatCompletionMessage(
+                    role: "user",
+                    content: String(format: String(localized: "loop_idle_system_hint"), reason)
+                ))
+            }
+
+            // ─── 检索收敛预算（任务级空转防护）───
+            // 连续工具调用达到阈值仍无用户可见输出 → 注入一次收敛提示（不强制终止，
+            // 由模型自行总结收尾），避免「多平台反复搜索永不收尾」（招标查询案例 30+ 轮）。
+            if !executed.isEmpty {
+                toolCallsSinceOutput += executed.count
+            }
+            if toolCallsSinceOutput >= Self.convergenceToolCallBudget, !convergenceHintInjected {
+                convergenceHintInjected = true
+                let hint = String(format: String(localized: "loop_no_output_hint"), toolCallsSinceOutput)
+                    + String(localized: "search_give_up_hint")
+                    + String(localized: "read_subagent_result_suffix")
+                    + String(localized: "ask_user_hint")
+                messages.append(ChatCompletionMessage(role: "user", content: hint))
+                AppLogger.shared.warn(String(format: String(localized: "loop_search_converge"), toolCallsSinceOutput), category: "Agent", subsystem: "AgentLoop")
             }
         }
 

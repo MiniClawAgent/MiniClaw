@@ -22,6 +22,14 @@ extension MiniClawBrowserEngine: WKNavigationDelegate {
         }
     }
 
+    public nonisolated func webView(_ webView: WKWebView,didCommit navigation: WKNavigation!) {
+        // 新文档已开始装载 → 允许「readyState 提前收网」开始轮询
+        //（此前轮询会读到上一页的 complete）。见 navigate(to:)。
+        Task { @MainActor [weak self] in
+            self?.navigationDidCommit = true
+        }
+    }
+
     public nonisolated func webView(_ webView: WKWebView,didFail navigation: WKNavigation!,withError error: Error) {
         Task { @MainActor in
             self.isLoading = false
@@ -183,6 +191,18 @@ public final class MiniClawBrowserEngine: NSObject,ObservableObject {
 
     public private(set) var webView: WKWebView
     private var navigationContinuation: CheckedContinuation<Void,Error>?
+
+    /// 本轮导航是否已 `didCommit`（新文档已开始装载）。
+    /// 供「readyState 提前收网」当门闸：没有它就会读到**上一页**的 `complete` 而误判。
+    private var navigationDidCommit = false
+
+    /// 单次导航等待的三条出路（didFinish / readyState 提前收网 / 超时兜底）共享的结果标记。
+    /// 用类盒而非局部 `var`：出口闭包是并发执行的 `Task`，捕获并改写局部变量在 Swift 6 下不合法。
+    @MainActor
+    private final class NavWaitBox {
+        /// 是否走到超时兜底（此时页面可能只加载了一部分，结果需显式标注）。
+        var timedOut = false
+    }
     @Published private(set) var currentProfile: MiniClawUAProfile = .mobileSafari
 
     public var newWindowHandler: ((_ configuration: WKWebViewConfiguration,_ url: URL?) -> WKWebView?)?
@@ -206,6 +226,11 @@ public final class MiniClawBrowserEngine: NSObject,ObservableObject {
     private var inflightDownloads: [ObjectIdentifier: WKDownload] = [:]
 
     private static let navigationTimeout: TimeInterval = 30
+
+    /// 导航进度轮询间隔（秒）。
+    /// `didFinish` 在部分站点永不触发（主文档已渲染完，但持续第三方请求/长轮询让 WebKit
+    /// 认为未收尾）。此时靠轮询 `document.readyState` 提前收网，省掉整个超时预算。
+    private static let navigationProgressPollInterval: TimeInterval = 0.8
 
     /// iOS15+ WKProcessPool 实例化已无效果(系统统一管理),不再创建。
     public static let sharedProcessPool: WKProcessPool? = nil
@@ -412,6 +437,70 @@ public final class MiniClawBrowserEngine: NSObject,ObservableObject {
         return result
     }
 
+    /// 快照超时（秒）。`takeSnapshot` 没有取消能力，WebContent 卡死时 completion 永不回调。
+    private static let snapshotTimeout: TimeInterval = 8
+
+    /// 有界快照的结果（Sendable：可跨 continuation 传递 JPEG 数据与点尺寸）。
+    private struct BoundedSnapshot: Sendable {
+        let jpeg: Data
+        let size: CGSize
+    }
+
+    /// 有界快照：超时 / 编码失败返回 nil。
+    ///
+    /// 不用 `takeSnapshot(configuration:)` 的 async 版——它无法与超时赛跑，页面卡死时会把
+    /// 调用方永久挂起（实测 navigate 卡到 114s / 296s，最终引爆 TabPool 的 300s 看门狗）。
+    /// 这里改用 completion 版 + 一次性收尾盒：回调与超时谁先到谁定稿，另一方成为 no-op。
+    private func captureSnapshotBounded(_ configuration: WKSnapshotConfiguration,
+                                        quality: CGFloat = 0.7) async -> BoundedSnapshot? {
+        final class SnapshotBox: @unchecked Sendable {
+            private let lock = NSLock()
+            private var done = false
+            private var cont: CheckedContinuation<BoundedSnapshot?,Never>?
+            private var timer: DispatchSourceTimer?
+            func attach(_ c: CheckedContinuation<BoundedSnapshot?,Never>) {
+                lock.lock()
+                if done { lock.unlock(); c.resume(returning: nil); return }
+                cont = c
+                lock.unlock()
+            }
+            func setTimer(_ t: DispatchSourceTimer) {
+                lock.lock()
+                if done { lock.unlock(); t.cancel(); return }
+                timer = t
+                lock.unlock()
+            }
+            func finish(_ snap: BoundedSnapshot?) {
+                lock.lock()
+                if done { lock.unlock(); return }
+                done = true
+                let c = cont; cont = nil
+                let t = timer; timer = nil
+                lock.unlock()
+                t?.cancel()
+                c?.resume(returning: snap)
+            }
+        }
+        return await withCheckedContinuation { (cont: CheckedContinuation<BoundedSnapshot?,Never>) in
+            let box = SnapshotBox()
+            box.attach(cont)
+            // timer 必须挂主队列：本类型是 @MainActor，handler 闭包会继承主 actor 隔离。
+            let timer = DispatchSource.makeTimerSource(queue: .main)
+            timer.schedule(deadline: .now()+Self.snapshotTimeout)
+            timer.setEventHandler { box.finish(nil) }
+            box.setTimer(timer)
+            timer.resume()
+            // takeSnapshot 的 completion 保证在主线程回调（与本类型的隔离一致）。
+            webView.takeSnapshot(with: configuration) { image, _ in
+                guard let image,let data = image.jpegData(compressionQuality: quality) else {
+                    box.finish(nil)
+                    return
+                }
+                box.finish(BoundedSnapshot(jpeg: data,size: image.size))
+            }
+        }
+    }
+
     private func waitForDomSettleAndSnapshot(result: MiniClawActionResult) async -> MiniClawActionResult {
         let prevURL = webView.url
         let settleStart = CFAbsoluteTimeGetCurrent()
@@ -438,13 +527,17 @@ public final class MiniClawBrowserEngine: NSObject,ObservableObject {
         do {
             let config = WKSnapshotConfiguration()
             config.rect = CGRect(origin: .zero,size: targetSize)
-            let image = try await webView.takeSnapshot(configuration: config)
-            lastScreenshot = image
-            if let jpegData = image.jpegData(compressionQuality: 0.7) {
+            // 有界快照：WebContent 卡死时 takeSnapshot 的 completion 可能永不回调，
+            // 无界等待会把整个动作吊死（实测 navigate 卡到 114s / 296s，最终引爆 300s 看门狗）。
+            // 到点放弃本次快照，动作照常返回——快照只是预览图，不该拖住工具结果。
+            if let snap = await captureSnapshotBounded(config) {
+                lastScreenshot = UIImage(data: snap.jpeg)
                 let filename = "snapshot_\(Int(Date().timeIntervalSince1970 * 1000)).jpg"
                 let fileURL = Self.screenshotsDir.appendingPathComponent(filename)
-                try jpegData.write(to: fileURL)
+                try snap.jpeg.write(to: fileURL)
                 snapshotPath = fileURL.path
+            } else {
+                logger.warning("[SettleTiming] snapshot dropped — 超过 \(Int(Self.snapshotTimeout))s 未回调（WebContent 卡死），动作继续返回")
             }
         } catch {
             logger.warning("Post-action snapshot failed: \(error.localizedDescription)")
@@ -625,7 +718,10 @@ public final class MiniClawBrowserEngine: NSObject,ObservableObject {
     ///
     private func evaluateJavaScriptBounded(_ js: String,timeout: TimeInterval = 10) async throws -> Any? {
         let box = ContinuationBox()
-        let timer = DispatchSource.makeTimerSource(queue: .global(qos: .utility))
+        // 同 MiniClawTabPool.withDeadOnTimeout：本类型是 @MainActor，handler 闭包会继承主 actor
+        // 隔离，timer 若挂后台队列，超时触发时闭包在后台线程入口即被隔离校验拦下并 brk 崩溃。
+        // JS 求值本身就在主线程，超时兜底改走主队列无额外成本。
+        let timer = DispatchSource.makeTimerSource(queue: .main)
         timer.schedule(deadline: .now()+timeout)
         timer.setEventHandler { box.finish(.failure(JSEvalTimeout())) }
         return try await withCheckedThrowingContinuation { (cont: CheckedContinuation<JSResultBox,Error>) in
@@ -739,8 +835,35 @@ public final class MiniClawBrowserEngine: NSObject,ObservableObject {
         let request = URLRequest(url: url,cachePolicy: .reloadIgnoringLocalCacheData,timeoutInterval: Self.navigationTimeout)
         lastRequestedURL = url //
         loadError = nil // clear any prior failure overlay
-        webView.load(request)
+
+        // 导航结束等待：三条出路，按优先级
+        //   ① didFinish / didFail（正常回调，见 WKNavigationDelegate）
+        //   ② document.readyState == "complete"（提前收网：主文档其实早已渲染完，
+        //      却因持续第三方请求/长轮询永不发 didFinish → 白等整个超时预算）
+        //   ③ navigationTimeout 兜底（内容可能不完整 → 结果里显式标注）
+        let waitBox = NavWaitBox()
+        navigationDidCommit = false
         isLoading = true
+        webView.load(request)
+
+        let progressTask = Task { @MainActor [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: UInt64(Self.navigationProgressPollInterval*1_000_000_000))
+                guard let self,!Task.isCancelled,self.navigationContinuation != nil else { return }
+                // didCommit 之后才轮询：否则会读到上一页的 complete 而误判提前收网。
+                guard self.navigationDidCommit else { continue }
+                guard let state = try? await self.evaluateJavaScriptBounded("document.readyState",timeout: 3) as? String,
+                      state == "complete" else { continue }
+                if let cont = self.navigationContinuation {
+                    self.navigationContinuation = nil
+                    self.isLoading = false
+                    cont.resume()
+                }
+                let ms = Int((CFAbsoluteTimeGetCurrent()-navStart)*1000)
+                logger.info("[NavTiming] navigate_settled_by_readyState elapsed=\(ms)ms url=\(url.absoluteString.prefix(80))")
+                return
+            }
+        }
 
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void,Error>) in
             self.navigationContinuation = continuation
@@ -751,12 +874,14 @@ public final class MiniClawBrowserEngine: NSObject,ObservableObject {
                 if let cont = self.navigationContinuation {
                     self.navigationContinuation = nil
                     self.isLoading = false
+                    waitBox.timedOut = true
                     cont.resume() // Don't fail on timeout, page may be partially loaded
                     // Distinguish the two ways navigate
                     logger.warning("[NavTiming] navigate_TIMEOUT after \(Int(Self.navigationTimeout))s — no didFinish/didFail; url=\(url.absoluteString.prefix(80))")
                 }
             }
         }
+        progressTask.cancel()
 
         let navDoneMs = Int((CFAbsoluteTimeGetCurrent()-navStart)*1000)
         logger.info("[NavTiming] wait_returned elapsed=\(navDoneMs)ms url=\(url.absoluteString.prefix(100))")
@@ -765,7 +890,12 @@ public final class MiniClawBrowserEngine: NSObject,ObservableObject {
         pageTitle = webView.title ?? ""
         isLoading = false
 
-        let meta = await navigationMetadata()
+        var meta = await navigationMetadata()
+        if waitBox.timedOut {
+            // 超时 ≠ 成功：显式告知模型「内容可能不完整」，避免它把半个页面当成结论
+            //（此前超时与正常完成返回完全相同的 success=true，模型无从分辨）。
+            meta = String(localized: "browser_navigate_timeout_notice") + "\n" + meta
+        }
         let totalMs = Int((CFAbsoluteTimeGetCurrent()-navStart)*1000)
         logger.info("[NavTiming] total elapsed=\(totalMs)ms url=\(url.absoluteString.prefix(100))")
         return MiniClawActionResult(text: meta)
@@ -835,21 +965,22 @@ public final class MiniClawBrowserEngine: NSObject,ObservableObject {
         let config = WKSnapshotConfiguration()
         config.rect = CGRect(origin: .zero, size: targetSize)
         let takeSnapStart = CFAbsoluteTimeGetCurrent()
-        let image = try await webView.takeSnapshot(configuration: config)
+        // 有界快照：页面卡死时 takeSnapshot 的 completion 可能永不回调，无界等待会让本动作
+        // 一直挂到 TabPool 的 300s 看门狗。到点明确报错，模型可据此换站点而不是干等。
+        guard let snap = await captureSnapshotBounded(config,quality: 0.8) else {
+            return .error("Screenshot timed out after \(Int(Self.snapshotTimeout))s — the page's WebContent process appears wedged; try another source or retry later.")
+        }
         let takeSnapMs = Int((CFAbsoluteTimeGetCurrent() - takeSnapStart) * 1000)
         logger.info("[ScreenshotTiming] takeSnapshot elapsed=\(takeSnapMs)ms")
-        lastScreenshot = image
+        lastScreenshot = UIImage(data: snap.jpeg)
 
-        guard let jpegData = image.jpegData(compressionQuality: 0.8) else {
-            return .error("Failed to encode screenshot as JPEG")
-        }
-
+        let jpegData = snap.jpeg
         let filename = "screenshot_\(Int(Date().timeIntervalSince1970 * 1000)).jpg"
         let fileURL = Self.screenshotsDir.appendingPathComponent(filename)
         try jpegData.write(to: fileURL)
 
         let base64 = jpegData.base64EncodedString()
-        let size = image.size
+        let size = snap.size
         let totalSsMs = Int((CFAbsoluteTimeGetCurrent() - ssStart) * 1000)
         logger.info("[ScreenshotTiming] total elapsed=\(totalSsMs)ms \(Int(size.width))x\(Int(size.height)) \(jpegData.count) bytes fullPage=\(fullPage) truncated=\(truncated)")
 

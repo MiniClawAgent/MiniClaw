@@ -84,6 +84,22 @@ final class MarkdownRenderCache {
         return h
     }
 
+    /// [2026-09-12 裁尾修复·只补不覆盖] 仅当该 (key,width) **还没有**高度时才写入。
+    ///
+    /// 供**后台高度预热**（`scheduleHeightPrewarm`）使用。预热为了不阻塞主线程，用的是
+    /// 私有「裸 `NSLayoutManager` + `NSTextContainer`」栈，实测与渲染引擎
+    /// （`MarkdownTextView`）在同一内容、同一宽度下**矮 12.3pt**（1699 vs 1712）。
+    /// 一旦它覆盖掉播种/自测量写下的同源值，屏上 `sizeThatFits` 就会读回矮值
+    /// → cell 提交矮 12.3pt → 尾部半行被裁；且该值经 `recordMeasuredHeight` 污染布局
+    /// memo → 播种短路后永久复现（真机实证：`[STF] EXIT src=attach-unified-cache h=1699.0`
+    /// 出现后裁尾才发生，`FIRST-MEASURE CORRECTION cellH=1703.0 newH=1711.3`）。
+    /// 预热的职责是「补齐缺失」而非「覆盖既有」，故语义必须是**只补不覆盖**：
+    /// 既保留同源真值，又仍能为尚未测量的块（含 402 边界宽桶）预填。
+    func storeHeightIfAbsent(height: CGFloat, key: String, width: Int) {
+        if let existing = entries[key], existing.heights[width] != nil { return }
+        store(height: height, key: key, width: width)
+    }
+
     /// 命中后把 key 移到队尾（真 LRU）。旧实现命中不刷新 order → 退化为 FIFO：
     /// 386-item 会话里活跃块会被"先入"的冷块挤掉，测量反复 MISS。
     private func touch(_ key: String) {
@@ -314,6 +330,17 @@ struct MarkdownView: UIViewRepresentable {
     /// （兼容其它调用点）；提供时不匹配即弃用 prebuilt 落全量渲染——覆盖式
     /// 回写会让缓存追赶内容，下一次测量自然对齐。
     var prebuiltContentCount: Int? = nil
+    /// [2026-09-12 裁尾修复] 宿主提供的**真实内容宽度**（= cell 宽 − 块左右内边距）。
+    ///
+    /// 为什么必须由宿主传入：`sizeThatFits` 在 SwiftUI 的**理想尺寸 pass** 里会被以
+    /// **未指定/边界宽度**询问（真机日志 `[STF] call=1 proposal=402.0 container=0.0 view=0.0`
+    /// —— 此时 `bounds.width == 0`，视图自身无从得知真实内容宽 370）。按 402 排版行数偏少
+    /// → 高度偏矮（1699 vs 真实 1711.3），而 `.fixedSize(vertical: true)` 会把这次答案
+    /// 当**理想高度**钉死 → cell 提交 1703（=1699+块 padding 4）→ 尾部半行永久被裁；
+    /// 且该值经 `recordMeasuredHeight` 污染布局 memo，`FIRST-MEASURE CORRECTION` 也救不回。
+    /// 传入后首次 pass 即按 370 测量，与渲染**同源**。nil = 非聊天列表场景（如
+    /// MarkdownSurface 的文档页），退回原「proposal → bounds → 屏幕宽」解析链。
+    var contentWidth: CGFloat? = nil
     @Environment(\.openURL) private var openURL
 
     func makeCoordinator() -> Coordinator {
@@ -403,18 +430,7 @@ struct MarkdownView: UIViewRepresentable {
         if _curW>1 {
             context.coordinator.lastRenderedWidth = _curW
         }
-        // [Probe 2026-09-11] 显示链断点定位：每次 updateUIView 的入参摘要（mdCnt 变化
-        // 或 1s 节流）。[Render] 探针多轮 0 行 vs 流式正常显示——先证明 updateUIView
-        // 到底有没有被 SwiftUI 携带新内容调用。
-        do {
-            let changed = markdown != context.coordinator.lastMarkdown
-            let now = CACurrentMediaTime()
-            if changed || now - context.coordinator.lastProbeAt > 1.0 {
-                context.coordinator.lastProbeAt = now
-                AppLogger(category: "RenderProbe").info(
-                    "[Probe] ENTER blk=\(blockId?.uuidString.prefix(8) ?? "?") mdCnt=\((markdown as NSString).length) lastMd=\((context.coordinator.lastMarkdown as NSString).length) changed=\(changed ? 1 : 0) streaming=\(isStreaming ? 1 : 0) stale=\(context.coordinator.streamSnapshotStale ? 1 : 0) storageLen=\(textView.textStorage.length)")
-            }
-        }
+        // [2026-09-12 收尾清理] 原 [Probe] ENTER 显示链探针已移除（诊断使命完成）。
         // [2026-09-11 强制收敛] 去重守卫补 storage 完整性检查：storage 缺了 markdown
         // 结尾的纯散文行 = 显示停在旧短快照（流式终帧丢在节流复用上、追赶回调丢失
         // 的场景）→ 不许去重，强制走重渲追平。真机 SHORT-DISPLAY 实锤：
@@ -877,15 +893,6 @@ struct MarkdownView: UIViewRepresentable {
         if textView.textContainer.size.height<CGFloat.greatestFiniteMagnitude {
             textView.textContainer.size.height = CGFloat.greatestFiniteMagnitude
         }
-        #if DEBUG
-        // Snapshot at end of updateUIView (live uiView).
-        MarkdownSnapshotCollector.captureIfEnabled(
-            textView: textView,
-            phase: "afterUpdateUIView",
-            messageId: context.coordinator.renderer.messageId?.uuidString,
-            isMeasureView: false
-        )
-        #endif
     }
 
     private static let nsOriginalFontKey = NSAttributedString.Key("NSOriginalFont")
@@ -969,7 +976,34 @@ struct MarkdownView: UIViewRepresentable {
 
     @available(iOS 16.0,*)
     func sizeThatFits(_ proposal: ProposedViewSize,uiView: MarkdownTextView,context: Context) -> CGSize? {
-        let width = proposal.width ?? UIScreen.main.bounds.width
+        // [2026-09-12 测量宽度同源修复] SwiftUI 会在**不同的 pass** 里以不同宽度询问本视图：
+        // ① 布局 pass：cell 宽 402（边界宽）；② 内容 pass：370（= 402 − 2×16 块内边距）；
+        // ③ **理想尺寸 pass：宽度未指定**（`.fixedSize(vertical: true)` 会拿这次答案当高度钉死），
+        //    此时 `bounds.width == 0`，视图自身无从得知内容宽 → 旧代码退回**屏幕宽 402**，
+        //    按 402 排版行数偏少 → 高度偏矮（1699 vs 真实 1711.3）→ 永久裁尾。
+        // 解析优先级（越靠前越可信）：
+        //   ① 宿主显式传入的真实内容宽（cell 宽 − 块内边距，聊天列表唯一正确来源）；
+        //   ② **宿主本次给出的明确宽度**（proposal）——必须优先于「视图当前宽度」：
+        //      用户气泡走 MarkdownSurface（contentWidth 为 nil），其 proposal 是气泡内容宽
+        //      （~314），而视图当前 bounds/container 可能是复用遗留的较宽值（402）。
+        //      若用后者，19 个字会排成 1 行 → 气泡从 2 行塌成 1 行（真机 IMG_4695/4697 实证：
+        //      `branch=smooth h=48.0` 与 `branch=seed h=67.7` 反复交替）。
+        //   ③ 视图当前 bounds 宽（仅当宿主未指定宽度 = 理想尺寸 pass 时，作为最佳已知真值）；
+        //   ④ textContainer 宽；⑤ 屏幕宽（最后兜底，仅全新视图 + 未指定宽度时发生）。
+        let rawProposal = proposal.width
+        let resolvedContentWidth = contentWidth
+        let width: CGFloat
+        if let cw = resolvedContentWidth, cw > 1 {
+            width = cw
+        } else if let rawProposal, rawProposal > 1 {
+            width = rawProposal
+        } else if uiView.bounds.width > 1 {
+            width = uiView.bounds.width
+        } else if uiView.textContainer.size.width > 1 {
+            width = uiView.textContainer.size.width
+        } else {
+            width = UIScreen.main.bounds.width
+        }
         // 统一渲染/测量缓存的 key（渲染分支与测量分支共用同一 key，条目互通）
         let renderCacheKey = MarkdownRenderCache.key(for: markdown, fontSize: FontSettings.shared.scaledMessage(16.5))
         let bindingLen = (markdown as NSString).length
@@ -1125,7 +1159,16 @@ struct MarkdownView: UIViewRepresentable {
                 }
                 if let cachedH = MarkdownRenderCache.shared.cachedHeight(for: renderCacheKey, width: widthKey) {
                     h = cachedH
-                } else if finalizedSTF,pending.length <= 8000,
+                // [2026-09-12 裁尾修复·CT 不得参与已完结块] 原条件只有 `finalizedSTF`：
+                // 当块的 cachedAttributedString/cachedContent 均为 nil（新 cell 实例 +
+                // 块缓存尚未回写）时 finalizedSTF == false → 落到下面的 CT 分支
+                // （ctFramesetterHeight + inset）。CT 与渲染引擎在同一内容/同一宽度下
+                // **矮 12.3pt**（真机实证 CT 1699 vs 屏上 TextKit 1712），而该值会被
+                // `.fixedSize(vertical: true)` 当理想高度钉死 → cell 1703 而非 1716
+                // → 尾部半行被裁，并经 recordMeasuredHeight 污染布局 memo（此后
+                // configureCell→seed 一直播 1703）。⇒ **已完结块必须走同源 TextKit**；
+                // CT 只保留给真正还在流式的块（高度是瞬态，流终有 settle 重测）。
+                } else if (finalizedSTF || !isStreaming),pending.length <= 8000,
                    let mtv = coord.measureTextView as? MarkdownTextView {
                     // [T-perf 2026-09-08] 绕过 UITextView.attributedText setter——它
                     // 会重置 selection/scroll/内部 canvas 等全部 UI 状态（真机实测
@@ -1168,15 +1211,6 @@ struct MarkdownView: UIViewRepresentable {
                 return CGSize(width: width,height: cachedH)
             }
             mtv.attributedText = pending
-            #if DEBUG
-            // Snapshot the moment after attributedText
-            MarkdownSnapshotCollector.captureIfEnabled(
-                textView: mtv,
-                phase: "afterMtv.setAttributedText",
-                messageId: context.coordinator.renderer.messageId?.uuidString,
-                isMeasureView: true
-            )
-            #endif
             measuringTextView = mtv
         } else {
             measuringTextView = uiView
@@ -1206,7 +1240,7 @@ struct MarkdownView: UIViewRepresentable {
                     }
                     if let cachedH = MarkdownRenderCache.shared.cachedHeight(for: renderCacheKey, width: widthKey) {
                         h = cachedH
-                    } else if finalizedCommitted,liveStorage.length <= 8000,
+                    } else if (finalizedCommitted || !isStreaming),liveStorage.length <= 8000,
                        let mtv = coord.measureTextView as? MarkdownTextView {
                         mtv.attributedText = liveStorage
                         h = ceil(mtv.sizeThatFits(CGSize(width: width,height: .greatestFiniteMagnitude)).height)
@@ -1226,6 +1260,7 @@ struct MarkdownView: UIViewRepresentable {
                     if renderW <= 0 || abs(width-renderW)<0.5 {
                         uiView.lastComputedHeight = h
                     }
+                    // [STF 诊断 2026-09-12] 只读探针（live-storage 分支）已随收尾清理移除。
                     let totalMs = (CFAbsoluteTimeGetCurrent()-t0)*1000
                     coord.sizeThatFitsTotalMs += totalMs
                     #if DEBUG
@@ -1292,18 +1327,6 @@ struct MarkdownView: UIViewRepresentable {
         Self.recordSTF(elapsedMs: totalMs,msgId: messageId,attrLen: bindingLen)
         #endif
 
-        #if DEBUG
-        // Snapshot the textView used for measurement.
-        let stfMid = context.coordinator.renderer.messageId?.uuidString
-        let isMeasure = (measuringTextView !== uiView)
-        MarkdownSnapshotCollector.captureIfEnabled(
-            textView: measuringTextView,
-            phase: isMeasure ? "afterSizeThatFits.mtv" : "afterSizeThatFits.live",
-            messageId: stfMid,
-            isMeasureView: isMeasure,
-            sizeThatFitsResult: CGSize(width: width,height: size.height)
-        )
-        #endif
 
         // [T-perf 2026-09-08 缓存合并] 附件块高度回写统一缓存（渲染分支已
         // store(attributed) → entry 存在 → 本写入生效；流式期 entry 不存在 → no-op）。

@@ -856,6 +856,33 @@ extension MessageListModel {
     }
 
     /// miniclaw:// URL → 磁盘文件(参考实现 miniclaw:// 解析语义,桥接主工程路径)
+    /// [2026-09-12 文件块打不开修复] 把「裸路径」形式的文件引用解析到实际文件。
+    ///
+    /// 背景：`.file` 块（AI 在正文里写的 markdown 文件链接）此前只有两条通路 ——
+    /// `url.isFileURL`（`file://` 绝对 URL）与 `resolveMiniClawURL`（`miniclaw://` 语义链接）。
+    /// 而 AI 通常输出**相对路径或裸绝对路径**（如 `Mac-MCP…报告.md` / `/var/…/x.md`），
+    /// 且 `MiniClawChatAdapter.canonicalFileURL` 目前是**空实现**（原样返回），
+    /// 两条通路都不匹配 ⇒ 统一预览入口的 `guard fileExists` 直接 return ⇒ **点击无反应**。
+    /// 解析顺序：绝对路径 → 依次按 `miniclaw://{workspace,mounts,attachments,shared,offloads}/<path>`
+    /// **复用既有统一解析器**（不新增第二套机制），首个真实存在者胜出。
+    nonisolated public static func resolveLooseFilePath(_ rawPath: String, sessionID: UUID?) -> URL? {
+        let trimmed = rawPath.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        let fm = FileManager.default
+        if trimmed.hasPrefix("/") {
+            let u = URL(fileURLWithPath: trimmed)
+            return fm.fileExists(atPath: u.path) ? u : nil
+        }
+        // workspace/attachments/offloads 是**会话独享**目录，必须带 sessionID 才能拼出
+        // `Sessions/<uuid>/workspace/…`（写入侧就是这么落盘的）。
+        for host in ["workspace", "mounts", "attachments", "shared", "offloads"] {
+            if let u = FileSystemManager.shared.resolveMiniClawResourceURL(
+                "miniclaw://\(host)/\(trimmed)", sessionID: sessionID),
+               fm.fileExists(atPath: u.path) { return u }
+        }
+        return nil
+    }
+
     nonisolated public static func resolveMiniClawURL(_ url: URL) -> URL? {
         guard url.scheme == "miniclaw", let host = url.host else { return nil }
         let subPaths = MiniClawURLPathDecoding.subPathCandidates(for: url)
