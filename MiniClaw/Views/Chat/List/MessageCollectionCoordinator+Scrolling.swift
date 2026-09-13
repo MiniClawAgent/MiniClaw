@@ -1114,6 +1114,58 @@ extension MessageCollectionView.Coordinator {
             }
         }
 
+        /// 视口顶部锚点（**按身份**，不按数值）。
+        ///
+        /// 为什么需要它：`.miniClawAttachmentSizeChanged` 的处理会**全表**失效高度。全表失效后
+        /// `aboveΣ` 失去意义（"视口上方的高度变化"变成"整表的高度变化"，无法求和），
+        /// 而 `contentOffset` 只是个数值 —— 内容总高一变，同一个数值就指向**完全不同的内容**。
+        /// 唯一能表达"我在看这里"的东西是**窗口顶部那个 item + 它当时的屏内偏移**。
+        struct ViewportTopAnchor {
+            let item: MessageListItem
+            /// `cell.frame.minY - contentOffset.y`：该 item 相对内容区顶缘的位置（含 inset 语义）。
+            let deltaInViewport: CGFloat
+        }
+
+        /// 取当前视口顶部的 item 作为锚点。取不到（列表空 / 尚未布局）时返回 nil，调用方跳过锚定。
+        func viewportTopAnchor() -> ViewportTopAnchor? {
+            guard let cv = viewController?.collectionView,let ds = dataSource else { return nil }
+            // 探针取「内容区顶缘略下方」一点：直接取顶缘可能落在区头/间隙上而查不到 item。
+            let probeY = cv.contentOffset.y+cv.adjustedContentInset.top+1
+            guard let ip = cv.indexPathForItem(at: CGPoint(x: 8,y: probeY)),
+                  let item = ds.itemIdentifier(for: ip),
+                  let cell = cv.cellForItem(at: ip) else { return nil }
+            return ViewportTopAnchor(item: item,deltaInViewport: cell.frame.minY-cv.contentOffset.y)
+        }
+
+        /// 把锚点 item 还原到**同一屏内位置**。幂等：item 已不在快照里、或取不到其 frame 时原样返回。
+        ///
+        /// 命中与否都要打印一次：这条日志是「带图片回复是否还会跳位」的唯一判据。
+        func restoreViewportTopAnchor(_ anchor: ViewportTopAnchor?,reason: String) {
+            guard let anchor,let cv = viewController?.collectionView,
+                  let layout = cv.collectionViewLayout as? MessageListLayout,
+                  let ds = dataSource,let ip = ds.indexPath(for: anchor.item) else { return }
+            cv.layoutIfNeeded()
+            // 优先用真 cell 的 frame；它已离屏时退回布局属性（不物化 cell）。
+            let minY: CGFloat
+            if let cell = cv.cellForItem(at: ip) {
+                minY = cell.frame.minY
+            } else if let attrs = layout.layoutAttributesForItem(at: ip) {
+                minY = attrs.frame.minY
+            } else {
+                AppLogger.shared.info("[AttachAnchor] 取不到 frame，放弃锚定（\(reason)）", category: "ChatList.Scroll")
+                return
+            }
+            let maxOffset = max(0,cv.contentSize.height-cv.bounds.height+cv.adjustedContentInset.bottom)
+            let target = min(max(minY-anchor.deltaInViewport,-cv.adjustedContentInset.top),maxOffset)
+            let before = cv.contentOffset.y
+            guard abs(target-before) > 0.5 else {
+                AppLogger.shared.info("[AttachAnchor] 无需还原（\(reason)）offset=\(String(format: "%.1f", before))", category: "ChatList.Scroll")
+                return
+            }
+            cv.contentOffset.y = target
+            AppLogger.shared.info("[AttachAnchor] 按身份还原（\(reason)）offset \(String(format: "%.1f", before))→\(String(format: "%.1f", target)) delta=\(String(format: "%.1f", anchor.deltaInViewport))", category: "ChatList.Scroll")
+        }
+
         /// **冻结泄漏兜底**（P5 · 2026-09-13）。
         ///
         /// ⚠️ **它不新增第二条关闭路径** —— 命中后只是**重新触发唯一关闭点**

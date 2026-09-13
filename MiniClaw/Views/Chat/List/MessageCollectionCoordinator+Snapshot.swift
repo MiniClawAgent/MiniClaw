@@ -88,7 +88,25 @@ extension MessageCollectionView.Coordinator {
                             alog.warning("[AttachmentSize] infra missing")
                             return
                         }
+                        // [2026-09-13 「带图片回复上滑跳位」修复·诊断] 本 handler 是**唯一**会对
+                        // "全表高度"动手、却**完全没有偏移锚定**的路径；而只有附件（图片）会发这个
+                        // 通知 —— 正好解释了"只有带图片的 AI 回复才跳"。
+                        //
+                        // 图片附件高度是**异步**确定的：`attachmentBounds` 先返回占位 200pt，
+                        // 加载完成后返回真实高度并发出本通知（机制见 `MarkdownAttachments` 中
+                        // "SwiftUI sizeThatFits → attachmentBounds → placeholder 200pt … 异步加载
+                        // 完成，attachmentBounds now returns 280pt" 那段注释）。于是原实现造成两件事：
+                        //   ① 全表 `invalidateHeight` 之后**没有重播种** ⇒ 每个 index 都变"无条目"，
+                        //      `prepare()` 只能落到「按内容键前缀选类型常量」（`b:` → 36/40），
+                        //      离屏长正文被算成几十点 ⇒ **contentSize 整体塌缩**；
+                        //   ② 塌缩之后 `contentOffset` 是**数值不变**的 ⇒ 同一数值指向完全不同的内容
+                        //      ⇒ 用户看到的就是「突然跳到聊天记录的其他位置」。
+                        // 修法与既有纪律一致：失效后立刻重播种（唯一入口）+ 重排前后按身份锚定。
                         let urlStr = (notification.object as? String) ?? "<nil>"
+                        // 贴底时**不**锚定 —— 那时应继续贴底，交给既有 pin 机制（contentSize KVO）。
+                        let topAnchor: ViewportTopAnchor? =
+                            (self.scrollMode == .autoScrolling || self.isNearBottom())
+                            ? nil : self.viewportTopAnchor()
                         let visibleIPs = cv.indexPathsForVisibleItems.sorted()
                         var cleared = 0
                         for ip in visibleIPs {
@@ -105,6 +123,14 @@ extension MessageCollectionView.Coordinator {
                         for idx in 0..<totalItems {
                             layout.invalidateHeight(at: idx)
                         }
+                        // ── A. 失效后**立刻重播种**（唯一入口），不留"无条目"的 index ─────────
+                        // 必须早于 `dataSource.apply`（顺序敏感点 S1）：apply 触发的 `prepare()`
+                        // 若读不到条目就会退到块间通用常量，上面的 contentSize 塌缩正是这么来的。
+                        // 本次没有行变化，故播当前快照行 `prevSnapshotIds`。
+                        let seedMessages = self.snapshotMessages.isEmpty
+                            ? (self.vm?.messages ?? []) : self.snapshotMessages
+                        self.seedHeights(.all,rows: self.prevSnapshotIds,
+                                         messages: seedMessages,width: cv.bounds.width)
                         if let snapshot = self.dataSource?.snapshot() {
                             // viewport; offY-screen cells just get a corrected
                             var snap = snapshot
@@ -118,6 +144,11 @@ extension MessageCollectionView.Coordinator {
                             layout.invalidateLayout()
                             if self.clampAfterSessionLoad {
                                 self.scrollToLastItem()
+                            } else {
+                                // ── B. 重排后按**身份**把锚点 item 放回同一屏内位置 ──────────
+                                // 全表失效时 `aboveΣ` 无法求和（"上方变化"退化成"整表变化"），
+                                // 故只能靠"同一个 item 回到同一屏内位置"。
+                                self.restoreViewportTopAnchor(topAnchor,reason: "attachmentSize")
                             }
                         }
                         alog.info("[AttachmentSize] url=\(urlStr) cleared=\(cleared)/\(visibleIPs.count) totalInvalidated=\(totalItems) clamp=\(self.clampAfterSessionLoad)")
