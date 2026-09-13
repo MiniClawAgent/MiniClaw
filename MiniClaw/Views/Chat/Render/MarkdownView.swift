@@ -862,15 +862,26 @@ struct MarkdownView: UIViewRepresentable {
         // 若 cellH 明显小于 tvContentH，即 **cell 裁掉了尾部文字**，而不是渲染没上屏。
         // 降频：终态每次打；流式期只在滚动哨兵开启时打（避免刷屏）。
         if !isStreaming || ScrollMetricsRecorder.shared.isEnabled {
-            var cellH: CGFloat = -1
-            var probeView: UIView? = textView
-            while let cur = probeView {
-                if let cell = cur as? SelfSizingCell { cellH = cell.frame.height; break }
-                probeView = cur.superview
+            // [Diag 修正 2026-09-13] **必须延到下一帧再量**：渲染时机通常早于布局，此刻
+            // `bounds`/`contentSize` 还是 0 —— 真机实证日志里全是 `tvContentH=0.0 / cellH=-1.0 /
+            // visEnd=n/a`，等于第四层（字形可见范围）**根本没量到**。
+            let mdCntSnap = markdown.count
+            let attrLenSnap = attributed.length
+            let streamSnap = isStreaming
+            let pathSnap = fastPathTaken ? "fast" : "full"
+            let blkSnap = blockId?.uuidString.prefix(8) ?? "?"
+            DispatchQueue.main.async { [weak textView] in
+                guard let textView else { return }
+                var cellH: CGFloat = -1
+                var probeView: UIView? = textView
+                while let cur = probeView {
+                    if let cell = cur as? SelfSizingCell { cellH = cell.frame.height; break }
+                    probeView = cur.superview
+                }
+                AppLogger.shared.info(
+                    "[TruncL] blk=\(blkSnap) storageLen=\(textView.textStorage.length) attrLen=\(attrLenSnap) mdCnt=\(mdCntSnap) tvContentH=\(String(format: "%.1f", textView.contentSize.height)) cellH=\(String(format: "%.1f", cellH)) path=\(pathSnap) streaming=\(streamSnap ? 1 : 0) \(Self.glyphProbe(textView))",
+                    category: "RenderProbe")
             }
-            AppLogger.shared.info(
-                "[TruncL] blk=\(blockId?.uuidString.prefix(8) ?? "?") storageLen=\(textView.textStorage.length) attrLen=\(attributed.length) mdCnt=\(markdown.count) tvContentH=\(String(format: "%.1f", textView.contentSize.height)) cellH=\(String(format: "%.1f", cellH)) path=\(fastPathTaken ? "fast" : "full") streaming=\(isStreaming ? 1 : 0) \(Self.glyphProbe(textView))",
-                category: "RenderProbe")
         }
 
         let storage = textView.textStorage
