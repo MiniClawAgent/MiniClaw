@@ -321,7 +321,20 @@ extension MessageCollectionView.Coordinator {
         static func estimateTextBlockHeight(_ content: String,width: CGFloat,scale: CGFloat,lineHeight: CGFloat) -> CGFloat {
             // [T-ios-empty-textblock-gapH] An empty text block renders nothing
             guard !content.isEmpty else { return 0 }
-            let hPad: CGFloat = 80
+            // [2026-09-13 估高同源·高估方向修复] 原先这里是 `80` ⇒ `tw = width-80`，
+            // 而**同一种块**（assistant 文本）的精确路径一律用 `max(cvWidth-32,100)`
+            //（见上方 `.assistantBlock` 的 `.text` 分支与 `seedHeight` 的同一分支）。
+            // 渲染侧的真实内容宽 = cell 宽 − 2×`blockHPadding`(=16) = **cell 宽 − 32**，
+            // 故 80 比真实**窄了 48pt**。
+            //
+            // 后果不是单纯的"不准"，而是**单向有害**：窄 ⇒ 每行字数少算约 15%
+            //（390pt 宽屏：310 vs 358）⇒ 行数偏多 ⇒ 高度**系统性偏高**。而手势期
+            // `deferSelfSizing` 的策略是「**只拒绝收缩**、增长放行」⇒ 高出的那一截**变成可见空白**，
+            // 且只有松手 settle 才消失 —— 与"手不离开屏幕就出现空白"的症状同构。
+            // 反向（低估）的高度会在首次实测时增长（手势期放行、不产生空白），
+            // 故本函数的取向应是「**宁短勿长**」；改成与渲染同源的 −32 同时满足
+            // "更准"与"更安全"两个方向。
+            let hPad: CGFloat = 32
             let tw = max(width-hPad,100)
             let cpl = tw/(scale*0.5)
             var total: CGFloat = 4
