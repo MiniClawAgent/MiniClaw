@@ -890,6 +890,20 @@ struct MarkdownView: UIViewRepresentable {
             let storageBehind = textView.textStorage.length != attrLenSnap
             let cellTooShort = cellH > 0 && cellH < contentH - 0.5
             let bad = storageBehind || cellTooShort || tailCut
+            // [Fix 2026-09-13 「尾行被裁」根治] 真机签名：`storageLen == attrLen`（内容完整、已上屏）
+            // 且 `cellShort=0`（cell 够高），**但 `tailCut=1`** —— 可见字形区间只覆盖到
+            // `visEnd=28/89`、`121/132`、`165/252` ⇒ **尾部字形没进 textView 自己的可见范围**。
+            // 即：内容与 cell 都对，**是 `MarkdownTextView` 自身高度没跟上内容**（cell 变高了，
+            // textView 的 frame/intrinsic 尺寸没同步）⇒ 末行被 textView 自己裁掉。
+            // 修法：内容完整却出现 tailCut 时，强制重算固有尺寸并排队布局，让末行回到可见区。
+            // （只在"内容完整"时触发 ⇒ 不会与正常的"流式期还没长完"混淆。）
+            if tailCut && !storageBehind {
+                textView.invalidateIntrinsicContentSize()
+                textView.setNeedsLayout()
+                AppLogger.shared.warning(
+                    "[TruncL-FIX] 尾行未绘制 → invalidateIntrinsicContentSize blk=\(blkSnap) glyphs=\(total) visEnd=\(visEnd) cellH=\(String(format: "%.1f", cellH))",
+                    category: "RenderProbe")
+            }
             guard forceLog || bad else { return }
             // [Diag] 命中 cellShort 时补一根线索：那个矮高度到底是"条目里的什么来源"
             //（估算条目 / 预演条目 / 实测条目），以及条目值本身 —— 这是"根因"的最后一块拼图。
