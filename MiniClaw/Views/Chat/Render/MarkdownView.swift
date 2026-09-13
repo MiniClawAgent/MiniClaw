@@ -897,12 +897,26 @@ struct MarkdownView: UIViewRepresentable {
             // textView 的 frame/intrinsic 尺寸没同步）⇒ 末行被 textView 自己裁掉。
             // 修法：内容完整却出现 tailCut 时，强制重算固有尺寸并排队布局，让末行回到可见区。
             // （只在"内容完整"时触发 ⇒ 不会与正常的"流式期还没长完"混淆。）
+            // [Fix 2026-09-14 第二版·按排版结果直接定高（社区配套做法）]
+            // 真机签名：`glyphs == storageLen`（120/120、173/173）⇒ **全部字形都已排好**，
+            // 但 `visEnd` 恰好少一行（两次都是少 17 个字形），而 `tvFrameH == tvContentH`、`clipped=0`。
+            // ⇒ **尾部那一行被排到了 textView 自己的 `contentSize/bounds` 之外**（textView 高度落后一行）
+            // ⇒ 排完不画；而 cell 高度来自另一条路径（正确）⇒ 那个位置留下空白。
+            // 标准解法（同资料）：**不要信 `contentSize`，直接用排版结果（`usedRect + inset`）定高**。
             if tailCut && !storageBehind {
-                textView.invalidateIntrinsicContentSize()
-                textView.setNeedsLayout()
-                AppLogger.shared.warning(
-                    "[TruncL-FIX] 尾行未绘制 → invalidateIntrinsicContentSize blk=\(blkSnap) glyphs=\(total) visEnd=\(visEnd) cellH=\(String(format: "%.1f", cellH))",
-                    category: "RenderProbe")
+                let lm = textView.layoutManager
+                let tc = textView.textContainer
+                lm.ensureLayout(for: tc)
+                let usedH = lm.usedRect(for: tc).height
+                    + textView.textContainerInset.top + textView.textContainerInset.bottom
+                if usedH > textView.frame.height + 0.5 {
+                    var f = textView.frame
+                    f.size.height = usedH
+                    textView.frame = f
+                    AppLogger.shared.warning(
+                        "[TruncL-FIX3] textView 高度落后一行 → 按 usedRect 定高 \(String(format: "%.1f", cellH)) → \(String(format: "%.1f", usedH)) blk=\(blkSnap) glyphs=\(total) visEnd=\(visEnd)",
+                        category: "RenderProbe")
+                }
             }
             guard forceLog || bad else { return }
             // [Diag] 不依赖时机的**裁剪**判据：textView 的 frame 底边是否超出 cell 内容区底边。
