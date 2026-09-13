@@ -571,6 +571,8 @@ class SelfSizingCell: UICollectionViewCell {
     /// 上面那个值对应的**内容指纹**（`ContentFingerprint.of(rawMarkdown)`，`Int`）。
     /// 硬前提：cell 复用后旧值**绝不能**被当成新内容的高度（历史事故：跨 cell 累积 495pt）。
     private(set) var committedFingerprint: Int = 0
+    /// 上面那个值对应的**内容宽度**（正文可用宽）。高度与宽度都相关，宽度变了旧值不可用。
+    private(set) var committedTextWidth: CGFloat = 0
     /// 只有**助手正文块**才允许把 cell 高度反推为正文高度。
     /// 用户气泡同样内嵌 `MarkdownTextView`，但其 cell 高度含气泡内边距，直接反推会每帧叠加而跑飞。
     /// 由 `configureCell` 按块类型每次重设（不残留）。
@@ -589,6 +591,7 @@ class SelfSizingCell: UICollectionViewCell {
         if textHeight > 1 {
             committedTextHeight = textHeight
             committedFingerprint = ContentFingerprint.of(tv.rawMarkdown)
+            committedTextWidth = tv.bounds.width > 1 ? tv.bounds.width : tv.textContainer.size.width
         }
         return attrs
     }
@@ -917,5 +920,6 @@ class SelfSizingCell: UICollectionViewCell {
         commitsTextHeightAsCellContent = false
         committedTextHeight = 0
         committedFingerprint = 0
+        committedTextWidth = 0
     }
 }

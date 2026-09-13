@@ -111,11 +111,9 @@ extension MessageCollectionView.Coordinator {
                         var cleared = 0
                         for ip in visibleIPs {
                             if let cell = cv.cellForItem(at: ip) as? SelfSizingCell {
-                                let before = cell.frame.size.height
                                 cell.clearCachedHeight()
                                 layout.invalidateHeight(at: ip.item)
                                 cleared += 1
-                                alog.info("[AttachmentSize] clear idx=\(ip.item) frameH=\(String(format: "%.1f", before))")
                             }
                         }
                         // ── 只失效「含该附件的那些行」（全表失效是历史遗留，且**有害**）────────

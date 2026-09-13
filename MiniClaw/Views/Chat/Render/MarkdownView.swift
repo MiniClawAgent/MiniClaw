@@ -448,43 +448,13 @@ struct MarkdownView: UIViewRepresentable {
         // 缺口本质：`streamSnapshotStale` 只管"复用了更旧的快照"，**不管"最后渲染的是个短内容"**。
         // 修法：**把「流结束」这件事本身当收敛触发** —— `isStreaming` true→false 是入参变化，
         // 必然带来一次 `updateUIView`，此时无条件核对一次 storage 完整性。
+        // [终态收敛] 流刚结束的那一帧——`isStreaming` true→false 是入参变化，必然带来一次
+        // `updateUIView`，是"最后一次渲染的是个短内容"的唯一可靠触发点。
+        // 本判据现在只用于让下方 `[TruncL]` 在终态无条件量一次，不参与任何渲染决策。
+        // ⚠️ 曾与之配套的 `storageMissingTail`（拿"markdown 原文能否在富文本里找到"当代理）
+        // 已整块删除：含链接 / 行内代码的收尾行渲染后只剩显示文本 ⇒ **恒判缺失（误报判据）**，
+        // 且曾在探针里"行动"造成每帧重渲（真机 23:22：22ms 一条、连打 14 次、日志 1.2MB→12.3MB）。
         let streamJustEnded = (context.coordinator.lastWasStreaming == true) && !isStreaming
-        var storageMissingTail = false
-        if !isStreaming, !fontChanged, !context.coordinator.streamSnapshotStale,
-           streamJustEnded || markdown == context.coordinator.lastMarkdown {
-            // [2026-09-13 探针判据修正] 原判据是「长度≥6 且**不含**语法符/数字」——它会把
-            // 「图片信息：… 959 × 1232 px（…）」这类**含数字**的收尾行也剔掉，于是探针一路往前
-            // 退到**早就渲染出来**的那一行，判"storage 完整"⇒ 该修的时候不修（真机 22:33 实证：
-            // 正文末尾被裁却一次 `SHORT-DISPLAY` 都没打）。
-            // 现在只要求「长度≥6 且**至少含一个字母/CJK**」——排除纯符号行，但不再因数字而误杀。
-            let probe = markdown.split(whereSeparator: { $0.isNewline }).reversed()
-                .map { $0.trimmingCharacters(in: .whitespaces) }
-                .first { $0.count >= 6 && $0.contains(where: { $0.isLetter }) }
-            if let probe {
-                let stripped = probe
-                    .replacingOccurrences(of: "`", with: "")
-                    .replacingOccurrences(of: "**", with: "")
-                    .replacingOccurrences(of: "*", with: "")
-                storageMissingTail = !stripped.isEmpty
-                    && !textView.textStorage.string.contains(stripped)
-                // ⚠️ [2026-09-13 回退·我造的渲染自激循环] 这里曾置 `streamSnapshotStale = true`，
-                // 那是错的：本判据用"markdown 原文能否在富文本里找到"作代理，而**含链接/行内代码的
-                // 收尾行**渲染后只剩显示文本 ⇒ **恒判缺失（误报）**。一旦让它"行动"，就会
-                // 「误报 → 置落后 → 排追赶渲染 → 重渲 → 又误报 → 再排」形成**每帧重渲的循环**
-                //（真机 23:22 实证：22ms 一条 `[TruncL]`、参数完全不变、连打 14 次；日志 1.2MB→12.3MB）。
-                // 结论：**该判据只保留观测用途，不参与任何决策**。
-                // 真正的"存储落后"无需此判据：渲染路径自身的 `sameAsStorage` 比较（下方
-                // `attributed.length == textView.textStorage.length && 字符串相等`）已经精确覆盖
-                // 「渲染产物与 storage 不同就赋值」这件事；而"内容长了但没人调 updateUIView"
-                // 那类由 `streamJustEnded` 负责（那才是我要的终态收敛）。
-                if storageMissingTail || streamJustEnded {
-                    let supH = textView.superview.map { String(format: "%.1f", $0.bounds.height) } ?? "nil"
-                    AppLogger.shared.warning(
-                        "[Trunc] blk=\(blockId?.uuidString.prefix(8) ?? "?") storageLen=\(textView.textStorage.length) mdCnt=\(markdown.count) tvContentH=\(String(format: "%.1f", textView.contentSize.height)) tvBoundsH=\(String(format: "%.1f", textView.bounds.height)) tvSupH=\(supH) missing=\(storageMissingTail ? 1 : 0) probeLen=\(probe.count) probe=\(probe.prefix(60))",
-                        category: "RenderProbe")
-                }
-            }
-        }
         // [尾包修复 2026-09-10] `streamSnapshotStale` 必须放行：内容没变但 storage 停在
         // 缺尾旧快照（上一轮走了流式节流复用，窗长见 Coordinator.streamThrottleWindow）时，正是本条 updateUIView 要追平。
         // [2026-09-13 回退] 不再放行 `storageMissingTail`：它是**误报判据**（含链接 / 行内代码的
@@ -870,7 +840,8 @@ struct MarkdownView: UIViewRepresentable {
         let streamSnap = isStreaming
         let pathSnap = fastPathTaken ? "fast" : "full"
         let blkSnap = blockId?.uuidString.prefix(8) ?? "?"
-        let forceLog = !isStreaming || ScrollMetricsRecorder.shared.isEnabled
+        // 降频：非流式（含"流刚刚结束"那一帧）必打；流式期只在滚动哨兵开启时打。
+        let forceLog = !isStreaming || streamJustEnded || ScrollMetricsRecorder.shared.isEnabled
         DispatchQueue.main.async { [weak textView] in
             guard let textView else { return }
             var cellH: CGFloat = -1
@@ -883,9 +854,19 @@ struct MarkdownView: UIViewRepresentable {
             let contentH = textView.contentSize.height
             let lm = textView.layoutManager
             let total = lm.numberOfGlyphs
-            let visEnd = (total > 0 && textView.bounds.height > 1)
-                ? NSMaxRange(lm.glyphRange(forBoundingRect: textView.bounds, in: textView.textContainer))
-                : total
+            // `glyphRange(forBoundingRect:in:)` 要的是 **textContainer 坐标**；此前直接传 view 的
+            // `bounds`（未扣 `textContainerInset`）⇒ 量到的是**超集**，数值偏乐观。
+            // 查询前先 `ensureLayout`，否则数值随布局时机飘。
+            let visEnd: Int
+            if total > 0, textView.bounds.height > 1 {
+                lm.ensureLayout(for: textView.textContainer)
+                let containerRect = textView.bounds.offsetBy(
+                    dx: -textView.textContainerInset.left,
+                    dy: -textView.textContainerInset.top)
+                visEnd = NSMaxRange(lm.glyphRange(forBoundingRect: containerRect, in: textView.textContainer))
+            } else {
+                visEnd = total
+            }
             let tailCut = visEnd < total
             let storageBehind = textView.textStorage.length != attrLenSnap
             let cellTooShort = cellH > 0 && cellH < contentH - 0.5
@@ -915,41 +896,26 @@ struct MarkdownView: UIViewRepresentable {
             guard forceLog || bad else { return }
             // [Diag] 不依赖时机的**裁剪**判据：textView 的 frame 底边是否超出 cell 内容区底边。
             // 这比 `visEnd`（依赖 textView.bounds，会受"布局还没跑"的时机影响）可靠得多：
-            // 若 `tvFrameMaxY > cellContentH` ⇒ 末行**确实**被 cell 裁掉（真病灶）；
-            // 若两者相符而 `visEnd` 仍小 ⇒ 只是我量早了（测量假象，不该再当病灶修）。
-            var geomInfo = "tvFrame=n/a"
+            // 若 `clipped=1` ⇒ 末行**确实**被 cell 裁掉（真病灶）；
+            // 若 `clipped=0` 而 `visEnd` 仍小 ⇒ 只是我量早了（测量假象，不该再当病灶修）。
+            var geomInfo = "clipped=n/a"
             if let cell = cellRef {
-                let f = textView.frame
-                geomInfo = "tvFrameY=\(String(format: "%.1f", f.minY)) tvFrameH=\(String(format: "%.1f", f.height)) tvFrameMaxY=\(String(format: "%.1f", f.maxY)) cellContentH=\(String(format: "%.1f", cell.contentView.bounds.height)) clipped=\((f.maxY > cell.contentView.bounds.height + 0.5) ? 1 : 0)"
+                geomInfo = "clipped=\((textView.frame.maxY > cell.contentView.bounds.height + 0.5) ? 1 : 0)"
             }
-            // [Fix 2026-09-13 第二处·终态签名] `cellShort=1` 且**内容已定型**（storage 完整）：
-            // 真机 `entry=618.3 measured=1` 而 `tvContentH=638.3` ⇒ 该行的**实测高度条目陈旧**
-            //（内容长了 20pt ≈ 一行，条目没跟着更新）⇒ 末行被 cell 裁掉 = 「少一行字」。
-            // 修法：内容定型却仍矮时，作废该行条目 + 失效布局 ⇒ 下一次布局按当前内容重测。
-            // （收紧 `!storageBehind`：内容还在长的中间态不动，避免与正常流式增长打架。）
+            // [Obs 2026-09-13] `cellShort=1` 且**内容已定型**（storage 完整）⇒ 该行的实测高度条目
+            // 陈旧（内容长了约一行、条目没跟着更新），末行被 cell 裁掉 =「少一行字」。
+            // ⚠️ 此处**只观测、不改几何**：曾在探针里调用 `clearCachedHeight()` /
+            // `invalidateHeight(at:)` / `invalidateLayout()`，那是"在诊断探针里改几何"（历史事故：
+            // 跨 cell 复用代代累积，textView 被撑到 495pt）—— 已删，几何只能由布局路径统一驱动。
             if cellTooShort, !storageBehind, let cell = cellRef,
                let cv = cell.superview as? UICollectionView,
-               let ip = cv.indexPath(for: cell),
-               let layout = cv.collectionViewLayout as? MessageListLayout {
-                cell.clearCachedHeight()
-                layout.invalidateHeight(at: ip.item)
-                layout.invalidateLayout()
+               let ip = cv.indexPath(for: cell) {
                 AppLogger.shared.warning(
-                    "[TruncL-FIX2] cell 矮于内容 → 作废该行高度条目 blk=\(blkSnap) idx=\(ip.item) cellH=\(String(format: "%.1f", cellH)) contentH=\(String(format: "%.1f", contentH))",
+                    "[TruncL-FIX2] cellShort 观测（不改几何）blk=\(blkSnap) idx=\(ip.item) cellH=\(String(format: "%.1f", cellH)) contentH=\(String(format: "%.1f", contentH))",
                     category: "RenderProbe")
             }
-            // [Diag] 命中 cellShort 时补一根线索：那个矮高度到底是"条目里的什么来源"
-            //（估算条目 / 预演条目 / 实测条目），以及条目值本身 —— 这是"根因"的最后一块拼图。
-            var entryInfo = "entry=n/a"
-            if cellTooShort, let cell = cellRef,
-               let cv = cell.superview as? UICollectionView,
-               let ip = cv.indexPath(for: cell),
-               let layout = cv.collectionViewLayout as? MessageListLayout {
-                let e = layout.cachedHeight(at: ip.item)
-                entryInfo = "entry=\(e.map { String(format: "%.1f", $0) } ?? "nil") measured=\(layout.hasMeasuredHeight(at: ip.item) ? 1 : 0) precalc=\(layout.hasPrecalcHeight(at: ip.item) ? 1 : 0) idx=\(ip.item)"
-            }
             AppLogger.shared.warning(
-                "[TruncL]\(bad ? " ⚠BAD" : "") blk=\(blkSnap) storageLen=\(textView.textStorage.length) attrLen=\(attrLenSnap) mdCnt=\(mdCntSnap) tvContentH=\(String(format: "%.1f", contentH)) cellH=\(String(format: "%.1f", cellH)) path=\(pathSnap) streaming=\(streamSnap ? 1 : 0) glyphs=\(total) visEnd=\(visEnd) tailCut=\(tailCut ? 1 : 0) storageBehind=\(storageBehind ? 1 : 0) cellShort=\(cellTooShort ? 1 : 0) \(entryInfo) \(geomInfo)",
+                "[TruncL]\(bad ? " ⚠BAD" : "") blk=\(blkSnap) storageLen=\(textView.textStorage.length) attrLen=\(attrLenSnap) mdCnt=\(mdCntSnap) tvContentH=\(String(format: "%.1f", contentH)) cellH=\(String(format: "%.1f", cellH)) path=\(pathSnap) streaming=\(streamSnap ? 1 : 0) glyphs=\(total) visEnd=\(visEnd) tailCut=\(tailCut ? 1 : 0) storageBehind=\(storageBehind ? 1 : 0) cellShort=\(cellTooShort ? 1 : 0) \(geomInfo)",
                 category: "RenderProbe")
         }
         let storage = textView.textStorage
@@ -1157,22 +1123,31 @@ struct MarkdownView: UIViewRepresentable {
         let t0 = CFAbsoluteTimeGetCurrent()
 
         let widthKey = Int(width.rounded())
-        // [Single height source] cell 已按**同一内容**提交过正文高度 ⇒ 直接返回它。
-        // 宿主（SwiftUI hosting）就是拿本函数的返回值去写 textView 的 frame ⇒ 于是「cell 高度」与
-        // 「正文 view 高度」同源，不再是两条链各自取数、互相追（这正是尾部掉出可见范围的机制）。
-        // 必须放在**所有缓存判定之前**：否则缓存会先返回它自己算的那个值，回灌失效。
-        // 指纹校验是硬前提 —— cell 复用后旧值绝不能被当成新内容的高度（历史事故：跨 cell 累积 495pt）。
-        if let cell = enclosingSelfSizingCell(of: uiView),
-           cell.committedTextHeight > 1,
-           cell.committedFingerprint == bindingFingerprint {
-            return CGSize(width: width,height: cell.committedTextHeight)
-        }
+        // [Single height source] cell 已按**同一内容 + 同一宽度**提交过正文高度 ⇒ 作为**下限**
+        // （不是直接返回）。宿主（SwiftUI hosting）就是拿本函数的返回值去写 textView 的 frame。
+        // 为什么取下限：直接返回把正确性押在"实际装饰恰好等于 `assistantBlockVerticalChrome`"上 ——
+        // 实际装饰更大时高度会**每轮累加、无界跑飞**（跨 cell 累积 495pt 的事故形状）。
+        // 取下限则**恒有界**（上界 = 真实测量高），同时仍保证"正文 view 永不比 cell 已经给它的
+        // 空间矮" ⇒ 尾部不再掉出可见范围。
+        // 必须放在**所有缓存判定之前**：否则缓存先返回它自己算的值，下限失效。
+        // 三道校验缺一不可：① 内容指纹一致（cell 复用后旧值绝不能被当成新内容的高度）；
+        // ② 宽度一致（高度与宽度都相关）；③ 正文视图**当前**的 markdown 与本次测量一致
+        //（防"cell 已提交新内容、uiView 还挂着旧内容"时张冠李戴）。
+        let committedFloor: CGFloat = {
+            guard let cell = enclosingSelfSizingCell(of: uiView),
+                  cell.committedTextHeight > 1,
+                  cell.committedFingerprint == bindingFingerprint,
+                  abs(cell.committedTextWidth - width) < 0.5,
+                  ContentFingerprint.of(uiView.rawMarkdown) == bindingFingerprint else { return 0 }
+            return cell.committedTextHeight
+        }()
+        @inline(__always) func floored(_ h: CGFloat) -> CGSize { CGSize(width: width,height: max(h,committedFloor)) }
         if bindingFingerprint == coord.cachedSizeFingerprint,
            let cachedHeight = coord.cachedSizes[widthKey] {
             coord.sizeThatFitsCacheHitCount &+= 1
             if callIdx%50 == 0 {
             }
-            return CGSize(width: width,height: cachedHeight)
+            return floored(cachedHeight)
         }
 
         // Near-width cache hit for FULLY
@@ -1194,7 +1169,7 @@ struct MarkdownView: UIViewRepresentable {
                 if coord.cachedSizes.count>4,let firstKey = coord.cachedSizes.keys.first {
                     coord.cachedSizes.removeValue(forKey: firstKey)
                 }
-                return CGSize(width: width,height: nearestHeight)
+                return floored(nearestHeight)
             }
         }
 
@@ -1346,7 +1321,7 @@ struct MarkdownView: UIViewRepresentable {
                 if _renderW <= 0 || abs(width-_renderW)<0.5 {
                     uiView.lastComputedHeight = h
                 }
-                return CGSize(width: width,height: h)
+                return floored(h)
             }
             // [T-perf 2026-09-08 缓存合并] 含表格/附件块的测量高度迁移至统一缓存
             // MarkdownRenderCache.heights（key=renderCacheKey+width，与无附件块/
@@ -1356,7 +1331,7 @@ struct MarkdownView: UIViewRepresentable {
             let mtv = coord.measureTextView as? MarkdownTextView ?? coord.measureTextView as! MarkdownTextView
             if let cachedH = MarkdownRenderCache.shared.cachedHeight(for: renderCacheKey, width: widthKey) {
                 measuringTextView = mtv
-                return CGSize(width: width,height: cachedH)
+                return floored(cachedH)
             }
             mtv.attributedText = pending
             measuringTextView = mtv
@@ -1410,7 +1385,7 @@ struct MarkdownView: UIViewRepresentable {
                     #if DEBUG
                     Self.recordSTF(elapsedMs: totalMs,msgId: messageId,attrLen: bindingLen)
                     #endif
-                    return CGSize(width: width,height: h)
+                    return floored(h)
                 }
             }
         }
@@ -1476,7 +1451,7 @@ struct MarkdownView: UIViewRepresentable {
         // store(attributed) → entry 存在 → 本写入生效；流式期 entry 不存在 → no-op）。
         MarkdownRenderCache.shared.store(height: size.height, key: renderCacheKey, width: widthKey)
 
-        return CGSize(width: width,height: size.height)
+        return floored(size.height)
     }
 
     private static let stfLogger = AppLogger(category: "MarkdownSTF")
@@ -1642,9 +1617,6 @@ struct MarkdownView: UIViewRepresentable {
         var lastRenderedWidth: CGFloat = -1
         /// [FadeLeak] 尾部透明残留扫描的节流时间戳（early-return 分支，2s/次）。
         var lastFadeResidueScanAt: CFTimeInterval = 0
-        /// [Probe 2026-09-11] 显示链探针节流。
-        var lastProbeAt: CFTimeInterval = 0
-        var lastShortLogAt: CFTimeInterval = 0
         /// 当前渲染的内容身份（blockId 优先，缺省
         /// messageId）。换块判定用：cell 复用/块重配把同一 textView 更新为另一块
         /// 的内容时必须 cancelAll（见 updateUIView 内注释）。
@@ -1652,7 +1624,6 @@ struct MarkdownView: UIViewRepresentable {
         var sizeThatFitsCallCount: Int = 0
         var sizeThatFitsCacheHitCount: Int = 0
         var sizeThatFitsTotalMs: Double = 0
-        var streamRenderCount: Int = 0
         ///
         var renderer = MarkdownNSRenderer(baseFontSize: FontSettings.shared.scaledMessage(16.5))
 
