@@ -861,27 +861,38 @@ struct MarkdownView: UIViewRepresentable {
         //（那一层的高度永远等于内容高，所以"看起来没被裁"，看不出真凶）；
         // 若 cellH 明显小于 tvContentH，即 **cell 裁掉了尾部文字**，而不是渲染没上屏。
         // 降频：终态每次打；流式期只在滚动哨兵开启时打（避免刷屏）。
-        if !isStreaming || ScrollMetricsRecorder.shared.isEnabled {
-            // [Diag 修正 2026-09-13] **必须延到下一帧再量**：渲染时机通常早于布局，此刻
-            // `bounds`/`contentSize` 还是 0 —— 真机实证日志里全是 `tvContentH=0.0 / cellH=-1.0 /
-            // visEnd=n/a`，等于第四层（字形可见范围）**根本没量到**。
-            let mdCntSnap = markdown.count
-            let attrLenSnap = attributed.length
-            let streamSnap = isStreaming
-            let pathSnap = fastPathTaken ? "fast" : "full"
-            let blkSnap = blockId?.uuidString.prefix(8) ?? "?"
-            DispatchQueue.main.async { [weak textView] in
-                guard let textView else { return }
-                var cellH: CGFloat = -1
-                var probeView: UIView? = textView
-                while let cur = probeView {
-                    if let cell = cur as? SelfSizingCell { cellH = cell.frame.height; break }
-                    probeView = cur.superview
-                }
-                AppLogger.shared.info(
-                    "[TruncL] blk=\(blkSnap) storageLen=\(textView.textStorage.length) attrLen=\(attrLenSnap) mdCnt=\(mdCntSnap) tvContentH=\(String(format: "%.1f", textView.contentSize.height)) cellH=\(String(format: "%.1f", cellH)) path=\(pathSnap) streaming=\(streamSnap ? 1 : 0) \(Self.glyphProbe(textView))",
-                    category: "RenderProbe")
+        // [Diag 2026-09-13 截断定位] 每次渲染后**延到下一帧**（布局已完成）量四层：
+        // 存储 / 渲染 / cell 几何 / 字形可见范围。
+        // **流式期只在"异常"时打**（防刷屏）：异常 = `storageLen≠attrLen`、或 `cellH<tvContentH`、
+        // 或 `tailCut=1`。此前只打非流式帧 ⇒ **流式中途那一窗口完全没被记录**（正是唯一没量到的窗口）。
+        let mdCntSnap = markdown.count
+        let attrLenSnap = attributed.length
+        let streamSnap = isStreaming
+        let pathSnap = fastPathTaken ? "fast" : "full"
+        let blkSnap = blockId?.uuidString.prefix(8) ?? "?"
+        let forceLog = !isStreaming || ScrollMetricsRecorder.shared.isEnabled
+        DispatchQueue.main.async { [weak textView] in
+            guard let textView else { return }
+            var cellH: CGFloat = -1
+            var probeView: UIView? = textView
+            while let cur = probeView {
+                if let cell = cur as? SelfSizingCell { cellH = cell.frame.height; break }
+                probeView = cur.superview
             }
+            let contentH = textView.contentSize.height
+            let lm = textView.layoutManager
+            let total = lm.numberOfGlyphs
+            let visEnd = (total > 0 && textView.bounds.height > 1)
+                ? NSMaxRange(lm.glyphRange(forBoundingRect: textView.bounds, in: textView.textContainer))
+                : total
+            let tailCut = visEnd < total
+            let storageBehind = textView.textStorage.length != attrLenSnap
+            let cellTooShort = cellH > 0 && cellH < contentH - 0.5
+            let bad = storageBehind || cellTooShort || tailCut
+            guard forceLog || bad else { return }
+            AppLogger.shared.warning(
+                "[TruncL]\(bad ? " ⚠BAD" : "") blk=\(blkSnap) storageLen=\(textView.textStorage.length) attrLen=\(attrLenSnap) mdCnt=\(mdCntSnap) tvContentH=\(String(format: "%.1f", contentH)) cellH=\(String(format: "%.1f", cellH)) path=\(pathSnap) streaming=\(streamSnap ? 1 : 0) glyphs=\(total) visEnd=\(visEnd) tailCut=\(tailCut ? 1 : 0) storageBehind=\(storageBehind ? 1 : 0) cellShort=\(cellTooShort ? 1 : 0)",
+                category: "RenderProbe")
         }
 
         let storage = textView.textStorage
