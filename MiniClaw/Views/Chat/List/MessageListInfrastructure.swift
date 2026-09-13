@@ -477,6 +477,13 @@ class SelfSizingCell: UICollectionViewCell {
         engineTextHeight = 0
         engineTextContentKey = nil
         engineTextValid = false
+        // [Single height source] 同理：cell 被**就地重配**到另一块内容时（流式追加 / reconfigureItems /
+        // 只重配受影响行），上一版内容提交的高度/指纹/宽度必须一并作废 —— 否则正文侧的三道校验里
+        // 只剩"内容指纹"一道是真正内容级的（宽度与高度都是旧值），防线退化。
+        // 生命周期与上面几个字段一致（此前只在 `prepareForReuse` 清零，属遗漏）。
+        committedTextHeight = 0
+        committedFingerprint = 0
+        committedTextWidth = 0
     }
 
     private static let sizingLogger = AppLogger(category: "ChatList.CellMetrics")
