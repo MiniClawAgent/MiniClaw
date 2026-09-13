@@ -6,14 +6,15 @@ import os
 public final class MessageListLayout: UICollectionViewLayout {
     public var estimatedItemHeight: CGFloat = 200
 
-    /// [2026-09-12] 「每个**内容键**上一次的真实高度」。
-    ///
-    /// 为什么要它：高度条目是**按 index** 存的，而 `remapHeights` / `updateCacheForSnapshot`
-    /// 按 item 身份重建时会丢掉未匹配 index 的条目（真机实录同一会话两种形态交替：
-    /// `[w:118,h:25,b:40,b:36…]` ↔ `[w:200,h:200,b:44,b:44…]`，totalH 2390 ↔ 2675，
-    /// 肉眼就是"行间空行 / 一停手内容缩小"）。逐个去堵丢点是无底洞，而**内容键是稳定的**：
-    /// 用按键记住的高度做兜底，条目就算丢了也不会回落到 200 那种 6 倍误差的常量。
-    private var lastHeightByKey: [String: CGFloat] = [:]
+    // [2026-09-13 重构·删除死机制] 此处原有 `private var lastHeightByKey: [String: CGFloat]`
+    //（注释自称「按内容键记住上次真实高度」，作为条目丢失的兜底）。
+    // 全库核查结论：**它是死机制** —— 声明、读取（原 `prepare()` 的
+    // `else if let k = key, let remembered = lastHeightByKey[k]`）、清空三处俱全，
+    // **却没有任何写入点** ⇒ 那条分支**恒不执行**，注释承诺的兜底从未生效。
+    // 该兜底能力另有承担者且**本来就按内容键**工作：`peekMeasuredHeight(forKey:width:)`
+    //（进程级 `_sharedMeasuredHeights`，由 PLAF 的 `recordMeasuredHeight` 写入）
+    // ⇒ 删除本字典不丢任何能力。删除后 `prepare()` 的取高链收敛为清晰三级：
+    //   **① 当前有效条目（内容版本匹配） → ② 进程级按键 memo → ③ 类型化常量**
 
     /// [2026-09-12] settle 期「视口上方高度变化」的累积量。
     ///
@@ -218,8 +219,7 @@ public final class MessageListLayout: UICollectionViewLayout {
                 // `[w:118,h:25,b:40,b:36…]` ↔ `[w:200,h:200,b:44,b:44…]`，totalH 2390 ↔ 2675）。
                 // 逐个去堵丢点是无底洞，而**内容键是稳定的** —— 用它记住的高度做兜底，
                 // 即使条目丢了也不会回落到 200 那种 6 倍误差的常量。
-            } else if let k = key, let remembered = lastHeightByKey[k] {
-                h = remembered
+            // 注：原「按键记忆 lastHeightByKey」一层已于 2026-09-13 删除（全库无写入点 ⇒ 分支恒不执行）。
             } else if let k = key, let memo = peekMeasuredHeight(forKey: k, width: width) {
                 // [2026-09-13 顶部抖动根因] 再退一层到**进程级实测 memo**（同源、按键）。
                 // 真机实录：拖动期 `flow=[w:200, h:28, …]` / 停手 `flow=[w:118, h:25, …]`，
@@ -244,7 +244,7 @@ public final class MessageListLayout: UICollectionViewLayout {
                 case "w:":
                     // [2026-09-13 顶部抖动根因] 用户气泡。格式 `w:<msgId>:<字数>:<附件数>`，
                     // **末段是附件数**：附件异步挂载时它 0→1 会让整个内容键变化，于是新键既无条目、
-                    // 也无 `lastHeightByKey` 记忆、memo 里也没有 ⇒ 先前直接落 default 的
+                    // 也无 memo 记忆 ⇒ 先前直接落 default 的
                     // `estimatedItemHeight`(200)，而真值是 118 ⇒ 顶部整块差 82pt（肉眼=顶部抖动）。
                     // 带附件的用户气泡高度由附件主导（实测 118~185），纯文本约 44~70。
                     // ⚠️ 解析内容键末段与 `contentKey(for:)` 的格式**成对耦合**，改格式须同步改此处。
@@ -764,7 +764,7 @@ public final class MessageListLayout: UICollectionViewLayout {
         heightEntries.removeAll()
         // [2026-09-12] 内容键记忆表随条目一起清：它的语义是"上次布局真实用到的高度"，
         // 字体变更/会话切换后该口径失效（memo 的 contentKey 不含字体指纹，同理）。
-        lastHeightByKey.removeAll()
+        // 注：原 `lastHeightByKey.removeAll()` 已随该死机制一并删除（2026-09-13）。
         if !keepingSharedMemo { Self.clearSharedMemo() }
         contentKeyByIndex.removeAll()
         footerHugByIndex.removeAll()

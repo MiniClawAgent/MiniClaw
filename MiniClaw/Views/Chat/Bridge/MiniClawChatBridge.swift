@@ -452,36 +452,11 @@ final class MiniClawChatBridge: ObservableObject {
         return fresh
     }
 
-    /// 块级结构签名(仅块数+类型,不含内容量):判断"能否就地复用"。
-    private func blockStructure(_ msg: RenderMessage) -> String {
-        var s = "\(msg.blocks.count)|"
-        for b in msg.blocks {
-            switch b.kind {
-            case .text: s += "x|"
-            case .thinking: s += "t|"
-            default: s += "u|"
-            }
-        }
-        return s
-    }
-
-    /// 工具/信息类块的粗粒度结构标签(不带关联值),用于就地复用的匹配判断。
-    private func kindTag(_ kind: AssistantBlockKind) -> String {
-        switch kind {
-        case .text: return "x"
-        case .thinking: return "t"
-        case .shellTool: return "u"
-        case .subagentTool: return "u"
-        case .fileReadTool: return "u"
-        case .fileWriteTool: return "u"
-        case .fileEditTool: return "u"
-        case .browserTool: return "u"
-        case .readImageTool: return "u"
-        case .memoryTool: return "u"
-        case .info: return "i"
-        case .file: return "f"
-        }
-    }
+    // [2026-09-13 重构·删除死码] 此处原有两个零调用辅助：
+    //   `blockStructure(_:)`（块数 + 类型签名）与 `kindTag(_:)`（类型 → 单字符标签）。
+    // 全库核查：**两者都只有定义、没有任何调用点**。就地复用的判据实际由下方
+    // `blockSignature` 唯一承担（它更完整：含 content.count + toolStatus + isAwaitingModelResponse）。
+    // 删除后「就地复用」只剩**一个出入口** —— 与本次重构的目标一致。
 
     /// 块级渲染签名(块类型+内容量+工具状态+流式标志):
     /// 签名相同 → 渲染等价 → 可安全复用旧对象(含 block.id/message.id)。
@@ -577,17 +552,10 @@ final class MiniClawChatBridge: ObservableObject {
         }
     }
 
-    /// 既有块的时间线序号:直接读块上记录的 timelineOrder(正文默认 Int.max-1)。
-    private func blockOrder(of block: AssistantBlock) -> Double {
-        block.timelineOrder
-    }
-
-    /// 工具状态推断(流式中:执行中 running;结果回填后 success/failed/cancelled)。
-    private func toolStatus(for event: ToolCallEvent) -> ToolBlockStatus? {
-        if event.wasInterrupted { return .cancelled }
-        if event.resultText.isEmpty { return .running }
-        return event.success ? .success : .failed(message: "")
-    }
+    // [2026-09-13 重构·删除死码] 此处原有两个零调用辅助：
+    //   `blockOrder(of:)`（读块上记录的 timelineOrder）与 `toolStatus(for:)`（按 ToolCallEvent 推断状态）。
+    // 全库核查：两者都**只有定义、没有任何调用点**（唯一同名的 `toolStatus(for:message:)` 在
+    // `MiniClawChatAdapter`，是该类型自己的另一个方法）。工具状态推断因此只剩适配器一处 —— 入口统一。
     var onResume: (() -> Void)?
     var onPause: (() -> Void)?
 }
