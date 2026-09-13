@@ -869,7 +869,7 @@ struct MarkdownView: UIViewRepresentable {
                 probeView = cur.superview
             }
             AppLogger.shared.info(
-                "[TruncL] blk=\(blockId?.uuidString.prefix(8) ?? "?") storageLen=\(textView.textStorage.length) attrLen=\(attributed.length) mdCnt=\(markdown.count) tvContentH=\(String(format: "%.1f", textView.contentSize.height)) cellH=\(String(format: "%.1f", cellH)) path=\(fastPathTaken ? "fast" : "full") streaming=\(isStreaming ? 1 : 0)",
+                "[TruncL] blk=\(blockId?.uuidString.prefix(8) ?? "?") storageLen=\(textView.textStorage.length) attrLen=\(attributed.length) mdCnt=\(markdown.count) tvContentH=\(String(format: "%.1f", textView.contentSize.height)) cellH=\(String(format: "%.1f", cellH)) path=\(fastPathTaken ? "fast" : "full") streaming=\(isStreaming ? 1 : 0) \(Self.glyphProbe(textView))",
                 category: "RenderProbe")
         }
 
@@ -1007,8 +1007,19 @@ struct MarkdownView: UIViewRepresentable {
     }
 
     ///
-    static func ctFramesetterHeight(for attrStr: NSAttributedString,width: CGFloat) -> CGFloat {
-        guard attrStr.length>0,width>0 else { return 0 }
+    /// [Diag 2026-09-13 截断定位 · 不影响功能] 量「尾部有没有被画进可见范围」：
+    /// 可见字形区间终点 vs 字形总数。这是"文字是否真的画出来"的**直接**判据 ——
+    /// 此前量的 storage / attrLen / cellH 三层在真机上都正常，那就只剩这一层没量。
+    /// `tailCut=1` = 尾部未绘制。
+    static func glyphProbe(_ tv: UITextView) -> String {
+        let lm = tv.layoutManager
+        let total = lm.numberOfGlyphs
+        guard total > 0,tv.bounds.height > 1 else { return "glyphs=\(total) visEnd=n/a tailCut=0" }
+        let visEnd = NSMaxRange(lm.glyphRange(forBoundingRect: tv.bounds,in: tv.textContainer))
+        return "glyphs=\(total) visEnd=\(visEnd) tailCut=\(visEnd < total ? 1 : 0)"
+    }
+
+    static func ctFramesetterHeight(for attrStr: NSAttributedString,width: CGFloat) -> CGFloat {        guard attrStr.length>0,width>0 else { return 0 }
         let framesetter = CTFramesetterCreateWithAttributedString(attrStr)
         let constraint = CGSize(width: width,height: .greatestFiniteMagnitude)
         let size = CTFramesetterSuggestFrameSizeWithConstraints(
