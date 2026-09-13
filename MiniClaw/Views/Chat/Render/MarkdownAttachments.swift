@@ -123,7 +123,7 @@ final class MathAttachment: NSTextAttachment {
     func beginRenderingIfNeeded() {
         MathAttachment.beginCount &+= 1
         if MathAttachment.beginCount <= 3 || MathAttachment.beginCount%50 == 0 {
-            AppLogger(category: "MathSched").info("[MathSched] beginRenderingIfNeeded #\(MathAttachment.beginCount) rendered=\(renderedImage != nil) attempted=\(didAttemptRender) isBlock=\(isBlock) latex=\(latex.prefix(30))")
+            AppLogger.shared.info("[MathSched] beginRenderingIfNeeded #\(MathAttachment.beginCount) rendered=\(renderedImage != nil) attempted=\(didAttemptRender) isBlock=\(isBlock) latex=\(latex.prefix(30))", category: "MathSched")
         }
         guard renderedImage == nil,!didAttemptRender else { return }
         didAttemptRender = true
@@ -744,7 +744,7 @@ final class ImageAttachment: NSTextAttachment {
         self.messageId = messageId
         super.init(data: nil,ofType: nil)
         self.image = Self.transparentImage
-        AppLogger(category: "ChatList.Attach").info("[IMG][CTOR] src=\(Self.shortSrc(source)) ptr=\(ObjectIdentifier(self).hashValue & 0xFFFFFF)")
+        AppLogger.shared.info("[IMG][CTOR] src=\(Self.shortSrc(source)) ptr=\(ObjectIdentifier(self).hashValue & 0xFFFFFF)", category: "ChatList.Attach")
     }
 
     static func shortSrc(_ s: String) -> String {
@@ -824,7 +824,7 @@ final class ImageAttachment: NSTextAttachment {
         // 计数在锁内自增：本方法会被主线程排版与后台预排版并发调用。
         let cnt = stateLock.withLock { attachmentBoundsCallCount &+= 1; return attachmentBoundsCallCount }
         if cnt <= 5 || cnt%50 == 0 {
-            AppLogger(category: "ChatList.Attach").info("[IMG][BOUNDS] #\(cnt) src=\(Self.shortSrc(self.source)) ptr=\(ObjectIdentifier(self).hashValue & 0xFFFFFF) rawW=\(String(format: "%.1f", rawWidth)) bucketW=\(String(format: "%.0f", width)) hasImg=\(self.loadedImage != nil) sampledAt=\(Int(self.downsampledAtPixelSize))")
+            AppLogger.shared.info("[IMG][BOUNDS] #\(cnt) src=\(Self.shortSrc(self.source)) ptr=\(ObjectIdentifier(self).hashValue & 0xFFFFFF) rawW=\(String(format: "%.1f", rawWidth)) bucketW=\(String(format: "%.0f", width)) hasImg=\(self.loadedImage != nil) sampledAt=\(Int(self.downsampledAtPixelSize))", category: "ChatList.Attach")
         }
 
         if let img = loadedImage {
@@ -860,7 +860,7 @@ final class ImageAttachment: NSTextAttachment {
                targetPixels >= 600,
                img.size.width>targetPixels*1.5,
                downsampledAtPixelSize != targetPixels {
-                AppLogger(category: "ChatList.Attach").info("[IMG][BOUNDS][DOWNSAMPLE-FIRE] src=\(Self.shortSrc(self.source)) ptr=\(ObjectIdentifier(self).hashValue & 0xFFFFFF) targetPx=\(Int(targetPixels)) prevPx=\(Int(self.downsampledAtPixelSize)) imgW=\(Int(img.size.width)) bucketW=\(String(format: "%.0f", width))")
+                AppLogger.shared.info("[IMG][BOUNDS][DOWNSAMPLE-FIRE] src=\(Self.shortSrc(self.source)) ptr=\(ObjectIdentifier(self).hashValue & 0xFFFFFF) targetPx=\(Int(targetPixels)) prevPx=\(Int(self.downsampledAtPixelSize)) imgW=\(Int(img.size.width)) bucketW=\(String(format: "%.0f", width))", category: "ChatList.Attach")
                 downsampledAtPixelSize = targetPixels
                 // 降采样请求记入非隔离标记位，由 beginLoadingIfNeeded（主 actor）消费；
                 // nonisolated 的 TextKit 回调内不创建捕获 self 的任务。
@@ -1061,7 +1061,7 @@ final class ImageAttachment: NSTextAttachment {
     func makeView(width: CGFloat) -> UIView {
         makeViewCallCount &+= 1
         // refreshAttachViews reuse path.
-        AppLogger(category: "ChatList.Attach").info("[IMG][MAKEVIEW] #\(self.makeViewCallCount) src=\(Self.shortSrc(self.source)) ptr=\(ObjectIdentifier(self).hashValue & 0xFFFFFF) hasImg=\(self.loadedImage != nil) width=\(String(format: "%.0f", width))")
+        AppLogger.shared.info("[IMG][MAKEVIEW] #\(self.makeViewCallCount) src=\(Self.shortSrc(self.source)) ptr=\(ObjectIdentifier(self).hashValue & 0xFFFFFF) hasImg=\(self.loadedImage != nil) width=\(String(format: "%.0f", width))", category: "ChatList.Attach")
         if let img = loadedImage {
             imgLogger.info("[MiniClawImage][MakeView] rendering LOADED image src=\(self.source) imgSize=\(img.size.width)x\(img.size.height) containerWidth=\(width)")
             return makeImageView(img,width: width)
@@ -1475,7 +1475,7 @@ final class TableAttachment: NSTextAttachment {
         sharedLayoutMisses = 0
         sharedLayoutLastFlush = now
         sharedLayoutLock.unlock()
-        AppLogger(category: "AttachBoundsHot").info("[SharedLayoutCache] last1s hits=\(hits) misses=\(misses) size=\(size)/\(sharedLayoutCacheCap)")
+        AppLogger.shared.info("[SharedLayoutCache] last1s hits=\(hits) misses=\(misses) size=\(size)/\(sharedLayoutCacheCap)", category: "AttachBoundsHot")
         #endif
     }
 

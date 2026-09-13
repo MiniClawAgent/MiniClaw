@@ -376,7 +376,7 @@ struct MarkdownView: UIViewRepresentable {
         #if DEBUG
         // makeUIView creates a FRESH textView +
         let rId = String(ObjectIdentifier(context.coordinator.renderer).hashValue&0xFFFFFF,radix: 16)
-        AppLogger(category: "MarkdownRenderer").info("[MK-VIEW] new textView rnd=\(rId)")
+        AppLogger.shared.info("[MK-VIEW] new textView rnd=\(rId)", category: "MarkdownRenderer")
         #endif
         return textView
     }
@@ -398,7 +398,7 @@ struct MarkdownView: UIViewRepresentable {
             let prevLen = context.coordinator.lastMarkdown.count
             let curLen = markdown.count
             let isAppend = curLen>prevLen && markdown.hasPrefix(context.coordinator.lastMarkdown)
-            AppLogger(category: "ChatList.Attach").info("[UPD] entry imgCache=\(imgCacheN) prevLen=\(prevLen) curLen=\(curLen) Δ\(curLen - prevLen) appendOnly=\(isAppend ? 1 : 0) fontChanged=\(fontChanged ? 1 : 0)")
+            AppLogger.shared.info("[UPD] entry imgCache=\(imgCacheN) prevLen=\(prevLen) curLen=\(curLen) Δ\(curLen - prevLen) appendOnly=\(isAppend ? 1 : 0) fontChanged=\(fontChanged ? 1 : 0)", category: "ChatList.Attach")
         }
 
         let _curW = textView.textContainer.size.width
@@ -451,8 +451,8 @@ struct MarkdownView: UIViewRepresentable {
                     let now = CACurrentMediaTime()
                     if now - context.coordinator.lastShortLogAt > 1.0 {
                         context.coordinator.lastShortLogAt = now
-                        AppLogger(category: "RenderProbe").warning(
-                            "[Probe] SHORT-DISPLAY blk=\(blockId?.uuidString.prefix(8) ?? "?") storageLen=\(textView.textStorage.length) mdCnt=\(markdown.count) — 去重放行强制重渲")
+                        AppLogger.shared.warning(
+                            "[Probe] SHORT-DISPLAY blk=\(blockId?.uuidString.prefix(8) ?? "?") storageLen=\(textView.textStorage.length) mdCnt=\(markdown.count) — 去重放行强制重渲", category: "RenderProbe")
                     }
                 }
             }
@@ -617,7 +617,7 @@ struct MarkdownView: UIViewRepresentable {
         if cachedContent != nil || cachedAttributedString != nil {
             let prev = context.coordinator.lastRenderedContentHash
             let usingBlocks = cachedContent != nil
-            AppLogger(category: "MarkdownRenderer").info("[RND-MISS] hash=\(contentHash) prev=\(prev.map(String.init) ?? "nil") src=\(usingBlocks ? "blocks" : "markdown") hasPlainSuffix=\(_hasPlainSuffix) fontChanged=\(fontChanged) mdLen=\(markdown.count)")
+            AppLogger.shared.info("[RND-MISS] hash=\(contentHash) prev=\(prev.map(String.init) ?? "nil") src=\(usingBlocks ? "blocks" : "markdown") hasPlainSuffix=\(_hasPlainSuffix) fontChanged=\(fontChanged) mdLen=\(markdown.count)", category: "MarkdownRenderer")
         }
         #endif
         context.coordinator.lastRenderedContentHash = contentHash
@@ -651,7 +651,7 @@ struct MarkdownView: UIViewRepresentable {
             // [Prebuilt] 指纹不匹配被上层弃用的现场（低频：内容边界才触发）。
             // 覆盖式回写随后把缓存追平。
             if cachedAttributedString != nil, let cnt = prebuiltContentCount, cnt != markdown.count {
-                AppLogger(category: "MarkdownSTF").warning("[Prebuilt] REJECT stale cache cachedCnt=\(cnt) mdCnt=\(markdown.count) block=\(blockId?.uuidString.prefix(8) ?? "?") — 全量重渲染追赶")
+                AppLogger.shared.warning("[Prebuilt] REJECT stale cache cachedCnt=\(cnt) mdCnt=\(markdown.count) block=\(blockId?.uuidString.prefix(8) ?? "?") — 全量重渲染追赶", category: "MarkdownSTF")
             }
             if isStreaming,
               let prev = context.coordinator.lastStreamPending,
@@ -693,8 +693,8 @@ struct MarkdownView: UIViewRepresentable {
             }
             let _tailHit = _probe.isEmpty || renderedBody.string.contains(_probe)
             if !_tailHit {
-                AppLogger(category: "MarkdownSTF").warning(
-                    "[Render] TAIL-MISS block=\(blockId?.uuidString.prefix(8) ?? "?") mdCnt=\(markdown.count) attrCnt=\(renderedBody.length) — 渲染输出缺少 markdown 结尾（截短实锤）mdTail=\"\(_mdTailLine)\" probe=\"\(_probe)\"")
+                AppLogger.shared.warning(
+                    "[Render] TAIL-MISS block=\(blockId?.uuidString.prefix(8) ?? "?") mdCnt=\(markdown.count) attrCnt=\(renderedBody.length) — 渲染输出缺少 markdown 结尾（截短实锤）mdTail=\"\(_mdTailLine)\" probe=\"\(_probe)\"", category: "MarkdownSTF")
             }
             if isStreaming {
                 context.coordinator.lastStreamPending = renderedBody

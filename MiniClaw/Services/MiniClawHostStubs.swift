@@ -301,8 +301,8 @@ struct StreamingHangLogger {
         }
         Self.lock.unlock()
         guard shouldLog else { return }
-        AppLogger(category: "Render").info(
-            "[Render] \(kind) mid=\(key) len=\(attrLen) mdCnt=\(markdown.count) path=\(path) streaming=\(isStreaming ? 1 : 0)")
+        AppLogger.shared.info(
+            "[Render] \(kind) mid=\(key) len=\(attrLen) mdCnt=\(markdown.count) path=\(path) streaming=\(isStreaming ? 1 : 0)", category: "Render")
     }
 }
 

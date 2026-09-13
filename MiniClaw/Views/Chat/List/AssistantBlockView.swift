@@ -302,7 +302,7 @@ struct ThinkingBlockView: View {
             .padding(.vertical,10)
             .contentShape(Rectangle())
             .onTapGesture {
-                AppLogger(category: "ChatList.Collapse").info("[Collapse] tap block=\(block.id.uuidString.prefix(8)) wasExpanded=\(expandedBinding.wrappedValue) streaming=\(isStreaming) contentLen=\(block.content.count)")
+                AppLogger.shared.info("[Collapse] tap block=\(block.id.uuidString.prefix(8)) wasExpanded=\(expandedBinding.wrappedValue) streaming=\(isStreaming) contentLen=\(block.content.count)", category: "ChatList.Collapse")
                 block.thinkingUserToggled = true
                 if !expandedBinding.wrappedValue {
                     block.flushThinkingBuffer()
@@ -374,7 +374,7 @@ struct ThinkingBlockView: View {
         }
         .onChange(of: isStreaming) { streaming in
             if !streaming,!block.thinkingUserToggled {
-                AppLogger(category: "ChatList.Collapse").info("[Collapse] auto-collapse block=\(block.id.uuidString.prefix(8)) streaming→false userToggled=false contentLen=\(block.content.count)")
+                AppLogger.shared.info("[Collapse] auto-collapse block=\(block.id.uuidString.prefix(8)) streaming→false userToggled=false contentLen=\(block.content.count)", category: "ChatList.Collapse")
                 // [2026-09-09 并发违规治理] onChange 回调仍在 SwiftUI view update
                 // 事务内，直接写 @ObservedObject 的 @Published 会触发
                 // "Publishing changes from within view updates is not allowed"。
@@ -386,11 +386,11 @@ struct ThinkingBlockView: View {
                     block.isThinkingExpanded = false
                 }
             } else if !streaming {
-                AppLogger(category: "ChatList.Collapse").info("[Collapse] stream-end-skip block=\(block.id.uuidString.prefix(8)) userToggled=\(block.thinkingUserToggled) currentlyExpanded=\(block.isThinkingExpanded)")
+                AppLogger.shared.info("[Collapse] stream-end-skip block=\(block.id.uuidString.prefix(8)) userToggled=\(block.thinkingUserToggled) currentlyExpanded=\(block.isThinkingExpanded)", category: "ChatList.Collapse")
             }
         }
         .onChange(of: block.isThinkingExpanded) { newValue in
-            AppLogger(category: "ChatList.Collapse").info("[Collapse] post block=\(block.id.uuidString.prefix(8)) expanded=\(newValue) userToggled=\(block.thinkingUserToggled) streaming=\(isStreaming)")
+            AppLogger.shared.info("[Collapse] post block=\(block.id.uuidString.prefix(8)) expanded=\(newValue) userToggled=\(block.thinkingUserToggled) streaming=\(isStreaming)", category: "ChatList.Collapse")
             NotificationCenter.default.post(name: .thinkingBlockToggled,
                                             object: block.id)
         }
@@ -717,7 +717,7 @@ struct AssistantBlockView: View {
                     // [2026-09-09 诊断] 覆盖式回写发生 = 缓存曾落后于内容（工具挂载
                     // 时被当终态回写过缺尾包中间态）。低频，打 info 定位锁死源头。
                     if block.cachedAttributedString != nil {
-                        AppLogger(category: "MarkdownSTF").info("[Prebuilt] OVERWRITE block=\(block.id.uuidString.prefix(8)) cachedCnt=\(block.cachedAttrContentCount.map(String.init) ?? "nil")→\(renderedCount) — 缓存追赶内容")
+                        AppLogger.shared.info("[Prebuilt] OVERWRITE block=\(block.id.uuidString.prefix(8)) cachedCnt=\(block.cachedAttrContentCount.map(String.init) ?? "nil")→\(renderedCount) — 缓存追赶内容", category: "MarkdownSTF")
                     }
                     block.cachedAttributedString = att
                     block.cachedAttrContentCount = renderedCount

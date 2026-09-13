@@ -18,7 +18,7 @@ extension MessageCollectionView.Coordinator {
                 .sink { [weak self] _ in
                     guard let self else { return }
                     guard self.vm?.isProcessing == true else {
-                        AppLogger(category: "ChatList.Stream").info("[StreamSub] END — isProcessing=false, cancelling subs, final flush. pendingLayout=\(self.pendingStreamingLayout != nil) tracking=\(self.viewController?.collectionView?.isTracking ?? false) decel=\(self.viewController?.collectionView?.isDecelerating ?? false)")
+                        AppLogger.shared.info("[StreamSub] END — isProcessing=false, cancelling subs, final flush. pendingLayout=\(self.pendingStreamingLayout != nil) tracking=\(self.viewController?.collectionView?.isTracking ?? false) decel=\(self.viewController?.collectionView?.isDecelerating ?? false)", category: "ChatList.Stream")
                         self.lastMessageSub?.cancel()
                         self.lastMessageSub = nil
                         self.lastMessageBlockCountSub?.cancel()
@@ -28,13 +28,13 @@ extension MessageCollectionView.Coordinator {
                         // `pendingSnapshotFlag = true` without rebuilding the
                         // snapshot is actually pending. Gated on NOT-suspendedFlag:
                         // if we're still suspendedFlag we leave `pendingSnapshotFlag`
-                        AppLogger(category: "ChatList.SnapQueue").info("[SnapQueue] STREAM-END terminal rescue check — pendingSnapshotFlag=\(self.pendingSnapshotFlag) suspendedFlag=\(self.vm?.streamingUIUpdatesSuspended == true)")
+                        AppLogger.shared.info("[SnapQueue] STREAM-END terminal rescue check — pendingSnapshotFlag=\(self.pendingSnapshotFlag) suspendedFlag=\(self.vm?.streamingUIUpdatesSuspended == true)", category: "ChatList.SnapQueue")
                         if self.pendingSnapshotFlag,self.vm?.streamingUIUpdatesSuspended != true {
                             self.flushPendingSnapshotIfNeeded(caller: "stream-end")
                         } else if self.pendingSnapshotFlag {
                             // Still suspendedFlag at stream-end: cannot safely apply here.
                             // This is the key symptom line:
-                            AppLogger(category: "ChatList.SnapQueue").warning("[SnapQueue] ⚠️ STREAM-END left pending (still suspendedFlag) — content in DB, UI frozen until suspend-resume (or next openSession clears it)")
+                            AppLogger.shared.warning("[SnapQueue] ⚠️ STREAM-END left pending (still suspendedFlag) — content in DB, UI frozen until suspend-resume (or next openSession clears it)", category: "ChatList.SnapQueue")
                         }
                         return
                     }
@@ -50,7 +50,7 @@ extension MessageCollectionView.Coordinator {
                     guard let self,let msgs = self.vm?.messages else { return }
                     if self.vm?.streamingUIUpdatesSuspended == true {
                         // [SnapQueue] Deferring snapshot rebuild while suspendedFlag;
-                        AppLogger(category: "ChatList.SnapQueue").info("[SnapQueue] DEFER blockCount=\(count) — suspendedFlag, set pendingSnapshotFlag=true (was \(self.pendingSnapshotFlag))")
+                        AppLogger.shared.info("[SnapQueue] DEFER blockCount=\(count) — suspendedFlag, set pendingSnapshotFlag=true (was \(self.pendingSnapshotFlag))", category: "ChatList.SnapQueue")
                         self.pendingSnapshotFlag = true
                         return
                     }
@@ -65,7 +65,7 @@ extension MessageCollectionView.Coordinator {
             pendingSnapshotFlag = false
             let blocks = vm?.messages.last(where: { $0.role == .assistant })?.blocks.count ?? -1
             // Include blockCount + isProcessing so a
-            AppLogger(category: "ChatList.SnapQueue").info("[SnapQueue] FLUSH caller=\(caller) blockCount=\(blocks) isProcessing=\(vm?.isProcessing == true) — applying deferred snapshot")
+            AppLogger.shared.info("[SnapQueue] FLUSH caller=\(caller) blockCount=\(blocks) isProcessing=\(vm?.isProcessing == true) — applying deferred snapshot", category: "ChatList.SnapQueue")
             if let msgs = vm?.messages { applySnapshot(messages: msgs, caller: "flushPending(\(caller))") }
         }
 

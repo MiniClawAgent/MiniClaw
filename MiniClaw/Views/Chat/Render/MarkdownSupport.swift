@@ -999,18 +999,18 @@ final class MarkdownNSRenderer: @unchecked Sendable {
     private func renderImageAttach(source: String) -> NSAttributedString {
         let attachment: ImageAttachment
         if let cached = imageAttachmentCache[source] {
-            AppLogger(category: "ChatList.Attach").info("[IMG][RENDER] REUSE src=\(ImageAttachment.shortSrc(source)) ptr=\(ObjectIdentifier(cached).hashValue & 0xFFFFFF) loaded=\(cached.loadedImage != nil)")
+            AppLogger.shared.info("[IMG][RENDER] REUSE src=\(ImageAttachment.shortSrc(source)) ptr=\(ObjectIdentifier(cached).hashValue & 0xFFFFFF) loaded=\(cached.loadedImage != nil)", category: "ChatList.Attach")
             imgLogger.info("[MiniClawImage][RenderAttach] REUSE cached attachment src=\(source) loaded=\(cached.loadedImage != nil) imgSize=\(cached.loadedImage.map { "\($0.size.width)x\($0.size.height)" } ?? "nil")")
             cached.messageId = messageId
             let currentFp = miniClawMediaCacheKey(for: source)
             if let loadedFp = cached.loadedFingerprint,loadedFp != currentFp {
-                AppLogger(category: "ChatList.Attach").info("[IMG][RENDER] FINGERPRINT-DROP src=\(ImageAttachment.shortSrc(source)) old=\(loadedFp) new=\(currentFp) — bitmap invalidated, will reload")
+                AppLogger.shared.info("[IMG][RENDER] FINGERPRINT-DROP src=\(ImageAttachment.shortSrc(source)) old=\(loadedFp) new=\(currentFp) — bitmap invalidated, will reload", category: "ChatList.Attach")
                 imgLogger.info("[MiniClawImage][RenderAttach] FINGERPRINT CHANGED src=\(source) old=\(loadedFp) new=\(currentFp) — invalidating cached image")
                 cached.invalidateLoadedImage()
             }
             attachment = cached
         } else {
-            AppLogger(category: "ChatList.Attach").info("[IMG][RENDER] CREATE src=\(ImageAttachment.shortSrc(source)) cacheCount=\(self.imageAttachmentCache.count) — fresh ImageAttachment, ObjectIdentifier changed, view WILL be rebuilt")
+            AppLogger.shared.info("[IMG][RENDER] CREATE src=\(ImageAttachment.shortSrc(source)) cacheCount=\(self.imageAttachmentCache.count) — fresh ImageAttachment, ObjectIdentifier changed, view WILL be rebuilt", category: "ChatList.Attach")
             imgLogger.info("[MiniClawImage][RenderAttach] CREATE new ImageAttachment src=\(source) cacheCount=\(self.imageAttachmentCache.count)")
             attachment = ImageAttachment(source: source,theme: theme,messageId: messageId)
             imageAttachmentCache[source] = attachment

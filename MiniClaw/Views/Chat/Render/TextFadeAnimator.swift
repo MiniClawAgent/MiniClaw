@@ -144,8 +144,8 @@ final class TextFadeAnimator {
         storage.endEditing()
         if healed > 0 {
             requestRedraw()
-            AppLogger(category: "FadeLeak").warning(
-                "[FadeLeak] HEALED-BATCH \(healed)字符压暗未还原已写回原色——透明残留自愈")
+            AppLogger.shared.warning(
+                "[FadeLeak] HEALED-BATCH \(healed)字符压暗未还原已写回原色——透明残留自愈", category: "FadeLeak")
         }
     }
 
@@ -184,8 +184,8 @@ final class TextFadeAnimator {
         }
         storage.endEditing()
         requestRedraw()
-        AppLogger(category: "FadeLeak").warning(
-            "[FadeLeak] SWEEP-TRANSPARENT \(healedChars)字符 alpha<0.01 已拉满 — 逃逸 seed 兜底")
+        AppLogger.shared.warning(
+            "[FadeLeak] SWEEP-TRANSPARENT \(healedChars)字符 alpha<0.01 已拉满 — 逃逸 seed 兜底", category: "FadeLeak")
     }
 
     private static func alpha(of color: UIColor,traits: UITraitCollection) -> CGFloat {
@@ -215,8 +215,8 @@ final class TextFadeAnimator {
         // [FadeLeak] 取消 ≠ 已还原：越界 word 按 range 恢复不了，用批次记录做精确兜底。
         healBatchResidue()
         if skipped>0 {
-            AppLogger(category: "FadeLeak").warning(
-                "[FadeLeak] CANCEL-SKIP \(skipped)个 word 越界（storageLen 已变）— 交给批次自愈兜底")
+            AppLogger.shared.warning(
+                "[FadeLeak] CANCEL-SKIP \(skipped)个 word 越界（storageLen 已变）— 交给批次自愈兜底", category: "FadeLeak")
         }
     }
 
@@ -276,8 +276,8 @@ final class TextFadeAnimator {
             // [2026-09-11 降噪] 这是**正常容错路径**（越界 word 的字符已被新内容替换、
             // 位置上是新内容自己的颜色，无需恢复）→ info：不镜像控制台，避免流式回退时
             // 每帧刷屏；落盘保留聚合计数供复盘（单帧已聚合，不逐条）。
-            AppLogger(category: "FadeLeak").info(
-                "[FadeLeak] STALE-DROP \(staleDropped)个 word 越界（storageLen=\(storageLen) 首个=\(staleSample)）— 内容已被替换，无需恢复")
+            AppLogger.shared.info(
+                "[FadeLeak] STALE-DROP \(staleDropped)个 word 越界（storageLen=\(storageLen) 首个=\(staleSample)）— 内容已被替换，无需恢复", category: "FadeLeak")
         }
 
         if !completed.isEmpty {

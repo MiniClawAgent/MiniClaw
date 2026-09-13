@@ -94,14 +94,14 @@ extension MessageCollectionView.Coordinator {
                 if case .wholeMessage(let id) = $0,id == target { return true }
                 return false
             }),let ip = ds.indexPath(for: targetItem) else {
-                AppLogger(category: "ChatList.Scroll").info("[Scroll][prevUserTurn] ABORT target item not found target=\(target.uuidString.prefix(8))")
+                AppLogger.shared.info("[Scroll][prevUserTurn] ABORT target item not found target=\(target.uuidString.prefix(8))", category: "ChatList.Scroll")
                 return
             }
 
             lastJumpedUserId = target
             let curTurn = userIds.firstIndex(of: currentAnchor) ?? -1
             let tgtTurn = userIds.firstIndex(of: target) ?? -1
-            AppLogger(category: "ChatList.Scroll").info("[Scroll][prevUserTurn][CALL] curTurn=\(curTurn) targetTurn=\(tgtTurn)/\(userIds.count) topMsgIdx=\(topMsgIdx) currentAnchor=\(currentAnchor.uuidString.prefix(8)) target=\(target.uuidString.prefix(8)) ip=\(ip.section).\(ip.item) \(Self.nbDump(cv))")
+            AppLogger.shared.info("[Scroll][prevUserTurn][CALL] curTurn=\(curTurn) targetTurn=\(tgtTurn)/\(userIds.count) topMsgIdx=\(topMsgIdx) currentAnchor=\(currentAnchor.uuidString.prefix(8)) target=\(target.uuidString.prefix(8)) ip=\(ip.section).\(ip.item) \(Self.nbDump(cv))", category: "ChatList.Scroll")
             #if DEBUG
             let nbNow = isNearBottom()
             ScrollMetricsRecorder.shared.record(kind: "prevUserTurn", idx: tgtTurn,
@@ -222,7 +222,7 @@ extension MessageCollectionView.Coordinator {
                 } else {
                     reason = "GROW (overflowH=\(String(format: "%.0f", overflowH)))"
                 }
-                AppLogger(category: "ChatList.SubViewport").info("[CHANGE] from=\(caller) bottomInset \(String(format: "%.1f", prevBottomInset))→\(String(format: "%.1f", desiredBottomInset)) Δ\(String(format: "%+.1f", desiredBottomInset - prevBottomInset)) — \(reason)")
+                AppLogger.shared.info("[CHANGE] from=\(caller) bottomInset \(String(format: "%.1f", prevBottomInset))→\(String(format: "%.1f", desiredBottomInset)) Δ\(String(format: "%+.1f", desiredBottomInset - prevBottomInset)) — \(reason)", category: "ChatList.SubViewport")
                 cv.contentInset.bottom = desiredBottomInset
             }
             if scrollMode == .autoScrolling {
@@ -284,7 +284,7 @@ extension MessageCollectionView.Coordinator {
             guard let vm else { return }
             let nbFlag = isNearBottom()
             if vm.isNearBottom != nbFlag {
-                AppLogger(category: "ChatList.Scroll").info("[Scroll][syncScrollFlags] isNearBottom \(vm.isNearBottom)→\(nbFlag) \(Self.nbDump(viewController?.collectionView))")
+                AppLogger.shared.info("[Scroll][syncScrollFlags] isNearBottom \(vm.isNearBottom)→\(nbFlag) \(Self.nbDump(viewController?.collectionView))", category: "ChatList.Scroll")
                 vm.isNearBottom = nbFlag
             }
             let atTop = isAtContentTop()
@@ -784,7 +784,7 @@ extension MessageCollectionView.Coordinator {
             // [Decel] Fires the instant the finger lifts and UIKit has
             decelTargetOffset = targetContentOffset.pointee.y
             #if DEBUG
-            AppLogger(category: "ChatList.Decel").info("[Decel][willEndDragging] vy=\(String(format: "%.0f", velocity.y))pt/s offset=\(String(format: "%.0f", scrollView.contentOffset.y)) → target=\(String(format: "%.0f", decelTargetOffset)) projDist=\(String(format: "%.0f", decelTargetOffset - scrollView.contentOffset.y)) cs=\(String(format: "%.0f", scrollView.contentSize.height))")
+            AppLogger.shared.info("[Decel][willEndDragging] vy=\(String(format: "%.0f", velocity.y))pt/s offset=\(String(format: "%.0f", scrollView.contentOffset.y)) → target=\(String(format: "%.0f", decelTargetOffset)) projDist=\(String(format: "%.0f", decelTargetOffset - scrollView.contentOffset.y)) cs=\(String(format: "%.0f", scrollView.contentSize.height))", category: "ChatList.Decel")
             #endif
         }
 
@@ -805,7 +805,7 @@ extension MessageCollectionView.Coordinator {
             decelSlowFrameCount = 0
             #if DEBUG
             let visibleN = viewController?.collectionView?.visibleCells.count ?? -1
-            AppLogger(category: "ChatList.Decel").info("[Decel][BEGIN] offset=\(String(format: "%.0f", decelStartOffset)) target=\(String(format: "%.0f", decelTargetOffset)) decelDist=\(String(format: "%.0f", decelTargetOffset - decelStartOffset)) visibleCells=\(visibleN) deferSelfSizing=\((viewController?.messageListLayout?.deferSelfSizing ?? false) ? 1 : 0)")
+            AppLogger.shared.info("[Decel][BEGIN] offset=\(String(format: "%.0f", decelStartOffset)) target=\(String(format: "%.0f", decelTargetOffset)) decelDist=\(String(format: "%.0f", decelTargetOffset - decelStartOffset)) visibleCells=\(visibleN) deferSelfSizing=\((viewController?.messageListLayout?.deferSelfSizing ?? false) ? 1 : 0)", category: "ChatList.Decel")
             startDecelDisplayLink()
             #endif
         }
@@ -815,7 +815,7 @@ extension MessageCollectionView.Coordinator {
             if decelStartTime>0 {
                 #if DEBUG
                 let dur = (CACurrentMediaTime()-decelStartTime)*1000
-                AppLogger(category: "ChatList.Decel").info("[Decel][END] dur=\(String(format: "%.0f", dur))ms frames=\(self.decelFrameCount) slowFrames=\(self.decelSlowFrameCount) offset \(String(format: "%.0f→%.0f", self.decelStartOffset, scrollView.contentOffset.y)) (target was \(String(format: "%.0f", self.decelTargetOffset)))")
+                AppLogger.shared.info("[Decel][END] dur=\(String(format: "%.0f", dur))ms frames=\(self.decelFrameCount) slowFrames=\(self.decelSlowFrameCount) offset \(String(format: "%.0f→%.0f", self.decelStartOffset, scrollView.contentOffset.y)) (target was \(String(format: "%.0f", self.decelTargetOffset)))", category: "ChatList.Decel")
                 logDecelDisplayLinkSummary()
                 stopDecelDisplayLink()
                 #endif
@@ -841,7 +841,7 @@ extension MessageCollectionView.Coordinator {
             let offY = scrollView.contentOffset.y
             let dir = offY >= decelStartOffset ? "↓" : "↑"
             let visibleN = viewController?.collectionView?.visibleCells.count ?? -1
-            AppLogger(category: "ChatList.Decel").warning("[Decel][SLOW-FRAME] +\(String(format: "%.0f", sinceStart))ms into decel gapH=\(String(format: "%.0f", gapH * 1000))ms offset=\(String(format: "%.0f", offY))\(dir) remainToTarget=\(String(format: "%.0f", self.decelTargetOffset - offY)) visibleCells=\(visibleN) frame#\(self.decelFrameCount)")
+            AppLogger.shared.warning("[Decel][SLOW-FRAME] +\(String(format: "%.0f", sinceStart))ms into decel gapH=\(String(format: "%.0f", gapH * 1000))ms offset=\(String(format: "%.0f", offY))\(dir) remainToTarget=\(String(format: "%.0f", self.decelTargetOffset - offY)) visibleCells=\(visibleN) frame#\(self.decelFrameCount)", category: "ChatList.Decel")
             #endif
         }
 
@@ -869,7 +869,7 @@ extension MessageCollectionView.Coordinator {
                 let offY = cv?.contentOffset.y ?? 0
                 let sinceStart = (CACurrentMediaTime()-decelStartTime)*1000
                 let dropped = Int((gapMs/decelDLExpectedMs).rounded())-1
-                AppLogger(category: "ChatList.Decel").warning("[DecelDisplayLink][DROP] +\(String(format: "%.0f", sinceStart))ms into decel gapH=\(String(format: "%.1f", gapMs))ms (expected \(String(format: "%.1f", self.decelDLExpectedMs))ms, ~\(dropped) frame(s) dropped) offset=\(String(format: "%.0f", offY)) remainToTarget=\(String(format: "%.0f", self.decelTargetOffset - offY)) frame#\(self.decelDLFrames)")
+                AppLogger.shared.warning("[DecelDisplayLink][DROP] +\(String(format: "%.0f", sinceStart))ms into decel gapH=\(String(format: "%.1f", gapMs))ms (expected \(String(format: "%.1f", self.decelDLExpectedMs))ms, ~\(dropped) frame(s) dropped) offset=\(String(format: "%.0f", offY)) remainToTarget=\(String(format: "%.0f", self.decelTargetOffset - offY)) frame#\(self.decelDLFrames)", category: "ChatList.Decel")
             }
         }
 
@@ -895,7 +895,7 @@ extension MessageCollectionView.Coordinator {
             let dur = (CACurrentMediaTime()-decelStartTime)*1000
             let actualFps = decelDLFrames>0 ? Double(decelDLFrames)/(dur/1000) : 0
             let minGap = decelDLMinGapMs.isFinite ? decelDLMinGapMs : 0
-            AppLogger(category: "ChatList.Decel").info("[DecelDisplayLink][SUMMARY] dur=\(String(format: "%.0f", dur))ms frames=\(self.decelDLFrames) drops=\(self.decelDLDrops) actualFps=\(String(format: "%.1f", actualFps)) gapRange=[\(String(format: "%.1f", minGap))..\(String(format: "%.1f", self.decelDLMaxGapMs))]ms expected=\(String(format: "%.1f", self.decelDLExpectedMs))ms")
+            AppLogger.shared.info("[DecelDisplayLink][SUMMARY] dur=\(String(format: "%.0f", dur))ms frames=\(self.decelDLFrames) drops=\(self.decelDLDrops) actualFps=\(String(format: "%.1f", actualFps)) gapRange=[\(String(format: "%.1f", minGap))..\(String(format: "%.1f", self.decelDLMaxGapMs))]ms expected=\(String(format: "%.1f", self.decelDLExpectedMs))ms", category: "ChatList.Decel")
         }
         #endif
 

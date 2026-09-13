@@ -134,7 +134,7 @@ public final class MessageListLayout: UICollectionViewLayout {
         // `contentSize.height - bounds.height` 得到 inf-inf = NaN，CoreGraphics
         // 便打出成片的 "invalid numeric value (NaN) passed to CoreGraphics"。
         guard height.isFinite, height >= 0 else { return false }
-        heightEntries[index] = HeightEntry(height: height, source: source)
+        heightEntries[index] = HeightEntry(height: height, source: source, key: contentKeyByIndex[index])
         return true
     }
 
@@ -181,7 +181,7 @@ public final class MessageListLayout: UICollectionViewLayout {
         let itemCount = sectionCount>0 ? cv.numberOfItems(inSection: 0) : 0
         let width = cv.bounds.width
         guard width>0 else {
-            AppLogger(category: "ChatList.Scroll").info("[Scroll][prepare] SKIP width=0 bounds=\(cv.bounds) itemCount=\(itemCount)")
+            AppLogger.shared.info("[Scroll][prepare] SKIP width=0 bounds=\(cv.bounds) itemCount=\(itemCount)", category: "ChatList.Scroll")
             return
         }
 
@@ -210,7 +210,7 @@ public final class MessageListLayout: UICollectionViewLayout {
             // 其中最离谱的是 header：它的真实高度是**常量 28**（播种分支写死 28），却被兜底成 200。
             // 这里按内容键前缀给同量级兜底 —— 需注意这只能"减轻伤害"，条目为何丢失是**独立根因**，另行定位。
             let key = contentKeyByIndex[i]
-            if let e = heightEntries[i]?.height {
+            if let e = currentEntry(at: i)?.height {
                 h = e
                 // [2026-09-12 兜底对「条目丢失」免疫] 顺手记住「该内容键上次的真实高度」。
                 // 为什么必须这样兜底：条目是**按 index** 存的，而 `remapHeights`/`updateCacheForSnapshot`
@@ -278,7 +278,7 @@ public final class MessageListLayout: UICollectionViewLayout {
             note: String(format: "%.1fms", elapsed))
         #endif
         if elapsed >= 5 {
-            AppLogger(category: "ChatList.Stall").debug("[prepare] #\(Self.prepareCallCount) \(String(format: "%.1f", elapsed))ms items=\(itemCount) totalH=\(String(format: "%.0f", totalHeight)) cacheHits=\(self.heightEntries.count)")
+            AppLogger.shared.debug("[prepare] #\(Self.prepareCallCount) \(String(format: "%.1f", elapsed))ms items=\(itemCount) totalH=\(String(format: "%.0f", totalHeight)) cacheHits=\(self.heightEntries.count)", category: "ChatList.Stall")
         }
     }
     private static var prepareCallCount: Int = 0
@@ -387,7 +387,7 @@ public final class MessageListLayout: UICollectionViewLayout {
             // 被放行**（`[ScrollMetrics] liveShrink … phase=decel` 19 条、各 −160.3/−164.0pt）。
             // 判据改为「**任何已有条目**都算已缓存」：延后机制的目的就是「手势期间不改几何」，
             // 与条目来源无关；解冻后由 `applyDeferredHeights` 原子应用并做 offset 锚定。
-            let hasCached = heightEntries[index] != nil
+            let hasCached = currentEntry(at: index) != nil
             if hasCached {
                 if prefH <= origH+0.5 {
                     if abs(prefH-origH)>0.5 {
@@ -417,7 +417,7 @@ public final class MessageListLayout: UICollectionViewLayout {
         let delta = abs(prefH-origH)
 
         let mustInvalidate: Bool
-        if heightEntries[index]?.source == .measured {
+        if currentEntry(at: index)?.source == .measured {
             mustInvalidate = delta>2
         } else {
             mustInvalidate = delta>0.5
@@ -425,7 +425,7 @@ public final class MessageListLayout: UICollectionViewLayout {
         if mustInvalidate && delta>100 {
             // [2026-09-09] key 从 2 字符前缀扩为完整 contentKey（含 messageId/blockId/
             // contentCount）——高度裁切类「丢字」复盘时直接指认块，不再需要反查。
-            AppLogger(category: "ChatList.CellMetrics").info("[CellSizing] INVALIDATE idx=\(index) delta=\(String(format: "%.0f", delta)) est=\(String(format: "%.0f", origH)) → pref=\(String(format: "%.0f", prefH)) cached=\(heightEntries[index]?.source == .measured) key=\(contentKeyByIndex[index] ?? "??")")
+            AppLogger.shared.info("[CellSizing] INVALIDATE idx=\(index) delta=\(String(format: "%.0f", delta)) est=\(String(format: "%.0f", origH)) → pref=\(String(format: "%.0f", prefH)) cached=\(heightEntries[index]?.source == .measured) key=\(contentKeyByIndex[index] ?? "??")", category: "ChatList.CellMetrics")
         }
         return mustInvalidate
     }
@@ -454,8 +454,9 @@ public final class MessageListLayout: UICollectionViewLayout {
         // 不再直接对字典赋值 —— 此处曾是绕过闸门的「第四写入口」，9-09 的 -40 负高度
         // （SwiftUI hosting 损坏测量）就是从这里回流进布局的。
         if !setEntry(newH, source: .measured, at: index) {
-            AppLogger(category: "ChatList.CellMetrics").warning(
-                "[CellSizing] REJECT nonfinite/negative preferred height=\(String(format: "%.0f", newH)) idx=\(index)（保留原条目，负高度防御）")
+            AppLogger.shared.warning(
+                "[CellSizing] REJECT nonfinite/negative preferred height=\(String(format: "%.0f", newH)) idx=\(index)（保留原条目，负高度防御）",
+                category: "ChatList.CellMetrics")
         }
 
         if let cv = collectionView {
@@ -651,11 +652,15 @@ public final class MessageListLayout: UICollectionViewLayout {
     /// 已删除，其唯一调用点统一到本方法。**按来源分档**请用 `hasMeasuredHeight` /
     /// `hasPrecalcHeight`。
     public func cachedHeight(at index: Int) -> CGFloat? {
-        heightEntries[index]?.height
+        // 走 currentEntry：**内容已变的陈旧条目视为无条目** ⇒ `applySnapshot` 的
+        // 「缺失条目全扫」（判据就是 `cachedHeight(at:) == nil`）会重新播种它，
+        // 而不是被一条过期值骗过（此前 `.measured` 陈旧条目既不被全量播种刷新、
+        // 也不被全扫覆盖 ⇒ 永久滞留，拖动期被冻结成空白）。
+        currentEntry(at: index)?.height
     }
 
     public func hasPrecalcHeight(at index: Int) -> Bool {
-        heightEntries[index]?.source == .precalc
+        currentEntry(at: index)?.source == .precalc
     }
 
     /// 该索引是否已有「实测」高度（source == .measured）。
@@ -665,7 +670,10 @@ public final class MessageListLayout: UICollectionViewLayout {
     /// chunk 的逐次重播种（估高随内容增长刷新）会被首帧估算永久冻结，
     /// 流式 cell 停在首帧高度，正文与下方工具卡/思考块重叠（2026-09-05 回归）。
     public func hasMeasuredHeight(at index: Int) -> Bool {
-        heightEntries[index]?.source == .measured
+        // 关键后果：内容已变的陈旧 `.measured` 条目不再算"已实测" ⇒ `seedHeight` 的
+        // `guard !hasMeasuredHeight(at:) else { return }`（`+Snapshot.swift:579`）不再
+        // 拦住内容已变的块，它会带**当前内容键**重新播种（这正是 I11 缺的那条失效路径）。
+        currentEntry(at: index)?.source == .measured
     }
 
     // MARK: - Content-keyed real-height memo

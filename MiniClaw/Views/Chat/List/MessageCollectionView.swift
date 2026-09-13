@@ -242,7 +242,7 @@ extension MessageCollectionView {
                 [weak self] cv,chg in
                 guard let self else { return }
                 if let new = chg.newValue {
-                    AppLogger(category: "ChatList.Keyboard").info("[Keyboard] adjustedInset.bottom=\(String(format: "%.1f", new.bottom)) safeArea.bottom=\(String(format: "%.1f", cv.safeAreaInsets.bottom)) bounds.h=\(String(format: "%.1f", cv.bounds.height)) contentInset.bottom=\(String(format: "%.1f", cv.contentInset.bottom)) offset.y=\(String(format: "%.1f", cv.contentOffset.y)) mode=\(self.scrollMode)")
+                    AppLogger.shared.info("[Keyboard] adjustedInset.bottom=\(String(format: "%.1f", new.bottom)) safeArea.bottom=\(String(format: "%.1f", cv.safeAreaInsets.bottom)) bounds.h=\(String(format: "%.1f", cv.bounds.height)) contentInset.bottom=\(String(format: "%.1f", cv.contentInset.bottom)) offset.y=\(String(format: "%.1f", cv.contentOffset.y)) mode=\(self.scrollMode)", category: "ChatList.Keyboard")
                 }
             }
 
@@ -271,7 +271,7 @@ extension MessageCollectionView {
                         let maxOff = newH-cv.bounds.height+cv.adjustedContentInset.bottom
                         if maxOff>0 {
                             if cv.isTracking || cv.isDecelerating {
-                                AppLogger(category: "ChatList.Stream").info("[KVO] ⚠️ PIN-WHILE-SCROLLING contentSize grew +\(String(format: "%.0f", delta)) offset \(String(format: "%.0f", cv.contentOffset.y))→\(String(format: "%.0f", maxOff)) tracking=\(cv.isTracking) decel=\(cv.isDecelerating) — MODE SHOULD BE userBrowsing")
+                                AppLogger.shared.info("[KVO] ⚠️ PIN-WHILE-SCROLLING contentSize grew +\(String(format: "%.0f", delta)) offset \(String(format: "%.0f", cv.contentOffset.y))→\(String(format: "%.0f", maxOff)) tracking=\(cv.isTracking) decel=\(cv.isDecelerating) — MODE SHOULD BE userBrowsing", category: "ChatList.Stream")
                             }
                             // 手指按住（tracking）时绝不写 offset：与拖动手势抢滚动位置
                             // 造成流式 cell 整块抖动。decel 保持跟随（用户已松手，贴底是预期）。
@@ -281,7 +281,7 @@ extension MessageCollectionView {
                         }
                     }
                 } else if delta>0 && self.scrollMode == .userBrowsing {
-                    AppLogger(category: "ChatList.Stream").info("[KVO] contentSize grew +\(String(format: "%.0f", delta)) IN BROWSE MODE — no pin. offset=\(String(format: "%.0f", cv.contentOffset.y)) tracking=\(cv.isTracking) decel=\(cv.isDecelerating)")
+                    AppLogger.shared.info("[KVO] contentSize grew +\(String(format: "%.0f", delta)) IN BROWSE MODE — no pin. offset=\(String(format: "%.0f", cv.contentOffset.y)) tracking=\(cv.isTracking) decel=\(cv.isDecelerating)", category: "ChatList.Stream")
                 } else if delta<0 && self.scrollMode == .autoScrolling {
                     let maxOff = max(0,newH-cv.bounds.height+cv.adjustedContentInset.bottom)
                     if cv.contentOffset.y>maxOff && !cv.isDecelerating {
@@ -375,12 +375,12 @@ extension MessageCollectionView {
 
             case .assistantBlock(let msgId,let blockId):
                 guard let msgIdx = messageIndex[msgId],msgIdx<messages.count else {
-                    AppLogger(category: "ChatList.Snapshot").warning("[Snapshot] configureCell MISS msgId=\(msgId.uuidString.prefix(8)) — messageIndex miss or OOB")
+                    AppLogger.shared.warning("[Snapshot] configureCell MISS msgId=\(msgId.uuidString.prefix(8)) — messageIndex miss or OOB", category: "ChatList.Snapshot")
                     return
                 }
                 let message = messages[msgIdx]
                 guard let block = message.blocks.first(where: { $0.id == blockId }) else {
-                    AppLogger(category: "ChatList.Snapshot").warning("[Snapshot] configureCell MISS blockId=\(blockId.uuidString.prefix(8)) in msg blocks=\(message.blocks.count) — block ID mismatch (vm.messages mutated since snapshot?)")
+                    AppLogger.shared.warning("[Snapshot] configureCell MISS blockId=\(blockId.uuidString.prefix(8)) in msg blocks=\(message.blocks.count) — block ID mismatch (vm.messages mutated since snapshot?)", category: "ChatList.Snapshot")
                     return
                 }
                 let bridge = getOrCreateBridge(for: message,in: messages)
@@ -620,7 +620,7 @@ extension MessageCollectionView {
                 kind: "rebind", a: hadOld ? 1 : 0,
                 note: Self.nbDump(viewController?.collectionView))
             #endif
-            AppLogger(category: "ChatList.Scroll").info("[Scroll][rebind] coordinator vm \(hadOld ? "changed" : "was nil") → rebinding subscriptions + resyncing flags")
+            AppLogger.shared.info("[Scroll][rebind] coordinator vm \(hadOld ? "changed" : "was nil") → rebinding subscriptions + resyncing flags", category: "ChatList.Scroll")
             // [2026-09-11 回滚] 昨晚在此加的 clearHeightCache(keepingSharedMemo: true)
             // 会把重进会话变成「高度全空 + 同帧全量重播种」，与 PLAF 放行分支叠加时
             // SwiftUI ViewGraph 报 EXC_BREAKPOINT（DictionaryStorage 过度释放）。
@@ -693,7 +693,7 @@ extension MessageCollectionView {
                     guard was,!now else { return }
                     // Flush REGARDLESS
                     guard self.pendingSnapshotFlag else { return }
-                    AppLogger(category: "ChatList.SnapQueue").info("[SnapQueue] suspend-resume flush applied (pendingSnapshotFlag=true, isProcessing=\(vm.isProcessing))")
+                    AppLogger.shared.info("[SnapQueue] suspend-resume flush applied (pendingSnapshotFlag=true, isProcessing=\(vm.isProcessing))", category: "ChatList.SnapQueue")
                     self.flushPendingSnapshotIfNeeded(caller: "suspend-resume")
                 }
             suspendResumeSub?.store(in: &subscriptions)
@@ -714,7 +714,7 @@ extension MessageCollectionView {
                 let work = {
                     // Flush regardless
                     guard self.pendingSnapshotFlag else { return }
-                    AppLogger(category: "ChatList.SnapQueue").info("[SnapQueue] suspend-resume flush (pendingSnapshotFlag=true, isProcessing=\(self.vm?.isProcessing == true))")
+                    AppLogger.shared.info("[SnapQueue] suspend-resume flush (pendingSnapshotFlag=true, isProcessing=\(self.vm?.isProcessing == true))", category: "ChatList.SnapQueue")
                     self.flushPendingSnapshotIfNeeded(caller: "suspend-resume")
                 }
                 if Thread.isMainThread { work() } else { DispatchQueue.main.async(execute: work) }
@@ -733,7 +733,7 @@ extension MessageCollectionView {
                     let newCount = self.dataSource?.snapshot().itemIdentifiers.count ?? 0
                     if newCount != oldCount {
                         let totalBlocks = msgs.reduce(0) { $0+$1.blocks.count }
-                        AppLogger(category: "BlocksLost").info("[BlocksLost] SNAPSHOT REBUILT snapshotItems \(oldCount)→\(newCount) memoryBlocks=\(totalBlocks)")
+                        AppLogger.shared.info("[BlocksLost] SNAPSHOT REBUILT snapshotItems \(oldCount)→\(newCount) memoryBlocks=\(totalBlocks)", category: "BlocksLost")
                     }
                 }
                 .store(in: &subscriptions)
@@ -753,7 +753,7 @@ extension MessageCollectionView {
                     let cv = self.viewController?.collectionView
                     let layout = self.viewController?.messageListLayout
                     let cachedCount = layout?.debugCachedHeightCount ?? 0
-                    AppLogger(category: "ChatList.Scroll").info("[Scroll][forceScrollToBottom] window=\(cv?.window != nil) contentSize=\(String(format: "%.0f", cv?.contentSize.height ?? 0)) bounds=\(String(format: "%.0f", cv?.bounds.height ?? 0)) adjInsetBot=\(String(format: "%.0f", cv?.adjustedContentInset.bottom ?? 0)) heightCache=\(cachedCount) visibleCells=\(cv?.visibleCells.count ?? 0)")
+                    AppLogger.shared.info("[Scroll][forceScrollToBottom] window=\(cv?.window != nil) contentSize=\(String(format: "%.0f", cv?.contentSize.height ?? 0)) bounds=\(String(format: "%.0f", cv?.bounds.height ?? 0)) adjInsetBot=\(String(format: "%.0f", cv?.adjustedContentInset.bottom ?? 0)) heightCache=\(cachedCount) visibleCells=\(cv?.visibleCells.count ?? 0)", category: "ChatList.Scroll")
                     self.vm?.setStreamingUIUpdatesSuspended(false)
                     self.scrollMode = .autoScrolling
                     self.lastJumpedUserId = nil
@@ -851,7 +851,7 @@ extension MessageCollectionView {
                     guard let self else { return }
                     let len = self.lastAssistantContentLength()
                     self.contentLengthAtBackground = len
-                    AppLogger(category: "ChatList.Layout").info("[FGLayout] → background, snapshotLen=\(len)")
+                    AppLogger.shared.info("[FGLayout] → background, snapshotLen=\(len)", category: "ChatList.Layout")
                 }
                 .store(in: &subscriptions)
 
@@ -866,12 +866,12 @@ extension MessageCollectionView {
                     let bgLen = self.contentLengthAtBackground ?? currentLen
                     self.contentLengthAtBackground = nil
                     let accumulated = currentLen-bgLen
-                    AppLogger(category: "ChatList.Layout").info("[FGLayout] → foreground, bgLen=\(bgLen) currentLen=\(currentLen) accumulated=\(accumulated)")
+                    AppLogger.shared.info("[FGLayout] → foreground, bgLen=\(bgLen) currentLen=\(currentLen) accumulated=\(accumulated)", category: "ChatList.Layout")
                     guard accumulated >= 200 else {
-                        AppLogger(category: "ChatList.Layout").info("[FGLayout] skip layout (accumulated \(accumulated) < 200)")
+                        AppLogger.shared.info("[FGLayout] skip layout (accumulated \(accumulated) < 200)", category: "ChatList.Layout")
                         return
                     }
-                    AppLogger(category: "ChatList.Layout").info("[FGLayout] invalidating layout for \(self.viewController?.collectionView.indexPathsForVisibleItems.count ?? 0) visible cells")
+                    AppLogger.shared.info("[FGLayout] invalidating layout for \(self.viewController?.collectionView.indexPathsForVisibleItems.count ?? 0) visible cells", category: "ChatList.Layout")
                     if let cv = self.viewController?.collectionView,
                        let layout = self.viewController?.messageListLayout {
                         for indexPath in cv.indexPathsForVisibleItems {
@@ -1088,7 +1088,7 @@ public struct MessageCollectionView: UIViewControllerRepresentable {
                 DispatchQueue.main.asyncAfter(deadline: .now()+0.6) { [weak coord] in
                     coord?.scrollMode = .autoScrolling
                     coord?.scrollToBottomNow(animated: false)
-                    AppLogger(category: "ChatList.Scroll").info("[Scroll][B2-focus] keyboard shown → re-pin bottom (delayed 0.6s, no anim)")
+                    AppLogger.shared.info("[Scroll][B2-focus] keyboard shown → re-pin bottom (delayed 0.6s, no anim)", category: "ChatList.Scroll")
                 }
             } else if wasNearBottom {
                 // 键盘收起:维持原逻辑(仅近底时贴底,浏览历史不打扰)。

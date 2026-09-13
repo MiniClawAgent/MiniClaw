@@ -471,12 +471,12 @@ final class MarkdownTextView: UITextView,UIGestureRecognizerDelegate {
         guard selectedRange.length>0,
               let range = Range(selectedRange,in: text) else {
             // 运行时打点(2026-08-13):菜单点击但无选中文本。
-            AppLogger(category: "ChatInputInject").warning("[MENU] addSelectionToChatInput 无选中文本 selectedRange.length=\(selectedRange.length)")
+            AppLogger.shared.warning("[MENU] addSelectionToChatInput 无选中文本 selectedRange.length=\(selectedRange.length)", category: "ChatInputInject")
             return
         }
         let snippet = String(text[range])
         // 运行时打点(2026-08-13):菜单点击成功,发通知前记录选中片段。
-        AppLogger(category: "ChatInputInject").info("[MENU] 点击「添加到输入框」选中 \(snippet.count) 字:\(snippet.prefix(40))")
+        AppLogger.shared.info("[MENU] 点击「添加到输入框」选中 \(snippet.count) 字:\(snippet.prefix(40))", category: "ChatInputInject")
         NotificationCenter.default.post(
             name: .chatInputAppendRequested,
             object: nil,
@@ -704,7 +704,7 @@ final class MarkdownTextView: UITextView,UIGestureRecognizerDelegate {
             return n
         }()
         if imageAttachmentCount>0 {
-            AppLogger(category: "ChatList.Attach").info("[UAV] enter imgAttach=\(imageAttachmentCount) prevViews=\(self.attachmentViews.count) tcW=\(String(format: "%.0f", self.textContainer.size.width))")
+            AppLogger.shared.info("[UAV] enter imgAttach=\(imageAttachmentCount) prevViews=\(self.attachmentViews.count) tcW=\(String(format: "%.0f", self.textContainer.size.width))", category: "ChatList.Attach")
         }
         let previousViewMap = attachmentViewMap
         var newViews: [UIView] = []
@@ -749,7 +749,7 @@ final class MarkdownTextView: UITextView,UIGestureRecognizerDelegate {
                 var stale = false
                 if let imageAttach = attachment as? ImageAttachment {
                     if imageAttach.needsViewRebuild {
-                        AppLogger(category: "ChatList.Attach").info("[IMG][UAV] STALE-needsRebuild src=\(ImageAttachment.shortSrc(imageAttach.source)) ptr=\(attachId.hashValue & 0xFFFFFF)")
+                        AppLogger.shared.info("[IMG][UAV] STALE-needsRebuild src=\(ImageAttachment.shortSrc(imageAttach.source)) ptr=\(attachId.hashValue & 0xFFFFFF)", category: "ChatList.Attach")
                         stale = true
                         imageAttach.needsViewRebuild = false
                     }
@@ -766,7 +766,7 @@ final class MarkdownTextView: UITextView,UIGestureRecognizerDelegate {
                     if !stale && imageAttach.loadedImage != nil {
                         let hasImageView = existingView.subviews.contains(where: { $0 is UIImageView || ($0.subviews.contains(where: { $0 is UIImageView })) })
                         if !hasImageView {
-                            AppLogger(category: "ChatList.Attach").info("[IMG][UAV] STALE-placeholderToLoaded src=\(ImageAttachment.shortSrc(imageAttach.source)) ptr=\(attachId.hashValue & 0xFFFFFF) — replacing placeholder with image view")
+                            AppLogger.shared.info("[IMG][UAV] STALE-placeholderToLoaded src=\(ImageAttachment.shortSrc(imageAttach.source)) ptr=\(attachId.hashValue & 0xFFFFFF) — replacing placeholder with image view", category: "ChatList.Attach")
                             stale = true
                         }
                     }
@@ -813,7 +813,7 @@ final class MarkdownTextView: UITextView,UIGestureRecognizerDelegate {
                 if stale {
                     existingView.removeFromSuperview()
                     if let imageAttach = attachment as? ImageAttachment {
-                        AppLogger(category: "ChatList.Attach").info("[IMG][UAV] RECREATE src=\(ImageAttachment.shortSrc(imageAttach.source)) ptr=\(attachId.hashValue & 0xFFFFFF) — same attachment, but stale view → makeView")
+                        AppLogger.shared.info("[IMG][UAV] RECREATE src=\(ImageAttachment.shortSrc(imageAttach.source)) ptr=\(attachId.hashValue & 0xFFFFFF) — same attachment, but stale view → makeView", category: "ChatList.Attach")
                         view = imageAttach.makeView(width: boundingRect.width)
                     } else if let videoAttach = attachment as? VideoAttachment {
                         view = videoAttach.makeView(width: boundingRect.width)
@@ -838,7 +838,7 @@ final class MarkdownTextView: UITextView,UIGestureRecognizerDelegate {
                     }
                 } else {
                     if let imageAttach = attachment as? ImageAttachment {
-                        AppLogger(category: "ChatList.Attach").info("[IMG][UAV] REUSE src=\(ImageAttachment.shortSrc(imageAttach.source)) ptr=\(attachId.hashValue & 0xFFFFFF) — view kept, only frame updated")
+                        AppLogger.shared.info("[IMG][UAV] REUSE src=\(ImageAttachment.shortSrc(imageAttach.source)) ptr=\(attachId.hashValue & 0xFFFFFF) — view kept, only frame updated", category: "ChatList.Attach")
                     }
                     view = existingView
                 }
@@ -882,7 +882,7 @@ final class MarkdownTextView: UITextView,UIGestureRecognizerDelegate {
             } else if let thematicBreak = attachment as? ThematicBreakAttachment {
                 view = thematicBreak.makeView(width: boundingRect.width)
             } else if let imageAttach = attachment as? ImageAttachment {
-                AppLogger(category: "ChatList.Attach").info("[IMG][UAV] NEW src=\(ImageAttachment.shortSrc(imageAttach.source)) ptr=\(attachId.hashValue & 0xFFFFFF) — no previous view (first render OR ObjectIdentifier changed) → makeView")
+                AppLogger.shared.info("[IMG][UAV] NEW src=\(ImageAttachment.shortSrc(imageAttach.source)) ptr=\(attachId.hashValue & 0xFFFFFF) — no previous view (first render OR ObjectIdentifier changed) → makeView", category: "ChatList.Attach")
                 // into rebuildAttachViews. [AttachHang defensive guard]
                 if imageAttach.loadedImage == nil {
                     imageAttach.onLoad = { [weak self] in
@@ -958,7 +958,7 @@ final class MarkdownTextView: UITextView,UIGestureRecognizerDelegate {
     }
 
     private func rebuildAttachViews() {
-        AppLogger(category: "ChatList.Attach").info("[REFRESH] entry — async media-load callback fired (image/video/math finished loading); will run refreshAttachViews + invalidateCellSize")
+        AppLogger.shared.info("[REFRESH] entry — async media-load callback fired (image/video/math finished loading); will run refreshAttachViews + invalidateCellSize", category: "ChatList.Attach")
         guard window != nil else {
             pendingRefreshAfterWindowAttach = true
             return
