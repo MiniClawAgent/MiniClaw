@@ -434,16 +434,24 @@ struct MarkdownView: UIViewRepresentable {
             context.coordinator.lastRenderedWidth = _curW
         }
         // [2026-09-12 收尾清理] 原 [Probe] ENTER 显示链探针已移除（诊断使命完成）。
-        // [2026-09-11 强制收敛] 去重守卫补 storage 完整性检查：storage 缺了 markdown
-        // 结尾的纯散文行 = 显示停在旧短快照（流式终帧丢在节流复用上、追赶回调丢失
-        // 的场景）→ 不许去重，强制走重渲追平。真机 SHORT-DISPLAY 实锤：
-        // storageLen=367 mdLen=743（blk=74AFA8CF/16C9CF57，恰为 TAIL-HIT 全高块 →
-        // 「有行高但无内容填充」的空白区）。纯散文行判定与渲染侧 TAIL-MISS 同口径
-        //（剔除语法符/数字行，宁漏不误）；仅 !isStreaming 检查——流式期的落后由
-        // streamSnapshotStale+catch-up 管辖，不在此重复。
+        // [2026-09-11 强制收敛·原判据] storage 缺了 markdown 结尾的纯散文行 = 显示停在旧短快照
+        //（流式终帧丢在节流复用上、追赶回调丢失）→ 不许去重，强制重渲追平。
+        // 真机 SHORT-DISPLAY 实锤：storageLen=367 mdLen=743（blk=74AFA8CF/16C9CF57，恰为
+        // TAIL-HIT 全高块 ⇒「有行高但无内容填充」的空白区）。纯散文行判定与渲染侧 TAIL-MISS
+        // 同口径（剔除语法符/数字行，宁漏不误）。
+        // [2026-09-13 终态收敛·治本] 原判据要求 `markdown == lastMarkdown`（"内容没变、
+        // 只是显示落后"）。**漏了一类真机形态**：最后一段正文是在**最后一个工具轮之后**才写出的
+        //（`… → shell_execute → 最终总结`），它在流式期被**正常**渲染过一次 —— 那一刻内容
+        // 确实只有那么长（真机停在 `![](miniclaw`，即 offset ~140/197）；随后流结束、内容不再
+        // 增长 ⇒ 既没有新 markdown 触发的更新，也不满足任何"脏态"条件 ⇒ **没人再喊一次**，
+        // storage 永久停在中间快照，直到退出重进（终态路径重渲一次才正常）。
+        // 缺口本质：`streamSnapshotStale` 只管"复用了更旧的快照"，**不管"最后渲染的是个短内容"**。
+        // 修法：**把「流结束」这件事本身当收敛触发** —— `isStreaming` true→false 是入参变化，
+        // 必然带来一次 `updateUIView`，此时无条件核对一次 storage 完整性。
+        let streamJustEnded = (context.coordinator.lastWasStreaming == true) && !isStreaming
         var storageMissingTail = false
-        if !isStreaming, markdown == context.coordinator.lastMarkdown,
-           !fontChanged, !context.coordinator.streamSnapshotStale {
+        if !isStreaming, !fontChanged, !context.coordinator.streamSnapshotStale,
+           streamJustEnded || markdown == context.coordinator.lastMarkdown {
             let syntax = "*|`#~[]()>+-·0123456789"
             let probe = markdown.split(whereSeparator: { $0.isNewline }).reversed()
                 .map { $0.trimmingCharacters(in: .whitespaces) }
@@ -455,7 +463,7 @@ struct MarkdownView: UIViewRepresentable {
                     if now - context.coordinator.lastShortLogAt > 1.0 {
                         context.coordinator.lastShortLogAt = now
                         AppLogger.shared.warning(
-                            "[Probe] SHORT-DISPLAY blk=\(blockId?.uuidString.prefix(8) ?? "?") storageLen=\(textView.textStorage.length) mdCnt=\(markdown.count) — 去重放行强制重渲", category: "RenderProbe")
+                            "[Probe] SHORT-DISPLAY blk=\(blockId?.uuidString.prefix(8) ?? "?") storageLen=\(textView.textStorage.length) mdCnt=\(markdown.count) streamJustEnded=\(streamJustEnded ? 1 : 0) — 去重放行强制重渲", category: "RenderProbe")
                     }
                 }
             }
@@ -807,12 +815,17 @@ struct MarkdownView: UIViewRepresentable {
         // [尾包修复 2026-09-10] 本条显示的是**落后快照** → 排一次追赶渲染。必须显式排期：
         // 内容停止增长（回复结束）后不会再有带新 markdown 的 SwiftUI 更新，靠「下一次
         // updateUIView」追平是不成立的（早退守卫还会把它拦下）。
-        if context.coordinator.streamSnapshotStale {
+        // [2026-09-13 终态收敛·治本] 除"脏态"外，**终态完整性核对不过**（`storageMissingTail`
+        // —— 即"最后一次渲染的是个短内容"，见上方 `streamJustEnded`）同样必须排一次追赶：
+        // 这种情况下内容已停止增长，绝不会有下一次带新 markdown 的更新来追平。
+        if context.coordinator.streamSnapshotStale || storageMissingTail {
             context.coordinator.scheduleStreamCatchUp { [weak textView] in
                 guard let textView else { return }
                 self.updateUIView(textView,context: context)
             }
         }
+        // 记录本次的流式态：供下一次 updateUIView 判定"流是否刚刚结束"（终态收敛的触发点）。
+        context.coordinator.lastWasStreaming = isStreaming
         textView.rawMarkdown = markdown
         textView.resetAttachmentRecovery()
         StreamingHangLogger.shared.recordAssignedText(
@@ -1395,6 +1408,10 @@ struct MarkdownView: UIViewRepresentable {
     #endif
 
     final class Coordinator: NSObject,UITextViewDelegate {
+        /// 上一次 `updateUIView` 看到的流式态；`nil` = 尚未见过。
+        /// 用途：下一次更新时判定「流是否**刚刚**结束」—— 那是终态收敛的唯一可靠触发点
+        /// （`isStreaming` true→false 是入参变化，必然带来一次 `updateUIView`）。
+        var lastWasStreaming: Bool?
         var lastMarkdown: String = ""
         var lastRenderedContentHash: Int? = nil
         var pendingMarkdown: String? = nil
