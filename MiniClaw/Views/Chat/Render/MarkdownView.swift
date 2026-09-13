@@ -905,6 +905,22 @@ struct MarkdownView: UIViewRepresentable {
                     category: "RenderProbe")
             }
             guard forceLog || bad else { return }
+            // [Fix 2026-09-13 第二处·终态签名] `cellShort=1` 且**内容已定型**（storage 完整）：
+            // 真机 `entry=618.3 measured=1` 而 `tvContentH=638.3` ⇒ 该行的**实测高度条目陈旧**
+            //（内容长了 20pt ≈ 一行，条目没跟着更新）⇒ 末行被 cell 裁掉 = 「少一行字」。
+            // 修法：内容定型却仍矮时，作废该行条目 + 失效布局 ⇒ 下一次布局按当前内容重测。
+            // （收紧 `!storageBehind`：内容还在长的中间态不动，避免与正常流式增长打架。）
+            if cellTooShort, !storageBehind, let cell = cellRef,
+               let cv = cell.superview as? UICollectionView,
+               let ip = cv.indexPath(for: cell),
+               let layout = cv.collectionViewLayout as? MessageListLayout {
+                cell.clearCachedHeight()
+                layout.invalidateHeight(at: ip.item)
+                layout.invalidateLayout()
+                AppLogger.shared.warning(
+                    "[TruncL-FIX2] cell 矮于内容 → 作废该行高度条目 blk=\(blkSnap) idx=\(ip.item) cellH=\(String(format: "%.1f", cellH)) contentH=\(String(format: "%.1f", contentH))",
+                    category: "RenderProbe")
+            }
             // [Diag] 命中 cellShort 时补一根线索：那个矮高度到底是"条目里的什么来源"
             //（估算条目 / 预演条目 / 实测条目），以及条目值本身 —— 这是"根因"的最后一块拼图。
             var entryInfo = "entry=n/a"
