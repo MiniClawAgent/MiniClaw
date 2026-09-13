@@ -1204,11 +1204,25 @@ struct ChatView: View {
             shouldAutoFollow = true
             // 初始贴底：延迟到布局完成后滚动一次（用户已上滑则放弃）
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-                guard shouldAutoFollow else { return }
-                chatBridge.vm.scrollToBottomSignal.send()
+                // [2026-09-13 补读路径] 搜索结果带定位目标时**定位优先于贴底**：
+                // 此前这里只无条件清 nil（`appState.scrollToMessageID = nil`），
+                // 而全库没有任何读取点 ⇒ 点搜索结果只进会话、不定位到那条消息。
+                // 两者互斥，避免"先贴底再跳"的闪动。
+                if let target = appState.scrollToMessageID {
+                    appState.scrollToMessageID = nil
+                    chatBridge.vm.scrollToMessageSignal.send(target)
+                } else {
+                    guard shouldAutoFollow else { return }
+                    chatBridge.vm.scrollToBottomSignal.send()
+                }
             }
-            // 无有效目标也清空，避免泄漏到后续进入
+        }
+        // 会话已在前台时又被要求定位（首页再次点搜索结果等）→ 立即消费。
+        // 消费后置 nil，与上面 onAppear 的读取合并成完整闭环（本变量此前只写不读）。
+        .onChange(of: appState.scrollToMessageID) { target in
+            guard let target else { return }
             appState.scrollToMessageID = nil
+            chatBridge.vm.scrollToMessageSignal.send(target)
         }
         // 贴底状态同步（浮动「回到底部」按钮显隐,2026-08-10 Kit 路径）
         .onChange(of: chatBridge.vm.isNearBottom) { near in

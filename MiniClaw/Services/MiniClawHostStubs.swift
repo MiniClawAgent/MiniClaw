@@ -338,6 +338,10 @@ public final class MessageListModel: ObservableObject {
 
     // 信号(列表组件订阅)
     public let scrollToBottomSignal = PassthroughSubject<Void,Never>()
+    /// [2026-09-13 补读路径] 要求列表滚到指定消息的**首行**（搜索结果点击定位用）。
+    /// 与 `scrollToBottomSignal` 同一形态：ChatView 发、Coordinator 收，
+    /// 唯一消费点是 `MessageCollectionCoordinator.scrollToMessage(id:animated:)`。
+    public let scrollToMessageSignal = PassthroughSubject<UUID,Never>()
     public let forceScrollToBottom = PassthroughSubject<Void,Never>()
     public let forceScrollToTop = PassthroughSubject<Void,Never>()
     public let contentOffsetYSignal = PassthroughSubject<CGFloat,Never>()
@@ -384,7 +388,6 @@ public final class MessageListModel: ObservableObject {
     public func readReplyFromStart(_ message: RenderMessage) {
         VoiceOutputPlayer.shared.speak(message.content)
     }
-    public func invalidateAttributedStringCaches() {}
 }
 
 // MARK: - 路径/会话静态成员(宿主桥接:主工程 Documents/MiniClaw-Sessions)
@@ -921,6 +924,30 @@ public struct EngineBrowserWebView: UIViewRepresentable {
 }
 
 /// 浏览器接管 sheet(工具实时预览弹层内使用:标签切换 + 引擎 webView)
+/// [2026-09-13 接线·修「加载失败空白页」] 引擎 webView + 加载失败浮层的宿主。
+///
+/// 为什么必须单独成一个视图：`MiniClawBrowserEngine` 是 `ObservableObject`，而 `BrowserSheetView`
+/// 本身**不是观察者** —— 在那里直接读 `manager.loadError` 不会建立订阅，`@Published` 变更也不会
+/// 触发重绘，浮层将永远不出现。`@ObservedObject` 放在本视图上即建立订阅。
+///
+/// 背景：引擎侧 `loadError` 早已算好并发布（含 title/message/systemImage），但**全库只写不读**
+/// ⇒ 网页加载失败时用户看到的是**空白页**（无提示、无重试）。`MiniClawWebLoadErrorOverlay`
+/// 一直是"更好的那一份"却零引用。此处把它接上，`onRetry` 直接调引擎的 `reload()`。
+private struct EngineBrowserContent: View {
+    @ObservedObject var manager: MiniClawBrowserEngine
+
+    var body: some View {
+        ZStack {
+            EngineBrowserWebView(manager: manager)
+            if let err = manager.loadError {
+                MiniClawWebLoadErrorOverlay(error: err) {
+                    manager.reload()
+                }
+            }
+        }
+    }
+}
+
 public struct BrowserSheetView: View {
     let pool: MiniClawTabPool?
     var isAgentBusy: Bool = false
@@ -933,7 +960,8 @@ public struct BrowserSheetView: View {
     public var body: some View {
         VStack(spacing: 0) {
             if let manager = pool?.activeManager {
-                EngineBrowserWebView(manager: manager)
+                // 改用带观察的宿主，使加载失败浮层能随 `loadError` 出现（见 EngineBrowserContent 注释）。
+                EngineBrowserContent(manager: manager)
                     .id(pool?.selectedTabId)
             } else {
                 // iOS16 兼容:替代 ContentUnavailableView(iOS17 API)

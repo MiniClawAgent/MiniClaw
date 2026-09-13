@@ -746,6 +746,17 @@ extension MessageCollectionView {
                 }
                 .store(in: &subscriptions)
 
+            // [2026-09-13 补读路径] `AppState.scrollToMessageID` 的唯一消费点。
+            // 与贴底信号并列：定位到历史消息必须先关掉贴底闸门（在 `scrollToMessage` 内做），
+            // 否则自动贴底会立刻把跳转拽回底部。
+            vm.scrollToMessageSignal
+                .receive(on: DispatchQueue.main)
+                .sink { [weak self] target in
+                    guard let self else { return }
+                    self.scrollToMessage(id: target)
+                }
+                .store(in: &subscriptions)
+
             vm.forceScrollToBottom
                 .receive(on: DispatchQueue.main)
                 .sink { [weak self] in
@@ -838,8 +849,12 @@ extension MessageCollectionView {
             NotificationCenter.default.publisher(for: .fontSettingsMessageBaseChanged)
                 .receive(on: DispatchQueue.main)
                 .sink { [weak self] _ in
+                    // [2026-09-13 出入口统一 3/3] 删掉 `vm?.invalidateAttributedStringCaches()` ——
+                    // 它是全库唯一的调用点，而该方法是 `MiniClawHostStubs` 里的**空桩**（`{}`）：
+                    // 真正让字体变更生效的是紧随其后的 `reconfigureAllCells()`
+                    //（清高度缓存 + 重配全部可见 cell）。保留空桩只会让下一轮排查
+                    // 误以为"字体缓存有专门的失效入口"。
                     guard let self else { return }
-                    self.vm?.invalidateAttributedStringCaches()
                     self.reconfigureAllCells()
                 }
                 .store(in: &subscriptions)

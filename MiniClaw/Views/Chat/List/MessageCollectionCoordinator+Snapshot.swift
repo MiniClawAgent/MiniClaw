@@ -21,6 +21,9 @@ extension MessageCollectionView.Coordinator {
             case inserted([MessageListItem])
             /// 当前**无当期条目**的 item（判据 `cachedHeight(at:) == nil`，已含内容版本感知）。
             case missing
+            /// 仅这些 index（UIKit 预取回调）。判据同 `.missing`，只是把作用域限制在给定下标，
+            /// 避免为一次预取做全表扫描。
+            case indices([Int])
         }
 
         /// 高度播种的**唯一入口**。
@@ -51,6 +54,13 @@ extension MessageCollectionView.Coordinator {
                 guard let layout = viewController?.messageListLayout else { return }
                 for (i, item) in rows.enumerated() where layout.cachedHeight(at: i) == nil {
                     seedHeight(at: i, item: item, messages: messages,
+                               width: width, isReseed: true)
+                }
+            case .indices(let idxs):
+                guard let layout = viewController?.messageListLayout else { return }
+                for i in idxs where i >= 0 && i < rows.count
+                    && layout.cachedHeight(at: i) == nil {
+                    seedHeight(at: i, item: rows[i], messages: messages,
                                width: width, isReseed: true)
                 }
             }

@@ -40,6 +40,39 @@ extension MessageCollectionView.Coordinator {
             cv.scrollToItem(at: IndexPath(item: item,section: section),at: .bottom,animated: animated)
         }
 
+        /// 滚到指定消息的**首行**（`at: .top`）。
+        ///
+        /// [2026-09-13 补读路径] 此前 `AppState.scrollToMessageID` 只有**写入点**
+        /// （`HomeView` 搜索结果点击）和**清空点**（`ChatView.onAppear`）——全库无读取点，
+        /// 列表侧也从没有"滚到某条消息"的能力（只有贴底 / 上一轮）⇒ 点搜索结果只进会话、不定位。
+        /// 本函数补上这条能力，并作为该语义的**唯一入口**（与 `scrollToBottomNow`、
+        /// `scrollToPreviousUserTurn` 并列的第三个滚动落点）。
+        ///
+        /// 定位失败**必须显式**（禁静默降级）：目标不在当前快照里就记一条日志后原样返回。
+        /// 一条消息可能横跨多行（assistant = header + N 个块 + footer），故取**首个**归属它的行。
+        public func scrollToMessage(id: UUID,animated: Bool = true) {
+            guard let cv = viewController?.collectionView,let ds = dataSource else { return }
+            let items = ds.snapshot().itemIdentifiers
+            guard let firstIdx = items.firstIndex(where: { $0.messageId == id }) else {
+                AppLogger.shared.info("[Scroll][toMessage] ABORT 目标不在快照内 id=\(id.uuidString.prefix(8)) items=\(items.count)", category: "ChatList.Scroll")
+                return
+            }
+            AppLogger.shared.info("[Scroll][toMessage][CALL] id=\(id.uuidString.prefix(8)) item=\(firstIdx)/\(items.count) \(Self.nbDump(cv))", category: "ChatList.Scroll")
+            // 定位到历史消息 = 用户开始浏览：必须先关掉贴底闸门，否则流式更新或会话载入的
+            // 自动贴底会立刻把这次跳转拽回底部 —— 与 `scrollViewWillBeginDragging` 同一处理。
+            scrollMode = .userBrowsing
+            clampAfterSessionLoad = false
+            cv.scrollToItem(at: IndexPath(item: firstIdx,section: 0),at: .top,animated: animated)
+            // 与 `scrollToPreviousUserTurn` 同源：立即 + 动画结束后各同步一次滚动标志 ——
+            // UIKit 的动画滚动不一定在稳定位置发出终止 `scrollViewDidScroll`。
+            DispatchQueue.main.async { [weak self] in self?.syncScrollFlags() }
+            if animated {
+                DispatchQueue.main.asyncAfter(deadline: .now()+0.4) { [weak self] in
+                    self?.syncScrollFlags()
+                }
+            }
+        }
+
         public func currentViewportUserTurn() -> (index: Int,total: Int) {
             guard let cv = viewController?.collectionView,
                   let vm,let ds = dataSource else { return (-1,0) }
@@ -739,20 +772,23 @@ extension MessageCollectionView.Coordinator {
         }
 
         public func collectionView(_ collectionView: UICollectionView,prefetchItemsAt indexPaths: [IndexPath]) {
-            guard let vm,let layout = viewController?.messageListLayout else { return }
-            // Items below come from prevSnapshotIds (snapshot-locked) — the
-            // estimates collapse to the 44pt fallback.
+            // [2026-09-13 出入口统一 3/3] 预取不再自行算估高、直接写 `heightEntries` ——
+            // 那是**第 4 条绕过播种唯一入口**的写路径。改为复用 `seedHeights(.indices:)`。
+            //
+            // 原实现有两处口径错误（都是"同一语义各自写一遍"的必然产物）：
+            //   ① 宽度取 `maxContentWidth`，而它的唯一构造点是 `ChatView` 传入的 `0`
+            //      ⇒ 估高按 0 宽算（文本可用宽被 `max(w-80,100)` 兜到 100）⇒ 系统性虚高，
+            //      正是 S1 描述的"虚高帧 ⇒ 手势期收缩被拒"的原料；
+            //      其余所有播种路径用的都是 `cv.bounds.width`。
+            //   ② 直接写 `.estimated` 且**不写内容键** ⇒ 条目 `key == nil`，
+            //      `currentEntry` 判它"信息不足、保守当有效"，内容变化时不会 demote。
+            // 走 `seedHeights` 后两者一并消失：宽度同源、内容键同源、缺失判据同源。
+            guard let vm, let cv = viewController?.collectionView else { return }
             let messages = snapshotMessages.isEmpty ? vm.messages : snapshotMessages
-            let width = maxContentWidth
-            for indexPath in indexPaths {
-                let index = indexPath.item
-                guard !layout.hasMeasuredHeight(at: index),
-                      !layout.hasPrecalcHeight(at: index) else { continue }
-                guard index<prevSnapshotIds.count else { continue }
-                let item = prevSnapshotIds[index]
-                let est = Self.estimateItemHeight(item,messages: messages,width: width)
-                layout.setEstimatedHeight(est,at: index)
-            }
+            seedHeights(.indices(indexPaths.map(\.item)),
+                        rows: prevSnapshotIds,
+                        messages: messages,
+                        width: cv.bounds.width)
         }
 
         public func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
