@@ -126,8 +126,9 @@
 |---|---|---|
 | **P0** | **仪表盘恢复**：68 处内联 logger → `AppLogger.shared`；热路径探针挂哨兵开关 | ✅ **完成**（`049c816` / `97b21f9`） |
 | **P1** | **S1 第一刀**：`HeightEntry` + 内容版本键 + `currentEntry` 版本感知（`prepare`/defer 门/三个访问器全改走它） | ✅ **完成**（`049c816` 含） |
-| **P2** | **S2 指纹统一**：建立 `ContentFingerprint.of(_:)` 唯一入口，收敛三处**相等性**判据（详见 §1.1）——✅ 屏上引擎去重指纹（6 处）· ✅ `sizeThatFits` 桶指纹（并拆开「一变量两语义」的 `bindingLen`）· 🔄 块级渲染指纹（跨 3 文件的回调链，进行中） | 🔄 **2/3** |
-| **P3** | **S4 顺序管线显式化**：把"补播/重映射/失效"收敛为单一入口，S1–S15 由注释变结构断言 | ⬜ |
+| **P2** | **S2 指纹统一**：建立 `ContentFingerprint.of(_:)` 唯一入口，收敛三处**相等性**判据（详见 §1.1）——✅ 屏上引擎去重指纹（6 处）· ✅ `sizeThatFits` 桶指纹（并拆开「一变量两语义」的 `bindingLen`）· ✅ 块级渲染指纹（跨 3 文件的回调链） | ✅ **完成**（`cefe165`/`c422c33`） |
+| **P3-α** | **出入口统一**（P3 的前置）：播种 / 失效 / 重映射各收敛为**唯一入口** | ✅ **完成**（`f73a679` 失效两入口合一 · `373cd2f` 预取第 4 条播种旁路并入 `seedHeights(.indices:)` · `85a9d4e` 宽度失效第 5 条旁路并入 `clearHeightCache`） |
+| **P3** | **S4 顺序管线显式化**：把"补播/重映射/失效"收敛为单一入口，S1–S15 由注释变结构断言 | 🔄 **进行中**：✅ 段化「段 0 身份迁移 → 段 1 播种」（`e9caf03`，修 R1 键错配）· ✅ `seedHeight` 两处静默降级改显式兜底（`85a9d4e`）· ⬜ plan / reconcile 分段与顺序断言 |
 | **P4** | **S5 流式 block 集合构建收敛为一个纯函数**（保留孤儿清理 + `.file` 拆分，尾部 order 参数化） | ⬜ |
 | **P5** | **S6 冻结状态机**：三组布尔量合并，消除 M1–M8 | ⬜ |
 | **P6** | **S3 附件判据统一到结构判据**（含 `+12` 与 `MCS:630` 口径） | ⬜ |
@@ -148,3 +149,48 @@
 - **不放宽手势期禁收缩门来消空白**（那会把 −160pt 抖动放回来）；
 - 不可合并：`MarkdownRenderCache`（进程级/全哈希/宽桶，三路互认）、`_userBubbleMemo`（键不同源）、cell 实例级 `lastCalcH/seedH/engineText*`、`rendererCache`（持附件、须与消息同源）；
 - 两棵源码树都要 grep；`第三方源码/`、`Kit/` 只读；`项目不可跑 xcodegen`（pbxproj 与 project.yml 已漂移，重生成会产出编不过的工程）。
+
+---
+
+## 7 P3–P6 实现规格（分册）与 `applySnapshot` 段图
+
+> 四份实现规格已归档为**分册**（含逐条 `文件:行号` 证据与「不能改的行为」清单）：
+> `docs/refactor-specs/` 下 `P3-order-pipeline.md`、`P4-block-builder.md`、`P5-freeze-state-machine.md`、`P6-attachment-criteria.md`。实施某阶段前先读对应分册。
+
+### 7.1 `applySnapshot` 现行段结构（P3 第一步已落地）
+
+| 段 | 内容 | 为什么必须在此 |
+|---|---|---|
+| 前置 | 过滤 `isInternalBridge`；`lastJumpedUserId = nil`；懒装 2 个通知订阅；重建 `messageIndex`；建 `newRows` | `seedHeight` 依赖 `messageIndex`；`newRows` 是后续一切的基础 |
+| **段 0** | **身份迁移**：`identityUnchanged` / `oldRows` / `inserted` 一次算好 → `remapHeights`（未变则跳过） | **必须早于任何播种** —— 播种会按新索引重写 `contentKeyByIndex`，迁移在后就读不到旧键 ⇒ 迁移失效（见 §7.2） |
+| **段 1** | **播种**：`seedHeights(.all)` | 必须早于 `dataSource.apply`（S1）；身份不变时也要刷新估高 |
+| 状态提交 | `itemToIndex`；`streamingCellRanges`；`isAutoScrollPinning`；`oldCount`；`snapshotMessages` | `streamingCellRanges` 必须早于 apply（`prepare()` 读它）；`oldCount` 必须早于 `prevSnapshotIds` 覆写 |
+| 终态节律 | 整轮结束 → `reseedTrailingTextBlock`（S3） | 终态那次身份集合通常不变，放到早退之后就不执行 |
+| 早退 | `if identityUnchanged { return }` | 上面各段是「身份不变也要跑」的语义 |
+| **段 2** | **失效/补播**：`reseedTextBlock(before:)`（S2）→ `seedHeights(.inserted)` → `seedHeights(.missing)` | S1/S2/S4：全部必须早于 `apply`（否则 `prepare()` 落 200pt 兜底 ⇒ 空白） |
+| **段 3** | **apply**：置 `suppressContentOffsetAdjustment` / `flushingNow` / `isApplyingSnapshot` → `dataSource.apply` → `layoutIfNeeded` → 复位 | S10：静默窗必须包住 apply→`layoutIfNeeded` |
+| **段 4** | **reconcile**：收缩 clamp / 贴底 / `applySubViewportCompensation` / `syncScrollFlags` / 条件 `scheduleHeightPrewarm` | 依赖段 3 之后稳定的 `contentSize` |
+
+### 7.2 P3 第一步修掉的 R1（键错配）
+
+`seedHeights(.all)` 与 `remapHeights` **都写 `contentKeyByIndex`**，而原顺序是「先播种、后迁移」：
+
+1. `.all` 播种按**新索引**重写整表内容键（`seedHeight` 内 `setContentKey`）；
+2. `remapHeights` 用 `contentKeyByIndex[oldIndex]` 写 `newIndex` —— 读到的是「新索引体系下**旧下标**那个 item 的键」。
+
+⇒ 被搬移的 `HeightEntry` 自带键与 `contentKeyByIndex[newIndex]` 错配 ⇒ `currentEntry` 判 `stored != cur` ⇒ 刚迁移来的 `.measured` **整体降级为陈旧** ⇒ 迁移等于白做；`footerHugByIndex` 同样搬错。
+⇒ **只在发生索引位移时暴露**，而「在末尾追加」（恒等映射）长期掩盖它 —— 这正是「插入 / 压缩 / 重排」场景更难复现的结构性原因。已改为「段 0 迁移 → 段 1 播种」（`e9caf03`）。
+
+### 7.3 同类已修（本轮）
+
+- **播种第 4 条旁路**：`prefetchItemsAt` 原把 `maxContentWidth` 当测量宽 —— 而它的唯一构造点是 `ChatView` 传入的 `0`，语义为「不设内容宽上限」的**哨兵**（`BridgedCellViews` 已写明）⇒ 预取按 0 宽估高（文本可用宽被兜到 100pt）⇒ 系统性虚高 ⇒ S1 所说「虚高帧 ⇒ 手势期收缩被拒」的原料；且直写 `.estimated` 不写内容键。已并入 `seedHeights(.indices:)`（`373cd2f`）。
+- **失效第 5 条旁路**：`scheduleWidthPurge` 原直写 `heightEntries.removeAll()`，留孤儿键且不清宽度相关的 `_userBubbleMemo`。已并入 `clearHeightCache(keepingSharedMemo: true)`（`85a9d4e`）。
+- **静默降级**：`seedHeight` 的 `.assistantBlock` 原有两处静默 `return`（查不到消息 / 查不到块 ⇒ 该 index 无条目 ⇒ `prepare()` 落 200pt）⇒ 改为显式兜底 + 日志（`85a9d4e`）。
+- **注释卫生**：跨文件/跨段引用一律改**符号名**，废弃行号引用 —— 行号本身就是反复过期的根因。
+
+### 7.4 已知未修（分册已给方案，按 P 阶段推进）
+
+- **P5-P1/P2（最优先）**：`deferSelfSizing` 与 `streamingUIUpdatesSuspended` 的**唯一关闭点都在 `settleAfterInteraction` 内、且在 `guard let layout, let cv` 之后**；settle 不触发（手势被系统取消 / 转场 / CV 移除）即**永久冻结** ⇒ 几何永不再收缩 + 快照永不上屏。方案：三轴收敛为 `Coordinator.FreezeState` + 单一 `transduce(_:)`，并在 `bindViewModel` 加幂等兜底复位（三轴中 `deferSelfSizing`（几何）与 `streamingUIUpdatesSuspended`（数据）保持**正交、不合并**）。
+- **P4**：流式与终态**两套尾部 order**（`Int.max-1` vs `maxEventOrder+0.5`）；`Double` 在 `Int.max` 量级 ulp≈2048 ⇒ `baseOrder+0.05*k` 子序被吞（2026-09-12「文件指示器总在最终回复上面」的根因）。方案：`tailOrder` 参数化 + 排序加 id 次键。
+- **P6**：附件富语法判据残缺（只查 `` ``` `` 与 `|`，漏 `![` / `$$` / `---` / `[audio|video|file]`）⇒ 含附件串走 CT 快路径 ⇒ 高度塌陷。方案：`hasRenderableAttachment`（产物 `hasAnyAttachment` 优先、源文启发式兜底）。另：附件瓦片**估高用 70pt/动态列，渲染实为 64pt/固定 4 列/文档 40pt** —— 属独立 bug 修复，须在 P6 之外另开一笔（会改高度数值）。
+- **`inputAttachments`**：全库有声明/读取/回退、**无任何赋值点**，且 `QueuedAttachmentPreview.body == EmptyView()` ⇒ 恒空死分支（与 `lastHeightByKey` 同型）。P6 统一前先裁决存废。
