@@ -116,14 +116,15 @@ struct VisionAnalyzeTool: AgentTool {
             throw ToolError.invalidParameters(String(localized: "err_missing_path"))
         }
 
-        // 尝试通过 FileSystemManager 解析路径（支持会话隔离路径）
+        // 路径解析统一走 FileSystemManager：只接受 /var/MiniClaw/...，并做会话隔离与越界校验。
+        // 解析失败即失败返回——此前「解析失败就把原始字符串当路径直读」会让任意宿主绝对路径
+        // （Documents/...、/var/mobile/Containers/...）成为可读后门，也偏离单一写法约定。
         let resolvedPath: String
         do {
             let url = try FileSystemManager.shared.imageURL(at: path, sessionID: currentSessionID)
             resolvedPath = url.path
         } catch {
-            // 如果 FileSystemManager 解析失败，直接使用原始路径（可能是绝对路径）
-            resolvedPath = path
+            return ToolResult(success: false, text: error.localizedDescription)
         }
 
         // mode=text_coords：逐文字带像素坐标（GUI 自动化点击定位用）。

@@ -195,7 +195,7 @@ final class ToolPluginManager {
         // 与本轮补齐的四个真实现同名，故删占位后在此按同名注册即可。
         "apple-calendar": { _ in AppleCalendarTool() },
         "apple-reminders": { _ in AppleRemindersTool() },
-        "apple-photos": { _ in ApplePhotosTool() },
+        "apple-photos": { ApplePhotosTool(currentSessionID: $0) },
         "apple-homekit": { _ in AppleHomeKitTool() },
         // 2026-09-01 新增：通讯录 / 地图 / 媒体播放 / 语音识别。
         "apple-contacts": { _ in AppleContactsTool() },

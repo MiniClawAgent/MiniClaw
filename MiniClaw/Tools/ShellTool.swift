@@ -89,12 +89,12 @@ struct ShellExecuteTool: AgentTool {
             let masked = maskSecrets(full, settings: settings)
             let thresholdBytes = settings.files.autoOffloadThresholdKB * 1024
             var final = FileSystemManager.shared.offloadIfLarge(masked, thresholdBytes: thresholdBytes, sessionID: currentSessionID)
-            // 治本(2026-08-13):附上工作目录,消除 AI 对 shell 默认 cwd 的误判。
-            // workingDirectory 传 nil 时命令在 iSH 会话根执行(/var/MiniClaw/sessions/<uuid>),
-            // 但 AI 常误以为文件落在 /tmp 或"文件不见了"而反复扑空。附上 cwd 让 AI 明确:
-            // 相对路径生成的文件落在此目录。
-            let cwd = currentSessionID.map { "/var/MiniClaw/sessions/\($0.uuidString)" } ?? "/var/MiniClaw"
-            final += "\n[env] cwd: \(cwd) (relative paths resolve here)"
+            // 治本(2026-08-13):附上工作目录,消除 AI 对 shell 默认 cwd 的误判——
+            // AI 常误以为文件落在 /tmp 或"文件不见了"而反复扑空。
+            // 路径写法铁律(2026-09):只回传 /var/MiniClaw。会话隔离的内部段 sessions/<uuid>
+            // **绝不**出现在给模型看的文本里——Swift 文件工具遇到它会直接抛错，模型还会
+            // 照抄它去写 file_read。相对路径实际落在本会话目录，由这一句说明。
+            final += "\n[env] cwd: /var/MiniClaw (relative paths land in this session's directory)"
             if let bashReminder { final += bashReminder }
             // 环境教学（2026-09-07）：Alpine 最小环境默认只有 busybox 命令集，模型按
             // 通用常识猜 curl/git/python 存在会吃「not found」。检出缺失命令时附加

@@ -44,6 +44,9 @@ private enum PhotoPayload: Sendable {
 /// - **删除照片**：破坏性且不可撤销，与「敏感操作需用户确认」的取向冲突。
 struct ApplePhotosTool: AgentTool {
     let name = "apple-photos"
+    /// 当前会话 ID：`get` 导出的图片落在本会话的隔离命名空间
+    /// `/var/MiniClaw/attachments/photos/`，与其他会话互不污染。
+    let currentSessionID: UUID?
     /// `save` 会写入用户相册，重试前必须经用户确认。
     let resumePolicy: ResumePolicy = .requiresUserConfirmation
 
@@ -74,6 +77,10 @@ struct ApplePhotosTool: AgentTool {
             )
         )
     )
+
+    init(currentSessionID: UUID? = nil) {
+        self.currentSessionID = currentSessionID
+    }
 
     func execute(_ parameters: [String: Any]) async throws -> ToolResult {
         guard let action = parameters["action"] as? String else {
@@ -128,13 +135,19 @@ extension ApplePhotosTool {
         }
 
         do {
-            let dir = FileSystemManager.shared.attachmentsDir.appendingPathComponent("photos", isDirectory: true)
-            try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-            let file = dir.appendingPathComponent("\(UUID().uuidString).\(ext)")
+            // 落盘到本会话的隔离命名空间：guest 路径 /var/MiniClaw/attachments/photos/<name>
+            // 经 resolveAgentPath 映射到该会话的真实目录（无会话时抛 .sessionRequired）。
+            let name = "\(UUID().uuidString).\(ext)"
+            let file = try FileSystemManager.shared.resolveAgentPath(
+                "/var/MiniClaw/attachments/photos/\(name)", sessionID: currentSessionID)
+            try FileManager.default.createDirectory(at: file.deletingLastPathComponent(),
+                                                    withIntermediateDirectories: true)
             try payload.write(to: file)
             let kb = payload.count / 1024
+            // 回给模型的是 guest 路径，不是 file.path——宿主绝对路径绝不出圈，
+            // apple-image / apple-vision 直接拿这个字符串就能读。
             return ToolResult(success: true,
-                              text: String(localized: "photos_exported") + file.path + "\n"
+                              text: String(localized: "photos_exported") + "/var/MiniClaw/attachments/photos/\(name)" + "\n"
                                   + String(localized: "size_label") + "\(kb)" + String(localized: "unit_kb") + "\n"
                                   + String(localized: "photos_next_hint"))
         } catch {
@@ -147,7 +160,7 @@ extension ApplePhotosTool {
         guard let rawPath = Self.string(parameters["path"]) else {
             return ToolResult(success: false, text: String(localized: "photos_need_path"))
         }
-        let url = Self.resolve(rawPath)
+        let url = Self.resolve(rawPath, sessionID: currentSessionID)
         guard FileManager.default.fileExists(atPath: url.path) else {
             return ToolResult(success: false, text: String(localized: "photos_file_missing") + rawPath)
         }
@@ -285,10 +298,12 @@ extension ApplePhotosTool {
         return "jpg"
     }
 
-    /// 路径解析：相对路径按沙盒根解析，绝对路径直接用。
-    private static func resolve(_ raw: String) -> URL {
-        if raw.hasPrefix("/") { return URL(fileURLWithPath: raw) }
-        return FileSystemManager.shared.miniClawRoot.appendingPathComponent(raw)
+    /// 路径解析统一走 FileSystemManager 的 Agent 路径解析：强制 `/var/MiniClaw/` 前缀、
+    /// 拒绝目录穿越、会话独享目录按 sessionID 落到本会话目录。
+    /// 解析失败（非 /var/MiniClaw/ 的旧式相对路径、无会话访问独享目录）才回落到沙盒根。
+    private static func resolve(_ raw: String, sessionID: UUID?) -> URL {
+        (try? FileSystemManager.shared.resolveAgentPath(raw, sessionID: sessionID))
+            ?? FileSystemManager.shared.miniClawRoot.appendingPathComponent(raw)
     }
 
     // MARK: 授权

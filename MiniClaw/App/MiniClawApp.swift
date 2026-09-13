@@ -192,7 +192,11 @@ struct MiniClawApp: App {
 
         // 资源类：统一解析 attachments/workspace/shared/offloads/browser/memory/rules/skills/mounts。
         // URLComponents 会负责百分号解码；FileSystemManager 会阻止目录穿越。
-        if let localPath = BrowserActionHelpers.resolveMiniClawURL(absolute) {
+        // 会话独享资源（attachments/workspace/browser/offloads）必须带会话 id 才能解析到
+        // 会话目录下的产物。外部 deep link 本身不携带会话 id，只能取当前选中会话近似；
+        // 冷启动时 selectedSession 可能为 nil → 传 nil，仅回落扁平目录（旧文件兼容）。
+        if let localPath = BrowserActionHelpers.resolveMiniClawURL(absolute,
+                                                                   sessionID: appState.selectedSession?.id) {
             if FileManager.default.fileExists(atPath: localPath) {
                 appState.pendingBrowserResourceURL = URL(fileURLWithPath: localPath)
             }

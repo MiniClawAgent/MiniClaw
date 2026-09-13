@@ -104,8 +104,11 @@ enum BrowserActionHelpers {
     // MARK: - miniclaw:// 资源解析
 
     /// 将 miniclaw:// 资源安全解析为本地文件绝对路径；导航型 deep link 返回 nil。
-    static func resolveMiniClawURL(_ raw: String) -> String? {
-        FileSystemManager.shared.resolveMiniClawResourceURL(raw)?.path
+    /// - Parameter sessionID: 会话独享目录（attachments/workspace/browser/offloads）必须按会话
+    ///   解析才能命中会话内产物；不传只会落到扁平目录，会话隔离后写入的文件永远找不到。
+    ///   无会话上下文时传 nil（仅兼容隔离前落在扁平目录的旧文件）。
+    static func resolveMiniClawURL(_ raw: String, sessionID: UUID? = nil) -> String? {
+        FileSystemManager.shared.resolveMiniClawResourceURL(raw, sessionID: sessionID)?.path
     }
 
 
