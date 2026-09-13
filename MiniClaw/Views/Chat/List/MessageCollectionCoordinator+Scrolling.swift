@@ -801,6 +801,10 @@ extension MessageCollectionView.Coordinator {
             clampAfterSessionLoad = false
             // should re-anchorY to wherever the user landed, not continue the old
             lastJumpedUserId = nil
+            // [P5 2026-09-13] 记下冻结起点（供泄漏兜底判定）。**仅在本就未冻结时写**：
+            // 若上一轮冻结已泄漏，这里保持旧起点 ⇒ 宽限期继续累积 ⇒ 兜底能立刻命中，
+            // 而不是被本次手势"刷新"成新起点、把泄漏再拖一整轮。
+            if freezeStartedAt == nil { freezeStartedAt = CFAbsoluteTimeGetCurrent() }
             viewController?.messageListLayout?.deferSelfSizing = true
             // [2026-09-13 隐患①修复] 清零 settle 期的偏移补偿累积量：该累积必须**只反映本次手势期间**
             // 的变化。真机实证（三个构建均复现）`pendingΣ=+1037.0 applied=1 offset -76.7→960.3`：
@@ -1034,7 +1038,17 @@ extension MessageCollectionView.Coordinator {
                 scrollMode = .autoScrolling
             }
             guard let layout = viewController?.messageListLayout,
-                  let cv = viewController?.collectionView else { return }
+                  let cv = viewController?.collectionView else {
+                // [P5 2026-09-13] **早退也必须解冻**。解冻两个动作都不依赖 `layout`/`cv`，
+                // 而本函数是冻结的**唯一关闭点** —— 任何早退都会让两轴永久滞留
+                //（几何不再收缩 ⇒ 拖动手感变"粘"；快照永不上屏 ⇒ 流式内容不显示）。
+                // 原先这里直接 `return`，是一个真实的泄漏口。
+                viewController?.messageListLayout?.deferSelfSizing = false
+                vm?.setStreamingUIUpdatesSuspended(false)
+                freezeStartedAt = nil
+                AppLogger.shared.warning("[Freeze] settle 早退（layout/cv 缺失）→ 强制解冻两轴", category: "ChatList.Scroll")
+                return
+            }
 
             _ = nearBottom
             layout.deferSelfSizing = false
@@ -1070,6 +1084,8 @@ extension MessageCollectionView.Coordinator {
             }
 
             vm?.setStreamingUIUpdatesSuspended(false)
+            // [P5 2026-09-13] 两轴均已解冻 = 本次冻结结束 ⇒ 清冻结起点，泄漏兜底的宽限期重新起算。
+            freezeStartedAt = nil
 
             if pendingSnapshotFlag {
                 DispatchQueue.main.async { [weak self] in
@@ -1082,6 +1098,35 @@ extension MessageCollectionView.Coordinator {
             DispatchQueue.main.asyncAfter(deadline: .now()+0.5) { [weak self] in
                 self?.settleJustFinished = false
             }
+        }
+
+        /// **冻结泄漏兜底**（P5 · 2026-09-13）。
+        ///
+        /// ⚠️ **它不新增第二条关闭路径** —— 命中后只是**重新触发唯一关闭点**
+        /// `settleAfterInteraction`。这样"解冻"依然只有一个出入口：解冻顺带把
+        /// `deferredHeights` 应用掉、并把视口上方的高度变化 1:1 锚回 offset
+        ///（`aboveSum` + `settleAbove`）。若在这里另写一份"只把两个 bool 置 false"的简化解冻，
+        /// 就会出现**收缩不被锚定** ⇒ 可见内容原地跳（这正是 M1/M3 反复修过的东西）。
+        ///
+        /// 为什么必须有一个不依赖滚动回调的兜底：见 `freezeStartedAt` 的说明 ——
+        /// 开启点在 `scrollViewWillBeginDragging`、关闭点在 `settleAfterInteraction`，
+        /// 两者**不在同一函数栈上**，`defer` 覆盖不到。减速若被程序化 `setContentOffset`
+        ///（settle / 贴底 / 视口补偿 / clamp 都会调）打断，`didEndDecelerating` 可能不回调。
+        ///
+        /// 合法窗口判据 = 「正在手势」或「正在减速」。宽限期用于不与**正常**的
+        /// "减速已结束、异步 settle 尚未执行"窗口抢跑（`scrollViewDidEndDecelerating` 里是
+        /// `DispatchQueue.main.async { settle }`，正常只差一次主队列跳转）。
+        func resetLeakedFreezeIfNeeded(_ reason: String) {
+            guard let cv = viewController?.collectionView else { return }
+            guard let started = freezeStartedAt else { return }
+            guard !cv.isTracking,!cv.isDecelerating else { return }
+            let grace: CFTimeInterval = 0.35
+            let elapsed = CFAbsoluteTimeGetCurrent()-started
+            guard elapsed > grace else { return }
+            AppLogger.shared.warning(
+                "[Freeze] 泄漏兜底：冻结已 \(Int(elapsed * 1000))ms 但既非 tracking 也非 decelerating ⇒ 重新触发唯一关闭点 settle（触发源 \(reason)）",
+                category: "ChatList.Scroll")
+            settleAfterInteraction(cv)
         }
 
 }

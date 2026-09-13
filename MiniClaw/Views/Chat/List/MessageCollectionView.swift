@@ -111,6 +111,19 @@ extension MessageCollectionView {
         /// [T1 2026-09-12] 转场期间被推迟的贴底请求（`nil` = 无；见 `scrollToBottomNow` 的说明）。
         var pendingEntryPin: Bool?
 
+        /// [P5 2026-09-13] **冻结起始时刻**（`nil` = 当前未冻结）。仅供「冻结泄漏」兜底判定。
+        ///
+        /// 为什么需要它：冻结两轴（`MessageListLayout.deferSelfSizing` 与
+        /// `MessageListModel.streamingUIUpdatesSuspended`）的**关闭点与开启点不在同一函数栈上** ——
+        /// 开于 `scrollViewWillBeginDragging`，关于 `settleAfterInteraction`，而后者只在
+        /// `scrollViewDidEndDragging(willDecelerate: false)` 与 `scrollViewDidEndDecelerating`
+        /// 两处被调用。**`defer` 语法覆盖不到这种跨回调的生命周期**：只要这两个回调都没来
+        /// （减速被程序化 `setContentOffset` 打断、转场、CV 被移除），冻结就永久滞留 ⇒
+        /// 几何永不再收缩（拖动期空白不再自愈）+ 快照永不上屏。
+        ///
+        /// 判据见 `resetLeakedFreezeIfNeeded(_:)`：**冻结只在「正在手势或减速中」合法**。
+        var freezeStartedAt: CFAbsoluteTime?
+
         #if DEBUG
         deinit {
             decelDisplayLink?.invalidate()
@@ -1088,6 +1101,12 @@ public struct MessageCollectionView: UIViewControllerRepresentable {
         if !vm.isLoadingSession && !vm.streamingUIUpdatesSuspended {
             coord.flushPendingSnapshotIfNeeded(caller: "updateUIVC-backstop")
         }
+
+        // [P5 2026-09-13] **冻结泄漏兜底**。这是本类里唯一"不依赖滚动回调、也会周期性跑"的钩子
+        //（每次 SwiftUI 更新跑一次），故把"两轴冻结是否还在合法窗口内"的检查挂在这里。
+        // 正常路径下它什么也不做（`isTracking`/`isDecelerating` 为真，或宽限期未过）；
+        // 命中即说明 `settleAfterInteraction` 那次关闭没来（见 `freezeStartedAt` 的说明）。
+        coord.resetLeakedFreezeIfNeeded("updateUIVC")
 
         if focusChanged {
             let wasNearBottom = coord.scrollMode == .autoScrolling && coord.isNearBottom()
