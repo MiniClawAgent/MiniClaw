@@ -181,7 +181,18 @@ final class MiniClawChatBridge: ObservableObject {
                 }
                 if cursor < content.count {
                     let startIdx = content.index(content.startIndex, offsetBy: cursor)
-                    targets.append((cursor, String(content[startIdx..<content.endIndex]), Double(Int.max - 1)))
+                    // [2026-09-13 P4·两套尾部 order 收敛] 原先这里写死 `Double(Int.max - 1)`，
+                    // 而终态 `MiniClawChatAdapter.buildBlocks` 的尾部基准是 `maxEventOrder + 0.5`
+                    // ⇒ **同一个块在流式与终态拿到两个不同的 order**，只能靠终态合并时事后同步
+                    //（`bridgedMessage` 里同步 timelineOrder）⇒ 排序键跳变。
+                    // 更硬的理由是精度：`Int.max` 量级下 Double 的**精度间隔是 2048**，
+                    // 任何 `+0.05*k` 子序都会被吞成同一个值（终态 2026-09-12 的
+                    // 「文件指示器总在最终回复上面」就是这个坑，同规则注释见 Adapter 尾部）。
+                    // 改为与终态**同一条规则**：`maxEventOrder + 0.5` —— 仍严格大于所有事件 order
+                    // 与「事件前正文段」（后者 = eventOrder - 0.5，恒小于事件本身），
+                    // 同时落在 Double 精确表示范围内，子序不丢。两条路径从此同构。
+                    let tailBase = (events.map { $0.order }.max() ?? 0) + 0.5
+                    targets.append((cursor, String(content[startIdx..<content.endIndex]), tailBase))
                 }
                 // 孤儿清理：不在目标集的 text 块 = 旧切分残留（position 漂移产物），
                 // 删除使其不再占据显示。thinking/tool 块不在本清理范围
