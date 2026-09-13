@@ -467,42 +467,30 @@ struct MarkdownView: UIViewRepresentable {
                     .replacingOccurrences(of: "*", with: "")
                 storageMissingTail = !stripped.isEmpty
                     && !textView.textStorage.string.contains(stripped)
-                // [Diag 2026-09-13 截断定位探针 · 不影响功能] 一次打全四个数，用来区分
-                // 「cell/视图高度把内容裁掉」与「渲染没上屏」，并暴露探针为何找不到那一行：
-                //   storageLen  实际存储的字符数
-                //   mdCnt       当前 markdown 源文长度
-                //   tvContentH  textView 内容高（完整内容该有的高度）
-                //   tvSupH      textView 父视图（cell 内容区）高度 —— 若明显小于 tvContentH 即被裁
-                // 判据：storageLen 与 render len 一致 ⇒ 渲染没问题、问题在高度；反之才是渲染没上屏。
-                if streamJustEnded || storageMissingTail {
+                // ⚠️ [2026-09-13 回退·我造的渲染自激循环] 这里曾置 `streamSnapshotStale = true`，
+                // 那是错的：本判据用"markdown 原文能否在富文本里找到"作代理，而**含链接/行内代码的
+                // 收尾行**渲染后只剩显示文本 ⇒ **恒判缺失（误报）**。一旦让它"行动"，就会
+                // 「误报 → 置落后 → 排追赶渲染 → 重渲 → 又误报 → 再排」形成**每帧重渲的循环**
+                //（真机 23:22 实证：22ms 一条 `[TruncL]`、参数完全不变、连打 14 次；日志 1.2MB→12.3MB）。
+                // 结论：**该判据只保留观测用途，不参与任何决策**。
+                // 真正的"存储落后"无需此判据：渲染路径自身的 `sameAsStorage` 比较（下方
+                // `attributed.length == textView.textStorage.length && 字符串相等`）已经精确覆盖
+                // 「渲染产物与 storage 不同就赋值」这件事；而"内容长了但没人调 updateUIView"
+                // 那类由 `streamJustEnded` 负责（那才是我要的终态收敛）。
+                if storageMissingTail || streamJustEnded {
                     let supH = textView.superview.map { String(format: "%.1f", $0.bounds.height) } ?? "nil"
                     AppLogger.shared.warning(
                         "[Trunc] blk=\(blockId?.uuidString.prefix(8) ?? "?") storageLen=\(textView.textStorage.length) mdCnt=\(markdown.count) tvContentH=\(String(format: "%.1f", textView.contentSize.height)) tvBoundsH=\(String(format: "%.1f", textView.bounds.height)) tvSupH=\(supH) missing=\(storageMissingTail ? 1 : 0) probeLen=\(probe.count) probe=\(probe.prefix(60))",
                         category: "RenderProbe")
                 }
-                if storageMissingTail {
-                    // [2026-09-13 治本·并入"落后"机制] 只放行去重守卫**不够**：渲染链下游还有
-                    // 多处"可以复用上次结果"的旁路（`streamSnapshotStale` 门控的 prebuilt 采用 ×2、
-                    // 以及流式节流复用），它们会**再次**把短快照拿来渲染 ⇒ storage 原地不动
-                    // （真机 23:02 实证：:09.771 触发强制重渲，但直到 :20.986 都没有任何 `[Render]`
-                    // 行 ⇒ 那次重渲走的是旁路、渲染的仍是短内容，尾部始终不落地）。
-                    // 故此处把"已确认落后"**并入既有的落后标记** `streamSnapshotStale` ——
-                    // 它正是全链"禁止复用旧快照"的统一开关（去重守卫放行 / prebuilt 采用绕过 /
-                    // 缓存写入跳过 / 显式排追赶渲染）。
-                    context.coordinator.streamSnapshotStale = true
-                    let now = CACurrentMediaTime()
-                    if now - context.coordinator.lastShortLogAt > 1.0 {
-                        context.coordinator.lastShortLogAt = now
-                        AppLogger.shared.warning(
-                            "[Probe] SHORT-DISPLAY blk=\(blockId?.uuidString.prefix(8) ?? "?") storageLen=\(textView.textStorage.length) mdCnt=\(markdown.count) streamJustEnded=\(streamJustEnded ? 1 : 0) — 去重放行强制重渲", category: "RenderProbe")
-                    }
-                }
             }
         }
         // [尾包修复 2026-09-10] `streamSnapshotStale` 必须放行：内容没变但 storage 停在
         // 缺尾旧快照（上一轮走了流式节流复用，窗长见 Coordinator.streamThrottleWindow）时，正是本条 updateUIView 要追平。
+        // [2026-09-13 回退] 不再放行 `storageMissingTail`：它是**误报判据**（含链接 / 行内代码的
+        // 收尾行渲染后只剩显示文本 ⇒ 永远找不到），放行它只会让整条链多跑一次渲染、解决不了任何问题。
         guard markdown != context.coordinator.lastMarkdown || fontChanged
-            || context.coordinator.streamSnapshotStale || storageMissingTail else {
+            || context.coordinator.streamSnapshotStale else {
             let shouldRecover = textView.window != nil
                 && textView.needsAttachmentRecovery
                 && !textView.hasScheduledRecoveryForCurrentContent
@@ -849,7 +837,9 @@ struct MarkdownView: UIViewRepresentable {
         // [2026-09-13 终态收敛·治本] 除"脏态"外，**终态完整性核对不过**（`storageMissingTail`
         // —— 即"最后一次渲染的是个短内容"，见上方 `streamJustEnded`）同样必须排一次追赶：
         // 这种情况下内容已停止增长，绝不会有下一次带新 markdown 的更新来追平。
-        if context.coordinator.streamSnapshotStale || storageMissingTail {
+        // [2026-09-13 回退 `storageMissingTail`] 只保留 `streamSnapshotStale`：后者是**真落后**
+        //（本条复用了更旧的快照），而前者是误报判据，参与排期会形成"每帧重渲"的循环。
+        if context.coordinator.streamSnapshotStale {
             context.coordinator.scheduleStreamCatchUp { [weak textView] in
                 guard let textView else { return }
                 self.updateUIView(textView,context: context)
