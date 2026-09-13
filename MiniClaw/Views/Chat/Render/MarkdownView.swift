@@ -461,8 +461,26 @@ struct MarkdownView: UIViewRepresentable {
                 .map { $0.trimmingCharacters(in: .whitespaces) }
                 .first { $0.count >= 6 && $0.contains(where: { $0.isLetter }) }
             if let probe {
-                storageMissingTail = !textView.textStorage.string.contains(probe)
+                // [2026-09-13 判据修正] 不能拿 markdown **原文**去 `textStorage.string` 里找：
+                // 渲染会**剥掉**反引号 / 加粗星号等行内标记 ⇒ 含 `` ` `` 的收尾行永远找不到，
+                // 判据恒为"落后"（真机 23:02 就是这种误报：storageLen 已是完整长度却仍判 SHORT）。
+                // 故对探针做一次轻量去标记再比。
+                let stripped = probe
+                    .replacingOccurrences(of: "`", with: "")
+                    .replacingOccurrences(of: "**", with: "")
+                    .replacingOccurrences(of: "*", with: "")
+                storageMissingTail = !stripped.isEmpty
+                    && !textView.textStorage.string.contains(stripped)
                 if storageMissingTail {
+                    // [2026-09-13 治本·并入"落后"机制] 只放行去重守卫**不够**：渲染链下游还有
+                    // 多处"可以复用上次结果"的旁路（`streamSnapshotStale` 门控的 prebuilt 采用 ×2、
+                    // 以及流式节流复用），它们会**再次**把短快照拿来渲染 ⇒ storage 原地不动
+                    // （真机 23:02 实证：:09.771 触发强制重渲，但直到 :20.986 都没有任何 `[Render]`
+                    // 行 ⇒ 那次重渲走的是旁路、渲染的仍是短内容，尾部始终不落地）。
+                    // 故此处把"已确认落后"**并入既有的落后标记** `streamSnapshotStale` ——
+                    // 它正是全链"禁止复用旧快照"的统一开关（去重守卫放行 / prebuilt 采用绕过 /
+                    // 缓存写入跳过 / 显式排追赶渲染）。
+                    context.coordinator.streamSnapshotStale = true
                     let now = CACurrentMediaTime()
                     if now - context.coordinator.lastShortLogAt > 1.0 {
                         context.coordinator.lastShortLogAt = now
