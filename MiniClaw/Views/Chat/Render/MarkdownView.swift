@@ -866,6 +866,22 @@ struct MarkdownView: UIViewRepresentable {
             path: fastPathTaken ? "fast-append" : "full-assign",
             isStreaming: isStreaming
         )
+        // [Diag 2026-09-13 截断定位 · 不影响功能，直接加不作询问] 每次渲染后量一遍几何。
+        // ⚠️ 关键：**必须量到 cell 的 frame**。上一版探针只量到 textView 的**内部容器**
+        //（那一层的高度永远等于内容高，所以"看起来没被裁"，看不出真凶）；
+        // 若 cellH 明显小于 tvContentH，即 **cell 裁掉了尾部文字**，而不是渲染没上屏。
+        // 降频：终态每次打；流式期只在滚动哨兵开启时打（避免刷屏）。
+        if !isStreaming || ScrollMetricsRecorder.shared.isEnabled {
+            var cellH: CGFloat = -1
+            var probeView: UIView? = textView
+            while let cur = probeView {
+                if let cell = cur as? SelfSizingCell { cellH = cell.frame.height; break }
+                probeView = cur.superview
+            }
+            AppLogger.shared.info(
+                "[TruncL] blk=\(blockId?.uuidString.prefix(8) ?? "?") storageLen=\(textView.textStorage.length) attrLen=\(attributed.length) mdCnt=\(markdown.count) tvContentH=\(String(format: "%.1f", textView.contentSize.height)) cellH=\(String(format: "%.1f", cellH)) path=\(fastPathTaken ? "fast" : "full") streaming=\(isStreaming ? 1 : 0)",
+                category: "RenderProbe")
+        }
 
         let storage = textView.textStorage
         let storageLen = storage.length
