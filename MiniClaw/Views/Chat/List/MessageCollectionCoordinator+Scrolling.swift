@@ -1031,6 +1031,16 @@ extension MessageCollectionView.Coordinator {
         }
 
         func settleAfterInteraction(_ scrollView: UIScrollView) {
+            // [P5 2026-09-13] **正在进行新手势时拒绝 settle**。
+            //
+            // `scrollViewDidEndDecelerating` 里是 `DispatchQueue.main.async { settle }` ——
+            // 异步那一跳之间用户完全可能已经重新按下并开始拖动。此时若旧 settle 落地，它会
+            //   ① 把 `deferSelfSizing` 置 false ⇒ **在拖动手势中途解冻**（−160pt 收缩抖动会回来）；
+            //   ② 按旧基准改写 `contentOffset` ⇒ 与新手势抢方向盘。
+            // 拒绝是安全的：本次手势结束时它自己的 `didEndDragging`/`didEndDecelerating` 会再调一次；
+            // 万一都没来，`resetLeakedFreezeIfNeeded(_:)` 的宽限期兜底也会补上。
+            guard let cvNow = viewController?.collectionView,!cvNow.isTracking else { return }
+
             // and jittering.
             let atBottom = isWithinBottom(reacquireAutoScrollThreshold)
             let nearBottom = isNearBottom()
