@@ -578,7 +578,15 @@ public final class MessageListLayout: UICollectionViewLayout {
             guard abs(cv.bounds.width-targetWidth)<0.5 else { return }
             guard abs(cv.bounds.width-self.lastSettledWidth) >= 0.5 else { return }
 
-            self.heightEntries.removeAll()
+            // [2026-09-13 出入口统一 4/4] 原先此处直写 `heightEntries.removeAll()` ——
+            // 这是**绕过失效唯一入口**的第 5 条旁路：它只清条目，留下
+            // `contentKeyByIndex` / `footerHugByIndex` 的孤儿键，且**不清**
+            // `_userBubbleMemo`（其键含 `usableTextWidth`，宽度一变旧键永远不可能再命中，
+            // 只会在旋转/分屏反复切换时单调增长 —— 与 2026-09-08 那次"从不清理"同型）。
+            // 宽度变更的正确语义就是"索引条目全丢、进程级 memo 留"（memo 按 (key,width)
+            // 匹配，宽度不通即不命中，故保留安全且是收益），即
+            // `clearHeightCache(keepingSharedMemo: true)` —— 直接复用，不再各写一遍。
+            self.clearHeightCache(keepingSharedMemo: true)
             self.lastSettledWidth = cv.bounds.width
             self.invalidateLayout()
         }
@@ -666,8 +674,10 @@ public final class MessageListLayout: UICollectionViewLayout {
     /// 流式 cell 停在首帧高度，正文与下方工具卡/思考块重叠（2026-09-05 回归）。
     public func hasMeasuredHeight(at index: Int) -> Bool {
         // 关键后果：内容已变的陈旧 `.measured` 条目不再算"已实测" ⇒ `seedHeight` 的
-        // `guard !hasMeasuredHeight(at:) else { return }`（`+Snapshot.swift:579`）不再
+        // `guard !hasMeasuredHeight(at:) else { return }`（`+Snapshot.swift` 的 `seedHeight`）不再
         // 拦住内容已变的块，它会带**当前内容键**重新播种（这正是 I11 缺的那条失效路径）。
+        // [2026-09-13] 此处原先写死行号 `+Snapshot.swift:579`，已因搬移失效；跨文件引用一律用
+        // 符号名而非行号 —— 行号引用正是这些注释反复过期的根因。
         currentEntry(at: index)?.source == .measured
     }
 

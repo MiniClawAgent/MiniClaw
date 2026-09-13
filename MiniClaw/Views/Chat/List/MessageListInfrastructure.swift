@@ -164,8 +164,9 @@ public final class MessageListViewController: UIViewController {
 final class NoAnimationCollectionView: UICollectionView {
     var isApplyingSnapshot = false
 
-    /// When true, non-snapshot programmatic layout
-    var streamingGrowAnimationEnabled = true
+    // [2026-09-13 死代码清理] 原处有 `var streamingGrowAnimationEnabled = true`：
+    // 全库仅「此处声明 + 下方读取」两处，**无任何写入点** ⇒ 恒真、永不可配 —— 是死开关。
+    // 读取点已按"恒真"内联（该分支本意即"只在流式期走 grow 动画"）。
 
     /// Reentrancy guard: the grow path calls
     private var inStreamGrow = false
@@ -222,7 +223,7 @@ final class NoAnimationCollectionView: UICollectionView {
 
         if isTracking || isDecelerating {
             super.layoutSubviews()
-        } else if streamingGrowAnimationEnabled,isStreamingNow,contentOverflowsViewport,
+        } else if isStreamingNow,contentOverflowsViewport,
                   !isApplyingSnapshot,!inStreamGrow {
             // The smooth-streaming trick, done right:
             //

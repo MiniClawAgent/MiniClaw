@@ -350,8 +350,9 @@ extension MessageCollectionView.Coordinator {
             // 两者同根 = **帧被算成 200**。故**治本点是别让 `prepare()` 看到 200**，
             // 而不是放宽那个门（放宽＝把 −160pt 的抖动放回来）。
             // 播种提前后：`prepare()` 直接读到正确条目 ⇒ 既不产生虚高帧、也就没有"需要拒绝的
-            // 收缩" ⇒ 空白与抖动同时不成立。这也是本文件 `:247 reseedTextBlock(before:)`
+            // 收缩" ⇒ 空白与抖动同时不成立。这也是 `reseedTextBlock(before:)`（本文件）
             // 已经采用的正确时序（"让补齐发生在渲染之前"）。
+            // [2026-09-13] 此处原先写死行号 `:247`，已因搬移失效 —— 跨文件/跨段引用一律用符号名。
             if let cv = viewController?.collectionView {
                 // 两处播种统一走同一入口（策略成为参数）：新增项 → 缺失项。
                 // ⚠️ 时机仍在 `dataSource.apply` **之前**（顺序敏感点 S1）。
@@ -663,9 +664,26 @@ extension MessageCollectionView.Coordinator {
                 layout.setEstimatedHeight(footerEstimate,at: i)
 
             case .assistantBlock(let msgId,let blockId):
-                guard let msgIdx = messageIndex[msgId],msgIdx<messages.count else { return }
+                // [2026-09-13 P3·失败必须显式] 原先这两处是**静默 `return`**：查不到消息、或消息里
+                // 找不到该块时，这个 index 就**不写任何条目** ⇒ 随后 `dataSource.apply` 触发的
+                // `prepare()` 落到兜底 `estimatedItemHeight`(200pt) ⇒ 虚高帧 ⇒ 手势期收缩被拒
+                // ⇒ **拖动期大片空白**（与 S1 同一条因果链）；而且静默降级会把"这条消息高度为什么
+                // 不对"变成无从下手。现改为**显式兜底 + 告警**。
+                // 兜底用 `estimateItemHeight`：它不读 `messageIndex`（自己查 `messages`），
+                // 故仍可能给出该块类型的真实量级；彻底查不到时退 44pts 保守值。最坏也比"无条目 ⇒ 200"好。
+                guard let msgIdx = messageIndex[msgId],msgIdx<messages.count else {
+                    let est = Self.estimateItemHeight(item,messages: messages,width: cvWidth)
+                    layout.setEstimatedHeight(est,at: i)
+                    AppLogger.shared.info("[Seed] messageIndex 无 \(msgId.uuidString.prefix(8)) → 兜底估高 \(Int(est))pt idx=\(i) reseed=\(isReseed ? 1 : 0)（原为静默留空 ⇒ prepare 落 200pt 兜底）", category: "ChatList.Heights")
+                    return
+                }
                 let msg = messages[msgIdx]
-                guard let block = msg.blocks.first(where: { $0.id == blockId }) else { return }
+                guard let block = msg.blocks.first(where: { $0.id == blockId }) else {
+                    let est = Self.estimateItemHeight(item,messages: messages,width: cvWidth)
+                    layout.setEstimatedHeight(est,at: i)
+                    AppLogger.shared.info("[Seed] 消息 \(msgId.uuidString.prefix(8)) 无块 \(blockId.uuidString.prefix(8)) → 兜底估高 \(Int(est))pt idx=\(i) reseed=\(isReseed ? 1 : 0)", category: "ChatList.Heights")
+                    return
+                }
 
                 switch block.kind {
                 case .text:
