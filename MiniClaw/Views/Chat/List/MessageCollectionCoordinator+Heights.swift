@@ -78,6 +78,45 @@ extension MessageCollectionView.Coordinator {
             defer { os_unfair_lock_unlock(&_userBubbleLock) }
             _userBubbleMemo.removeAll(keepingCapacity: false)
         }
+        /// 附件瓦片区的**渲染真高**（与 `UserAttachmentList` 同源 · 2026-09-13 估高同源）。
+        ///
+        /// 渲染侧的**实际构成**（`MiniClawHostStubs` 的 `UserAttachmentList`）：
+        /// ```
+        /// VStack(alignment: .trailing, spacing: 6) {
+        ///     媒体(image/video/audio) → LazyVGrid(GridItem(.fixed(64), spacing: 6)
+        ///         × max(1, min(media.count, 4)))   // 固定 4 列，tile 边长 64
+        ///     文档(非媒体)            → ForEach 每条一行，frame(height: 40)
+        /// }
+        /// ```
+        /// ⇒ 媒体段高 = `rows*64 + (rows-1)*6`（`rows = ceil(media.count / min(media.count,4))`）
+        /// ⇒ 文档段高 = `n*40 + (n-1)*6`（**每条一行**，不参与网格）
+        /// ⇒ 两段之间再计一次 VStack 的 6pt。
+        ///
+        /// 原实现把两类附件**一并**按「每行 70pt 的网格」估（`rows*70+6`），失真是结构性的：
+        ///   · 纯图片 1 张：估 76pt，实渲染 **64pt** ⇒ **+12pt**
+        ///   · 纯文档 1 个：估 76pt，实渲染 **40pt** ⇒ **+36pt**
+        ///   · 纯文档 2 个：估 76pt，实渲染 86pt ⇒ −10pt（这侧是低估，安全）
+        /// 因手势期 `deferSelfSizing` 的策略是「**只拒绝收缩**、增长放行」，上面那些**高估**
+        /// 全部会变成拖动期的**可见空白**，松手 settle 才消失。
+        static func attachmentStripHeight(_ attachments: [AttachmentMeta]) -> CGFloat {
+            let spacing: CGFloat = 6
+            let tile: CGFloat = 64
+            let fileRow: CGFloat = 40
+            let mediaCount = attachments.filter { $0.isImage || $0.isVideo || $0.isAudio }.count
+            let fileCount = attachments.count-mediaCount
+            var blocks: [CGFloat] = []
+            if mediaCount>0 {
+                let perRow = max(1,min(mediaCount,4))
+                let rows = Int(ceil(CGFloat(mediaCount)/CGFloat(perRow)))
+                blocks.append(CGFloat(rows)*tile+CGFloat(rows-1)*spacing)
+            }
+            if fileCount>0 {
+                blocks.append(CGFloat(fileCount)*fileRow+CGFloat(fileCount-1)*spacing)
+            }
+            guard !blocks.isEmpty else { return 0 }
+            return blocks.reduce(0,+)+CGFloat(blocks.count-1)*spacing
+        }
+
         static func measureUserBubbleHeight(for message: RenderMessage,cvWidth: CGFloat,
                                             allowRender: Bool = true) -> CGFloat? {
             var text = message.content
@@ -98,16 +137,24 @@ extension MessageCollectionView.Coordinator {
 
             var attachH: CGFloat = 0
             if attachCount>0 {
-                let tilesPerRow = max(1,Int((cvWidth-32-60)/70))
-                let rows = ceil(CGFloat(attachCount)/CGFloat(tilesPerRow))
-                attachH = rows*70+6 /*VStack spacing*/
+                // [2026-09-13 估高同源] 改用与 `UserAttachmentList` **同一套渲染构成**的真高，
+                // 不再按「每行 70pt 网格」粗估（媒体每行多算 6pt、文档完全失真）——
+                // 细节与量化见 `attachmentStripHeight(_:)` 的注释。
+                // 附件数组取 `attachments`：`inputAttachments` 全库无写入点（P6 分册 §2.2），
+                // 上面那个三元回退实际恒取 `attachments`。
+                attachH = Self.attachmentStripHeight(message.attachments)
             }
 
             guard !text.isEmpty else {
                 return attachCount>0 ? attachH : nil
             }
 
-            let key = "\(text.count)|\(Int(usableTextWidth))|\(Int(fontSize))|\(attachCount)|\(text.hashValue)"
+            // [2026-09-13] 键里加 `Int(attachH)`：附件区高度从「只依赖**数量**」改成了
+            // 「依赖**媒体/文档构成**」（见 `attachmentStripHeight(_:)`），故仅凭 `attachCount`
+            // 已不足以标识该 memo 的输入 —— 同为 1 个附件，"1 张图"(64pt) 与 "1 个文档"(40pt)
+            // 会算出不同高度却撞同一个键 ⇒ 命中旧值算错高。用算好的 `attachH` 直接进键最省事
+            //（它已是那两个数组的函数），且不必再引入第二套口径。
+            let key = "\(text.count)|\(Int(usableTextWidth))|\(Int(fontSize))|\(attachCount)|\(Int(attachH))|\(text.hashValue)"
             if let cached = userBubbleMemoValue(forKey: key) { return cached }
 
             // [2026-09-09 同源修复] 用户气泡正文改由 MarkdownSurface（cmark +
