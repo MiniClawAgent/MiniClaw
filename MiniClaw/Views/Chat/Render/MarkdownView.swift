@@ -1000,7 +1000,12 @@ struct MarkdownView: UIViewRepresentable {
         }
         // 统一渲染/测量缓存的 key（渲染分支与测量分支共用同一 key，条目互通）
         let renderCacheKey = MarkdownRenderCache.key(for: markdown, fontSize: FontSettings.shared.scaledMessage(16.5))
+        // [2026-09-13 重构·语义拆分] 原先一个 `bindingLen` 兼任两职：
+        //   ① **缓存代际键**（与 `cachedSizeFingerprint` 比较）—— 需要**内容指纹**（等长改写必须判"变了"）；
+        //   ② **长度代理**（`bindingLen == storageLen` 的存储一致性检查）—— 需要**真实长度**。
+        // 一个变量两个语义正是本轮重构要消掉的坏味道，故拆成两个变量，各只承担一件事。
         let bindingLen = (markdown as NSString).length
+        let bindingFingerprint = ContentFingerprint.of(markdown)
         let storageLen = uiView.textStorage.length
 
         let coord = context.coordinator
@@ -1009,7 +1014,7 @@ struct MarkdownView: UIViewRepresentable {
         let t0 = CFAbsoluteTimeGetCurrent()
 
         let widthKey = Int(width.rounded())
-        if bindingLen == coord.cachedSizeMarkdownCount,
+        if bindingFingerprint == coord.cachedSizeFingerprint,
            let cachedHeight = coord.cachedSizes[widthKey] {
             coord.sizeThatFitsCacheHitCount &+= 1
             if callIdx%50 == 0 {
@@ -1018,7 +1023,7 @@ struct MarkdownView: UIViewRepresentable {
         }
 
         // Near-width cache hit for FULLY
-        if bindingLen == coord.cachedSizeMarkdownCount,
+        if bindingFingerprint == coord.cachedSizeFingerprint,
            bindingLen == storageLen,
            !coord.cachedSizes.isEmpty {
             var nearestHeight: CGFloat?
@@ -1043,9 +1048,9 @@ struct MarkdownView: UIViewRepresentable {
         //
         let useMeasureTextView = bindingLen != storageLen
 
-        if bindingLen != coord.cachedSizeMarkdownCount {
+        if bindingFingerprint != coord.cachedSizeFingerprint {
             coord.cachedSizes.removeAll(keepingCapacity: true)
-            coord.cachedSizeMarkdownCount = bindingLen
+            coord.cachedSizeFingerprint = bindingFingerprint
         }
 
         // recorded in `MiniClaw-2026-05-13-084827.ips` (depth=9 recursion at
@@ -1182,7 +1187,7 @@ struct MarkdownView: UIViewRepresentable {
                     // [高度投毒修复] 落后快照测出的高度一律不入任何缓存——否则短高度
                     // 挂在完整内容的 key/指纹下，回看时 :902/:1051 永久命中矮高度。
                     coord.cachedSizes[widthKey] = h
-                    coord.cachedSizeMarkdownCount = bindingLen
+                    coord.cachedSizeFingerprint = bindingFingerprint
                 }
                 let _renderW = uiView.bounds.width
                 if _renderW <= 0 || abs(width-_renderW)<0.5 {
@@ -1241,7 +1246,7 @@ struct MarkdownView: UIViewRepresentable {
                     if coord.cachedSizes.count>12,let firstKey = coord.cachedSizes.keys.first {
                         coord.cachedSizes.removeValue(forKey: firstKey)
                     }
-                    coord.cachedSizeMarkdownCount = bindingLen
+                    coord.cachedSizeFingerprint = bindingFingerprint
                     let renderW = uiView.bounds.width
                     if renderW <= 0 || abs(width-renderW)<0.5 {
                         uiView.lastComputedHeight = h
@@ -1439,7 +1444,9 @@ struct MarkdownView: UIViewRepresentable {
         var lastFontSize: CGFloat = FontSettings.shared.scaledMessage(16.5)
         var openURL: OpenURLAction?
         var cachedSizes: [Int: CGFloat] = [:]
-        var cachedSizeMarkdownCount: Int = 0
+        /// [2026-09-13 指纹统一] 原为 `cachedSizeMarkdownCount`（只比 NSString 长度）。
+        /// 等长改写会被判"未变" ⇒ sizeThatFits 直接返回陈旧高度（尾部被裁）。改用 `ContentFingerprint`。
+        var cachedSizeFingerprint: Int = 0
         // [T-perf 2026-09-08] 流式渲染节流状态（见渲染分支注释）：节流窗内的
         // sizeThatFits/updateUIView 直接复用上次渲染结果，把流式渲染频率锁到 ~4 次/秒。
         var lastStreamPending: NSAttributedString? = nil

@@ -1250,7 +1250,7 @@ final class MarkdownTextView: UITextView,UIGestureRecognizerDelegate {
             // [高度投毒修复 2026-09-10] 显示侧处于「落后快照」态（250ms 节流复用、
             // storage 短于当前 markdown）时，这里测出的矮高度**不能**配上
             // rawMarkdown 完整长度当指纹写入 cachedSizes——否则 sizeThatFits 的
-            // :902 守卫（bindingLen == cachedSizeMarkdownCount，无长度校验）会
+            // sizeThatFits 的代际守卫（`bindingFingerprint == cachedSizeFingerprint`）会
             // 次次命中矮高度，尾部行被裁。脏态期跳过写入，追赶渲染落地后自然重测。
             if !coord.streamSnapshotStale {
                 // REPLACE the whole bucket dict
@@ -1258,10 +1258,11 @@ final class MarkdownTextView: UITextView,UIGestureRecognizerDelegate {
                 coord.cachedSizes.removeAll(keepingCapacity: true)
                 coord.cachedSizes[widthKey] = newHeight
                 // Key the cache generation by the
-                let bindingLenForKey = rawMarkdown.isEmpty
-                    ? textStorage.length
-                    : (rawMarkdown as NSString).length
-                coord.cachedSizeMarkdownCount = bindingLenForKey
+                // [2026-09-13 指纹统一] 代际键改用内容指纹（原为 `bindingLenForKey` 长度）：
+                // 长度不辨等长改写。来源口径与 `MarkdownView.sizeThatFits` 侧一致 ——
+                // 有 `rawMarkdown` 就用它，否则用当前 storage 的实际内容。
+                coord.cachedSizeFingerprint = ContentFingerprint.of(
+                    rawMarkdown.isEmpty ? textStorage.string : rawMarkdown)
             }
         }
 
