@@ -917,6 +917,30 @@ struct MarkdownView: UIViewRepresentable {
                         "[TruncL-FIX3] textView 高度落后一行 → 按 usedRect 定高 \(String(format: "%.1f", cellH)) → \(String(format: "%.1f", usedH)) blk=\(blkSnap) glyphs=\(total) visEnd=\(visEnd)",
                         category: "RenderProbe")
                 }
+                // [Fix 2026-09-14 第三处·"一次算准"] 同一测量值**同时**推给 cell 那一层：
+                // 真机实证流式期两者互相追 —— `tvFrameH=519 > cellContentH=475 (clipped=1)`、
+                // 或 `cellShort=1 entry=nil`（该行压根没条目 ⇒ cell 矮）。根因是"内容变了"这件事
+                // **分别**更新了 textView 与 cell 两条链路、时机不同。
+                // 修法：既然这里已经拿到排版真值 `usedH`，就把同一口径的高度也推给该行条目
+                //（含 4pt chrome，与 cell 的组成一致），让两层在同一次 pass 里对齐。
+                if let cell = cellRef,
+                   let cv = cell.superview as? UICollectionView,
+                   let ip = cv.indexPath(for: cell),
+                   let layout = cv.collectionViewLayout as? MessageListLayout {
+                    let cellNeeded = usedH + 4
+                    let cur = layout.cachedHeight(at: ip.item) ?? 0
+                    if cur < cellNeeded - 0.5 {
+                        // 先剔条目（否则陈旧实测条目会挡住写入），再按同一测量值写入预演高度；
+                        // 真实值随后由 cell 自 sizing 覆盖（`.measured > .precalc`）。
+                        cell.clearCachedHeight()
+                        layout.invalidateHeight(at: ip.item)
+                        layout.setPrecalcHeight(cellNeeded,at: ip.item)
+                        layout.invalidateLayout()
+                        AppLogger.shared.warning(
+                            "[TruncL-FIX4] cell 高度落后 → 与 textView 同口径定高 \(String(format: "%.1f", cur)) → \(String(format: "%.1f", cellNeeded)) blk=\(blkSnap) idx=\(ip.item)",
+                            category: "RenderProbe")
+                    }
+                }
             }
             guard forceLog || bad else { return }
             // [Diag] 不依赖时机的**裁剪**判据：textView 的 frame 底边是否超出 cell 内容区底边。
