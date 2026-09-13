@@ -127,6 +127,15 @@ final class MarkdownTextView: UITextView,UIGestureRecognizerDelegate {
         isEditable = false
         isSelectable = true
         isScrollEnabled = false
+        // [Fix 2026-09-14 「流式期间尾部不显示」根治 · 社区标准做法]
+        // `UITextView` **默认开启**非连续布局（Apple 文档写默认 false，实际是 true；见 WWDC2018
+        // 《TextKit 最佳做法》：UITextView 默认启用、且禁用滚动时它本不生效）。
+        // 非连续布局下 TextKit 只保证"用得着的部分"被排版 ⇒ `glyphRange(forBoundingRect:)` /
+        // `ensureLayout(forCharacterRange:)` 可能只覆盖**部分**文本 ⇒ **尾部既不参与排版、
+        // 也不被绘制**（真机签名：`glyphs=160 visEnd=77`，而存储与 cell 高度都正常 = 尾部就是画不出来）。
+        // 这是 iOS7 以来 UITextView 的著名坑，标准解法就是关掉它 —— 自定义测量/绘制/流式追加的
+        // TextKit 栈**必须**连续布局，否则任何按字形范围取值的逻辑都不可靠。
+        layoutManager.allowsNonContiguousLayout = false
         //
         textContainerInset = UIEdgeInsets(top: 4,left: 0,bottom: 4,right: 0)
         backgroundColor = .clear

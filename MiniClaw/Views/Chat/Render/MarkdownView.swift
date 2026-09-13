@@ -1649,6 +1649,9 @@ struct MarkdownView: UIViewRepresentable {
         fileprivate lazy var measureTextView: UITextView = {
             let tv = MarkdownTextView()
             tv.isScrollEnabled = false
+            // [Fix 2026-09-14] 同 `MarkdownTextView`：关掉 TextKit 非连续布局，
+            // 否则离屏测量用的这个栈也会"只排版部分文本"⇒ 高度偏小 / 尾部不绘制。
+            tv.layoutManager.allowsNonContiguousLayout = false
             tv.isEditable = false
             tv.isSelectable = false
             // [ClipFix 2026-05-16] Match the live MarkdownTextView's

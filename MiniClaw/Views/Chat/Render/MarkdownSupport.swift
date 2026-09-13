@@ -248,6 +248,9 @@ final class TableCellLabel: UILabel,UIGestureRecognizerDelegate,UIContextMenuInt
         let tv = TableCellTextView()
         tv.isEditable = false
         tv.isScrollEnabled = false
+        // [Fix 2026-09-14] 同 `MarkdownTextView`：TextKit 的非连续布局必须关掉，否则按字形范围取值
+        //（`usedRect` / `glyphRange(forBoundingRect:)`）只覆盖部分文本 ⇒ 测量偏小、尾部不绘制。
+        tv.layoutManager.allowsNonContiguousLayout = false
         tv.backgroundColor = .clear
         tv.textContainer.lineFragmentPadding = 0
         tv.attributedText = selectableAttributedText ?? attributedText
