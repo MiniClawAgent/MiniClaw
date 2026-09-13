@@ -91,7 +91,6 @@ extension MessageCollectionView.Coordinator {
                             if case .assistantBlock(_,let bid) = item,bid == blockId {
                                 matched = true
                                 let beforeLayout = layout.cachedHeight(at: i)
-                                let beforePrecalc = layout.precalcHeight(at: i)
                                 let ip = IndexPath(item: i,section: 0)
                                 let cellOpt = cv.cellForItem(at: ip) as? SelfSizingCell
                                 let frameH = cellOpt?.frame.size.height ?? -1
@@ -103,7 +102,7 @@ extension MessageCollectionView.Coordinator {
                                 snap.reconfigureItems([item])
                                 self.dataSource?.apply(snap,animatingDifferences: false)
                                 layout.invalidateLayout()
-                                tlog.info("[Collapse] HIT block=\(blockId.uuidString.prefix(8)) idx=\(i) cellFound=\(cellOpt != nil) frameH=\(String(format: "%.1f", frameH)) beforeLayout=\(beforeLayout.map { String(format: "%.1f", $0) } ?? "nil") beforePrecalc=\(beforePrecalc.map { String(format: "%.1f", $0) } ?? "nil")")
+                                tlog.info("[Collapse] HIT block=\(blockId.uuidString.prefix(8)) idx=\(i) cellFound=\(cellOpt != nil) frameH=\(String(format: "%.1f", frameH)) beforeLayout=\(beforeLayout.map { String(format: "%.1f", $0) } ?? "nil")")
                                 DispatchQueue.main.async { [weak cv, weak layout] in
                                     let cv = cv
                                     let layout = layout
@@ -390,7 +389,10 @@ extension MessageCollectionView.Coordinator {
                 for blk in m.blocks where blk.kind == .text && !blk.content.isEmpty {
                     guard let attr = blk.cachedAttributedString, attr.length > 0 else { continue }
                     let c = blk.content
-                    let rich = AssistantBlock.hasRichSyntax(c)
+                    // [2026-09-13 缓存串味修复] 补结构判据：源文启发式 `hasRichSyntax` 只查
+                    // `$$`，漏判行内 `$...$`（会产出 MathAttachment）⇒ 会放行带附件的产物
+                    // 进共享缓存。故对渲染产物本身再判一次，与 MarkdownView 写入口径统一。
+                    let rich = AssistantBlock.hasRichSyntax(c) || attr.hasAnyAttachment
                     let key = MarkdownRenderCache.key(for: c, fontSize: fontSize)
                     if widths.allSatisfy({ MarkdownRenderCache.shared.cachedHeight(for: key, width: $0) != nil }) {
                         continue // 已有全部宽度高度——增量跳过

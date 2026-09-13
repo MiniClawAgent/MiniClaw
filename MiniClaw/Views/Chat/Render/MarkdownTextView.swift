@@ -271,15 +271,6 @@ final class MarkdownTextView: UITextView,UIGestureRecognizerDelegate {
         return result
     }
 
-    func findCollectionView() -> NoAnimationCollectionView? {
-        var view: UIView? = superview
-        while let v = view {
-            if let cv = v as? NoAnimationCollectionView { return cv }
-            view = v.superview
-        }
-        return nil
-    }
-
     private func findCell() -> UICollectionViewCell? {
         var view: UIView? = superview
         while let v = view {

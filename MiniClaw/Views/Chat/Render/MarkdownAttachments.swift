@@ -62,7 +62,6 @@ final class MathAttachment: NSTextAttachment {
     private(set) var renderedImage: UIImage?
     private(set) var renderedSize: CGSize = .zero
     private var didAttemptRender = false
-    private var isKaTeXPending = false
     private(set) var renderFailed = false
     var onLoad: (() -> Void)?
 
@@ -124,9 +123,9 @@ final class MathAttachment: NSTextAttachment {
     func beginRenderingIfNeeded() {
         MathAttachment.beginCount &+= 1
         if MathAttachment.beginCount <= 3 || MathAttachment.beginCount%50 == 0 {
-            AppLogger(category: "MathSched").info("[MathSched] beginRenderingIfNeeded #\(MathAttachment.beginCount) rendered=\(renderedImage != nil) attempted=\(didAttemptRender) katex=\(isKaTeXPending) isBlock=\(isBlock) latex=\(latex.prefix(30))")
+            AppLogger(category: "MathSched").info("[MathSched] beginRenderingIfNeeded #\(MathAttachment.beginCount) rendered=\(renderedImage != nil) attempted=\(didAttemptRender) isBlock=\(isBlock) latex=\(latex.prefix(30))")
         }
-        guard renderedImage == nil,!didAttemptRender,!isKaTeXPending else { return }
+        guard renderedImage == nil,!didAttemptRender else { return }
         didAttemptRender = true
         MathRenderScheduler.shared.enqueue(self)
     }
@@ -157,7 +156,7 @@ final class MathAttachment: NSTextAttachment {
 
     @MainActor
     func makeView(width: CGFloat) -> UIView {
-        if renderedImage == nil && !didAttemptRender && !isKaTeXPending {
+        if renderedImage == nil && !didAttemptRender {
             beginRenderingIfNeeded()
         }
 
@@ -1966,15 +1965,6 @@ final class TableCellTextView: UITextView,UITextViewDelegate {
         cv?.offsetLocked = false
         onResignFirstResponder?()
         return result
-    }
-
-    func findCollectionView() -> NoAnimationCollectionView? {
-        var view: UIView? = superview
-        while let v = view {
-            if let cv = v as? NoAnimationCollectionView { return cv }
-            view = v.superview
-        }
-        return nil
     }
 
     override func canPerformAction(_ action: Selector,withSender sender: Any?) -> Bool {

@@ -11630,35 +11630,6 @@
         }
       }
     },
-    "copy_ext_format": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ copy %@.%@"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ copy %@.%@"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ copy %@.%@"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ 副本 %@.%@"
-          }
-        }
-      }
-    },
     "copy_failed_format": {
       "extractionState": "manual",
       "localizations": {
@@ -11713,35 +11684,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "复制文件"
-          }
-        }
-      }
-    },
-    "copy_of_format": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ copy %@"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ のコピー %@"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ 사본 %@"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ 副本 %@"
           }
         }
       }

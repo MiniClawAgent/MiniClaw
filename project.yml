@@ -218,7 +218,6 @@ targets:
     sources:
       - path: MiniClawKit
         excludes:
-          - KaTeX
           - .git
       # SwiftMath(原生公式渲染,vendored 1.7.3)
       - path: ../Kit/SwiftMath/Sources/SwiftMath
@@ -241,10 +240,6 @@ targets:
           - include
           - ext_scanners.re
           - CMakeLists.txt
-    resources:
-      - path: MiniClawKit/KaTeX
-        type: folder
-
   MiniClawWidget:
     type: app-extension
     platform: iOS

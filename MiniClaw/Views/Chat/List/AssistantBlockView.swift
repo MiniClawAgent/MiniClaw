@@ -472,32 +472,6 @@ struct ChatInputAppendListener: ViewModifier {
     }
 }
 
-/// Main-thread hitch monitor, active only while an
-/// expanded thinking block is streaming. Logs frame gaps > 100ms together with
-/// the current thinking length so hitches can be correlated with content size.
-/// One shared instance — at most one thinking block streams at a time.
-private struct ToolCopyButton: View {
-    var accentColor: Color = .green
-    let content: () -> String
-    @State private var copied = false
-
-    var body: some View {
-        Button {
-            UIPasteboard.general.string = content()
-            copied = true
-            DispatchQueue.main.asyncAfter(deadline: .now()+1.5) {
-                copied = false
-            }
-        } label: {
-            Image(systemName: copied ? "checkmark" : "doc.on.doc")
-                .font(.system(size: 11))
-                .frame(width: 16,height: 16)
-                .foregroundStyle(copied ? accentColor : accentColor.opacity(0.4))
-        }
-        .animation(.easeInOut(duration: 0.15),value: copied)
-    }
-}
-
 extension Notification.Name {
     static let thinkingBlockToggled = Notification.Name("thinkingBlockToggled")
     /// chat's ChatView listens and forwards to `vm.appendToInputText`.
@@ -585,9 +559,6 @@ struct AssistantBlockView: View {
     var contentWidth: CGFloat? = nil
     @Binding var highlightedBlockId: UUID?
     @Binding var detailBlock: AssistantBlock?
-    /// 链接打开（MarkdownRenderedText 的 onOpenLink 转发到环境 OpenURLAction，
-    /// 与 MiniClawOpenURLHandler 的拦截行为保持一致）。
-    @Environment(\.openURL) private var openURLAction
     private var isHighlighted: Bool { highlightedBlockId == block.id }
     /// 本块是否仍在流式输出（与 ThinkingBlockView 的构造口径一致：`:731`）。
     /// 传给 MarkdownView 作为**显式终态信号**——终态回写富文本缓存不能再靠
@@ -697,12 +668,14 @@ struct AssistantBlockView: View {
 
     @ViewBuilder
     private var textBlockView: some View {
-        // [2026-09-08 17:00 止血回退] 双轨分流（MarkdownRenderedText）暂下线：
-        // 新渲染栈与 collection 自 sizing 的交互存在未解回归（滑动排版叠加），
-        // 先回退到稳定的 MarkdownView 路径，隔离变量。组件保留
-        //（MarkdownRenderView.swift / MarkdownRenderedText.swift），待完整
-        // 真机回归后按专项计划重新接入。
-        // 保留的确定性修复：流式渲染 250ms 节流、统一缓存 LRU 1024、
+        // [2026-09-13 清理定论] 曾评估一条「自绘 TextKit1 承载视图」的替代渲染路线
+        //（2026-09-08 阶段 1/2 建立，同日 17:00 因「与 collection 自 sizing 的交互存在
+        // 未解回归（滑动排版叠加）」止血下线）。方法级复核结论：该路线的高度算法
+        //（裸 NSLayoutManager usedRect+8）与已被真机证伪的测量口径同款（矮 12.3pt →
+        // 尾部半行被裁），且未接 MessageListLayout.deferSelfSizing —— 回归根因即在此。
+        // 故**不采用该路线**，其实现已移除；唯一列入 backlog 的是它的「后台渲染
+        // attributed」能力（本路径正文渲染在主线程，仅靠后台高度预热规避长会话阻塞）。
+        // 保留的确定性修复：流式渲染节流、统一缓存 LRU 1024、
         // mtv 测量赋值绕 UITextView setter、MCP 预热/超时/负缓存、userBubbleMemo。
         markdownView
     }
@@ -759,17 +732,6 @@ struct AssistantBlockView: View {
         )
         .fixedSize(horizontal: false,vertical: true)
         .modifier(MiniClawOpenURLHandler())
-    }
-
-    /// 富附件语法探测（分流用）：表格/代码块/图片/音视频/公式任一出现即走旧路径。
-    /// 保守策略：探测漏报（有附件语法被判纯文本）会让 MarkdownRenderedText 遇到
-    /// attachment 字符位留白——但探测式覆盖了全部会产生附件视图的语法，实际不会漏。
-    ///
-    /// [2026-09-08] **全库唯一实现**：此前 ChatModels / Snapshot 各写了一份精简版
-    ///（漏 [audio]/[video]/[file]，且三份都漏 `---`）→ 判定不一致，同一块在缓存
-    /// 侧被当"无附件"、渲染侧被当"有附件"。统一为 `AssistantBlock.hasRichSyntax`。
-    static func hasRichAttachmentSyntax(_ content: String) -> Bool {
-        AssistantBlock.hasRichSyntax(content)
     }
 }
 

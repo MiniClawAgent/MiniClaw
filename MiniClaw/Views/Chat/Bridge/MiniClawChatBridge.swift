@@ -521,11 +521,14 @@ final class MiniClawChatBridge: ObservableObject {
         blocks.insert(block, at: insertIdx)
     }
 
-    /// 正文片段幂等更新:按 timelineOrder 定位既有 text block 就地更新 content
-    /// (保持 block.id,保住高度缓存),不存在才 insertBlock 插入。流式高频调用
-    /// 必须增量,避免每 0.25s 重建 text block 导致高度缓存连坐失效。
-    /// 防重复(2026-08-10):retry/重建后可能出现旧残留 text block(内容与新片段
-    /// 相同但 timelineOrder 不同),更新前先移除这类重复块,避免同一段正文出现两次。
+    /// 正文片段幂等更新：按 **block.id**（= messageID + startOffset，确定性）定位既有
+    /// text block 就地更新 content（保持 block.id，保住高度缓存与渲染实例），不存在才
+    /// insertBlock 插入。流式高频调用必须增量，避免每 0.25s 重建 text block 导致
+    /// 高度缓存连坐失效。
+    ///
+    /// 旧残留块的清理**不在本函数**：由调用点的孤儿清理承担（删除所有 id ∉ targetIDs
+    /// 的 text 块）。本函数只负责「该 id 的块」的幂等更新 / 新建。
+    ///
     /// [2026-09-09 身份统一] 新建块改用与终态 buildBlocks 同款的确定性 id
     ///（messageID+startOffset）——此前流式块是随机 id、终态重建后 id 全变，
     /// diffable 视为全新 item 全量重建 cell = 「回复刚结束界面又重放一遍」
@@ -538,14 +541,18 @@ final class MiniClawChatBridge: ObservableObject {
         // 同一段正文会先以「尾部整段」身份（order = Int.max-1, startOffset = 0）建成，
         // 之后事件到达把该段切成 eventOrder-0.5 的新身份时，按 order 找不到既有块 →
         // 再建一个**同 id**（同为 offset=0）的块；此时旧块内容（当时的整段正文）
-        // 与新内容（切到事件位置的前缀）不等，removeAll 那条去重又不命中 →
+        // 与新内容（切到事件位置的前缀）不等，任何「按内容相等」的判定都不会命中 →
         // 两个 id 相同的 assistantBlock 共存 → diffable 重复 identifier 崩溃。
         let targetID = MiniClawChatAdapter.textBlockID(messageID: messageID, startOffset: startOffset)
-        // 移除内容完全相同但身份不同的 text 块(旧残留,防正文重复)。判定从
-        // timelineOrder 换为 id,与上面的幂等 key 同源。
-        blocks.removeAll { b in
-            b.kind == .text && b.id != targetID && b.content == content
-        }
+        // [2026-09-13 治本] 此处原有「按 content 移除同内容的其它 text 块」的去重，已删除。
+        // 它建立在**错误前提**上：假设「内容相同的 text 块 = 旧残留」。该前提只成立于随机
+        // id 时代（同一段正文每次 refresh 都以新 id 新建，故需按内容去重）；自 2026-09-09
+        // 改用确定性 id（messageID+startOffset）后前提不再成立——幂等由下方按 id 分支承担，
+        // 切分回退留下的旧残留由调用点的孤儿清理（id ∉ targetIDs 全删）承担，本条成了纯冗余。
+        // 而且**有害**：同一消息内若存在多个内容逐字相同的正文块（多轮工具循环里每轮都回
+        // 「思考完毕」这类固定短语），逐 target upsert 时会互相删除、只剩最后一个 →
+        // 流式中整屏只显示 1 个，直到终态 buildBlocks 才补齐。真机实证：9 个 4 字块，
+        // endTransition 时块索引恰好后移 8（= 9−1）。
         if let existing = blocks.first(where: { $0.kind == .text && $0.id == targetID }) {
             // 同一段正文身份不变:就地更新内容与位置(保住高度缓存与渲染实例)。
             if existing.content != content {

@@ -407,7 +407,12 @@ extension AssistantBlock {
             renderMarkdownBlocks(cachedMarkdown!.blocks)
         }
         cachedAttrContentCount = content.count
-        if let cacheKey, let attr = cachedAttributedString {
+        // [2026-09-13 缓存串味修复] 结构判据兜底：源文启发式 `hasRichSyntax` 只查 `$$`，
+        // **漏判行内 `$...$`**（MiniClawMarkdownParser 会为它产出 MathAttachment）⇒ 会把
+        // 带附件的渲染产物放行进进程级共享缓存（附件实例与 renderer/视图上下文身份耦合，
+        // 共享即串味；且 store 首写胜出，进会话时的本函数通常先写 = 投毒）。故对**渲染
+        // 产物本身**再判一次 `hasAnyAttachment`，与 MarkdownView 的写入口径统一。
+        if let cacheKey, let attr = cachedAttributedString, !attr.hasAnyAttachment {
             MarkdownRenderCache.shared.store(attributed: attr, key: cacheKey)
         }
     }

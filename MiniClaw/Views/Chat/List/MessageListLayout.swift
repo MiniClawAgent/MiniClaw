@@ -29,6 +29,19 @@ public final class MessageListLayout: UICollectionViewLayout {
         return v
     }
 
+    /// [2026-09-13 隐患①修复] 清零累积量 —— **在拖拽开始时调用**（`scrollViewWillBeginDragging`）。
+    ///
+    /// 为什么必须清：该累积的语义是「**本次交互期间**发生的、需要锚回的偏移量」。但它的累积点
+    /// （`invalidationContext`）在任何布局失效时都会跑（进会话的大量实测、流式、空闲重排…），
+    /// 而消费点只在手势 settle —— 于是会跨越「上一次 settle → 本次 settle」这段**任意长**的窗口。
+    /// 真机实证（三个构建均复现）：`pendingΣ=+1037.0 applied=1 offset -76.7→960.3` ——
+    /// 1037 是更早（offset 在底部一带）累积的，却在之后的 settle 被消费 ⇒ **停手瞬间整屏跳**。
+    ///
+    /// 清零为何安全：拖拽开始那一刻屏幕上的内容就是用户的基准，**此前**的高度变化早已反映在画面上，
+    /// 不需要补偿；**本次手势期间**产生的新变化仍在清零之后的窗口内照常累积。
+    /// 本调用只影响 `contentOffset`，**不写任何高度** ⇒ 不可能造成内容/文字偏差。
+    public func clearPendingAboveShift() { pendingAboveShift = 0 }
+
     /// 统一高度条目（2026-09-05 结构收口）：原 estimatedHeights/precalcHeights/heightCache
     /// 三套并行「index→高度」字典合并为单一「index → 条目」，条目携带来源优先级
     /// （measured > precalc > estimated），写入时低优先级不覆盖高优先级。
@@ -228,52 +241,6 @@ public final class MessageListLayout: UICollectionViewLayout {
         }
         totalHeight = y
         lastItemCount = itemCount
-        #if DEBUG
-        // [2026-09-12 帧-条目一致性探针] 「滚动中每项多出空隙、停手立刻收拢」的候选根因是：
-        // **条目已修正、帧没有**（帧停留在加载期用更粗估算算出的值）。上一轮把条目高度全拉出来看，
-        // 全是正常的小值（胶囊 36/39.7、footer 16.3），所以问题只能在「帧高 − 条目高」这个差值上。
-        // 这里直接量它：1 Hz 至多一行、报最坏一项（逐条会刷屏并把真问题淹掉）。
-        // 只在录制开启（哨兵存在）时工作，避免给 Release/常态 Debug 添噪声。
-        if ScrollMetricsRecorder.shared.isEnabled {
-            var n = 0
-            var worstExcess: CGFloat = 0
-            var worstIdx = -1
-            for (i, a) in itemAttributes.enumerated() {
-                guard let e = heightEntries[i]?.height else { continue }
-                let ex = a.frame.height - e
-                if ex > 2 {
-                    n += 1
-                    if ex > worstExcess { worstExcess = ex; worstIdx = i }
-                }
-            }
-            // [2026-09-12 补强] 只比「帧 vs 条目」有盲点：若两侧同时变化则看不出差异。
-            // 这里把**条目流本身**按相位打出来，一次滑动即可对比「拖动中 / 停手后」的 flow。
-            let phase = collectionView.map {
-                $0.isDragging ? "drag" : ($0.isDecelerating ? "decel" : "idle")
-            } ?? "?"
-            let flow = (0..<min(8, itemAttributes.count)).map {
-                "\(contentKeyByIndex[$0]?.prefix(2) ?? "?")\(Int(itemAttributes[$0].frame.height))"
-            }.joined(separator: ",")
-            // [2026-09-13] **把实际帧间距也打出来**：先前是从他的截图反推"异常态项间距 16.3pt
-            // vs 正常 10.3pt（差 6pt）"，那是间接证据。这里直接读 `frame[i+1].minY - frame[i].maxY`，
-            // 让设备自己上报每项的真实间隙 —— 归因不再依赖截图，也不依赖我对图的量测。
-            let gaps = (0..<min(8, max(0, itemAttributes.count-1))).map {
-                "\(Int(itemAttributes[$0+1].frame.minY - itemAttributes[$0].frame.maxY))"
-            }.joined(separator: ",")
-            let now = CACurrentMediaTime()
-            // [2026-09-12] 触发条件加上「相位变化即刻打一行」：只靠 1s/5s 节流会漏掉整段拖动
-            // （实测 9 行里只有 1 行带上新格式，而且恰好是 idle ⇒ 拿不到 drag 侧可比数据）。
-            // 相位跃迁必然打点，保证一次滑动就能拿到 drag/decel/idle 三种状态的 flow 对照。
-            let phaseChanged = phase != Self.frameProbeLastPhase
-            if phaseChanged || now - Self.frameProbeLastLogAt > (n > 0 ? 1.0 : 5.0) {
-                Self.frameProbeLastLogAt = now
-                Self.frameProbeLastPhase = phase
-                AppLogger.shared.info(
-                    "[FrameProbe] phase=\(phase) n=\(n)/\(itemCount) totalH=\(String(format: "%.0f", totalHeight)) worst idx=\(worstIdx) excess=\(String(format: "%.1f", worstExcess)) flow=[\(flow)] gaps=[\(gaps)]",
-                    category: "ChatList.CellMetrics")
-            }
-        }
-        #endif
         // [Stall] prepare() runs on every invalidateLayout; on long
         let elapsed = (CACurrentMediaTime()-t0)*1000
         Self.prepareCallCount &+= 1
@@ -289,10 +256,6 @@ public final class MessageListLayout: UICollectionViewLayout {
         }
     }
     private static var prepareCallCount: Int = 0
-    /// [FrameProbe] 上一次落盘时间（1 Hz 节流，避免 prepare 每帧刷屏）。
-    private static var frameProbeLastLogAt: CFTimeInterval = 0
-    /// [FrameProbe] 上一次落盘时的滚动相位（用于「相位跃迁即刻打点」）。
-    private static var frameProbeLastPhase: String = ""
 
     public override func layoutAttributesForElements(in rect: CGRect) -> [UICollectionViewLayoutAttributes]? {
         let t0 = CACurrentMediaTime()
@@ -484,10 +447,6 @@ public final class MessageListLayout: UICollectionViewLayout {
             // 正指向拖动期间发生的位移：视口**上方**的块首次被实测（估算高 → 实测高）会让下方内容
             // 整体平移；到过顶部后全部已实测 ⇒ 不再位移。故覆盖 drag+decel，并把相位与位置分类
             // 一起打出 —— `pos=above` 的 Δ 累加即内容被平移的量。
-            if (cv.isTracking || cv.isDecelerating), abs(delta) > 2 {
-                let ph = cv.isDecelerating ? "decel" : "drag"
-                AppLogger(category: "ChatList.Settle").info("[HeightShift] idx=\(index) pos=\(pos) phase=\(ph) Δ\(String(format: "%+.1f", delta)) (\(String(format: "%.0f", oldH))→\(String(format: "%.0f", newH))) src=\(estimateSrc) key=\(contentKeyByIndex[index] ?? "??") offset=\(String(format: "%.0f", vpTop))")
-            }
         }
 
         // memo here could capture a mid-stream height. See.
@@ -645,11 +604,12 @@ public final class MessageListLayout: UICollectionViewLayout {
         #endif
     }
 
+    /// 该索引**当前记录**的高度（来源不限：measured / precalc / estimated）。
+    ///
+    /// 全库唯一入口：此前另有 `precalcHeight(at:)` 与本方法逐字相同（纯重复），
+    /// 已删除，其唯一调用点统一到本方法。**按来源分档**请用 `hasMeasuredHeight` /
+    /// `hasPrecalcHeight`。
     public func cachedHeight(at index: Int) -> CGFloat? {
-        heightEntries[index]?.height
-    }
-
-    public func precalcHeight(at index: Int) -> CGFloat? {
         heightEntries[index]?.height
     }
 
@@ -658,7 +618,7 @@ public final class MessageListLayout: UICollectionViewLayout {
     }
 
     /// 该索引是否已有「实测」高度（source == .measured）。
-    /// 合并字典后 cachedHeight/precalcHeight 对任意来源条目都返回值，
+    /// 合并字典后 cachedHeight 对任意来源条目都返回值，
     /// 旧三字典时代「仅实测高度才挡住估算/预演」的语义分界由本访问器承接：
     /// 种子循环、configureCell 与 prefetch 兜底必须用它做守卫——否则流式
     /// chunk 的逐次重播种（估高随内容增长刷新）会被首帧估算永久冻结，

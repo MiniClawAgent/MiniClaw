@@ -391,18 +391,3 @@ func aiAccessibleGuestPath(for url: URL) -> String {
     return p
 }
 
-func uniqueCopyName(for name: String, in dir: URL) -> String {
-    let fm = FileManager.default
-    if !fm.fileExists(atPath: dir.appendingPathComponent(name).path) { return name }
-    let ext = (name as NSString).pathExtension
-    let base = ext.isEmpty ? name : String(name.dropLast(ext.count + 1))
-    var i = 2
-    while true {
-        let cand = ext.isEmpty
-            ? String(format: String(localized: "copy_of_format"), base, String(i))
-            : String(format: String(localized: "copy_ext_format"), base, String(i), ext)
-        if !fm.fileExists(atPath: dir.appendingPathComponent(cand).path) { return cand }
-        i += 1
-    }
-}
-

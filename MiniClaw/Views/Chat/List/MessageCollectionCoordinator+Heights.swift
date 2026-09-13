@@ -22,12 +22,12 @@ extension MessageCollectionView.Coordinator {
             // 视频/文件/分隔线），高度会塌成占位 → precalc 严重偏矮 → 首帧矮一大截、
             // 实测后修正 = 「流式结束跳高 + 上滑抖动」。故含附件块一律走 TextKit。
             // （MarkdownView 的 sizeThatFits 早有同款 hasAnyAttachment 门，此处漏了。）
-            if attrStr.length <= 8000, !Self.hasAttachment(attrStr) {
-                let framesetter = CTFramesetterCreateWithAttributedString(attrStr)
-                let ctHeight = CTFramesetterSuggestFrameSizeWithConstraints(
-                    framesetter, CFRange(location: 0, length: attrStr.length), nil,
-                    CGSize(width: width, height: .greatestFiniteMagnitude), nil).height
-                return ceil(ctHeight) + 8
+            if attrStr.length <= 8000, !attrStr.hasAnyAttachment {
+                // [2026-09-13 去重] 复用全库唯一 CT 测量入口，不再内联重写一遍。
+                // 等价性：共享实现用 `CFRange(length: 0)`（Apple 语义=整串），内联版原用
+                // `length: attrStr.length`，二者同义；`+8`（= textContainerInset 4+4）由本
+                // 调用点承担，与 `+Heights:151`、`Snapshot:637` 的调用口径一致。
+                return MarkdownView.ctFramesetterHeight(for: attrStr, width: width) + 8
             }
             // [2026-09-12 裁尾修复·测量引擎同源] 本函数原设计（见上方注释）就是用**离屏
             // MarkdownTextView**（与屏上渲染同一个类、同一 MiniClawLayoutManager、
@@ -44,18 +44,6 @@ extension MessageCollectionView.Coordinator {
             mtv.textStorage.setAttributedString(attrStr)
             // 返回值语义不变：MarkdownTextView.sizeThatFits 已含 textContainerInset(8pt)。
             return ceil(mtv.sizeThatFits(CGSize(width: width,height: .greatestFiniteMagnitude)).height)
-        }
-
-        /// 是否含任意 NSTextAttachment（决定能否走 CT 快路径）。
-        private static func hasAttachment(_ attrStr: NSAttributedString) -> Bool {
-            guard attrStr.length > 0 else { return false }
-            var found = false
-            attrStr.enumerateAttribute(.attachment,
-                                       in: NSRange(location: 0, length: attrStr.length),
-                                       options: []) { v, _, stop in
-                if v != nil { found = true; stop.pointee = true }
-            }
-            return found
         }
 
         static let measureTextView = MarkdownTextView()

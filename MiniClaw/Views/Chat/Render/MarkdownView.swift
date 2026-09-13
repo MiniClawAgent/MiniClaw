@@ -725,13 +725,7 @@ struct MarkdownView: UIViewRepresentable {
            // 脏态（本条显示的是落后快照）不入库：快照短于当前 markdown，
            // 存进新内容的 key 就是投毒（同测量侧，2026-09-10）。
            !context.coordinator.streamSnapshotStale {
-            var hasAttachment = false
-            attributed.enumerateAttribute(.attachment,
-                                          in: NSRange(location: 0,length: attributed.length),
-                                          options: []) { v,_,stop in
-                if v != nil { hasAttachment = true; stop.pointee = true }
-            }
-            if !hasAttachment {
+            if !attributed.hasAnyAttachment {
                 MarkdownRenderCache.shared.store(
                     attributed: attributed,
                     key: MarkdownRenderCache.key(for: markdown,fontSize: FontSettings.shared.scaledMessage(16.5)))
@@ -1139,11 +1133,7 @@ struct MarkdownView: UIViewRepresentable {
             }
             }
             }
-            var hasAnyAttachment = false
-            pending.enumerateAttribute(.attachment,in: NSRange(location: 0,length: pending.length),options: []) { v,_,stop in
-                if v != nil { hasAnyAttachment = true; stop.pointee = true }
-            }
-            if !hasAnyAttachment {
+            if !pending.hasAnyAttachment {
                 // FINALIZED content takes
                 // MarkdownTextView measure matches the final render
                 let finalizedSTF = cachedAttributedString != nil || cachedContent != nil
@@ -1217,11 +1207,7 @@ struct MarkdownView: UIViewRepresentable {
 
             let liveStorage = uiView.textStorage
             if liveStorage.length>0 {
-                var hasAnyAttachment = false
-                liveStorage.enumerateAttribute(.attachment,in: NSRange(location: 0,length: liveStorage.length),options: []) { v,_,stop in
-                    if v != nil { hasAnyAttachment = true; stop.pointee = true }
-                }
-                if !hasAnyAttachment {
+                if !liveStorage.hasAnyAttachment {
                     // Same real-engine
                     // offscreen MarkdownTextView (matches the render
                     let finalizedCommitted = cachedAttributedString != nil || cachedContent != nil

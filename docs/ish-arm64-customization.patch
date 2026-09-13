@@ -203,13 +203,15 @@
          if (newlineRange.location == NSNotFound) {
 
 --- 追加于 2026-09-12：去除第三方产品名残留（链进 App 二进制的 queue label）
+;; 2026-09-13：本仓库禁止出现第三方组织名/产品名（含文档）。下方 `-` 行（原值）已中性化
+;;             为 `com.<vendor>`；应用本补丁时请以本地原始文件为准，必要时用 --fuzz 或手工替换。
 --- a/fs/fake.c
 +++ b/fs/fake.c
 @@ -1510,7 +1510,7 @@
  
      g_change_handler = Block_copy(handler);
      g_change_consumer_queue = dispatch_queue_create(
--        "com.openminis.ish.fakechange", DISPATCH_QUEUE_SERIAL);
+-        "com.<vendor>.ish.fakechange", DISPATCH_QUEUE_SERIAL);
 +        "com.neartop.miniclaw.ish.fakechange", DISPATCH_QUEUE_SERIAL);
      g_change_consumer_source = dispatch_source_create(
          DISPATCH_SOURCE_TYPE_DATA_ADD, 0, 0, g_change_consumer_queue);

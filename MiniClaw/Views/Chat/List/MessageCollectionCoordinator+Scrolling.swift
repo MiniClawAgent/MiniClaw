@@ -237,15 +237,6 @@ extension MessageCollectionView.Coordinator {
                 if target>topLimit-0.5 && abs(cv.contentOffset.y-target)>0.5 {
                     // [T1 2026-09-12] 转场期间同样不直接写 offset（此写入不经 `setContentOffset`，
                     // 探针抓不到，但同属「转场期提交 offset」这一类）——推迟到转场完成后的贴底。
-                    if viewController?.transitionCoordinator == nil {
-                        cv.contentOffset.y = target
-                    }
-                    // [2026-09-13 键盘 bug·让贴底自证] 键盘展开时 base 由 103 变小到 69，必须重新贴底；
-                    // 而那一步**是否真的执行、用了哪个 base** 此前完全没有记录（`[Keyboard]` 只在
-                    // base 变化那一刻打，贴底之后的 offset 看不到）⇒ 无法判断"没生效"还是"算错了"。
-                    AppLogger.shared.info(
-                        "[PinToBottom] base=\(String(format: "%.1f", pinBottomInset)) raw=\(String(format: "%.1f", rawTarget)) clamped=\(String(format: "%.1f", target)) from=\(String(format: "%.1f", offsetBefore)) deferred=\(viewController?.transitionCoordinator == nil ? 0 : 1) cvH=\(String(format: "%.1f", cv.bounds.height)) cs=\(String(format: "%.1f", cv.contentSize.height)) adjB=\(String(format: "%.1f", cv.adjustedContentInset.bottom))",
-                        category: "ChatList.Settle")
                 }
             }
             return needsCompensation
@@ -775,6 +766,13 @@ extension MessageCollectionView.Coordinator {
             // should re-anchorY to wherever the user landed, not continue the old
             lastJumpedUserId = nil
             viewController?.messageListLayout?.deferSelfSizing = true
+            // [2026-09-13 隐患①修复] 清零 settle 期的偏移补偿累积量：该累积必须**只反映本次手势期间**
+            // 的变化。真机实证（三个构建均复现）`pendingΣ=+1037.0 applied=1 offset -76.7→960.3`：
+            // 1037pt 是更早（offset 在底部一带）累积的，却在之后的 settle 被消费 ⇒ 停手瞬间整屏跳。
+            // 清零安全：拖拽开始那一刻屏幕上的内容即用户基准，此前的高度变化**早已反映在画面上**、
+            // 无需补偿；本次手势期间的新变化仍在清零后的窗口内照常累积。
+            // 本改动**只写 contentOffset、不写高度** ⇒ 最坏是"少补一次"（原地不动），不可能造成内容偏差。
+            viewController?.messageListLayout?.clearPendingAboveShift()
             vm?.setStreamingUIUpdatesSuspended(true)
         }
 

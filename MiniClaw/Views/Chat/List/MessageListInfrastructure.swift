@@ -4,7 +4,7 @@
 //
 // Shared types for the collection-view-based chat message list.
 // Shared infrastructure types used by the message list.
-// MarkdownView / MarkdownRenderView walk the view hierarchy
+// MarkdownView walks the view hierarchy
 // looking for `NoAnimationCollectionView` and `SelfSizingCell`.
 //
 
@@ -187,8 +187,6 @@ final class NoAnimationCollectionView: UICollectionView {
     /// [抖动诊断 2026-09-12] CV 的 **frame.origin** 上一次的值。
     /// 既有 `[WatchdogProbe][cv-bounds]` 只在**尺寸**变化时打；**位置**变化不打 —— 而
     /// 「整屏内容一起小幅上下弹」正是「CV 自身被移动」的典型表现（尺寸不变、位置在动）。
-    private var lastFrameOrigin: CGPoint = CGPoint(x: -9999, y: -9999)
-    private var lastFrameSize: CGSize = CGSize(width: -9999, height: -9999)
 
     #if DEBUG
     private var lastBounds: CGSize = .zero
@@ -196,19 +194,6 @@ final class NoAnimationCollectionView: UICollectionView {
     #endif
 
     override func layoutSubviews() {
-        // [抖动诊断 2026-09-12 · 移到守卫之前] 原先此探针放在 `isApplyingSnapshot` 守卫**之后**，
-        // 而「CV 被布局两次」恰好发生在会话入口的快照应用期间 ⇒ 一直被漏掉（假阴性）。
-        // 现在无条件先比对 frame（尺寸+原点），再走原守卫链。
-        if frame.origin != lastFrameOrigin || bounds.size != lastFrameSize {
-            if lastFrameOrigin.x > -9000 {
-                let ptr = String(format: "%p", Int(bitPattern: Unmanaged.passUnretained(self).toOpaque()))
-                AppLogger.shared.info(
-                    "[Jitter] CV-FRAME ptr=\(ptr) origin \(String(format: "%.1f", lastFrameOrigin.y))→\(String(format: "%.1f", frame.origin.y)) size \(String(format: "%.1f", lastFrameSize.height))→\(String(format: "%.1f", bounds.height)) safeTop=\(String(format: "%.1f", safeAreaInsets.top)) insetT=\(String(format: "%.1f", contentInset.top)) offsetY=\(String(format: "%.1f", contentOffset.y)) applyingSnapshot=\(isApplyingSnapshot ? 1 : 0)",
-                    category: "Jitter")
-            }
-            lastFrameOrigin = frame.origin
-            lastFrameSize = bounds.size
-        }
 
         guard !isApplyingSnapshot else { return }
         guard UIApplication.shared.applicationState != .background else {
@@ -300,38 +285,9 @@ final class NoAnimationCollectionView: UICollectionView {
     override func scrollRectToVisible(_ rect: CGRect,animated: Bool) {
     }
 
-    /// [抖动诊断 2026-09-12] 安全区变化会改 `adjustedContentInset`（= contentInset + safeArea），
-    /// 从而在**不走 `setContentOffset`** 的前提下让整块内容位移 —— 与「整屏一起上下弹」吻合。
-    override func safeAreaInsetsDidChange() {
-        super.safeAreaInsetsDidChange()
-        // [抖动诊断 2026-09-12] 打**对象地址**：若日志里出现两个不同 ptr 交替 ⇒ 是**两个 CV 实例**
-        // 在切换（SwiftUI 入口期重建列表），而不是同一个 CV 的安全区在变 —— 这能解释
-        // 「frame 不变 + 我们代码不写 offset，但两组状态交替」。同时打 frame.origin 供比对。
-        let ptr = String(format: "%p", Int(bitPattern: Unmanaged.passUnretained(self).toOpaque()))
-        // [T2 前置验证 2026-09-12] 探明 116 的**稳定来源**：窗口安全区（状态栏，转场期间不切换）
-        // + 导航栏 frame 高（同一个 bar，转场期间稳定）。若二者之和 == 116 ⇒ 可以据此
-        // 在 `.never` 下用稳定源提供顶部留白（不切换 ⇒ UIKit 不需要补偿 ⇒ 不弹）。
-        let winTop = window?.safeAreaInsets.top ?? -1
-        let navH = owningViewController?.navigationController?.navigationBar.frame.height ?? -1
-        let navMaxY = owningViewController?.navigationController?.navigationBar.frame.maxY ?? -1
-        AppLogger.shared.info(
-            "[Jitter] SAFE-AREA ptr=\(ptr) originY=\(String(format: "%.1f", frame.origin.y)) b=\(String(format: "%.1f", safeAreaInsets.bottom)) t=\(String(format: "%.1f", safeAreaInsets.top)) winTop=\(String(format: "%.1f", winTop)) navH=\(String(format: "%.1f", navH)) navMaxY=\(String(format: "%.1f", navMaxY)) adjustedB=\(String(format: "%.1f", adjustedContentInset.bottom)) insetT=\(String(format: "%.1f", contentInset.top)) insetB=\(String(format: "%.1f", contentInset.bottom)) offsetY=\(String(format: "%.1f", contentOffset.y))",
-            category: "Jitter")
-    }
-
     var offsetLocked: Bool = false
 
     override func setContentOffset(_ contentOffset: CGPoint,animated: Bool) {
-        // [抖动诊断 2026-09-12 · 已去掉 drag/decel 门] 进入会话时的位移发生在**静止态**，
-        // 旧门把它滤掉了。程序化改 offset 本就低频（仅锚定路径），全量打印以便验证 F3(b)。
-        do {
-            let d = contentOffset.y - self.contentOffset.y
-            if abs(d) > 0.5 {
-                AppLogger.shared.info(
-                    "[Jitter] SET-OFFSET \(String(format: "%.1f", self.contentOffset.y))→\(String(format: "%.1f", contentOffset.y)) delta=\(String(format: "%+.1f", d)) animated=\(animated ? 1 : 0) tracking=\(isDragging ? 1 : 0) decel=\(isDecelerating ? 1 : 0) insetT=\(String(format: "%.1f", contentInset.top)) insetB=\(String(format: "%.1f", contentInset.bottom))",
-                    category: "Jitter")
-            }
-        }
         if offsetLocked {
             let delta = abs(contentOffset.y-self.contentOffset.y)
             if delta>1 {
@@ -560,12 +516,6 @@ class SelfSizingCell: UICollectionViewCell {
                     cvSafeB = -1; cvMarginB = -1; cellBot = -1; cvH = -1
                 }
                 Self.sizingLogger.warning("[JITTER] key=\(full) prevH=\(String(format: "%.1f", jitterPrevH)) newH=\(String(format: "%.1f", h)) delta=\(String(format: "%+.1f", h - jitterPrevH)) branch=\(branch)\(Self.scrollPhaseTag(from: self)) cvSafeB=\(String(format: "%.1f", cvSafeB)) cvMarginB=\(String(format: "%.1f", cvMarginB)) cellBot=\(String(format: "%.1f", cellBot)) cvH=\(String(format: "%.1f", cvH))")
-                // [±34 归因兜底 2026-09-12] 若 `.ignoresSafeArea()` 未生效，本行直接指认
-                // 「哪一层子视图比 contentView 矮了那个 34」——`h` 帧高 / `b` bounds 高。
-                let tree = self.contentView.subviews.map { v in
-                    "\(type(of: v)) h\(String(format: "%.1f", v.frame.height)) b\(String(format: "%.1f", v.bounds.height))"
-                }.joined(separator: " | ")
-                Self.sizingLogger.warning("[JITTER-TREE] key=\(String(full.prefix(44))) contentH=\(String(format: "%.1f", self.contentView.bounds.height)) subs=[\(tree)]")
             }
         } else {
             jitterPrevKey = full
@@ -651,7 +601,7 @@ class SelfSizingCell: UICollectionViewCell {
                 // 仅实测（lastCalcH）短路。**禁止回退 contentKey memo**（2026-09-08
                 // 排版叠加回归）：后台渲染完成后 content 未变 → contentKey 不变 →
                 // memo 命中渲染前的旧高度 → 真实高度被永久压制 → 全列表排版叠加。
-                // MarkdownRenderView 的测量本身便宜（usedRect），实测不再昂贵。
+                // 当前测量本身便宜（与屏上渲染同源的 MarkdownTextView），实测不再昂贵。
                 let copy = layoutAttributes.copy() as! UICollectionViewLayoutAttributes
                 copy.size.width = cachedW
                 copy.size.height = max(cached, engineFloor)
@@ -660,13 +610,13 @@ class SelfSizingCell: UICollectionViewCell {
             }
             if isStreamingItem,
                // 只短路在 precalc 来源上（种子循环每个 chunk 重播种的
-               // TextKit 校准值）。合并字典后 precalcHeight 对任意来源返回值，
+               // TextKit 校准值）。合并字典后 cachedHeight 对任意来源返回值，
                // 不加来源判定会把首帧陈旧估高当 precalc 返回并跳过实测——
                // 流式 cell 冻结在首帧高度，正文与下方内容重叠（2026-09-05 回归）。
                // 无 precalc（工具胶囊/思考块/footer）保持实测，与旧
                // precalcHeights 字典语义一致。
                layout.hasPrecalcHeight(at: item),
-               let precalc = layout.precalcHeight(at: item) {
+               let precalc = layout.cachedHeight(at: item) {
                 let copy = layoutAttributes.copy() as! UICollectionViewLayoutAttributes
                 // [2026-09-12 裁尾修复] 流式 cell 走这条短路；precalc 由每个 chunk 重新播种，
                 // 但播种值可能滞后于引擎实测（含附件块尤其），故同样取引擎下限。

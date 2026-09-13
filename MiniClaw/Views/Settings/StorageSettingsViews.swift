@@ -418,22 +418,3 @@ struct StorageSettingsView: View {
         SettingsStore.shared.set(files, domain: .files, summary: String(localized: "edit_file_settings"))
     }
 }
-
-struct StorageUsageRow: View {
-    let label: String
-    let size: String
-    let icon: String
-    var isTotal: Bool = false
-
-    var body: some View {
-        HStack {
-            Image(systemName: icon)
-                .foregroundStyle(isTotal ? .orange : .secondary)
-            Text(label)
-                .fontWeight(isTotal ? .semibold : .regular)
-            Spacer()
-            Text(size)
-                .foregroundStyle(.secondary)
-        }
-    }
-}

@@ -2152,23 +2152,6 @@ private struct CopyableURLCapsule: View {
     }
 }
 
-private struct FloatingToolPreviewContainer: View {
-    @ObservedObject var message: RenderMessage
-    var toolSnapshots: [ToolSnapshotItem] = []
-    var browserPool: MiniClawTabPool?
-
-    private var toolBlocks: [AssistantBlock] {
-        message.blocks.filter { $0.toolStatus != nil }
-    }
-
-    var body: some View {
-        let tools = toolBlocks
-        if !tools.isEmpty {
-            FloatingToolBar(toolBlocks: tools,toolSnapshots: toolSnapshots,browserPool: browserPool)
-        }
-    }
-}
-
 private let _maxRenderedLineLength = 2000
 
 ///

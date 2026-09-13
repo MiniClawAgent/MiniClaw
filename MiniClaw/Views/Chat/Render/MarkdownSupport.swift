@@ -1270,6 +1270,39 @@ extension NSAttributedString.Key {
     static let blockquoteDepth = NSAttributedString.Key("miniClawBlockquoteDepth")
 }
 
+extension NSAttributedString {
+    /// 是否含任意 `NSTextAttachment`。
+    ///
+    /// 全库唯一实现：此前有 4 处逐字同形的扫描（测量快路径 / 渲染写回 / 两处
+    /// `sizeThatFits` 分支），任一处判据漂移都会让「带附件」块走错路径。
+    /// 命中即 `stop`，成本只到第一个附件为止。
+    var hasAnyAttachment: Bool {
+        guard length > 0 else { return false }
+        var found = false
+        enumerateAttribute(.attachment,
+                           in: NSRange(location: 0, length: length),
+                           options: []) { value, _, stop in
+            if value != nil { found = true; stop.pointee = true }
+        }
+        return found
+    }
+}
+
+extension UITextView {
+    /// 沿 superview 链向上找承载本视图的列表容器。
+    ///
+    /// 全库唯一实现：正文 `MarkdownTextView` 与表格 `TableCellTextView` 此前各写了
+    /// 一份逐字相同的实现。
+    func findCollectionView() -> NoAnimationCollectionView? {
+        var view: UIView? = superview
+        while let v = view {
+            if let cv = v as? NoAnimationCollectionView { return cv }
+            view = v.superview
+        }
+        return nil
+    }
+}
+
 let attachLogger = AppLogger(category: "AttachDebug")
 
 // MARK: - miniclaw:// URL encoding
