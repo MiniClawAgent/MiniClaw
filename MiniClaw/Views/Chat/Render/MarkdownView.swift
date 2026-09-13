@@ -461,16 +461,25 @@ struct MarkdownView: UIViewRepresentable {
                 .map { $0.trimmingCharacters(in: .whitespaces) }
                 .first { $0.count >= 6 && $0.contains(where: { $0.isLetter }) }
             if let probe {
-                // [2026-09-13 判据修正] 不能拿 markdown **原文**去 `textStorage.string` 里找：
-                // 渲染会**剥掉**反引号 / 加粗星号等行内标记 ⇒ 含 `` ` `` 的收尾行永远找不到，
-                // 判据恒为"落后"（真机 23:02 就是这种误报：storageLen 已是完整长度却仍判 SHORT）。
-                // 故对探针做一次轻量去标记再比。
                 let stripped = probe
                     .replacingOccurrences(of: "`", with: "")
                     .replacingOccurrences(of: "**", with: "")
                     .replacingOccurrences(of: "*", with: "")
                 storageMissingTail = !stripped.isEmpty
                     && !textView.textStorage.string.contains(stripped)
+                // [Diag 2026-09-13 截断定位探针 · 不影响功能] 一次打全四个数，用来区分
+                // 「cell/视图高度把内容裁掉」与「渲染没上屏」，并暴露探针为何找不到那一行：
+                //   storageLen  实际存储的字符数
+                //   mdCnt       当前 markdown 源文长度
+                //   tvContentH  textView 内容高（完整内容该有的高度）
+                //   tvSupH      textView 父视图（cell 内容区）高度 —— 若明显小于 tvContentH 即被裁
+                // 判据：storageLen 与 render len 一致 ⇒ 渲染没问题、问题在高度；反之才是渲染没上屏。
+                if streamJustEnded || storageMissingTail {
+                    let supH = textView.superview.map { String(format: "%.1f", $0.bounds.height) } ?? "nil"
+                    AppLogger.shared.warning(
+                        "[Trunc] blk=\(blockId?.uuidString.prefix(8) ?? "?") storageLen=\(textView.textStorage.length) mdCnt=\(markdown.count) tvContentH=\(String(format: "%.1f", textView.contentSize.height)) tvBoundsH=\(String(format: "%.1f", textView.bounds.height)) tvSupH=\(supH) missing=\(storageMissingTail ? 1 : 0) probeLen=\(probe.count) probe=\(probe.prefix(60))",
+                        category: "RenderProbe")
+                }
                 if storageMissingTail {
                     // [2026-09-13 治本·并入"落后"机制] 只放行去重守卫**不够**：渲染链下游还有
                     // 多处"可以复用上次结果"的旁路（`streamSnapshotStale` 门控的 prebuilt 采用 ×2、
