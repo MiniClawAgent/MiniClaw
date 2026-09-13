@@ -539,7 +539,6 @@ final class AppState: ObservableObject {
 
     // MARK: - UI 状态
     @Published var showSettings: Bool = false
-    @Published var showSearch: Bool = false
     @Published var showNewSession: Bool = false
     @Published var isAgentRunning: Bool = false
 

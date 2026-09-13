@@ -131,12 +131,10 @@ public struct RenderAttachment: Identifiable {
     }
 }
 
-public struct QueuedPrompt: Identifiable {
-    public let id = UUID()
-    public let text: String
-    public let attachments: [RenderAttachment]
-    public let timestamp = Date()
-}
+// [2026-09-13 重构·删除零引用类型] 此处原有 `public struct QueuedPrompt`（id/text/attachments/timestamp），
+// 全库引用数 = 1（仅定义处）且**非 Codable**（无法持久化）。线上正在使用的是 `PendingUserMessage`
+// （ChatSessionRuntime:9-53：id/text/attachments:[String]/skillName/深链回跳 + Codable +
+// decodeIfPresent 向后兼容，存于 `AppState.pendingUserMessages`）—— 更完整且可落盘 ⇒ 删除本类型。
 
 public enum ChatMessageRole {
     case user
@@ -328,12 +326,10 @@ public final class RenderMessage: Identifiable,ObservableObject {
     }
 }
 
-public enum KernelStatus: Equatable {
-    case notBooted
-    case booting
-    case booted
-    case failed(String)
-}
+// [2026-09-13 重构·删除零引用类型] 此处原有 `public enum KernelStatus`（notBooted/booting/booted/failed(String)），
+// 全库引用数 = 1（仅定义处）。线上正在使用的是 `BootPhase` + `RuntimeStatusSnapshot`
+//（RuntimeStatus.swift:45-114：idle/prewarming/booted/failed + 颜色/符号 + runtimeDetail +
+// errorMessage，与 C 侧 `MiniClawiSHBootState` 对齐）—— 语义更全、更贴底层 ⇒ 删除本类型。
 
 // MARK: - 高度预渲染缓存（Fix 重进会话跳屏·根因）
 

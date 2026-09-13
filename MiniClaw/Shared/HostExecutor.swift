@@ -42,9 +42,10 @@ extension ExecutionResult {
     }
 }
 
-public enum HostExecutorError: Error {
-    case cannotRun(String)
-}
+// [2026-09-13 重构·删除零引用类型] 此处原有 `public enum HostExecutorError: Error { case cannotRun(String) }`，
+// 全库引用数 = 1（仅定义处），**无任何 throw/catch**。活执行链路的错误表达是
+// `ShellError: LocalizedError`（ShellRuntimeSupport）+ `ShellResult`（LinuxShellRuntime，含 exitCode/stderr/errorCode），
+// 以 `async throws` 表达 ⇒ 本类型纯死码，删除。
 
 public struct HostExecutor {
     /// 默认共享持久文件系统根。任务隔离但共享此目录（与 12.2.3 文件系统边界一致）。

@@ -1,52 +1,11 @@
 import Foundation
 
-struct LLMMessage: Codable {
-    let role: String
-    var content: ContentType
-
-    enum ContentType: Codable {
-        case text(String)
-        case multimodal([MultimodalPart])
-
-        init(from decoder: Decoder) throws {
-            let container = try decoder.singleValueContainer()
-            if let text = try? container.decode(String.self) {
-                self = .text(text)
-            } else if let parts = try? container.decode([MultimodalPart].self) {
-                self = .multimodal(parts)
-            } else {
-                self = .text("")
-            }
-        }
-
-        func encode(to encoder: Encoder) throws {
-            var container = encoder.singleValueContainer()
-            switch self {
-            case .text(let text):
-                try container.encode(text)
-            case .multimodal(let parts):
-                try container.encode(parts)
-            }
-        }
-    }
-
-    struct MultimodalPart: Codable {
-        let type: String
-        var text: String?
-        var imageURL: ImageURL?
-        var inputAudio: InputAudio?
-
-        struct ImageURL: Codable {
-            let url: String
-            var detail: String = "auto"
-        }
-
-        struct InputAudio: Codable {
-            let data: String
-            let format: String
-        }
-    }
-}
+// [2026-09-13 重构·删除零引用死簇] 此处原有 `LLMMessage` / `ContentType` / `MultimodalPart`
+//（含 `ImageURL` / `InputAudio`）整套多模态消息体；全库引用数 = 1（仅定义处），属历史残留。
+// 线上正在使用的是**更完整、更贴协议**的一份：`ChatCompletionMessage` + `MessageContent` +
+// `ContentPart`（含 `.file` 的扁平 file_id/file_data 编码、空 payload 守卫、旧嵌套形状兼容，
+// 以及 toolCalls / tool_call_id / reasoning_content / volatileSuffix）。
+// 旧版是它的**严格子集**（缺 file / tools / reasoning）⇒ 按「同一功能只留更好的一份」删除。
 
 // MARK: - API Request/Response
 

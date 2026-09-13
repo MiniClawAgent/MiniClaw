@@ -38,10 +38,11 @@ final class AdapterCallbackBox: @unchecked Sendable {
 // MARK: Anthropic Messages API 请求体
 
 
-struct LLMStreamResult {
-    let text: String
-    let toolCalls: [ToolCall]
-}
+// [2026-09-13 重构·删除零引用类型] 此处原有 `struct LLMStreamResult { text; toolCalls }`，
+// 全库引用数 = 1（仅定义处），是流式能力最早期的残留形态。线上正在使用的是
+// `LLMStreamEvent` / `LLMStreamHandle` / `LLMStreamRequest`（LLMProviderAdapter:31-65：
+// token/reasoning/toolCall/toolCallStreaming/usage/finishReason + AsyncThrowingStream + 取消句柄）
+// —— 覆盖增量、思考、用量、结束原因与取消 ⇒ 删除本类型。
 
 final class LLMClient: @unchecked Sendable {
     private let sessionConfiguration: URLSessionConfiguration
