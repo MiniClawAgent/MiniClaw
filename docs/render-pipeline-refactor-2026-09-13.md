@@ -130,7 +130,7 @@
 | **P3-α** | **出入口统一**（P3 的前置）：播种 / 失效 / 重映射各收敛为**唯一入口** | ✅ **完成**（`f73a679` 失效两入口合一 · `373cd2f` 预取第 4 条播种旁路并入 `seedHeights(.indices:)` · `85a9d4e` 宽度失效第 5 条旁路并入 `clearHeightCache`） |
 | **P3** | **S4 顺序管线显式化**：把"补播/重映射/失效"收敛为单一入口，S1–S15 由注释变结构断言 | 🔄 **进行中**：✅ 段化「段 0 身份迁移 → 段 1 播种」（`e9caf03`，修 R1 键错配）· ✅ `seedHeight` 两处静默降级改显式兜底（`85a9d4e`）· ⬜ plan / reconcile 分段与顺序断言 |
 | **P4** | **S5 流式 block 集合构建收敛为一个纯函数**（保留孤儿清理 + `.file` 拆分，尾部 order 参数化） | ⬜ |
-| **P5** | **S6 冻结状态机**：三组布尔量合并，消除 M1–M8 | ⬜ |
+| **P5** | **S6 冻结状态机**：三组布尔量合并，消除 M1–M8 | 🔄 **进行中**：✅ 冻结泄漏兜底（`327bd84`）· ✅ settle 拒绝在新手势中落地（`867dc5c`）· ⬜ 三轴 `FreezeState` 收敛 |
 | **P6** | **S3 附件判据统一到结构判据**（含 `+12` 与 `MCS:630` 口径） | ⬜ |
 
 ### 阶段纪律（不变）
@@ -187,10 +187,12 @@
 - **失效第 5 条旁路**：`scheduleWidthPurge` 原直写 `heightEntries.removeAll()`，留孤儿键且不清宽度相关的 `_userBubbleMemo`。已并入 `clearHeightCache(keepingSharedMemo: true)`（`85a9d4e`）。
 - **静默降级**：`seedHeight` 的 `.assistantBlock` 原有两处静默 `return`（查不到消息 / 查不到块 ⇒ 该 index 无条目 ⇒ `prepare()` 落 200pt）⇒ 改为显式兜底 + 日志（`85a9d4e`）。
 - **注释卫生**：跨文件/跨段引用一律改**符号名**，废弃行号引用 —— 行号本身就是反复过期的根因。
+- **冻结泄漏（P5 第一/二刀）**：`deferSelfSizing` / `streamingUIUpdatesSuspended` 的开启点（`scrollViewWillBeginDragging`）与关闭点（`settleAfterInteraction`）**不在同一函数栈上**，`defer` 覆盖不到；且 settle 的早退分支原先裸 `return`，会跳过全部解冻。已补：`freezeStartedAt`、settle 早退分支强制解冻、`resetLeakedFreezeIfNeeded`（**重新触发唯一关闭点 settle，不新增第二条关闭路径**）、settle 入口 `!isTracking` 守卫（`327bd84`/`867dc5c`）。**仍未做**：三轴 `FreezeState` 收敛。
+- **★新发现（未修，归 P6）**：`estimateTextBlockHeight` 的可用宽用 `hPad=80`，而真实渲染与精确测量一律用 `width-32` ⇒ 每行字数少算约 15% ⇒ **高度系统性高估**。因为手势期策略是「**只拒绝收缩**、增长放行」，**高估必然在拖动期表现为空白、松手才消失** —— 与原始症状完全同构。同类另有 `−92`（user 主路径）与 `−80`（user 回退）共**三套基数**。取向应改「估算宁短勿长」：低估会增长（手势期放行），高估被冻结成空白。
 
 ### 7.4 已知未修（分册已给方案，按 P 阶段推进）
 
-- **P5-P1/P2（最优先）**：`deferSelfSizing` 与 `streamingUIUpdatesSuspended` 的**唯一关闭点都在 `settleAfterInteraction` 内、且在 `guard let layout, let cv` 之后**；settle 不触发（手势被系统取消 / 转场 / CV 移除）即**永久冻结** ⇒ 几何永不再收缩 + 快照永不上屏。方案：三轴收敛为 `Coordinator.FreezeState` + 单一 `transduce(_:)`，并在 `bindViewModel` 加幂等兜底复位（三轴中 `deferSelfSizing`（几何）与 `streamingUIUpdatesSuspended`（数据）保持**正交、不合并**）。
+- **P5 剩余**：三轴收敛为 `Coordinator.FreezeState` + 单一 `transduce(_:)` + `withReflow` / `withSnapshotApply`（用 `defer` 消灭 S10 的"无 defer"结构脆弱）。注意 `deferSelfSizing`（几何）与 `streamingUIUpdatesSuspended`（数据）**保持正交、不合并**。附带：`pendingEntryPin` / `isAnimatingScrollToBottom` 应改造成"带 deadline 的一次性事件"（后者的关闭点唯一且无超时）。
 - **P4**：流式与终态**两套尾部 order**（`Int.max-1` vs `maxEventOrder+0.5`）；`Double` 在 `Int.max` 量级 ulp≈2048 ⇒ `baseOrder+0.05*k` 子序被吞（2026-09-12「文件指示器总在最终回复上面」的根因）。方案：`tailOrder` 参数化 + 排序加 id 次键。
 - **P6**：附件富语法判据残缺（只查 `` ``` `` 与 `|`，漏 `![` / `$$` / `---` / `[audio|video|file]`）⇒ 含附件串走 CT 快路径 ⇒ 高度塌陷。方案：`hasRenderableAttachment`（产物 `hasAnyAttachment` 优先、源文启发式兜底）。另：附件瓦片**估高用 70pt/动态列，渲染实为 64pt/固定 4 列/文档 40pt** —— 属独立 bug 修复，须在 P6 之外另开一笔（会改高度数值）。
 - **`inputAttachments`**：全库有声明/读取/回退、**无任何赋值点**，且 `QueuedAttachmentPreview.body == EmptyView()` ⇒ 恒空死分支（与 `lastHeightByKey` 同型）。P6 统一前先裁决存废。

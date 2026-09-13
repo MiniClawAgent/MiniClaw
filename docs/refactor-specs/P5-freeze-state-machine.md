@@ -3,6 +3,34 @@
 > 来源：重构调研（2026-09-13）。基准文档：`../render-pipeline-refactor-2026-09-13.md`（§3 M1–M8 / §6 边界）。
 > 行号为调研时盘上值。路径前缀：`V` = `MessageCollectionView.swift`，`S` = `+Scrolling.swift`，`N` = `+Snapshot.swift`，`B` = `+Bindings.swift`，`L` = `MessageListLayout.swift`，`I` = `MessageListInfrastructure.swift`，`MT` = `Render/MarkdownTextView.swift`，`MA` = `Render/MarkdownAttachments.swift`，`HS` = `Services/MiniClawHostStubs.swift`，`BR` = `Bridge/MiniClawChatBridge.swift`（除 `HS` 外均在 `Views/Chat/` 下）。
 
+## 实施记录（2026-09-13 晚）
+
+**已落地**：`327bd84`（冻结泄漏兜底）+ `867dc5c`（settle 拒绝在新手势中落地）。
+
+实际采用的是**最小版**，与 §4「三轴 `FreezeState` + `transduce`」的完整重构不同：
+
+1. 新增 `Coordinator.freezeStartedAt`（冻结起始时刻，仅供兜底判定）。开启时**仅在本就未冻结时写入**
+   —— 否则上一轮泄漏会被本次手势"刷新"成新起点，再拖一整轮才被发现。
+2. `settleAfterInteraction` 的早退分支不再裸 `return`：解冻两轴 + 清起点 + 告警。
+   原先 `layout`/`cv` 缺失时直接跳过全部解冻，而解冻这两个动作本不依赖它们 —— 一个真实泄漏口。
+3. 新增 `resetLeakedFreezeIfNeeded(_:)`：
+   - 合法窗口判据 = `!isTracking && !isDecelerating` **已持续 > 0.35s**；宽限期用于避开
+     「减速已结束、异步 settle 尚未执行」的正常窗口（`didEndDecelerating` 里是
+     `DispatchQueue.main.async { settle }`，正常只差一次主队列跳转）；
+   - 挂在 `updateUIViewController`（本类里唯一"不依赖滚动回调、也会周期性跑"的钩子）；
+   - ⚠️ **命中后不新增第二条关闭路径** —— 只是**重新触发 `settleAfterInteraction`**，
+     故解冻依然顺带应用 `deferredHeights` 并把视口上方的高度变化 1:1 锚回 offset。
+     若在此写一份"只把两个 bool 置 false"的简化解冻，会出现**收缩不被锚定** ⇒ 可见内容原地跳
+     （M1/M3 反复修过的正是这件事）。
+4. settle 入口最前面加 `!cv.isTracking` 守卫 —— 阻止异步 settle 在新手势中落地
+   （否则会在拖动中途解冻 + 按旧基准抢 `contentOffset`）。拒绝是安全的：本次手势结束时会再调一次；
+   万一都没来，第 3 条的宽限期兜底会补上。
+
+**仍未做**：§4 的三轴状态机收敛（`FreezeState` + 单一 `transduce` + `withReflow`/`withSnapshotApply`
+消灭 S10 的"无 defer"隐患），以及 §1.D 里 `pendingEntryPin` / `isAnimatingScrollToBottom` 的超时化。
+
+---
+
 ## 0 结论速览
 
 - **冻结语义实际分布在 2 个类、9 个布尔、1 个整数深度标志上**，不是一个、也不是三个。
