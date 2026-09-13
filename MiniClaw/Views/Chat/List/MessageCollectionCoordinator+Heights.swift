@@ -191,8 +191,14 @@ extension MessageCollectionView.Coordinator {
             // +8 = MarkdownTextView 的 textContainerInset（top 4 + bottom 4）。
             // 含富语法（代码块/表格等附件）时 CT 快路径高度失真（CTFramesetter
             // 不调用 attachmentBounds），退回 TextKit 精测——其返回值已含 8pt。
+            //
+            // [2026-09-13 判据统一] 原先是内联的**残缺**清单（只查 ``` 与 `|`，漏
+            // `![` / `$$` / `---` / `[audio|video|file]`）⇒ 含这些语法的用户消息会走 CT 快路径
+            // ⇒ 高度失真。改为调用全库唯一判据 `hasRichSyntaxOrAttachment`，并把**上一行刚构造
+            // 好的 `attr`** 作为产物判据传入（与 `+Snapshot` 的缓存串味判据同一口径）。
+            // 失真方向是偏矮 ⇒ 需增长 ⇒ 手势期放行 ⇒ 不产生空白，但会造成一次实测跳变。
             let measured: CGFloat
-            if text.contains("```") || text.contains("|") {
+            if AssistantBlock.hasRichSyntaxOrAttachment(text,rendered: attr) {
                 measured = ceil(Self.measureAttributedStringHeight(attr,width: usableTextWidth))
             } else {
                 measured = ceil(MarkdownView.ctFramesetterHeight(for: attr, width: usableTextWidth)) + 8

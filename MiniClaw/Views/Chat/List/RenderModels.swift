@@ -364,6 +364,25 @@ extension AssistantBlock {
             || content.contains("\n---") || content.hasPrefix("---")
     }
 
+    /// **「含富文本附件」的统一判据**（2026-09-13 收口）＝ 源文启发式 **OR** 产物判据。
+    ///
+    /// 为什么必须两者取或：
+    ///   - 只信源文启发式 `hasRichSyntax`：它是**已知语法清单**，parser 一旦新增附件类型
+    ///     （例如行内 `$...$` 数学，见 `hasRenderableContent` 处的注释）就会**漏判** ⇒ 放行
+    ///     到「CT 快路径 / 进程级共享缓存」而 CTFramesetter **不调用 `attachmentBounds`** ⇒
+    ///     高度失真、且含附件的渲染产物进共享缓存会串味（附件实例与 renderer 身份耦合）。
+    ///   - 只信产物判据 `hasAnyAttachment`：**必须先有渲染产物**才能问，无法在"还没渲染、
+    ///     正决定要不要付出渲染代价"的分派点上使用。
+    ///   ⇒ 取或 = 有产物时用产物兜住新类型，无产物时退回保守的源文启发式。
+    ///
+    /// 全库原来有 **3 处**各自拼这个判据（`+Snapshot` 缓存串味、`Snapshot` 种子分派、
+    /// `+Heights` 用户气泡分派），其中一处还是**残缺版**（只查 ``` 与 `|`）。现收敛到此处。
+    /// - Parameter rendered: 已有的渲染产物；`nil` 表示"尚无产物，只能靠源文启发式"。
+    public static func hasRichSyntaxOrAttachment(_ content: String,
+                                                 rendered: NSAttributedString? = nil) -> Bool {
+        hasRichSyntax(content) || (rendered?.hasAnyAttachment ?? false)
+    }
+
     /// 已渲染结果是否**对应当前内容**（内容指纹一致），可直接用于高度计算。
     ///
     /// [2026-09-11 尾部行裁切修复] 陈旧 attr = 旧内容的渲染产物，其高度系统性偏小；

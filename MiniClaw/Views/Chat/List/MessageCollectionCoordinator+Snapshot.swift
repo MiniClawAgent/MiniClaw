@@ -467,7 +467,9 @@ extension MessageCollectionView.Coordinator {
                     // [2026-09-13 缓存串味修复] 补结构判据：源文启发式 `hasRichSyntax` 只查
                     // `$$`，漏判行内 `$...$`（会产出 MathAttachment）⇒ 会放行带附件的产物
                     // 进共享缓存。故对渲染产物本身再判一次，与 MarkdownView 写入口径统一。
-                    let rich = AssistantBlock.hasRichSyntax(c) || attr.hasAnyAttachment
+                    // [2026-09-13 判据统一] 该"源文 OR 产物"组合已收口为唯一入口
+                    // `hasRichSyntaxOrAttachment`，此处改为调用它（不再各自拼一遍）。
+                    let rich = AssistantBlock.hasRichSyntaxOrAttachment(c,rendered: attr)
                     let key = MarkdownRenderCache.key(for: c, fontSize: fontSize)
                     if widths.allSatisfy({ MarkdownRenderCache.shared.cachedHeight(for: key, width: $0) != nil }) {
                         continue // 已有全部宽度高度——增量跳过
@@ -713,7 +715,11 @@ extension MessageCollectionView.Coordinator {
                             // CT 用法）：CTFramesetter 不调用 attachmentBounds，
                             // 代码块/表格等附件高度会失真 —— 含富语法块必须退回
                             // TextKit 精测（违反此前提曾致 cell 高度错误撑出大空白）。
-                            if AssistantBlock.hasRichSyntax(block.content) {
+                            // [2026-09-13 判据统一] 原为纯源文启发式（`hasRichSyntax`），会漏判
+                            // parser 新增的附件类型（如行内 `$...$`）⇒ 含附件的块被送进 CT 快路径
+                            // ⇒ 高度失真（矮）且矮值会回写统一缓存。改用唯一入口并带上产物判据
+                            //（`attrStr` 就是紧接着要测的那份串，`hasAnyAttachment` 对它是权威的）。
+                            if AssistantBlock.hasRichSyntaxOrAttachment(block.content,rendered: attrStr) {
                                 height = Self.measureAttributedStringHeight(attrStr,width: textWidth)
                                 // [2026-09-12 裁尾修复·含附件块不回写缓存] 本分支测的是
                                 // `block.cachedAttributedString`，而**渲染路径对含附件的块会
