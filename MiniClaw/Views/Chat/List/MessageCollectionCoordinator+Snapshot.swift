@@ -7,6 +7,55 @@ extension MessageCollectionView.Coordinator {
 
         /// When a snapshot is deferred (e.g. streaming UI updates suspendedFlag),
 
+        // MARK: - 高度播种的唯一入口（2026-09-13 出入口统一）
+
+        /// 「保证某些 index 有**当期**高度条目」的作用域策略。
+        ///
+        /// 此前这件事散在**三处**、各写一遍循环，策略不同但语义同一 —— 现在收敛为一个入口
+        /// + 一个显式策略参数（与 `MessageListLayout.MemoPolicy` 同一思路）。
+        /// 差异成为**参数**，而不是"散落在三个地方、靠注释各自说明"的隐式差别。
+        enum SeedScope {
+            /// 全部 item。`seedHeight` 内部对 `.measured` 早退 ⇒ 不会覆盖实测值（只刷新估算/预演）。
+            case all
+            /// 本次**新增**的 item：先只清索引条目（**保留** memo，见下）再播种。
+            case inserted([MessageListItem])
+            /// 当前**无当期条目**的 item（判据 `cachedHeight(at:) == nil`，已含内容版本感知）。
+            case missing
+        }
+
+        /// 高度播种的**唯一入口**。
+        ///
+        /// ⚠️ **调用时机由调用方保证，且不可变**（顺序敏感点 S1/S4）：
+        /// `inserted` 与 `missing` 两次播种**必须早于 `dataSource.apply`** —— 否则 apply 触发的
+        /// 布局 `prepare()` 会读不到条目、落 `estimatedItemHeight`(200pt) 兜底 ⇒ 虚高帧 ⇒
+        /// 手势期收缩被拒 ⇒ **拖动期大片空白**（真机量化 Σ928.6pt/38 格位）。
+        /// 本函数只统一**实现**，不改变各调用点的时间位置。
+        func seedHeights(_ scope: SeedScope, rows: [MessageListItem],
+                         messages: [RenderMessage], width: CGFloat) {
+            switch scope {
+            case .all:
+                for (i, item) in rows.enumerated() {
+                    seedHeight(at: i, item: item, messages: messages, width: width)
+                }
+            case .inserted(let items):
+                for item in items {
+                    guard let idx = rows.firstIndex(of: item) else { continue }
+                    guard let layout = viewController?.messageListLayout else { continue }
+                    // 只清索引条目、**保留** content-keyed memo：紧接着的重播种要读它。
+                    // 若连带剔 memo（`.withMemo`），种子会退化为粗估 ⇒ 上滑抖动（2026-09-06 真机）。
+                    layout.invalidateHeight(at: idx, memo: .indexOnly)
+                    seedHeight(at: idx, item: item, messages: messages,
+                               width: width, isReseed: true)
+                }
+            case .missing:
+                guard let layout = viewController?.messageListLayout else { return }
+                for (i, item) in rows.enumerated() where layout.cachedHeight(at: i) == nil {
+                    seedHeight(at: i, item: item, messages: messages,
+                               width: width, isReseed: true)
+                }
+            }
+        }
+
         func applySnapshot(messages rawMessages: [RenderMessage], caller: String = "?") {
             guard let vm,!vm.isLoadingSession else { return }
 
@@ -168,10 +217,8 @@ extension MessageCollectionView.Coordinator {
             // metricsTagByIndex）；早退路径上 old==new 属恒等映射，前者净效果为零。⇒ 语义等价，已删除。
             // 条件保留为「layout 存在」—— 下面这段播种本身就需要 layout。
             if viewController?.messageListLayout != nil {
-                let cvWidth = viewController?.collectionView.bounds.width ?? 390
-                for (i,item) in newRows.enumerated() {
-                    seedHeight(at: i,item: item,messages: messages,width: cvWidth)
-                }
+                seedHeights(.all, rows: newRows, messages: messages,
+                            width: viewController?.collectionView.bounds.width ?? 390)
             }
             itemToIndex.removeAll(keepingCapacity: true)
             for (i,item) in newRows.enumerated() {
@@ -276,25 +323,14 @@ extension MessageCollectionView.Coordinator {
             // 播种提前后：`prepare()` 直接读到正确条目 ⇒ 既不产生虚高帧、也就没有"需要拒绝的
             // 收缩" ⇒ 空白与抖动同时不成立。这也是本文件 `:247 reseedTextBlock(before:)`
             // 已经采用的正确时序（"让补齐发生在渲染之前"）。
-            if let cv = viewController?.collectionView, let layout = snapshotLayout {
+            if let cv = viewController?.collectionView {
+                // 两处播种统一走同一入口（策略成为参数）：新增项 → 缺失项。
+                // ⚠️ 时机仍在 `dataSource.apply` **之前**（顺序敏感点 S1）。
                 if !inserted.isEmpty {
-                    for item in inserted {
-                        if let idx = newRows.firstIndex(of: item) {
-                            // 只清索引条目（保留 memo），随后立刻重新播种。原实现用
-                            // `invalidateHeight` 会连 memo 一起剔除且不重播 ⇒ 重进会话时
-                            // 全部落到 200pt 兜底再大修正 ⇒ 上滑持续抖动（2026-09-06 真机）。
-                            layout.invalidateHeight(at: idx, memo: .indexOnly)
-                            seedHeight(at: idx, item: item, messages: messages,
-                                       width: cv.bounds.width, isReseed: true)
-                        }
-                    }
+                    seedHeights(.inserted(Array(inserted)), rows: newRows,
+                                messages: messages, width: cv.bounds.width)
                 }
-                // 按缺失条目全扫：与 inserted 是否为空无关，成本仅 O(n) 字典查询。
-                // 提前到 apply 前的意义同上——避免 `prepare()` 对任何 index 落到 200pt 兜底。
-                for (i, item) in newRows.enumerated() where layout.cachedHeight(at: i) == nil {
-                    seedHeight(at: i, item: item, messages: messages,
-                               width: cv.bounds.width, isReseed: true)
-                }
+                seedHeights(.missing, rows: newRows, messages: messages, width: cv.bounds.width)
             }
 
             snapshotLayout?.suppressContentOffsetAdjustment = true
