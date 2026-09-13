@@ -1166,7 +1166,7 @@ extension MessageCollectionView.Coordinator {
             AppLogger.shared.info("[AttachAnchor] 按身份还原（\(reason)）offset \(String(format: "%.1f", before))→\(String(format: "%.1f", target)) delta=\(String(format: "%.1f", anchor.deltaInViewport))", category: "ChatList.Scroll")
         }
 
-        /// **冻结泄漏兜底**（P5 · 2026-09-13）。
+        /// 冻结的关闭判定（2026-09-13 治本后：由**轮询**驱动，滚动回调只是快路径）。
         ///
         /// ⚠️ **它不新增第二条关闭路径** —— 命中后只是**重新触发唯一关闭点**
         /// `settleAfterInteraction`。这样"解冻"依然只有一个出入口：解冻顺带把
@@ -1174,40 +1174,41 @@ extension MessageCollectionView.Coordinator {
         ///（`aboveSum` + `settleAbove`）。若在这里另写一份"只把两个 bool 置 false"的简化解冻，
         /// 就会出现**收缩不被锚定** ⇒ 可见内容原地跳（这正是 M1/M3 反复修过的东西）。
         ///
-        /// 为什么必须有一个不依赖滚动回调的兜底：见 `freezeStartedAt` 的说明 ——
-        /// 开启点在 `scrollViewWillBeginDragging`、关闭点在 `settleAfterInteraction`，
-        /// 两者**不在同一函数栈上**，`defer` 覆盖不到。减速若被程序化 `setContentOffset`
-        ///（settle / 贴底 / 视口补偿 / clamp 都会调）打断，`didEndDecelerating` 可能不回调。
-        ///
-        /// 合法窗口判据 = 「正在手势」或「正在减速」。宽限期用于不与**正常**的
-        /// "减速已结束、异步 settle 尚未执行"窗口抢跑（`scrollViewDidEndDecelerating` 里是
-        /// `DispatchQueue.main.async { settle }`，正常只差一次主队列跳转）。
+        /// 判据 = 「**正在手势或正在减速**」才算合法冻结。这个条件与滚动回调无关，故可轮询；
+        /// 宽限期只剩 `0.05s`：用于不与"减速已结束、`didEndDecelerating` 里那次异步 settle
+        /// 尚未执行"的正常窗口抢跑（那里只差一次主队列跳转），而不再承担"兜底迟到的量化误差"
+        /// —— 后者已由 0.1s 的轮询间隔本身覆盖。
         func resetLeakedFreezeIfNeeded(_ reason: String) {
             guard let cv = viewController?.collectionView else { return }
             guard let started = freezeStartedAt else { return }
             guard !cv.isTracking,!cv.isDecelerating else { return }
-            let grace: CFTimeInterval = 0.35
+            let grace: CFTimeInterval = 0.05
             let elapsed = CFAbsoluteTimeGetCurrent()-started
             guard elapsed > grace else { return }
             AppLogger.shared.warning(
-                "[Freeze] 泄漏兜底：冻结已 \(Int(elapsed * 1000))ms 但既非 tracking 也非 decelerating ⇒ 重新触发唯一关闭点 settle（触发源 \(reason)）",
+                "[Freeze] 轮询关闭：冻结已 \(Int(elapsed * 1000))ms 且既非 tracking 也非 decelerating ⇒ 滚动回调未到，由轮询触发唯一关闭点 settle（来源 \(reason)）",
                 category: "ChatList.Scroll")
             settleAfterInteraction(cv)
         }
 
-        /// 冻结兜底的**时间驱动**触发点（2026-09-13）。
+        /// 冻结的**主关闭路径**（2026-09-13 治本：不再依赖滚动回调）。
         ///
-        /// 为什么需要第二条触发点：`updateUIViewController` 是"事件驱动"的 —— SwiftUI 重算 body
-        /// 才会跑。而泄漏的定义场景恰恰是「流式被挂起 ⇒ 不再有 `@Published` 变化 ⇒ body 不再重算」，
-        /// 于是那个触发点在最需要它的时候不会到来。本函数补上"时间驱动"，两者互补。
+        /// 真机日志实证：`[Freeze] 泄漏兜底` 在 20 分钟内触发 **12 次**，且 elapsed 几乎全是
+        /// **~1050ms / ~2100ms** —— 恰为当时轮询间隔（1s）的整数倍 ⇒ 说明**每次拖动后
+        /// `settleAfterInteraction` 都没有被滚动回调叫到**，冻结一直挂到兜底把它解开。
+        /// 即：`scrollViewDidEndDragging(willDecelerate:true)` 之后 `scrollViewDidEndDecelerating`
+        /// 没来（减速被程序化 `setContentOffset` 打断时不保证回调），于是关闭点永远不触发。
         ///
-        /// 幂等 + 自限：只在 `freezeStartedAt != nil`（即仍在冻结）时动作；查完若**依然**冻结
-        ///（合法的长手势 / 长减速）就再排一次，直到真正解冻 —— 故它只在冻结期间存活，
-        /// 不会常驻占用主队列。
+        /// 治本方向：**关闭条件本来就与滚动回调无关** —— 冻结只在「正在手势或正在减速」时合法。
+        /// 所以改成**轮询该条件**：一旦观察到 `!isTracking && !isDecelerating`，立即走唯一的
+        /// 关闭点 `settleAfterInteraction`。滚动回调降级为"能叫就更快"的**快路径**。
+        ///
+        /// 轮询间隔 = 冻结的最大残留时间，取 **0.1s**：手指离开后最多 0.1s 解除，人眼不可辨；
+        /// 代价仅为冻结期间每 100ms 一次主队列检查（未冻结时本函数根本不排期，零开销）。
         private func scheduleFreezeWatchdog() {
-            DispatchQueue.main.asyncAfter(deadline: .now()+1.0) { [weak self] in
+            DispatchQueue.main.asyncAfter(deadline: .now()+0.1) { [weak self] in
                 guard let self,self.freezeStartedAt != nil else { return }
-                self.resetLeakedFreezeIfNeeded("watchdog")
+                self.resetLeakedFreezeIfNeeded("poll")
                 if self.freezeStartedAt != nil { self.scheduleFreezeWatchdog() }
             }
         }
