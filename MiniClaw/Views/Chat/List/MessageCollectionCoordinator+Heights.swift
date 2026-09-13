@@ -489,7 +489,9 @@ extension MessageCollectionView.Coordinator {
             if let cached = NativeMediaImageCache.shared.image(for: src) {
                 let imgWidth = min(min(containerWidth,cached.size.width),maxImageWidth)
                 let aspect = cached.size.height/max(cached.size.width,1)
-                let maxH = UIScreen.main.bounds.height/2
+                // [2026-09-13 内联媒体限高] 与渲染侧**共用同一个常量**。只改渲染不改这里，
+            // 估算就会高于真实 ⇒ 而手势期只拒绝收缩 ⇒ **拖动期空白**。
+            let maxH = InlineMediaMetrics.maxHeight
                 return min(imgWidth*aspect,maxH)+6
             }
             return 200

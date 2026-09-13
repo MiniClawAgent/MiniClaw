@@ -55,6 +55,25 @@ private final class ImageTapGesture: UITapGestureRecognizer {
     }
 }
 
+/// 聊天内容里**内联媒体（图片/视频缩略图）的显示高度上限** —— 唯一常量（2026-09-13）。
+///
+/// 规则：**不超过则按原比例正常显示；超过则等比缩放（同时缩宽）**。点开看原图不受此限
+/// （预览走的是画廊/原图路径，不经 `attachmentBounds`）。
+///
+/// ⚠️ 为什么必须是一个常量、而不是各写一遍：
+/// 这个值决定"块有多高"，而**同一件事有 6 处实现** —— 图片的 `attachmentBounds` 两条分支、
+/// 图片实际承载视图 `makeImageView`、视频的 `attachmentBounds` 与 `makeThumbnailView`、
+/// 以及高度**估算器** `estimateMarkdownImageHeight`。
+/// 只改其中一部分就会出现**帧高 ≠ 绘制内容**：
+///   · 只改 `attachmentBounds` 不改 `makeImageView` ⇒ 视图比帧高，底部被 clipsToBounds 裁掉；
+///   · 只改渲染不改估算 ⇒ 估算偏高，而手势期只拒绝收缩 ⇒ **拖动期空白**（本项目反复吃过这个亏）。
+/// 此前这 6 处都写作「屏幕高度的一半」（他机器上约 655pt，等于没限高），
+/// 所以 AI 生成的竖图会占掉大半屏。
+enum InlineMediaMetrics {
+    /// 内联媒体显示高度上限（pt）。要调松紧只改这一个值。
+    static let maxHeight: CGFloat = 360
+}
+
 final class MathAttachment: NSTextAttachment {
     let latex: String
     let isBlock: Bool
@@ -483,7 +502,7 @@ final class VideoAttachment: NSTextAttachment {
         let width = min(lineFrag.width,400)
         if let thumb = thumbnail {
             let aspect = thumb.size.height/max(thumb.size.width,1)
-            let h = min(width*aspect,UIScreen.main.bounds.height/2)
+            let h = min(width*aspect,InlineMediaMetrics.maxHeight)
             return CGRect(x: 0,y: 0,width: lineFrag.width,height: h+24)
         }
         return CGRect(x: 0,y: 0,width: lineFrag.width,height: Self.placeholderHeight)
@@ -552,7 +571,7 @@ final class VideoAttachment: NSTextAttachment {
 
     private func makeThumbnailView(_ thumb: UIImage,maxWidth: CGFloat,totalWidth: CGFloat) -> UIView {
         let aspect = thumb.size.height/max(thumb.size.width,1)
-        let h = min(maxWidth*aspect,UIScreen.main.bounds.height/2)
+        let h = min(maxWidth*aspect,InlineMediaMetrics.maxHeight)
 
         let container = UIView(frame: CGRect(x: 0,y: 0,width: totalWidth,height: h+24))
         container.backgroundColor = .clear
@@ -832,7 +851,7 @@ final class ImageAttachment: NSTextAttachment {
             let boxWidth = min(min(width,img.size.width+Self.imageShadowInset*2),Self.maxImageWidth)
             var imgWidth = max(boxWidth-Self.imageShadowInset*2,40)
             let aspect = img.size.height/max(img.size.width,1)
-            let maxH = UIScreen.main.bounds.height/2
+            let maxH = InlineMediaMetrics.maxHeight
             var h = imgWidth*aspect
             // 2026-08-12 治本:限高时必须等比缩宽保持原比例——否则 box 比例≠图片
             // 比例,scaleAspectFit 在 box 内 letterbox 居中 + 露出黑底(黑边)。
@@ -887,7 +906,7 @@ final class ImageAttachment: NSTextAttachment {
             let boxWidth = min(min(width,knownSize.width+Self.imageShadowInset*2),Self.maxImageWidth)
             var imgWidth = max(boxWidth-Self.imageShadowInset*2,40)
             let aspect = knownSize.height/max(knownSize.width,1)
-            let maxH = UIScreen.main.bounds.height/2
+            let maxH = InlineMediaMetrics.maxHeight
             var h = imgWidth*aspect
             // 2026-08-12 治本:限高等比缩宽保持原比例(同 loaded 路径)。
             if h > maxH {
@@ -1101,7 +1120,7 @@ final class ImageAttachment: NSTextAttachment {
         let boxWidth = min(min(width,img.size.width+Self.imageShadowInset*2),Self.maxImageWidth)
         var imgWidth = max(boxWidth-Self.imageShadowInset*2,40)
         let aspect = img.size.height/max(img.size.width,1)
-        let maxH = UIScreen.main.bounds.height/2
+        let maxH = InlineMediaMetrics.maxHeight
         var h = imgWidth*aspect
         // 2026-08-12 治本:限高等比缩宽保持原比例(同 attachmentBounds 路径)。
         if h > maxH {
