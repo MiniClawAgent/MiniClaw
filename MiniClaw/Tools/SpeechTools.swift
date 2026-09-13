@@ -32,6 +32,14 @@ private struct SpeechOutcome: Sendable {
 /// 且工具调用是同步阻塞的，不该让一次调用把会话挂死。
 struct AppleSpeechTool: AgentTool {
     let name = "apple-speech"
+    /// [2026-09-13 路径统一] 当前会话 ID：会话独享目录（attachments/workspace/browser/offloads）
+    /// 必须按它解析才能落到本会话目录；其余写法一律走 `FileSystemManager.resolveAgentPath`
+    ///（强制 `/var/MiniClaw/` 前缀 + 拒绝目录穿越）。
+    let currentSessionID: UUID?
+
+    init(currentSessionID: UUID? = nil) {
+        self.currentSessionID = currentSessionID
+    }
 
     let schema = ToolSchema(
         type: "function",
@@ -68,7 +76,8 @@ struct AppleSpeechTool: AgentTool {
                 outcome = await SpeechBridge.transcribeFile(
                     path: source,
                     localeID: Self.string(parameters["language"]),
-                    onDevice: Self.bool(parameters["on_device"]))
+                    onDevice: Self.bool(parameters["on_device"]),
+                    sessionID: currentSessionID)
             } else {
                 outcome = await SpeechBridge.transcribeMic(
                     seconds: Self.int(parameters["duration"]),
@@ -161,8 +170,9 @@ private enum SpeechBridge {
 
     // MARK: 转写
 
-    static func transcribeFile(path: String, localeID: String?, onDevice: Bool) async -> SpeechOutcome {
-        let url = Self.resolve(path)
+    static func transcribeFile(path: String, localeID: String?, onDevice: Bool,
+                               sessionID: UUID?) async -> SpeechOutcome {
+        let url = Self.resolve(path, sessionID: sessionID)
         guard FileManager.default.fileExists(atPath: url.path) else {
             return .fail(String(localized: "speech_file_missing") + path)
         }
@@ -288,10 +298,13 @@ private enum SpeechBridge {
         return SFSpeechRecognizer(locale: Locale(identifier: localeID))
     }
 
-    /// 与相册工具同口径：绝对路径直接用，相对路径按 MiniClaw 沙盒根解析。
-    private static func resolve(_ raw: String) -> URL {
-        if raw.hasPrefix("/") { return URL(fileURLWithPath: raw) }
-        return FileSystemManager.shared.miniClawRoot.appendingPathComponent(raw)
+    /// [2026-09-13 路径统一] 与相册工具同口径：统一走 `FileSystemManager` 的 Agent 路径解析
+    ///（强制 `/var/MiniClaw/` 前缀、拒绝目录穿越、会话独享目录按 `sessionID` 落到本会话目录）。
+    /// 原实现是"绝对路径直接用 `URL(fileURLWithPath:)`" —— 可读任意宿主路径，且是全库**第三套**
+    /// 同形的解析器。解析失败才回落到沙盒根（兼容旧式相对写法）。
+    private static func resolve(_ raw: String, sessionID: UUID?) -> URL {
+        (try? FileSystemManager.shared.resolveAgentPath(raw, sessionID: sessionID))
+            ?? FileSystemManager.shared.miniClawRoot.appendingPathComponent(raw)
     }
 }
 

@@ -139,6 +139,9 @@ final class ChatSessionRuntime: ObservableObject, @MainActor Identifiable {
     func markRoundSafePoint() {
         commitStreamBuffer()
         commitReasoningBuffer()
+        // [2026-09-13 轮次分隔符] 轮次边界：下一段正文前插一个空行（见 `needsRoundSeparator`）。
+        // 每次工具挂载前都会调本函数 ⇒ 同一轮内多次调用是幂等的（只置位一次）。
+        needsRoundSeparator = true
         roundAnchor = RoundAnchor(
             contentCount: streamingContent.count,
             order: nextTimelineOrder,
@@ -151,6 +154,10 @@ final class ChatSessionRuntime: ObservableObject, @MainActor Identifiable {
     func rollbackToRoundSafePoint() {
         commitStreamBuffer()
         commitReasoningBuffer()
+        // [2026-09-13 轮次分隔符] 回滚后重试的那一段仍然处于"轮次边界"⇒ 重新置位，
+        // 否则重试成功的正文会直接接在被截断的内容后面（同一处粘连问题的另一种形态）。
+        // 无锚点分支把 `streamingContent` 清空 ⇒ 消费时 `isEmpty` 成立、自然不插。
+        needsRoundSeparator = true
         guard let a = roundAnchor else {
             // [2026-09-11 审计修复] 首个工具挂载前 = 没有任何「已安全」内容：
             // 首轮流式半截失败必须整段丢弃，否则重试成功后新 token 接在半截之后
@@ -246,6 +253,10 @@ final class ChatSessionRuntime: ObservableObject, @MainActor Identifiable {
         scheduleFlush()
     }
 
+    /// 轮次边界是否需要「下一段正文前插一个空行」。由 `markRoundSafePoint()` /
+    /// `rollbackToRoundSafePoint()` 置位、由 `commitStreamBuffer()` 消费（见那里的说明）。
+    private var needsRoundSeparator = false
+
     /// 一个调度窗口内只起一个 sleep 任务；触发时同时刷正文与思考缓冲（约 10fps）。
     private func scheduleFlush() {
         guard !flushScheduled else { return }
@@ -261,6 +272,15 @@ final class ChatSessionRuntime: ObservableObject, @MainActor Identifiable {
     /// 把缓冲文本提交到流式内容（节流任务触发，或收尾/暂停前手动调用保证不丢尾包）。
     func commitStreamBuffer() {
         guard !pendingText.isEmpty else { return }
+        // [2026-09-13 轮次分隔符] 跨轮次的首段正文前插一个空行。
+        // 多轮 iteration 的 token 是**裸 `+=`** 进同一个 `streamingContent`，全链路没有任何分隔符
+        // ⇒ 真机上「上一轮的收尾」与「下一轮的开头」会粘成一句话（实测样本：
+        // `…要哪个说一声就行～照片已经下好了，就是这两张 👇`），工具轮之间的旁白同样被粘成一长串。
+        // 只插一次、且仅在已有内容时插（首轮不插，避免正文以空行开头）。
+        if needsRoundSeparator {
+            needsRoundSeparator = false
+            if !streamingContent.isEmpty { streamingContent += "\n\n" }
+        }
         streamingContent += pendingText
         pendingText = ""
     }

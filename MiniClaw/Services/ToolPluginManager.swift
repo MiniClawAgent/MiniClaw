@@ -201,7 +201,9 @@ final class ToolPluginManager {
         "apple-contacts": { _ in AppleContactsTool() },
         "apple-maps": { _ in AppleMapsTool() },
         "apple-media": { _ in AppleMediaTool() },
-        "apple-speech": { _ in AppleSpeechTool() },
+        // [2026-09-13 路径统一] 语音工具也吃会话 id —— 它内部那套 `resolve` 原先对绝对路径
+        // 直接 `URL(fileURLWithPath:)`，可读任意宿主路径（全库第三套同形解析器）。
+        "apple-speech": { AppleSpeechTool(currentSessionID: $0) },
         // 2026-09-01 新增：图片读取 / 端侧视觉分析。
         // 二者原名 read_image / vision_analyze，从 AgentRunService 的 toolRouter 迁来——
         // 归入 `apple-` 前缀族后应出现在插件列表。它们需要 sessionID 解析会话隔离路径，

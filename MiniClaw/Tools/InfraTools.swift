@@ -47,13 +47,22 @@ struct MiniClawOpenTool: AgentTool {
             } else if rawPath.hasPrefix("/var/MiniClaw/") {
                 resolvedURL = try? FileSystemManager.shared.resolveAgentPath(rawPath, sessionID: currentSessionID)
             } else {
-                resolvedURL = URL(fileURLWithPath: rawPath)
+                // [2026-09-13 路径统一] 原为 `URL(fileURLWithPath: rawPath)` —— 任意宿主绝对路径
+                //（`Documents/…`、`/var/mobile/Containers/…`）都会被当成可访问文件，是"越界读"入口。
+                // 现统一走 `resolveAgentPath`（强制 `/var/MiniClaw/` 前缀 + 拒绝目录穿越 + 会话隔离）；
+                // 解析不了就落到下面的 `infra_path_parse_failed`，**不再原样直读**。
+                resolvedURL = try? FileSystemManager.shared.resolveAgentPath(rawPath, sessionID: currentSessionID)
             }
             guard let url = resolvedURL else {
                 return ToolResult(success: false, text: String(format: String(localized: "infra_path_parse_failed"), rawPath))
             }
             let exists = FileManager.default.fileExists(atPath: url.path)
-            return ToolResult(success: exists, text: exists ? String(format: String(localized: "infra_file_accessible"), url.path) : String(format: String(localized: "infra_file_not_found"), rawPath))
+            // [2026-09-13 路径统一] 回传**规范化后的 guest 写法**（`/var/MiniClaw/...`），不再回传
+            // `url.path`（宿主绝对路径 `Documents/...`）—— 宿主路径出圈会让模型拿它去调其它工具而失败。
+            let shown = rawPath.hasPrefix("miniclaw://")
+                ? "/var/MiniClaw/" + rawPath.dropFirst("miniclaw://".count)
+                : rawPath
+            return ToolResult(success: exists, text: exists ? String(format: String(localized: "infra_file_accessible"), shown) : String(format: String(localized: "infra_file_not_found"), shown))
         } else if target.hasPrefix("settings:") {
             return ToolResult(success: true, text: String(format: String(localized: "infra_navigated_settings"), target))
         } else {
@@ -166,13 +175,27 @@ struct MiniClawDebugTool: AgentTool {
         switch action {
         case "sandbox_files":
             let rawPath = parameters["path"] as? String
-            // 支持 /var/MiniClaw/ 虚拟路径：经 FileSystemManager 解析为真实 host 路径
-            let base: String
-            if let rawPath, rawPath.hasPrefix("/var/MiniClaw/") {
-                base = (try? FileSystemManager.shared.resolveAgentPath(rawPath, sessionID: currentSessionID).path)
-                    ?? rawPath
+            // [2026-09-13 路径统一] 统一按 **guest 写法**解析（`/var/MiniClaw/<子目录>`）：
+            // 模型给相对写法时补全前缀、给 `miniclaw://` 时换前缀。原实现在"不是 /var/MiniClaw/ 开头"
+            // 时直接把原始串当宿主路径用（相对串会相对进程 cwd 解析 ⇒ 读不到；绝对宿主路径则可越界读），
+            // 且失败时静默回落宿主根。现改为解析失败**显式失败**。
+            // 注：`listDirectory` 只输出**条目名**（不带 base 前缀），故列表本身不会泄漏宿主路径。
+            let trimmed = (rawPath ?? "").trimmingCharacters(in: .whitespaces)
+            let guestBase: String
+            if trimmed.isEmpty {
+                guestBase = "/var/MiniClaw/"
+            } else if trimmed.hasPrefix("/var/MiniClaw/") {
+                guestBase = trimmed
+            } else if trimmed.hasPrefix("miniclaw://") {
+                guestBase = "/var/MiniClaw/" + trimmed.dropFirst("miniclaw://".count)
             } else {
-                base = rawPath ?? fs.miniClawRoot.path
+                guestBase = "/var/MiniClaw/" + trimmed.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+            }
+            let base: String
+            do {
+                base = try FileSystemManager.shared.resolveAgentPath(guestBase, sessionID: currentSessionID).path
+            } catch {
+                return ToolResult(success: false, text: String(format: String(localized: "infra_path_parse_failed"), guestBase))
             }
             let depth = (parameters["max_depth"] as? Int) ?? 2
             let listing = listDirectory(at: base, maxDepth: depth, currentDepth: 0, prefix: "")
@@ -198,8 +221,11 @@ struct MiniClawDebugTool: AgentTool {
             let values = try? root.resourceValues(forKeys: Set(keys))
             let total = values?.volumeTotalCapacity.map { ByteCountFormatter.string(fromByteCount: Int64($0), countStyle: .file) } ?? String(localized: "unknown")
             let free = values?.volumeAvailableCapacity.map { ByteCountFormatter.string(fromByteCount: Int64($0), countStyle: .file) } ?? String(localized: "unknown")
+            // [2026-09-13 路径统一] 回传 **guest 根**（`/var/MiniClaw`），不再回传 `root.path`
+            //（宿主 `Documents/MiniClaw`）—— 宿主路径出圈会让模型拿它去调其它工具而失败。
+            // `root` 仍用于上面读容量（那是宿主 URL，只用于取值、不用于展示）。
             return ToolResult(success: true, text: """
-            MiniClaw 根目录: \(root.path)
+            MiniClaw 根目录: /var/MiniClaw
             文件系统总容量: \(total)
             可用空间: \(free)
             """)
