@@ -222,10 +222,33 @@ extension MessageCollectionView.Coordinator {
             }
 
             // [2026-09-13 出入口统一·删除冗余实现] 原此处先调 `layout.updateCacheForSnapshot`，
-            // 随后 `:239` 的 `remapHeights` 又对**同一 old→new 映射**跑一遍 —— 两份实现做同一件事，
+            // 随后又有一次 `remapHeights` 对**同一 old→new 映射**跑一遍 —— 两份实现做同一件事，
             // 且 `remapHeights` 是前者的**严格超集**（还搬 contentKeyByIndex / footerHugByIndex /
             // metricsTagByIndex）；早退路径上 old==new 属恒等映射，前者净效果为零。⇒ 语义等价，已删除。
-            // 条件保留为「layout 存在」—— 下面这段播种本身就需要 layout。
+
+            // ── 段 0：身份迁移（唯一入口 `remapHeights`）· 必须早于任何播种 ──────────
+            //
+            // [2026-09-13 P3·S4「由注释变结构」] 此前 `remapHeights` 排在 `seedHeights(.all)`
+            // **之后**，而两者都写 `contentKeyByIndex` ⇒ 互相拆台：
+            //   ① `.all` 播种先按**新索引**重写整表内容键（`seedHeight` 内的 `setContentKey`）；
+            //   ② 随后的 `remapHeights` 用 `contentKeyByIndex[oldIndex]` 去写 `newIndex`
+            //      —— 读到的是「新索引体系下**旧下标**那个 item 的键」，与被搬移条目自带的键错配。
+            // 后果（`currentEntry` 的键一致性判据）：`stored != cur` ⇒ 刚迁移来的 `.measured`
+            // 条目被整体判为陈旧 ⇒ **迁移等于白做**；`footerHugByIndex` 同样被搬错。
+            // 顺序改成「先迁移、后播种」即根治：迁移读到的是**原封未动的旧键**（正确），
+            // 播种随后安装正确的新键，并对内容未变的 `.measured` 条目早退（保留实测值）。
+            //
+            // 身份集合未变时是恒等映射，跳过（省一次全表重建）。
+            let identityUnchanged = (newRows == prevSnapshotIds)
+            let oldRows = prevSnapshotIds
+            let oldSet = Set(prevSnapshotIds)
+            let inserted = newRows.filter { !oldSet.contains($0) }
+            if !identityUnchanged {
+                viewController?.messageListLayout?
+                    .remapHeights(oldIds: oldRows,newIds: newRows)
+            }
+
+            // ── 段 1：播种（唯一入口 `seedHeights`）───────────────────────────────
             if viewController?.messageListLayout != nil {
                 seedHeights(.all, rows: newRows, messages: messages,
                             width: viewController?.collectionView.bounds.width ?? 390)
@@ -282,21 +305,17 @@ extension MessageCollectionView.Coordinator {
             }
             lastWasProcessing = nowProcessing
 
-            if newRows == prevSnapshotIds { return }
-            let oldRows = prevSnapshotIds
-            let oldSet = Set(prevSnapshotIds)
-            let inserted = newRows.filter { !oldSet.contains($0) }
+            // 段 0 已算好 `identityUnchanged` / `oldRows` / `inserted`，此处只做提交。
+            if identityUnchanged { return }
             prevSnapshotIds = newRows
 
             var snapshot = NSDiffableDataSourceSnapshot<MessageCollectionView.Section,MessageListItem>()
             snapshot.appendSections([.main])
             snapshot.appendItems(newRows,toSection: .main)
             let snapshotLayout = viewController?.messageListLayout
-            // [2026-09-09 快照缓存重映射] 行变化时按 item
-            // 身份重映射全部索引键高度缓存（measured 条目跟随 item 迁移到新索引，
-            // 插入/删除点之后的错位条目不再残留），未匹配的新 item 由下方
-            // purge+reseed 循环播种。apply 前调用。
-            snapshotLayout?.remapHeights(oldIds: oldRows,newIds: newRows)
+            // [2026-09-09 快照缓存重映射] 身份重映射已上移到「段 0」——**必须早于播种**
+            // （理由见段 0 注释：先迁移读到的是旧键，后迁移读到的是被播种改写过的键）。
+            // 此处只保留 `snapshotLayout` 供下方 apply 前后的 offset 补偿使用。
 
             // [2026-09-11 唐唐思路] loop 结构决定「回复之后必接思考/工具指示器」——
             // 指示器出现的那一刻 = 上一段文本块已定型（后面不可能再长字）。
