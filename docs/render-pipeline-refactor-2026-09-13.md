@@ -41,6 +41,18 @@
 |---|---|---|---|
 | **S1** | `HeightEntry` 带**内容版本键**；取高时键不一致即**视为无条目** | 陈旧 `.measured`（I11）/陈旧 `.precalc`/`contentKeyByIndex` 哑指纹；顺带治「上滑回看裁尾」 | `MessageListLayout` ✅ **已完成** |
 | **S2** | 内容指纹统一为**一处确定性指纹**（长度+全量哈希），渲染/缓存/尺寸/块缓存四处共用 | 等长改写被判"未变"（`flapping`/`liveShrink` 族） | `RenderModels` / `MarkdownView` / `MarkdownTextView` / `AssistantBlockView` |
+
+### 1.1 S2 的执行纪律：**先判类型，不要机械替换**（本轮实测得出）
+
+收敛"长度指纹"时，必须先判该判据属于哪一类 —— 三类里只有第一类该换：
+
+| 类型 | 例子 | 处置 |
+|---|---|---|
+| **① 相等性**（"内容是否变了"） | `cachedAttrContentCount` / `cachedSizeMarkdownCount` / `lastSizedStorageLen` | → 换 `ContentFingerprint.of(_:)` |
+| **② 序关系**（`<` / `>`，"谁更短/更旧"） | `lastStreamPendingSourceLen < markdown.count`（快照落后判定） | → **保持长度比较不动**（换指纹会直接破坏语义） |
+| **③ 长度代理**（"两处文本是否等量"，不是"内容是否相同"） | `bindingLen == storageLen`（存储一致性检查） | → **保持长度**；若同一变量兼任①②③中的两类，**必须拆成两个变量** |
+
+**已实测的两个坑**：① 差点把"序关系"一起换（清点站点时才发现语义不同）；② `bindingLen` **一变量两语义**（代际键 + 长度代理），必须拆开而非整体替换 —— 这正是本轮"语义落点统一"要消掉的典型坏味道。
 | **S3** | 「含附件」判据统一为**结构判据** | `MCH:286` 的 `+12`、`MCS:630` 走 CT 回写高度两个不一致落点 | `RenderModels` / `MCH` / `MCS` |
 | **S4** | 「补播/重映射/失效」收敛为**单一顺序入口**（把 S1–S15 写进结构） | 15 个顺序敏感点靠注释维护 | `+Snapshot` / `MessageListLayout` |
 | **S5** | 流式 block 集合构建收敛为**一个纯函数** | 两套构建不等价（尾部 order `Int.max-1` vs `maxEventOrder+0.5`；`.file` 拆分只在终态）；thinking 幂等两套（前缀匹配 vs `seg.id`，**同前缀命错段**） | `MiniClawChatBridge` / `MiniClawChatAdapter` |
@@ -114,7 +126,7 @@
 |---|---|---|
 | **P0** | **仪表盘恢复**：68 处内联 logger → `AppLogger.shared`；热路径探针挂哨兵开关 | ✅ **完成**（`049c816` / `97b21f9`） |
 | **P1** | **S1 第一刀**：`HeightEntry` + 内容版本键 + `currentEntry` 版本感知（`prepare`/defer 门/三个访问器全改走它） | ✅ **完成**（`049c816` 含） |
-| **P2** | **S2 指纹统一**：加 `ContentFingerprint`（长度 + 确定性全量哈希），替换三处"仅长度"判据（块级渲染指纹 / sizeThatFits 桶指纹 / 屏上引擎去重指纹）。**注：`lastStreamPendingSourceLen` 是长度"序"比较（`<`），语义不同，不动** | 🔄 进行中 |
+| **P2** | **S2 指纹统一**：建立 `ContentFingerprint.of(_:)` 唯一入口，收敛三处**相等性**判据（详见 §1.1）——✅ 屏上引擎去重指纹（6 处）· ✅ `sizeThatFits` 桶指纹（并拆开「一变量两语义」的 `bindingLen`）· 🔄 块级渲染指纹（跨 3 文件的回调链，进行中） | 🔄 **2/3** |
 | **P3** | **S4 顺序管线显式化**：把"补播/重映射/失效"收敛为单一入口，S1–S15 由注释变结构断言 | ⬜ |
 | **P4** | **S5 流式 block 集合构建收敛为一个纯函数**（保留孤儿清理 + `.file` 拆分，尾部 order 参数化） | ⬜ |
 | **P5** | **S6 冻结状态机**：三组布尔量合并，消除 M1–M8 | ⬜ |

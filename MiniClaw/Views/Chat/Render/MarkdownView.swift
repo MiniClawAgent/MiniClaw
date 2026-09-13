@@ -312,15 +312,18 @@ struct MarkdownView: UIViewRepresentable {
     /// 同一 1070 字符块滑动期间反复 MISS 30+ 次、累计近 1s 主线程）。渲染完成时
     /// 把结果写回缓存，同块的其他 cell 实例 / 重进会话直接命中（零额外成本，
     /// 复用本来就要做的渲染）。仅 finalized 且无 in-flight 表格后缀时回写。
-    /// [2026-09-09 指纹同源修复] **第二参数 = 本次渲染实际输入的长度**（调用点传
-    /// markdown.count）。调用方必须用它当缓存指纹，不得用回调时刻的
+    /// [2026-09-09 指纹同源修复 / 2026-09-13 指纹统一] **第二参数 = 本次渲染实际输入的
+    /// 内容指纹**（调用点传 `ContentFingerprint.of(markdown)`；**原为长度 `markdown.count`**，
+    /// 长度分不出等长改写 ⇒ 陈旧缓存会被误判为"对应当前内容"）。
+    /// 调用方必须用它当缓存指纹，不得用回调时刻的
     /// block.content.count——SwiftUI body 求值与 sizeThatFits 可跨 runloop 迭代，
     /// 期间 Bridge 会改写 block.content（流式 ~100ms/次），两者不同源时指纹指向
     /// 新内容而 att 是旧内容的渲染结果 → prebuilt 长度校验恰好通过 → 正文被钉在
     /// 旧版本（回复中工具挂载后正文截短，滑动/复用均不恢复）。
     var onRendered: ((NSAttributedString, Int) -> Void)? = nil
-    /// [2026-09-09 截短锁死修复] prebuilt 缓存的内容指纹 = **渲染输入**的字符数
-    /// （AssistantBlock.cachedAttrContentCount，由 onRendered 第二参数写入，与
+    /// [2026-09-09 截短锁死修复] prebuilt 缓存的内容指纹 = **渲染输入的内容指纹**
+    /// （`ContentFingerprint.of`，即 AssistantBlock.cachedAttrFingerprint，
+    /// 由 onRendered 第二参数写入，与
     /// cachedAttributedString 同源）。背景：流式中工具挂载会让该块提前被判终态
     /// （isStreamingBlock 只认 blocks.last），onRendered 把**缺尾包的中间态**渲染
     /// 结果回写块缓存；100ms 后尾包 flush 内容变长，而 prebuilt 采用点
@@ -329,7 +332,7 @@ struct MarkdownView: UIViewRepresentable {
     /// 真机 IMG_4605「好，继续给这一」）。nil = 调用方未提供指纹，保守放行
     /// （兼容其它调用点）；提供时不匹配即弃用 prebuilt 落全量渲染——覆盖式
     /// 回写会让缓存追赶内容，下一次测量自然对齐。
-    var prebuiltContentCount: Int? = nil
+    var prebuiltFingerprint: Int? = nil
     /// [2026-09-12 裁尾修复] 宿主提供的**真实内容宽度**（= cell 宽 − 块左右内边距）。
     ///
     /// 为什么必须由宿主传入：`sizeThatFits` 在 SwiftUI 的**理想尺寸 pass** 里会被以
@@ -644,14 +647,14 @@ struct MarkdownView: UIViewRepresentable {
         if let prebuilt = cachedAttributedString,prebuilt.length>0,!fontChanged,!prebuiltHasTable,!_hasPlainSuffix,
            // [2026-09-09 截短锁死修复] 指纹不匹配 = 缓存是旧中间态而内容已增长——
            // **必须弃用**落全量渲染（此前指纹判定只打日志、旧缓存仍被采用，等于没修）。
-           prebuiltContentCount == nil || prebuiltContentCount == markdown.count {
+           prebuiltFingerprint == nil || prebuiltFingerprint == ContentFingerprint.of(markdown) {
             attributed = prebuilt
             context.coordinator.streamSnapshotStale = false
         } else {
             // [Prebuilt] 指纹不匹配被上层弃用的现场（低频：内容边界才触发）。
             // 覆盖式回写随后把缓存追平。
-            if cachedAttributedString != nil, let cnt = prebuiltContentCount, cnt != markdown.count {
-                AppLogger.shared.warning("[Prebuilt] REJECT stale cache cachedCnt=\(cnt) mdCnt=\(markdown.count) block=\(blockId?.uuidString.prefix(8) ?? "?") — 全量重渲染追赶", category: "MarkdownSTF")
+            if cachedAttributedString != nil, let fp = prebuiltFingerprint, fp != ContentFingerprint.of(markdown) {
+                AppLogger.shared.warning("[Prebuilt] REJECT stale cache cachedFp=\(fp) mdFp=\(ContentFingerprint.of(markdown)) block=\(blockId?.uuidString.prefix(8) ?? "?") — 全量重渲染追赶", category: "MarkdownSTF")
             }
             if isStreaming,
               let prev = context.coordinator.lastStreamPending,
@@ -1131,9 +1134,9 @@ struct MarkdownView: UIViewRepresentable {
                 }
                 // block 级缓存写回（供 precalc 精确种子）：统一缓存在测量分支写入。
                 if _isFinalisedSTF, split.plainSuffix.isEmpty {
-                    // 第二参数必须是**本次渲染输入**的长度：回调方以它当缓存指纹，
+                    // 第二参数必须是**本次渲染输入**的内容指纹：回调方以它当缓存指纹，
                     // 保证指纹与 pending 同源（见 onRendered 声明处注释）。
-                    onRendered?(pending, markdown.count)
+                    onRendered?(pending, ContentFingerprint.of(markdown))
                 }
             }
             }

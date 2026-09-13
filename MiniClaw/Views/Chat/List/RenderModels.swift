@@ -204,13 +204,14 @@ public final class AssistantBlock: Identifiable,ObservableObject {
     @Published public var wasBackgroundSuspended: Bool = false
     @Published public var cachedMarkdown: MarkdownContent?
     @Published public var cachedAttributedString: NSAttributedString?
-    /// [2026-09-09 截短锁死修复] 上面缓存对应的内容指纹（写入时 content.count，
-    /// 非 @Published——纯内部簿记，不驱动 UI）。采用方（MarkdownView prebuilt
+    /// [2026-09-09 截短锁死修复] 上面缓存对应的内容指纹（写入时
+    /// `ContentFingerprint.of(content)`，非 @Published——纯内部簿记，不驱动 UI）。
+    /// 采用方（MarkdownView prebuilt
     /// 路径）与回写方（AssistantBlockView.onRendered 覆盖式回写）据它判断
     /// 「缓存是否对应当前内容」。无此校验时，流式中工具挂载让块提前被当终态
     /// 回写的**缺尾包中间态**会被 prebuilt 路径永久锁死（正文显示截短且
     /// 滑动/复用均不恢复，真机 IMG_4605）。
-    public var cachedAttrContentCount: Int?
+    public var cachedAttrFingerprint: Int?
     public var toolUseId: String?
     public var toolInputArgs: String?
     /// 全局时间线序号:流式插入/终态排序用它保持「思考→工具→正文」的真实发生顺序。
@@ -372,10 +373,10 @@ extension AssistantBlock {
     /// [2026-09-11 尾部行裁切修复] 陈旧 attr = 旧内容的渲染产物，其高度系统性偏小；
     /// 用于播种/精确 precalc 会裁掉尾部行，还会以「当前内容」为 key 毒化进程级统一
     /// 高度缓存（重进会话继续命中）。渲染侧 prebuilt 采用点早已用同一指纹校验
-    /// （cachedAttrContentCount），此处收口为单一事实源，供高度侧共用同一判据。
+    /// （cachedAttrFingerprint），此处收口为单一事实源，供高度侧共用同一判据。
     public var hasFreshRenderedContent: Bool {
         guard let attr = cachedAttributedString, attr.length > 0 else { return false }
-        return cachedAttrContentCount == content.count
+        return cachedAttrFingerprint == ContentFingerprint.of(content)
     }
 
     @MainActor
@@ -387,7 +388,7 @@ extension AssistantBlock {
         // estimateItemHeight）按旧内容算高 → 系统性矮值 → 播种矮高度 → 尾部行被裁；
         // 矮值还会以「当前内容」为 key 写进统一高度缓存，重进会话继续命中
         //（会话结束后 + 重进会话两个场景都复现，真机 IMG_4660/4661）。
-        // 判据与渲染侧 prebuilt 采用点同源（cachedAttrContentCount）。
+        // 判据与渲染侧 prebuilt 采用点同源（cachedAttrFingerprint）。
         guard !hasFreshRenderedContent else { return }
         let fontSize = FontSettings.shared.scaledMessage(16.5)
         let hasAttachmentSyntax = Self.hasRichSyntax(content)
@@ -400,13 +401,13 @@ extension AssistantBlock {
             // 统一缓存命中：跳过 cmark 解析 + 全量渲染（第二次进入零成本）。
             // [2026-09-09] 空 att 不采用（历史污染/defer 空产物），落走正常渲染。
             cachedAttributedString = cached
-            cachedAttrContentCount = content.count
+            cachedAttrFingerprint = ContentFingerprint.of(content)
             return
         }
         cachedAttributedString = autoreleasepool {
             renderMarkdownBlocks(cachedMarkdown!.blocks)
         }
-        cachedAttrContentCount = content.count
+        cachedAttrFingerprint = ContentFingerprint.of(content)
         // [2026-09-13 缓存串味修复] 结构判据兜底：源文启发式 `hasRichSyntax` 只查 `$$`，
         // **漏判行内 `$...$`**（MiniClawMarkdownParser 会为它产出 MathAttachment）⇒ 会把
         // 带附件的渲染产物放行进进程级共享缓存（附件实例与 renderer/视图上下文身份耦合，

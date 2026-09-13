@@ -702,30 +702,30 @@ struct AssistantBlockView: View {
             // 旧短版会被 prebuilt 采用点永久锁死（真机 IMG_4605 正文截短）。
             // 改为「缓存缺失或指纹≠当前内容」即覆盖，缓存永远追赶内容；
             // 内容稳定后指纹相等，自然收敛为不再覆盖。
-            // [2026-09-09 指纹同源修复] 指纹取**渲染输入**的 renderedCount，不取
+            // [2026-09-09 指纹同源修复] 指纹取**渲染输入**的 renderedFingerprint，不取
             // 回调时刻的 block.content.count——后者在 body 求值之后可能已被 Bridge
             // 改写（流式 ~100ms/次），会让指纹指向新内容而 att 是旧内容的渲染结果，
             // prebuilt 长度校验恰好通过 → 正文被钉在旧版本（回复中工具挂载后正文
             // 截短，滑动/复用均不恢复，只有重进会话才恢复）。
-            onRendered: { att, renderedCount in
+            onRendered: { att, renderedFingerprint in
                 // 空产物不入缓存：空 att 回写后会被 MarkdownView 的
                 // prebuilt 路径反复采用 → attrText=0 死循环（配合使用点 length>0
                 // 校验，双保险）。
                 if att.length > 0,
                    block.cachedAttributedString == nil
-                    || block.cachedAttrContentCount != renderedCount {
+                    || block.cachedAttrFingerprint != renderedFingerprint {
                     // [2026-09-09 诊断] 覆盖式回写发生 = 缓存曾落后于内容（工具挂载
                     // 时被当终态回写过缺尾包中间态）。低频，打 info 定位锁死源头。
                     if block.cachedAttributedString != nil {
-                        AppLogger.shared.info("[Prebuilt] OVERWRITE block=\(block.id.uuidString.prefix(8)) cachedCnt=\(block.cachedAttrContentCount.map(String.init) ?? "nil")→\(renderedCount) — 缓存追赶内容", category: "MarkdownSTF")
+                        AppLogger.shared.info("[Prebuilt] OVERWRITE block=\(block.id.uuidString.prefix(8)) cachedFp=\(block.cachedAttrFingerprint.map(String.init) ?? "nil")→\(renderedFingerprint) — 缓存追赶内容", category: "MarkdownSTF")
                     }
                     block.cachedAttributedString = att
-                    block.cachedAttrContentCount = renderedCount
+                    block.cachedAttrFingerprint = renderedFingerprint
                 }
             },
             // [2026-09-09 截短锁死修复] prebuilt 内容指纹：采用点据此校验缓存是否
             // 对应当前内容（nil=缓存尚未建立，同样放行走渲染路径）。
-            prebuiltContentCount: block.cachedAttrContentCount,
+            prebuiltFingerprint: block.cachedAttrFingerprint,
             // [2026-09-12 裁尾修复] 透传真实内容宽度：让首次（理想尺寸）pass 也按内容宽排版，
             // 避免按边界宽测出偏矮高度被 fixedSize(vertical:) 钉死 → 尾部行被裁。
             contentWidth: contentWidth
