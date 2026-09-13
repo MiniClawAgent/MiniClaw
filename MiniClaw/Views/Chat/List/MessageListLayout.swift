@@ -214,7 +214,7 @@ public final class MessageListLayout: UICollectionViewLayout {
             if let e = currentEntry(at: i)?.height {
                 h = e
                 // [2026-09-12 兜底对「条目丢失」免疫] 顺手记住「该内容键上次的真实高度」。
-                // 为什么必须这样兜底：条目是**按 index** 存的，而 `remapHeights`/`updateCacheForSnapshot`
+                // 为什么必须这样兜底：条目是**按 index** 存的，而 `remapHeights`
                 // 按 item 身份重建时会丢掉未匹配 index 的条目（真机实录同一会话两种形态交替：
                 // `[w:118,h:25,b:40,b:36…]` ↔ `[w:200,h:200,b:44,b:44…]`，totalH 2390 ↔ 2675）。
                 // 逐个去堵丢点是无底洞，而**内容键是稳定的** —— 用它记住的高度做兜底，
@@ -584,37 +584,32 @@ public final class MessageListLayout: UICollectionViewLayout {
         }
     }
 
-    public func updateCacheForSnapshot(oldIds: [MessageListItem],newIds: [MessageListItem]) {
-        var oldIndexByItem: [MessageListItem: Int] = [:]
-        for (i,item) in oldIds.enumerated() {
-            oldIndexByItem[item] = i
-        }
+    // [2026-09-13 出入口统一·删除冗余实现] 此处原有 `updateCacheForSnapshot(oldIds:newIds:)`：
+    // 与下方 `remapHeights(oldIds:newIds:)` 做**同一件事**（按 item 身份搬 index 条目），
+    // 而后者是其**严格超集**（额外搬 contentKeyByIndex / footerHugByIndex / metricsTagByIndex）。
+    // 二者原本在 `applySnapshot` 里对**同一映射连跑两次**，前者结果被后者完全覆盖。
+    // 按「一个功能一个出入口」删除本方法 —— 重映射只保留 `remapHeights` 一处。
 
-        var newEntries: [Int: HeightEntry] = [:]
-        for (newIndex,item) in newIds.enumerated() {
-            if let oldIndex = oldIndexByItem[item] {
-                if let entry = heightEntries[oldIndex] { newEntries[newIndex] = entry }
-            }
-        }
-        heightEntries = newEntries
-    }
+    /// 索引高度失效的**唯一入口**（2026-09-13 出入口统一）。
+    ///
+    /// 原先是**两个方法做同一件事**：`invalidateHeight`（条目 + 进程 memo 一起剔）与
+    /// `purgeIndexEntry`（只剔条目、保留 memo）—— 同一语义两个出入口，调用方必须记住用哪个，
+    /// 用错就出事：用 `invalidateHeight` 会把**紧接着重播种要读的 memo** 也剔掉
+    /// → 种子退化为粗估 → 上滑抖动（2026-09-06 真机复现）。
+    /// 现收敛为**一个方法 + 一个显式策略参数**，语义差异成为参数而非"另一条隐式路径"：
+    ///   - `.indexOnly`：只剔索引条目，**保留** content-keyed memo。
+    ///     用于 applySnapshot 清理「旧 cell 在 apply 期间写脏的索引高度」——该高度属于旧内容，
+    ///     但 memo 中该 contentKey 的实测高度仍然有效（紧接着的重播种要读它）。
+    ///   - `.withMemo`（默认）：连 memo 一起剔。内容真换了、不希望旧实测被复用时用。
+    public enum MemoPolicy { case indexOnly, withMemo }
 
-    public func invalidateHeight(at index: Int) {
+    public func invalidateHeight(at index: Int, memo: MemoPolicy = .withMemo) {
         // 统一条目：一次移除即完成原三字典的清空（measured/precalc/estimated 同源）。
         heightEntries.removeValue(forKey: index)
-        // Belt-and-suspenders: also drop the
-        if let key = contentKeyByIndex[index] {
+        if memo == .withMemo, let key = contentKeyByIndex[index] {
+            // 连带剔除该内容键的进程级实测 memo（原 `invalidateHeight` 语义）。
             invalidateMemo(forKey: key)
         }
-    }
-
-    /// 只清索引条目、保留 content-keyed memo（2026-09-06 上滑抖动修复）。
-    /// 用于 applySnapshot 里清理「旧 cell 在 apply 期间写脏的索引高度」：
-    /// 那个高度属于旧内容，但 memo 中该 contentKey 的实测高度依然有效
-    /// （紧接着的重播种要读它）。用 invalidateHeight 会把 memo 一起剔除，
-    /// 导致重进会话的种子退化为粗估 → 上滑抖动。
-    public func purgeIndexEntry(at index: Int) {
-        heightEntries.removeValue(forKey: index)
     }
 
     /// [2026-09-09 快照缓存重映射] 快照行变化时按 item

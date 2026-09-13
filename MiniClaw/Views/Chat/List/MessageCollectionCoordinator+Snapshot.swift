@@ -162,9 +162,12 @@ extension MessageCollectionView.Coordinator {
                 }
             }
 
-            if let layout = viewController?.messageListLayout {
-                layout.updateCacheForSnapshot(oldIds: prevSnapshotIds,newIds: newRows)
-
+            // [2026-09-13 出入口统一·删除冗余实现] 原此处先调 `layout.updateCacheForSnapshot`，
+            // 随后 `:239` 的 `remapHeights` 又对**同一 old→new 映射**跑一遍 —— 两份实现做同一件事，
+            // 且 `remapHeights` 是前者的**严格超集**（还搬 contentKeyByIndex / footerHugByIndex /
+            // metricsTagByIndex）；早退路径上 old==new 属恒等映射，前者净效果为零。⇒ 语义等价，已删除。
+            // 条件保留为「layout 存在」—— 下面这段播种本身就需要 layout。
+            if viewController?.messageListLayout != nil {
                 let cvWidth = viewController?.collectionView.bounds.width ?? 390
                 for (i,item) in newRows.enumerated() {
                     seedHeight(at: i,item: item,messages: messages,width: cvWidth)
@@ -280,7 +283,7 @@ extension MessageCollectionView.Coordinator {
                             // 只清索引条目（保留 memo），随后立刻重新播种。原实现用
                             // `invalidateHeight` 会连 memo 一起剔除且不重播 ⇒ 重进会话时
                             // 全部落到 200pt 兜底再大修正 ⇒ 上滑持续抖动（2026-09-06 真机）。
-                            layout.purgeIndexEntry(at: idx)
+                            layout.invalidateHeight(at: idx, memo: .indexOnly)
                             seedHeight(at: idx, item: item, messages: messages,
                                        width: cv.bounds.width, isReseed: true)
                         }
@@ -483,7 +486,7 @@ extension MessageCollectionView.Coordinator {
                         // 维护的实测高替换成偏矮估算，恰在指示器插入瞬间裁尾（真机
                         // IMG_4663 实锤）。MISS 时不动条目：流式中活 cell 的高度由
                         // 自 sizing 管线维护，比任何粗估都准。
-                        layout.purgeIndexEntry(at: j)
+                        layout.invalidateHeight(at: j, memo: .indexOnly)
                         layout.setPrecalcHeight(uH+4,at: j)
                         AppLogger.shared.info(
                             "[Reseed] HIT blk=\(b2.uuidString.prefix(8)) h=\(Int(uH)) idx=\(j)",
@@ -515,7 +518,7 @@ extension MessageCollectionView.Coordinator {
                         for: blk.content, fontSize: FontSettings.shared.scaledMessage(16.5))
                     if let uH = MarkdownRenderCache.shared.cachedHeight(for: uKey, width: Int(textWidth)) {
                         // [2026-09-11 修正] 同 reseedTextBlock：MISS 不 purge（保留实测高）。
-                        layout.purgeIndexEntry(at: j)
+                        layout.invalidateHeight(at: j, memo: .indexOnly)
                         layout.setPrecalcHeight(uH+4,at: j)
                         AppLogger.shared.info(
                             "[Reseed] TAIL-HIT blk=\(bid.uuidString.prefix(8)) h=\(Int(uH)) idx=\(j)",
