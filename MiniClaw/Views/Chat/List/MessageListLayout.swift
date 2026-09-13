@@ -128,7 +128,17 @@ public final class MessageListLayout: UICollectionViewLayout {
     @discardableResult
     private func setEntry(_ height: CGFloat, source: HeightSource, at index: Int) -> Bool {
         let rank: (HeightSource) -> Int = { $0 == .measured ? 3 : $0 == .precalc ? 2 : 1 }
-        if let existing = heightEntries[index], rank(existing.source) > rank(source) { return false }
+        // [2026-09-13 S15 闭环·闸门必须按"当期"条目判] 原先比的是**裸条目**
+        // `heightEntries[index]`。于是内容已变的陈旧 `.measured`（其 `key` 与
+        // `contentKeyByIndex[index]` 不一致）会出现一个自相矛盾的组合：
+        //   · `currentEntry` 认为它**已不是条目**（键不一致 ⇒ nil）；
+        //   · `hasMeasuredHeight` 因此返回 false ⇒ `seedHeight` 的 measured 早退**不拦**它，
+        //     播种会照常算出一个新的 `.precalc`/`.estimated`；
+        //   · 但闸门这里仍按 rank 3 比较 ⇒ 新值**被静默拒绝**（调用方不看返回值，没有任何信号）。
+        // 净效果：陈旧高度永久压住新内容，且 `.missing` 每轮重试、每轮失败。这正是 S15
+        // 想消灭的"旧实测值永久滞留"，只是断点藏在这个闸门里。
+        // 判据与 `currentEntry` **同源**：键不一致即视为无条目 ⇒ 允许覆盖。
+        if let existing = currentEntry(at: index), rank(existing.source) > rank(source) { return false }
         // [2026-09-09 NaN 治理·单一入口闸门] 高度必须是**有限非负值**。
         // 布局循环这里做 `attrs.frame = …; y += h` 累加，一个 inf 条目就会让
         // 后续全部 y 与 collectionViewContentSize 变成 inf；下游
@@ -578,15 +588,17 @@ public final class MessageListLayout: UICollectionViewLayout {
             guard abs(cv.bounds.width-targetWidth)<0.5 else { return }
             guard abs(cv.bounds.width-self.lastSettledWidth) >= 0.5 else { return }
 
-            // [2026-09-13 出入口统一 4/4] 原先此处直写 `heightEntries.removeAll()` ——
-            // 这是**绕过失效唯一入口**的第 5 条旁路：它只清条目，留下
-            // `contentKeyByIndex` / `footerHugByIndex` 的孤儿键，且**不清**
-            // `_userBubbleMemo`（其键含 `usableTextWidth`，宽度一变旧键永远不可能再命中，
-            // 只会在旋转/分屏反复切换时单调增长 —— 与 2026-09-08 那次"从不清理"同型）。
-            // 宽度变更的正确语义就是"索引条目全丢、进程级 memo 留"（memo 按 (key,width)
-            // 匹配，宽度不通即不命中，故保留安全且是收益），即
-            // `clearHeightCache(keepingSharedMemo: true)` —— 直接复用，不再各写一遍。
-            self.clearHeightCache(keepingSharedMemo: true)
+            // [2026-09-13 修正此前一步的错法] 曾把这里改成 `clearHeightCache(keepingSharedMemo: true)`，
+            // **那是错的**：该入口是给「会话切换 / 字体变更」用的，会**连 `contentKeyByIndex` 与
+            // `footerHugByIndex` 一起清**。而宽度变更**不改变内容与块的身份** —— 这两个表是
+            // **宽度无关**的，清掉纯属有害：清完**没有任何路径会重播种**（旋转不触发
+            // `applySnapshot`，`$messages` 也不变），于是离屏 item 在 `prepare()` 里连
+            // 「按内容键前缀选类型常量」的兜底都拿不到，**全部落到默认 200pt** ⇒
+            // contentSize 虚高、滚动位置错乱（每项约 +150pt）。
+            // 宽度变更真正失效的只有两样：索引高度条目、以及**键含宽度**的 user bubble memo
+            //（旧键永不命中，不清只会随旋转/分屏单调增长 —— 与 2026-09-08 那次"从不清理"同型）。
+            // 故用**语义专用**的入口，而不是复用为"内容身份失效"设计的那个。
+            self.purgeIndexHeightsForWidthChange()
             self.lastSettledWidth = cv.bounds.width
             self.invalidateLayout()
         }
@@ -775,6 +787,24 @@ public final class MessageListLayout: UICollectionViewLayout {
         footerHugByIndex.removeAll()
         // [2026-09-08] user bubble 测量 memo 同为进程级静态字典，此前**从不清理**
         // → 随会话切换单调增长（长会话残留常驻）。统一在清高度缓存时释放。
+        MessageCollectionView.Coordinator.clearUserBubbleMemo()
+    }
+
+    /// **宽度变更**（旋转 / 分屏）的失效入口 —— 只丢「与宽度有关」的两样。
+    ///
+    /// ⚠️ 它与 `clearHeightCache` 的区别是**语义级**的，不是"少清一点"：
+    ///   · `clearHeightCache`（会话切换 / 字体变更）：那两种场景下**内容身份本身已失效**
+    ///     （字体变了，同样的 contentKey 对应的排版高度不再可比），故连
+    ///     `contentKeyByIndex`、`footerHugByIndex` 一起清是对的；
+    ///   · 本方法（宽度变更）：内容与块的**身份完全没变**，只是可用宽变了。
+    ///     若把内容键也清掉，`prepare()` 的兜底链会失去「按内容键前缀选类型常量」这一层，
+    ///     离屏 item 直接落默认 200pt；而宽度变更**没有重播种路径**（旋转不触发
+    ///     `applySnapshot`，`$messages` 也不变）⇒ contentSize 虚高、滚动位置错乱。
+    /// 共享 memo 按 `(key,width)` 匹配，宽度不通即不命中 ⇒ 保留安全且是收益。
+    /// user bubble memo 的键**含 `usableTextWidth`**（`+Heights`），宽度一变旧键永不命中，
+    /// 不清只会在反复旋转/分屏时单调增长。
+    public func purgeIndexHeightsForWidthChange() {
+        heightEntries.removeAll()
         MessageCollectionView.Coordinator.clearUserBubbleMemo()
     }
 

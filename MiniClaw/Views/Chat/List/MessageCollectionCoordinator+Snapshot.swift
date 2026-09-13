@@ -667,16 +667,19 @@ extension MessageCollectionView.Coordinator {
 
             case .assistantBlock(let msgId,let blockId):
                 // [2026-09-13 P3·失败必须显式] 原先这两处是**静默 `return`**：查不到消息、或消息里
-                // 找不到该块时，这个 index 就**不写任何条目** ⇒ 随后 `dataSource.apply` 触发的
-                // `prepare()` 落到兜底 `estimatedItemHeight`(200pt) ⇒ 虚高帧 ⇒ 手势期收缩被拒
-                // ⇒ **拖动期大片空白**（与 S1 同一条因果链）；而且静默降级会把"这条消息高度为什么
-                // 不对"变成无从下手。现改为**显式兜底 + 告警**。
+                // 找不到该块时，这个 index 就**不写任何高度条目** ⇒ `prepare()` 的 `currentEntry`
+                // 取不到值，只能退到「按内容键前缀选类型常量」（`b:` → 36/40）——该常量是**块间**
+                // 通用的，对一段长正文远小于真实高度 ⇒ 帧偏矮、且随后要**增长**（手势期放行，
+                // 不产生空白，但会造成一次实测跳变与滚动位置抖动）。而且静默降级会把
+                // "这条消息高度为什么不对"变成无从下手。（`setContentKey` 在守卫**之前**已写入，
+                // 故这里丢的是**条目**、不是键；原先注释写成"落 200pt 兜底"不准确，已更正。）
+                // 现改为**显式兜底 + 告警**。
                 // 兜底用 `estimateItemHeight`：它不读 `messageIndex`（自己查 `messages`），
-                // 故仍可能给出该块类型的真实量级；彻底查不到时退 44pts 保守值。最坏也比"无条目 ⇒ 200"好。
+                // 故仍可能给出该块类型的真实量级；彻底查不到时退 44pts 保守值。最坏也比"无条目 ⇒ 类型常量"好。
                 guard let msgIdx = messageIndex[msgId],msgIdx<messages.count else {
                     let est = Self.estimateItemHeight(item,messages: messages,width: cvWidth)
                     layout.setEstimatedHeight(est,at: i)
-                    AppLogger.shared.info("[Seed] messageIndex 无 \(msgId.uuidString.prefix(8)) → 兜底估高 \(Int(est))pt idx=\(i) reseed=\(isReseed ? 1 : 0)（原为静默留空 ⇒ prepare 落 200pt 兜底）", category: "ChatList.Heights")
+                    AppLogger.shared.info("[Seed] messageIndex 无 \(msgId.uuidString.prefix(8)) → 兜底估高 \(Int(est))pt idx=\(i) reseed=\(isReseed ? 1 : 0)（原为静默留空 ⇒ 该格位无高度条目，prepare 退到块间通用常量）", category: "ChatList.Heights")
                     return
                 }
                 let msg = messages[msgIdx]

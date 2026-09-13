@@ -814,6 +814,10 @@ extension MessageCollectionView.Coordinator {
             // 本改动**只写 contentOffset、不写高度** ⇒ 最坏是"少补一次"（原地不动），不可能造成内容偏差。
             viewController?.messageListLayout?.clearPendingAboveShift()
             vm?.setStreamingUIUpdatesSuspended(true)
+            // [2026-09-13 兜底自足] 兜底原先只挂在 `updateUIViewController`，而它恰恰在
+            // 「流式挂起 ⇒ 不再有 @Published 变化 ⇒ SwiftUI 不再重算 body」时不会被调用 ——
+            // 那正是泄漏的定义场景。补一条**时间驱动**的第二触发点（幂等、自限，见实现）。
+            scheduleFreezeWatchdog()
         }
 
         public func scrollViewWillEndDragging(
@@ -1137,6 +1141,23 @@ extension MessageCollectionView.Coordinator {
                 "[Freeze] 泄漏兜底：冻结已 \(Int(elapsed * 1000))ms 但既非 tracking 也非 decelerating ⇒ 重新触发唯一关闭点 settle（触发源 \(reason)）",
                 category: "ChatList.Scroll")
             settleAfterInteraction(cv)
+        }
+
+        /// 冻结兜底的**时间驱动**触发点（2026-09-13）。
+        ///
+        /// 为什么需要第二条触发点：`updateUIViewController` 是"事件驱动"的 —— SwiftUI 重算 body
+        /// 才会跑。而泄漏的定义场景恰恰是「流式被挂起 ⇒ 不再有 `@Published` 变化 ⇒ body 不再重算」，
+        /// 于是那个触发点在最需要它的时候不会到来。本函数补上"时间驱动"，两者互补。
+        ///
+        /// 幂等 + 自限：只在 `freezeStartedAt != nil`（即仍在冻结）时动作；查完若**依然**冻结
+        ///（合法的长手势 / 长减速）就再排一次，直到真正解冻 —— 故它只在冻结期间存活，
+        /// 不会常驻占用主队列。
+        private func scheduleFreezeWatchdog() {
+            DispatchQueue.main.asyncAfter(deadline: .now()+1.0) { [weak self] in
+                guard let self,self.freezeStartedAt != nil else { return }
+                self.resetLeakedFreezeIfNeeded("watchdog")
+                if self.freezeStartedAt != nil { self.scheduleFreezeWatchdog() }
+            }
         }
 
 }
