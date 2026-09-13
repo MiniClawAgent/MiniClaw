@@ -452,10 +452,14 @@ struct MarkdownView: UIViewRepresentable {
         var storageMissingTail = false
         if !isStreaming, !fontChanged, !context.coordinator.streamSnapshotStale,
            streamJustEnded || markdown == context.coordinator.lastMarkdown {
-            let syntax = "*|`#~[]()>+-·0123456789"
+            // [2026-09-13 探针判据修正] 原判据是「长度≥6 且**不含**语法符/数字」——它会把
+            // 「图片信息：… 959 × 1232 px（…）」这类**含数字**的收尾行也剔掉，于是探针一路往前
+            // 退到**早就渲染出来**的那一行，判"storage 完整"⇒ 该修的时候不修（真机 22:33 实证：
+            // 正文末尾被裁却一次 `SHORT-DISPLAY` 都没打）。
+            // 现在只要求「长度≥6 且**至少含一个字母/CJK**」——排除纯符号行，但不再因数字而误杀。
             let probe = markdown.split(whereSeparator: { $0.isNewline }).reversed()
                 .map { $0.trimmingCharacters(in: .whitespaces) }
-                .first { $0.count >= 6 && !$0.contains(where: { syntax.contains($0) }) }
+                .first { $0.count >= 6 && $0.contains(where: { $0.isLetter }) }
             if let probe {
                 storageMissingTail = !textView.textStorage.string.contains(probe)
                 if storageMissingTail {

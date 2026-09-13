@@ -118,23 +118,48 @@ extension MessageCollectionView.Coordinator {
                                 alog.info("[AttachmentSize] clear idx=\(ip.item) frameH=\(String(format: "%.1f", before))")
                             }
                         }
-                        // returning ~50pt) is pushed offY-screen by the cold
-                        let totalItems = self.dataSource?.snapshot().itemIdentifiers.count ?? 0
-                        for idx in 0..<totalItems {
-                            layout.invalidateHeight(at: idx)
-                        }
-                        // ── A. 失效后**立刻重播种**（唯一入口），不留"无条目"的 index ─────────
-                        // 必须早于 `dataSource.apply`（顺序敏感点 S1）：apply 触发的 `prepare()`
-                        // 若读不到条目就会退到块间通用常量，上面的 contentSize 塌缩正是这么来的。
-                        // 本次没有行变化，故播当前快照行 `prevSnapshotIds`。
+                        // ── 只失效「含该附件的那些行」（全表失效是历史遗留，且**有害**）────────
+                        // 通知的 object 是**来源串**（src），不是消息 id ⇒ 按内容反查归属。
+                        // 为什么不能全表：全表失效 + 全表 reconfigure 会在图片异步加载期间**反复**
+                        // 把 cell 打回"重新量一次"的状态，而重量的那一刻 storage 可能还没重建完
+                        // ⇒ 量出 `orig=451.7→pref=32.0` 这种荒唐值（真机 22:33:26 实证），
+                        // 而收缩又被手势期策略拒绝 ⇒ 帧留在 451.7、内容只有一小截
+                        // = 「文字被裁 + 下面一大片空白」。
                         let seedMessages = self.snapshotMessages.isEmpty
                             ? (self.vm?.messages ?? []) : self.snapshotMessages
-                        self.seedHeights(.all,rows: self.prevSnapshotIds,
+                        var byId: [UUID: RenderMessage] = [:]
+                        for m in seedMessages { byId[m.id] = m }
+                        var affected: Set<Int> = []
+                        for (i, item) in self.prevSnapshotIds.enumerated() {
+                            guard case .assistantBlock(let mid, let bid) = item,
+                                  let msg = byId[mid],
+                                  let blk = msg.blocks.first(where: { $0.id == bid }),
+                                  blk.kind == .text,
+                                  blk.content.contains(urlStr) else { continue }
+                            affected.insert(i)
+                        }
+                        // 归属查不到（src 被规范化过 / 该行已不在快照里）⇒ 退化为"只处理可见行"，
+                        // **绝不退回全表**：全表正是上面那个荒唐测量的来源。
+                        if affected.isEmpty { affected = Set(visibleIPs.map(\.item)) }
+                        for idx in affected {
+                            layout.invalidateHeight(at: idx)
+                            (cv.cellForItem(at: IndexPath(item: idx, section: 0)) as? SelfSizingCell)?
+                                .clearCachedHeight()
+                        }
+                        // 失效后**只对这几行**重播种：唯一入口 `seedHeights(.indices:)`，
+                        // 且 rows 与 messages 来自**同一次快照**（都用 `prevSnapshotIds` + 同一份
+                        // `seedMessages`）—— 此前用 `rows: prevSnapshotIds` 配"现场取的 vm.messages"，
+                        // 两侧 id 集合可能已经错位 ⇒ 成片 `[Seed] 消息 … 无块 … 兜底估高 44pt`。
+                        self.seedHeights(.indices(Array(affected)),rows: self.prevSnapshotIds,
                                          messages: seedMessages,width: cv.bounds.width)
                         if let snapshot = self.dataSource?.snapshot() {
-                            // viewport; offY-screen cells just get a corrected
+                            // 只重配**受影响的那几行**：原先 `reconfigureItems(全部)` 会把整表 cell
+                            // 打回"重新量一次"，那正是 `orig=451.7→pref=32.0` 荒唐测量的来源。
                             var snap = snapshot
-                            snap.reconfigureItems(snapshot.itemIdentifiers)
+                            let items = snapshot.itemIdentifiers
+                            let ids = Array(affected).sorted()
+                                .compactMap { $0 < items.count ? items[$0] : nil }
+                            if !ids.isEmpty { snap.reconfigureItems(ids) }
                             self.dataSource?.apply(snap,animatingDifferences: false)
                         }
                         DispatchQueue.main.async {
@@ -151,7 +176,7 @@ extension MessageCollectionView.Coordinator {
                                 self.restoreViewportTopAnchor(topAnchor,reason: "attachmentSize")
                             }
                         }
-                        alog.info("[AttachmentSize] url=\(urlStr) cleared=\(cleared)/\(visibleIPs.count) totalInvalidated=\(totalItems) clamp=\(self.clampAfterSessionLoad)")
+                        alog.info("[AttachmentSize] url=\(urlStr) cleared=\(cleared)/\(visibleIPs.count) affected=\(affected.count) clamp=\(self.clampAfterSessionLoad)")
                     }
             }
 
