@@ -874,9 +874,10 @@ struct MarkdownView: UIViewRepresentable {
         DispatchQueue.main.async { [weak textView] in
             guard let textView else { return }
             var cellH: CGFloat = -1
+            var cellRef: SelfSizingCell?
             var probeView: UIView? = textView
             while let cur = probeView {
-                if let cell = cur as? SelfSizingCell { cellH = cell.frame.height; break }
+                if let cell = cur as? SelfSizingCell { cellH = cell.frame.height; cellRef = cell; break }
                 probeView = cur.superview
             }
             let contentH = textView.contentSize.height
@@ -890,8 +891,18 @@ struct MarkdownView: UIViewRepresentable {
             let cellTooShort = cellH > 0 && cellH < contentH - 0.5
             let bad = storageBehind || cellTooShort || tailCut
             guard forceLog || bad else { return }
+            // [Diag] 命中 cellShort 时补一根线索：那个矮高度到底是"条目里的什么来源"
+            //（估算条目 / 预演条目 / 实测条目），以及条目值本身 —— 这是"根因"的最后一块拼图。
+            var entryInfo = "entry=n/a"
+            if cellTooShort, let cell = cellRef,
+               let cv = cell.superview as? UICollectionView,
+               let ip = cv.indexPath(for: cell),
+               let layout = cv.collectionViewLayout as? MessageListLayout {
+                let e = layout.cachedHeight(at: ip.item)
+                entryInfo = "entry=\(e.map { String(format: "%.1f", $0) } ?? "nil") measured=\(layout.hasMeasuredHeight(at: ip.item) ? 1 : 0) precalc=\(layout.hasPrecalcHeight(at: ip.item) ? 1 : 0) idx=\(ip.item)"
+            }
             AppLogger.shared.warning(
-                "[TruncL]\(bad ? " ⚠BAD" : "") blk=\(blkSnap) storageLen=\(textView.textStorage.length) attrLen=\(attrLenSnap) mdCnt=\(mdCntSnap) tvContentH=\(String(format: "%.1f", contentH)) cellH=\(String(format: "%.1f", cellH)) path=\(pathSnap) streaming=\(streamSnap ? 1 : 0) glyphs=\(total) visEnd=\(visEnd) tailCut=\(tailCut ? 1 : 0) storageBehind=\(storageBehind ? 1 : 0) cellShort=\(cellTooShort ? 1 : 0)",
+                "[TruncL]\(bad ? " ⚠BAD" : "") blk=\(blkSnap) storageLen=\(textView.textStorage.length) attrLen=\(attrLenSnap) mdCnt=\(mdCntSnap) tvContentH=\(String(format: "%.1f", contentH)) cellH=\(String(format: "%.1f", cellH)) path=\(pathSnap) streaming=\(streamSnap ? 1 : 0) glyphs=\(total) visEnd=\(visEnd) tailCut=\(tailCut ? 1 : 0) storageBehind=\(storageBehind ? 1 : 0) cellShort=\(cellTooShort ? 1 : 0) \(entryInfo)",
                 category: "RenderProbe")
         }
 
