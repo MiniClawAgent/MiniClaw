@@ -10,6 +10,112 @@ enum FileWriteActor {
     case browserAutomatic
 }
 
+// MARK: - MiniClaw 虚拟目录知识 + 值类型（单一来源）
+
+/// `/var/MiniClaw/<host>/…` 的 `<host>`：**关于虚拟目录的知识只在这里声明一次**。
+/// 位置说明：本类型为文件作用域（规格要求的"attachmentExtensions 块之后"位于
+/// `FileSystemManager` 类体内，无法原地插入文件作用域类型）；调用方与测试均以裸名使用。
+enum MiniClawHost: String, CaseIterable {
+    case attachments, workspace, browser, offloads, subagent, shared, memory, rules, skills, mounts
+
+    /// 会话独享：写入落 `Sessions/<uuid>/<host>/…`，读取时"会话优先、miss 才回落扁平"（只读兼容）。
+    /// 必须与 `SessionFileRouter.sessionSubdirs`（`workspace/attachments/browser/offloads/subagent`）
+    /// 完全一致（含 `subagent`）；`FileSystemManager.sessionExclusiveSubdirs` 由本属性派生。
+    var isSessionExclusive: Bool {
+        switch self {
+        case .workspace, .attachments, .browser, .offloads, .subagent: return true
+        case .shared, .memory, .rules, .skills, .mounts: return false
+        }
+    }
+
+    /// Agent（模型）经工具写入时允许的目标。
+    /// 对应原 `validateWrite(.agent)` 放行集合：`shared` / `skills`
+    /// / 会话独享的 `workspace`+`attachments` / 扁平回落的 `workspace`+`attachments`。
+    var isAgentWritable: Bool {
+        switch self {
+        case .shared, .skills, .workspace, .attachments: return true
+        case .browser, .offloads, .subagent, .memory, .rules, .mounts: return false
+        }
+    }
+
+    /// Agent 可写的**会话独享**子目录（= isSessionExclusive ∩ isAgentWritable = workspace/attachments）。
+    var isAgentWritableSessionExclusive: Bool { isSessionExclusive && isAgentWritable }
+
+    /// 可作为 `miniclaw://<host>/…` 资源 URL 解析的 host（原 `resolveMiniClawResourceURL`
+    /// 白名单的 9 项 = 全部 host 减 `subagent`）。
+    /// ⚠️ `subagent` **故意不在白名单**：它只经会话目录直达（shell / 会话隔离），
+    /// 从不出现在 `miniclaw://` 资源 URL 中——勿顺手加入。
+    var isResolvableResource: Bool { self != .subagent }
+}
+
+/// 同一个 parse 点的**失败行为**——是参数，不是第二份实现。
+enum MiniClawResolvePolicy {
+    /// 严格：失败抛错（Agent 工具入口）。
+    case strict
+    /// 宽松：失败静默回落扁平根（内部 list/exists/delete/size 等）。
+    case soft
+    /// 展示：会话目录存在才用，否则回落扁平且要求 exists（聊天里点 `miniclaw://` 链接）。
+    case displayFallback
+}
+
+/// 「一个 MiniClaw 虚拟资源」—— **parse 一次，之后只做 serialize**。
+/// 两种写法 `/var/MiniClaw/<host>[/<rel>]` 与 `miniclaw://<host>[/<rel>]`
+/// **必须解析成同一个值**（这是"写法统一"的核心）。
+struct MiniClawResource: Hashable {
+    let host: MiniClawHost
+    /// 归一化：不含 host、无前导 `/`、无 `..`；空串表示 host 根目录本身。
+    let relative: String
+    let sessionID: UUID?
+
+    /// 只接受 `/var/MiniClaw/<host>[/<rel>]` 与 `miniclaw://<host>[/<rel>]`：
+    /// - host 必须在 `MiniClawHost` 内（且可作为资源 URL 解析）；
+    /// - relative 出现 `..` 组件（含百分号解码后）一律 nil（目录穿越）；
+    /// - 其它形式（裸相对路径、宿主绝对路径、`/var/MiniClaw/` 根）一律 nil。
+    init?(rawValue: String, sessionID: UUID?) {
+        // 字面 `..` 组件必须在任何 URL 解析**之前**拦下：`URLComponents` 可能对点段做
+        // 归一化，把 `attachments/../shared` 悄悄变成 `shared`，从而绕过穿越检测。
+        if rawValue.split(separator: "/").contains("..") { return nil }
+
+        var hostString = ""
+        var relParts: [String] = []
+        if rawValue.hasPrefix("miniclaw://") {
+            // 与旧 `resolveMiniClawResourceURL` 一致：host 小写、path 百分号解码。
+            guard let components = URLComponents(string: rawValue),
+                  components.scheme?.lowercased() == "miniclaw",
+                  let hostComponent = components.host, !hostComponent.isEmpty else { return nil }
+            hostString = hostComponent.lowercased()
+            let decodedPath = components.percentEncodedPath.removingPercentEncoding ?? components.path
+            relParts = decodedPath.split(separator: "/", omittingEmptySubsequences: true).map(String.init)
+        } else if rawValue.hasPrefix("/var/MiniClaw/") {
+            // 与旧 `resolveAgentPath` 一致：**不**解码、**不**改大小写（大小写不符或未列举
+            // host 的串会在 `resolveAgentPath` 的兼容回落里按原行为处理）。
+            var parts = String(rawValue.dropFirst("/var/MiniClaw/".count))
+                .split(separator: "/", omittingEmptySubsequences: true).map(String.init)
+            guard let first = parts.first else { return nil }   // `/var/MiniClaw/` 根本身不是资源
+            hostString = first
+            parts.removeFirst()
+            relParts = parts
+        } else {
+            return nil
+        }
+
+        guard let host = MiniClawHost(rawValue: hostString), host.isResolvableResource else { return nil }
+        guard !relParts.contains("..") else { return nil }   // 解码后新出现的 `..`（如 %2e%2e）
+        self.host = host
+        self.relative = relParts.joined(separator: "/")
+        self.sessionID = sessionID
+    }
+
+    /// 归一化后的完整相对路径（含 host），供唯一的 URL 映射实现 `url(for:policy:)` 消费。
+    var hostRelativePath: String { relative.isEmpty ? host.rawValue : "\(host.rawValue)/\(relative)" }
+
+    /// `/var/MiniClaw/<host>[/<relative>]`（模型可见写法，**不含** `sessions/<uuid>`）。
+    var guestPath: String { "/var/MiniClaw/" + hostRelativePath }
+
+    /// `miniclaw://<host>[/<relative>]`（Markdown 引用写法）。
+    var markdownURL: String { "miniclaw://" + hostRelativePath }
+}
+
 
 final class FileSystemManager: @unchecked Sendable {
     static let shared = FileSystemManager()
@@ -740,7 +846,84 @@ final class FileSystemManager: @unchecked Sendable {
     // MARK: - Path Resolution / Directory Policy
 
     /// 会话独享目录（与 iSH hook 的 kSessionPrefixes 保持一致）。
-    private static let sessionExclusiveSubdirs: Set<String> = Set(SessionFileRouter.sessionSubdirs)
+    /// 由 `MiniClawHost` 单一来源派生（= SessionFileRouter.sessionSubdirs），不再手写第二份名单。
+    private static let sessionExclusiveSubdirs: Set<String> =
+        Set(MiniClawHost.allCases.filter(\.isSessionExclusive).map(\.rawValue))
+
+    /// Agent 可写的会话独享子目录（由 `MiniClawHost` 派生：workspace/attachments）。
+    private static let agentWritableSessionSubdirs: Set<String> =
+        Set(MiniClawHost.allCases.filter(\.isAgentWritableSessionExclusive).map(\.rawValue))
+
+    /// 唯一的 URL 映射出口：`MiniClawResource` → 真实宿主 URL。
+    /// 三种失败行为是**参数**（`MiniClawResolvePolicy`），而不是三份重复实现。
+    /// 底层仍只有 `resolveVarMiniClawThrowing` / `resolveVarMiniClawLenient` 两个 URL 实现。
+    func url(for resource: MiniClawResource, policy: MiniClawResolvePolicy) throws -> URL {
+        let relative = resource.hostRelativePath
+        switch policy {
+        case .strict:
+            return try resolveVarMiniClawThrowing(relative, sessionID: resource.sessionID)
+        case .soft:
+            return resolveVarMiniClawLenient(relative, sessionID: resource.sessionID)
+        case .displayFallback:
+            guard let url = displayFallbackURL(for: resource) else {
+                throw FileError.notFound(resource.guestPath)
+            }
+            return url
+        }
+    }
+
+    /// `.displayFallback` 的实现（原 `resolveMiniClawResourceURL` 主体，语义保持不变）：
+    /// 会话独享目录先看会话目录**是否存在该文件**，存在才用；否则回落扁平，且扁平也要求 exists。
+    private func displayFallbackURL(for resource: MiniClawResource) -> URL? {
+        let host = resource.host
+        // ⚠️ 铁律：`URLComponents` 会把 `miniclaw://browser/a.png` 的 `browser` 解析进 `host`，
+        // 而写入侧 `resolveVarMiniClawThrowing` 收到的是完整的 `browser/a.png`，落盘在
+        // `Sessions/<uuid>/browser/a.png`。因此这里**必须把 host 拼回去**
+        // （由 `resource.relative` + `host.rawValue` 组合），否则永远 miss。
+        if host.isSessionExclusive, let sessionID = resource.sessionID {
+            let sessionBase = SessionFileRouter.shared.sessionHostDirectory(for: sessionID)
+                .appendingPathComponent(host.rawValue, isDirectory: true)
+            let sessionURL = sessionBase.appendingPathComponent(resource.relative).standardizedFileURL
+            guard contains(sessionURL, in: sessionBase) else { return nil }
+            if fileManager.fileExists(atPath: sessionURL.path) { return sessionURL }
+        }
+
+        let base: URL
+        switch host {
+        case .attachments: base = attachmentsDir
+        case .workspace:   base = workspaceDir
+        case .shared:      base = sharedDir
+        case .offloads:    base = offloadsDir
+        case .browser:     base = browserDir
+        case .memory:      base = memoryDir
+        case .rules:       base = rulesDir
+        case .skills:      base = skillsDir
+        case .subagent:
+            // 白名单外（`MiniClawResource` 不会构造出该 host），保持旧 `resolveMiniClawResourceURL` 的拒绝语义。
+            return nil
+        case .mounts:
+            // 外部挂载：relative 形如 "<name>/<sub>"，先走 bookmark 解析到外部真实 URL。
+            let comps = resource.relative.split(separator: "/", omittingEmptySubsequences: true).map(String.init)
+            if let first = comps.first {
+                let sub = comps.dropFirst().joined(separator: "/")
+                if let ext = MountStore.shared.resolveExternalURL(mountName: first, subPath: sub) {
+                    return ext
+                }
+            }
+            base = mountsDir
+        }
+        let resolved = base.appendingPathComponent(resource.relative).standardizedFileURL
+
+        guard contains(resolved, in: base) else { return nil }
+
+        // 会话独享目录回落到扁平区（fs_context=0 / 隔离前的旧文件）：
+        // 仅当文件确实存在才返回，避免返回不存在路径导致 UIImage(contentsOfFile:)
+        // 静默失败、UI 显示灰框。
+        if host.isSessionExclusive {
+            return fileManager.fileExists(atPath: resolved.path) ? resolved : nil
+        }
+        return resolved
+    }
 
     /// 严格解析 `/var/MiniClaw/<relative>` → 真实沙盒路径（抛错版，供 Agent 工具入口使用）。
     /// - 会话独享目录（workspace/attachments/browser/offloads）带 `sessionID` 时落到
@@ -832,6 +1015,15 @@ final class FileSystemManager: @unchecked Sendable {
     /// Agent 文件工具只接受 `/var/MiniClaw/...` 绝对路径，并拒绝目录穿越。
     /// - Parameter sessionID: 绑定会话时传入，用于将会话独享目录隔离到该会话；为 nil 时访问独享目录抛 `.sessionRequired`。
     func resolveAgentPath(_ path: String, sessionID: UUID? = nil) throws -> URL {
+        // 主路径：parse 一次成 `MiniClawResource`，之后只做 serialize。
+        if let resource = MiniClawResource(rawValue: path, sessionID: sessionID) {
+            return try url(for: resource, policy: .strict)
+        }
+        // 兼容回落（保持改造前行为与错误类型，逐字一致）——覆盖三类 `MiniClawHost` 未列举的形态：
+        //   ① `/var/MiniClaw/` 根（miniclaw-debug 不传 path 时列根目录）；
+        //   ② `/var/MiniClaw/<未列举 host>/…`（subagent / models / config / plugins 等）；
+        //   ③ 含 `..` 的穿越路径（必须仍抛 `.pathEscapesRoot`，而非统一的 `.absolutePathRequired`）。
+        // 仍复用同一个 URL 映射实现 `resolveVarMiniClawThrowing`，不产生第二份解析逻辑。
         let normalized = Self.normalizeMiniClawURL(path)
         guard normalized.hasPrefix("/var/MiniClaw/") else {
             throw FileError.absolutePathRequired(path)
@@ -851,67 +1043,12 @@ final class FileSystemManager: @unchecked Sendable {
     }
 
     /// 将 `miniclaw://<目录>/<路径>` 安全映射到沙盒文件。导航型 URL 返回 nil。
-    /// - Parameter sessionID: 会话独享目录（attachments/workspace/browser/offloads）优先按会话解析；
+    /// - Parameter sessionID: 会话独享目录（attachments/workspace/browser/offloads/subagent）优先按会话解析；
     ///   命中即返回，否则回落到扁平目录（兼容隔离前旧文件 / 无会话上下文的点击）。
+    /// 本方法现在只是 `url(for:policy:.displayFallback)` 的薄壳（解析与映射逻辑已收敛到 `MiniClawResource`）。
     func resolveMiniClawResourceURL(_ raw: String, sessionID: UUID? = nil) -> URL? {
-        guard let components = URLComponents(string: raw),
-              components.scheme?.lowercased() == "miniclaw",
-              let host = components.host?.lowercased(),
-              ["attachments", "workspace", "shared", "offloads", "browser", "memory", "rules", "skills", "mounts"].contains(host) else {
-            return nil
-        }
-        let decodedPath = components.percentEncodedPath.removingPercentEncoding ?? components.path
-        let relative = decodedPath.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-
-        let isSessionExclusive = ["attachments", "workspace", "browser", "offloads"].contains(host)
-
-        // 会话独享目录：优先按会话解析（隔离后新写入的文件），命中直接返回。
-        //
-        // ⚠️ 铁律：`URLComponents` 会把 `miniclaw://browser/a.png` 的 `browser` 解析进 `host`，
-        // `relative` 里只剩 `a.png`。而写入侧 `resolveVarMiniClawThrowing` 收到的是完整的
-        // `browser/a.png`，落盘在 `Sessions/<uuid>/browser/a.png`。因此这里**必须把 host 拼回去**，
-        // 否则算出 `Sessions/<uuid>/a.png` 永远 miss（曾导致所有浏览器下载的图片无法显示）。
-        if isSessionExclusive, let sessionID {
-            let sessionBase = SessionFileRouter.shared.sessionHostDirectory(for: sessionID)
-                .appendingPathComponent(host, isDirectory: true)
-            let sessionURL = sessionBase.appendingPathComponent(relative).standardizedFileURL
-            guard contains(sessionURL, in: sessionBase) else { return nil }
-            if fileManager.fileExists(atPath: sessionURL.path) { return sessionURL }
-        }
-
-        let base: URL
-        switch host {
-        case "attachments": base = attachmentsDir
-        case "workspace": base = workspaceDir
-        case "shared": base = sharedDir
-        case "offloads": base = offloadsDir
-        case "browser": base = browserDir
-        case "memory": base = memoryDir
-        case "rules": base = rulesDir
-        case "skills": base = skillsDir
-        case "mounts":
-            // 外部挂载：relative 形如 "<name>/<sub>"，先走 bookmark 解析到外部真实 URL。
-            let comps = relative.split(separator: "/", omittingEmptySubsequences: true).map(String.init)
-            if let first = comps.first {
-                let sub = comps.dropFirst().joined(separator: "/")
-                if let ext = MountStore.shared.resolveExternalURL(mountName: first, subPath: sub) {
-                    return ext
-                }
-            }
-            base = mountsDir
-        default: return nil
-        }
-        let resolved = base.appendingPathComponent(relative).standardizedFileURL
-
-        guard contains(resolved, in: base) else { return nil }
-
-        // 会话独享目录回落到扁平区（fs_context=0 / 隔离前的旧文件）：
-        // 仅当文件确实存在才返回，避免返回不存在路径导致 UIImage(contentsOfFile:)
-        // 静默失败、UI 显示灰框。
-        if isSessionExclusive {
-            return fileManager.fileExists(atPath: resolved.path) ? resolved : nil
-        }
-        return resolved
+        guard let resource = MiniClawResource(rawValue: raw, sessionID: sessionID) else { return nil }
+        return try? url(for: resource, policy: .displayFallback)
     }
 
     /// 判断 url 是否落在某个会话的独享子目录下
@@ -945,9 +1082,11 @@ final class FileSystemManager: @unchecked Sendable {
                 }
                 return
             }
+            // 可写目标由 `MiniClawHost` 单一来源派生：shared / skills（共享区）
+            // + workspace / attachments（会话独享子目录及其扁平回落）。
             let allowed = contains(url, in: sharedDir)
                 || contains(url, in: skillsDir)
-                || isSessionExclusiveDir(url, subdirs: ["workspace", "attachments"])
+                || isSessionExclusiveDir(url, subdirs: Self.agentWritableSessionSubdirs)
                 || contains(url, in: workspaceDir)    // 扁平回落（兼容旧调用）
                 || contains(url, in: attachmentsDir)  // 扁平回落（兼容旧调用）
             guard allowed else { throw FileError.writeNotAllowed(url.path) }
