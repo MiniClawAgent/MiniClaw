@@ -471,8 +471,14 @@ extension MessageCollectionView {
             if let layout = viewController?.messageListLayout,
                !layout.hasMeasuredHeight(at: indexPath.item),
                !layout.hasPrecalcHeight(at: indexPath.item) {
+                // [2026-09-13 滚动卡顿修复] `allowRenderBubble: false` —— **这里是滚动路径**
+                //（`cellForItemAt` → `configureCell`）。默认值会为**用户气泡**跑一次真正的 cmark
+                // 渲染（主线程、单条数十毫秒，含富语法时再叠 TextKit 全量排版）⇒ 真机表现为
+                // 「滑到用户消息处卡顿一下」。粗估足够，精度由 cell 首次自 sizing 修正。
+                // assistant 块不受影响：它们走 `cachedAttributedString` / 统一缓存短路，本就廉价。
                 let est = Self.estimateItemHeight(item,messages: messages,
-                                                  width: viewController?.collectionView.bounds.width ?? 390)
+                                                  width: viewController?.collectionView.bounds.width ?? 390,
+                                                  allowRenderBubble: false)
                 layout.setEstimatedHeight(est,at: indexPath.item)
             }
         }
@@ -654,6 +660,19 @@ extension MessageCollectionView {
             // Skip while isLoadingSession — binding 3 handles the post-load apply.
             // This prevents a redundant apply when $messages and $isLoadingSession
             // dispatch to main queue in the same runloop cycle.
+
+            // [2026-09-13 滚动卡顿修复·治本] 宽度变更会**整表清空**索引高度条目，而清空后
+            // 没有任何路径重播种（旋转/首次布局 settle 都不触发 `applySnapshot`）
+            // ⇒ `configureCell` 的兜底守卫失守 ⇒ 滑到用户气泡时在**主线程**跑 cmark 渲染。
+            // 这里把「清空 → 立刻重播种」接上（唯一入口 `seedHeights(.all)`）。
+            // 与 `.miniClawAttachmentSizeChanged` 那条同源纪律：**凡整表失效，必须立刻重播种**。
+            viewController?.messageListLayout?.onIndexHeightsPurged = { [weak self] in
+                guard let self,let cv = self.viewController?.collectionView else { return }
+                let msgs = self.snapshotMessages.isEmpty ? (self.vm?.messages ?? []) : self.snapshotMessages
+                self.seedHeights(.all,rows: self.prevSnapshotIds,messages: msgs,width: cv.bounds.width)
+                AppLogger.shared.info("[WidthPurge] 整表清空后重播种 rows=\(self.prevSnapshotIds.count)", category: "ChatList.Heights")
+            }
+
             vm.$messages
                 .receive(on: DispatchQueue.main)
                 .sink { [weak self] msgs in

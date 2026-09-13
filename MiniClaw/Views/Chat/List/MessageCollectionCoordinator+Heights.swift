@@ -288,7 +288,10 @@ extension MessageCollectionView.Coordinator {
             }
         }
 
-        static func estimateItemHeight(_ item: MessageListItem,messages: [RenderMessage],width: CGFloat) -> CGFloat {
+        /// - Parameter allowRenderBubble: 是否允许为**用户气泡**跑真正的 cmark 渲染来精测高度。
+        ///   默认 `true`（播种路径要精度）。**滚动路径必须传 `false`** —— 理由见 `.user` 分支注释。
+        static func estimateItemHeight(_ item: MessageListItem,messages: [RenderMessage],width: CGFloat,
+                                       allowRenderBubble: Bool = true) -> CGFloat {
             let scale = FontSettings.shared.scaledMessage(16)
             let lineHeight = scale*1.4
             let hPad: CGFloat = 80
@@ -300,10 +303,19 @@ extension MessageCollectionView.Coordinator {
                 case .compactDivider: return 44
                 case .systemInfo: return 36
                 case .user:
-                    // Use the SAME accurate
-            if let h = Self.measureUserBubbleHeight(for: msg,cvWidth: width) {
-                return h
-            }
+                    // [2026-09-13 滚动卡顿修复] 这里原先用**默认参数** ⇒ `allowRender = true`
+                    // ⇒ 会跑真正的 cmark 渲染（`prepareMarkdownForRender` + `MarkdownContent` 解析
+                    // + `renderMarkdownBlocks`；含富语法时再叠一次 TextKit 全量排版）。
+                    // 而本函数的**调用点之一就在 `configureCell` 里** —— 那是 `cellForItemAt` 的
+                    // 路径，也就是**滚动路径**。于是：一旦该 index 的条目缺失（典型来源 =
+                    // 宽度失效整表清空后尚未重播种），滑到用户气泡就会在**主线程上做一次渲染**
+                    // ⇒ 「滑到用户消息处卡顿一下」；assistant 块有 `cachedAttributedString` /
+                    // 统一缓存短路，所以只有用户消息会卡 —— 与现象完全吻合。
+                    // 滚动路径必须廉价：粗估够用，精度交给 cell 首次自 sizing 修正。
+                    if let h = Self.measureUserBubbleHeight(for: msg,cvWidth: width,
+                                                            allowRender: allowRenderBubble) {
+                        return h
+                    }
                     let tw = max(width-hPad,100)
                     let attachCount = msg.attachments.count
                     let imgH: CGFloat

@@ -577,6 +577,19 @@ public final class MessageListLayout: UICollectionViewLayout {
         return false
     }
 
+    /// 索引高度被「宽度变更」**整表清空**后的回调（由 Coordinator 接上，用来**重播种**）。
+    ///
+    /// 为什么必须有：`purgeIndexHeightsForWidthChange()` 之后本类**无法**重建条目
+    ///（重建需要 `messages`，只有 Coordinator 有）。缺了这一步，每个 index 都成"无条目"，
+    /// 而宽度变更**没有重播种路径**（旋转/首次布局 settle 都不触发 `applySnapshot`）⇒
+    /// 下一次 `configureCell` 的兜底守卫（`!hasMeasuredHeight && !hasPrecalcHeight`）失守，
+    /// 就会在**滚动路径上**跑昂贵测量 —— 用户气泡那条是**主线程 cmark 渲染**
+    /// ⇒ 用户实测「滑到用户消息处卡顿一下」。
+    ///
+    /// ⚠️ 触发时机比想象的早：`lastSettledWidth` 初值 0，故**进会话后的第一次布局 settle
+    /// 就会清一次整表**（`scheduleWidthPurge` 的 `abs(width - 0) >= 0.5` 必然成立）。
+    public var onIndexHeightsPurged: (() -> Void)?
+
     private func scheduleWidthPurge(for targetWidth: CGFloat) {
         if abs(targetWidth-lastSettledWidth)<0.5 { return }
         widthPurgeToken &+= 1
@@ -600,6 +613,10 @@ public final class MessageListLayout: UICollectionViewLayout {
             // 故用**语义专用**的入口，而不是复用为"内容身份失效"设计的那个。
             self.purgeIndexHeightsForWidthChange()
             self.lastSettledWidth = cv.bounds.width
+            // 清空之后**立刻**请 Coordinator 重播种（唯一入口），且必须在 `invalidateLayout()` 之前 ——
+            // 否则紧随其后的那次布局 pass 仍然读到"无条目"，会退到块间通用常量
+            //（`b:` → 36/40）⇒ 离屏内容被算成几十点、contentSize 塌缩、滚动位置错乱。
+            self.onIndexHeightsPurged?()
             self.invalidateLayout()
         }
     }
