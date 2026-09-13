@@ -353,23 +353,27 @@ func resolveMiniClawFileURLForNativeText(url: URL) -> URL? {
     imgLogger.info("[MiniClawImage][Resolve] BEGIN url=\(url.absoluteString) host=\(host) subPaths=\(subPaths) activeSession=\(MessageListModel.activeSessionId ?? "nil")")
     let fm = FileManager.default
 
-    if let sid = MessageListModel.activeSessionId {
-        for subPath in subPaths {
-            let persistURL = MessageListModel.miniClawPersistentBase
-                .appendingPathComponent(sid,isDirectory: true)
-                .appendingPathComponent(host,isDirectory: true)
-                .appendingPathComponent(subPath)
-            imgLogger.info("[MiniClawImage][Resolve] checking session path=\(persistURL.path)")
-            if fm.fileExists(atPath: persistURL.path) {
-                let size = (try? fm.attributesOfItem(atPath: persistURL.path)[.size] as? Int64) ?? -1
-                imgLogger.info("[MiniClawImage][Resolve] FOUND in active session=\(sid) path=\(persistURL.path) size=\(size)")
-                return persistURL
-            }
+    // [2026-09-13 路径统一·渲染侧收敛] 会话目录的路径此前是**本函数自己拼**的
+    //（`persistBase/<sid>/<host>/<subPath>`），与 `FileSystemManager` 里那份是**两份实现** ——
+    // 多一处漂移就多一类"写进去了却显示不出来"。现统一走唯一的 parse + 映射出口：
+    //   `MiniClawResource`（parse 一次，两种写法→同一个值）→ `url(for:policy:.displayFallback)`
+    //   （会话目录优先；miss 才回落扁平，且**两者都要求文件存在**）。
+    // 保留 `subPaths` 容错候选与"命中即返回"的顺序 ⇒ 对**已存在**的文件行为逐字一致；
+    // 唯一差异：会话目录 miss 时会再试一次扁平目录（隔离前遗留文件的**只读**兼容，本次新增）。
+    // ⚠️ 这里**刻意不做跨会话扫描** —— 历史事故：B 会话渲染出 A 会话的图。
+    // `activeSessionId` 是 UUID **字符串**（`MiniClawResource` 收 `UUID?`），这里显式转换。
+    let activeSID = MessageListModel.activeSessionId.flatMap { UUID(uuidString: $0) }
+    for subPath in subPaths {
+        guard let res = MiniClawResource(rawValue: "/var/MiniClaw/\(host)/\(subPath)",
+                                         sessionID: activeSID) else { continue }
+        if let u = try? FileSystemManager.shared.url(for: res, policy: .displayFallback),
+           fm.fileExists(atPath: u.path) {
+            let size = (try? fm.attributesOfItem(atPath: u.path)[.size] as? Int64) ?? -1
+            imgLogger.info("[MiniClawImage][Resolve] FOUND via unified resolver path=\(u.path) size=\(size)")
+            return u
         }
-        imgLogger.info("[MiniClawImage][Resolve] NOT in active session=\(sid)")
-    } else {
-        imgLogger.info("[MiniClawImage][Resolve] no active session — skipping session lookup")
     }
+    imgLogger.info("[MiniClawImage][Resolve] NOT via unified resolver host=\(host) activeSession=\(MessageListModel.activeSessionId ?? "nil")")
 
     if host == "skills" {
         for subPath in subPaths {
