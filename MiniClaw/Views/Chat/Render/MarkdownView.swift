@@ -905,6 +905,15 @@ struct MarkdownView: UIViewRepresentable {
                     category: "RenderProbe")
             }
             guard forceLog || bad else { return }
+            // [Diag] 不依赖时机的**裁剪**判据：textView 的 frame 底边是否超出 cell 内容区底边。
+            // 这比 `visEnd`（依赖 textView.bounds，会受"布局还没跑"的时机影响）可靠得多：
+            // 若 `tvFrameMaxY > cellContentH` ⇒ 末行**确实**被 cell 裁掉（真病灶）；
+            // 若两者相符而 `visEnd` 仍小 ⇒ 只是我量早了（测量假象，不该再当病灶修）。
+            var geomInfo = "tvFrame=n/a"
+            if let cell = cellRef {
+                let f = textView.frame
+                geomInfo = "tvFrameY=\(String(format: "%.1f", f.minY)) tvFrameH=\(String(format: "%.1f", f.height)) tvFrameMaxY=\(String(format: "%.1f", f.maxY)) cellContentH=\(String(format: "%.1f", cell.contentView.bounds.height)) clipped=\((f.maxY > cell.contentView.bounds.height + 0.5) ? 1 : 0)"
+            }
             // [Fix 2026-09-13 第二处·终态签名] `cellShort=1` 且**内容已定型**（storage 完整）：
             // 真机 `entry=618.3 measured=1` 而 `tvContentH=638.3` ⇒ 该行的**实测高度条目陈旧**
             //（内容长了 20pt ≈ 一行，条目没跟着更新）⇒ 末行被 cell 裁掉 = 「少一行字」。
@@ -932,10 +941,9 @@ struct MarkdownView: UIViewRepresentable {
                 entryInfo = "entry=\(e.map { String(format: "%.1f", $0) } ?? "nil") measured=\(layout.hasMeasuredHeight(at: ip.item) ? 1 : 0) precalc=\(layout.hasPrecalcHeight(at: ip.item) ? 1 : 0) idx=\(ip.item)"
             }
             AppLogger.shared.warning(
-                "[TruncL]\(bad ? " ⚠BAD" : "") blk=\(blkSnap) storageLen=\(textView.textStorage.length) attrLen=\(attrLenSnap) mdCnt=\(mdCntSnap) tvContentH=\(String(format: "%.1f", contentH)) cellH=\(String(format: "%.1f", cellH)) path=\(pathSnap) streaming=\(streamSnap ? 1 : 0) glyphs=\(total) visEnd=\(visEnd) tailCut=\(tailCut ? 1 : 0) storageBehind=\(storageBehind ? 1 : 0) cellShort=\(cellTooShort ? 1 : 0) \(entryInfo)",
+                "[TruncL]\(bad ? " ⚠BAD" : "") blk=\(blkSnap) storageLen=\(textView.textStorage.length) attrLen=\(attrLenSnap) mdCnt=\(mdCntSnap) tvContentH=\(String(format: "%.1f", contentH)) cellH=\(String(format: "%.1f", cellH)) path=\(pathSnap) streaming=\(streamSnap ? 1 : 0) glyphs=\(total) visEnd=\(visEnd) tailCut=\(tailCut ? 1 : 0) storageBehind=\(storageBehind ? 1 : 0) cellShort=\(cellTooShort ? 1 : 0) \(entryInfo) \(geomInfo)",
                 category: "RenderProbe")
         }
-
         let storage = textView.textStorage
         let storageLen = storage.length
         if storageLen>0 {
