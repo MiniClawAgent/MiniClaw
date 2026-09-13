@@ -899,10 +899,53 @@ extension MessageCollectionView.Coordinator {
         }
         #endif
 
+        // MARK: - [2026-09-13 空白直接测量]
+        //
+        /// 拖动/惯性期 1Hz 采样**两件直接指向"空白"的事实**（不再测高度条目——上一版
+        /// `[BlankProbe] entryH=nil` 已证否：它只是"cell 配置早于补播"的时序现象，
+        /// 修复后仍存在，与空白无关）：
+        ///   ① 可见矩形内**布局属性是否连续**：`first…last` 里缺号的 index = 布局没给
+        ///      格位 ⇒ 那个区间必然空白（且抬手 settle 失效后才补上）。
+        ///   ② 每个可见 cell 的**分配高 vs 内容实际占用高**：差值 > 8pt = 分了高度却没
+        ///      填内容 ⇒ 也是空白。
+        /// 只读、1Hz、只在拖动/惯性期工作；无异常不打印。
+        /// （extension 不能放实例存储属性，故用 static 节流锚点。）
+        private static var blankProbeLastAt: CFTimeInterval = 0
+        private func blankHoleProbeIfNeeded(_ sv: UIScrollView) {
+            guard sv.isDragging || sv.isDecelerating else { return }
+            let now = CACurrentMediaTime()
+            guard now - Self.blankProbeLastAt >= 1.0 else { return }
+            Self.blankProbeLastAt = now
+            guard let cv = sv as? UICollectionView else { return }
+            let attrs = cv.collectionViewLayout.layoutAttributesForElements(in: cv.bounds) ?? []
+            let idxs = attrs.map(\.indexPath.item).sorted()
+            var holeTag = ""
+            if let first = idxs.first, let last = idxs.last, first < last {
+                let present = Set(idxs)
+                let missing = (first...last).filter { !present.contains($0) }
+                if !missing.isEmpty {
+                    holeTag = " 洞=\(missing.prefix(24))共\(missing.count)"
+                }
+            }
+            var empties: [String] = []
+            for cell in cv.visibleCells {
+                guard let ip = cv.indexPath(for: cell) else { continue }
+                let contentH = cell.contentView.subviews.map { $0.frame.maxY }.max() ?? 0
+                if cell.bounds.height - contentH > 8 {
+                    empties.append("idx=\(ip.item):cellH=\(Int(cell.bounds.height))/contentH=\(Int(contentH))")
+                }
+            }
+            if !holeTag.isEmpty || !empties.isEmpty {
+                AppLogger.shared.info("[BlankProbe2] attrIdx=\(idxs.first ?? -1)~\(idxs.last ?? -1) 属性数=\(attrs.count)\(holeTag) 空内容格(\(empties.count)): \(empties.prefix(12).joined(separator: " | "))",
+                                      category: "ChatList.Blank")
+            }
+        }
+
         public func scrollViewDidScroll(_ scrollView: UIScrollView) {
             // [Decel] Detect dropped frames during the deceleration phase
             // (cheap: early-returns unless decelerating + frame gapH exceeded).
             logDecelFrameIfSlow(scrollView)
+            blankHoleProbeIfNeeded(scrollView)
             #if DEBUG
             // Per-frame offset/contentSize sample —
             ScrollMetricsRecorder.shared.record(

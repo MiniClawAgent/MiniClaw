@@ -46,8 +46,34 @@ public final class MessageListLayout: UICollectionViewLayout {
     /// 三套并行「index→高度」字典合并为单一「index → 条目」，条目携带来源优先级
     /// （measured > precalc > estimated），写入时低优先级不覆盖高优先级。
     enum HeightSource: String { case measured, precalc, estimated }
-    struct HeightEntry { var height: CGFloat; var source: HeightSource }
+    /// 统一高度条目 = **高度 + 来源优先级 + 内容版本键**。
+    ///
+    /// [2026-09-13 内容版本·重排第一刀] `key` 是该条目**写入时**的
+    /// `contentKeyByIndex[index]`。此前条目**按 index 存、完全不含内容版本**，于是"内容变了"
+    /// 这件事：有的缓存看得见（`MarkdownRenderCache` 用全量 hash），有的看不见（条目只看 index）
+    /// ⇒ **陈旧条目永不被发现**。真机后果两类：
+    ///   ① **拖动期大片空白**：`prepare()` 拿陈旧偏大条目算帧 → PLAF 要求收缩 →
+    ///      `deferSelfSizing` 分支因「已有条目」而冻结（`shouldInvalidateLayout:364`）⇒ 空白，
+    ///      settle 才落盘（实测 Σ928.6pt / 38 格位 / 单条最大 −164pt）；
+    ///   ② **上滑回看裁尾**：陈旧**偏矮**条目被 `setEntry` 的"低不覆盖高"永久压住。
+    /// 检出依据（已核实）：`seedHeight` 与 `configureCell` 都**先写 `contentKeyByIndex`（当前键）
+    /// 再走后续 guard**，故陈旧条目记录的旧键与当前键**必然不等** ⇒ 可可靠 demote。
+    /// `key == nil` = 写入时尚无内容键（极早期播种）⇒ 保守起见仍信任它，不 demote。
+    /// 默认 `nil`：先让字段中性落地（编译通过、行为不变），再在 `setEntry` 里接上捕获。
+    struct HeightEntry { var height: CGFloat; var source: HeightSource; var key: String? = nil }
     private var heightEntries: [Int: HeightEntry] = [:]
+
+    /// 该 index 的**有效**条目：当"条目记录的内容键"与"当前内容键"**已知不一致**时返回 nil，
+    /// 视同「没有条目」。这样调用方会走兜底链，并且：
+    /// - `setEntry` 的"低不覆盖高"不会再被旧值压住（陈旧矮条目可被新值覆盖）；
+    /// - `applySnapshot` 的「缺失条目全扫」（`cachedHeight == nil`）会重新播种它；
+    /// - `seedHeight` 的 `hasMeasuredHeight` 早退不再拦住内容已变的块。
+    /// 键任一为 nil 时不 demote（信息不足，保守当作有效）。
+    private func currentEntry(at index: Int) -> HeightEntry? {
+        guard let e = heightEntries[index] else { return nil }
+        guard let stored = e.key, let cur = contentKeyByIndex[index] else { return e }
+        return stored == cur ? e : nil
+    }
 
     public func setEstimatedHeight(_ height: CGFloat,at index: Int) {
         setEntry(height, source: .estimated, at: index)
@@ -366,6 +392,21 @@ public final class MessageListLayout: UICollectionViewLayout {
                 if prefH <= origH+0.5 {
                     if abs(prefH-origH)>0.5 {
                         deferredHeights[index] = prefH
+                        // [2026-09-13 空白量化] 本分支＝「拖动期拒绝收缩」，被拒的幅度就是
+                        // 「cell 保留的虚高帧」＝**空白的上限**。此门是 2026-09-12 为修
+                        // `liveShrink -160pt` 抖动而加（见上方注释），不能凭"看起来多余"就放宽；
+                        // 必须先量化：若本次拖动 Σ|delta| 只有几十 pt ⇒ 它不是"大片空白"的成因；
+                        // 若达数百 pt ⇒ 确认，且可据 `pos` 决定可否只对"视口内"放行。
+                        // 只读、不回写；用 AppLogger.shared（内联实例会整行丢日志）。
+                        if let cv = collectionView, index < itemAttributes.count {
+                            let f = itemAttributes[index].frame
+                            let viewTop = cv.contentOffset.y
+                            let viewBottom = viewTop + cv.bounds.height
+                            let pos = f.maxY <= viewTop ? "above" : (f.minY >= viewBottom ? "below" : "inside")
+                            AppLogger.shared.info(
+                                "[DeferShrink] idx=\(index) orig=\(String(format: "%.1f", origH))→pref=\(String(format: "%.1f", prefH)) delta=\(String(format: "%+.1f", prefH-origH)) pos=\(pos) src=\(heightEntries[index]?.source.rawValue ?? "?") key=\(contentKeyByIndex[index] ?? "??")",
+                                category: "ChatList.Blank")
+                        }
                     }
                     return false
                 }

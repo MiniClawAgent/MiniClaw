@@ -535,8 +535,14 @@ class SelfSizingCell: UICollectionViewCell {
     /// [PLAF 写入台账 2026-09-12] 记录每个「高度缓存被写入」的时刻与当时的宽度，
     /// 用于定位「height 在宽度 A 测出、却在宽度 B 被使用」的张冠李戴。
     /// 只读、不写状态。
+    ///
+    /// [2026-09-13 空白定位] 增补 `idx` 与**内容键尾部**：原键被 `prefix(20)` 截断，
+    /// 恰好切掉了 `b:<mid>:<bid>:<n>` 里的 `:n`（内容长度），而「小内容配大高度」
+    /// （如 `:4` 的块拿到 1000+ 高度）正是「消息中间大块空白」的判别特征。
     private func traceSet(_ src: String,_ h: CGFloat,_ w: CGFloat) {
-        Self.sizingLogger.info("[PLAF-SET] src=\(src) h=\(String(format: "%.1f", h)) w=\(String(format: "%.1f", w))\(Self.scrollPhaseTag(from: self)) key=\(contentKey.map { String($0.prefix(20)) } ?? "nil")")
+        let idxTag = (superview as? UICollectionView)?.indexPath(for: self).map { " idx=\($0.item)" } ?? ""
+        let keyTag = contentKey.map { "\($0.prefix(14))…\($0.suffix(8))" } ?? "nil"
+        Self.sizingLogger.info("[PLAF-SET] src=\(src) h=\(String(format: "%.1f", h)) w=\(String(format: "%.1f", w))\(Self.scrollPhaseTag(from: self))\(idxTag) key=\(keyTag)")
     }
 
 

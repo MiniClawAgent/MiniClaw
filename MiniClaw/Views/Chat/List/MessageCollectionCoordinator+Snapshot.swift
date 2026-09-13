@@ -252,6 +252,48 @@ extension MessageCollectionView.Coordinator {
                 }
             }
 
+            // [2026-09-13 空白根治] **把新 item 的高度播种提到 `dataSource.apply` 之前**。
+            //
+            // 病根：此前「inserted 补播」与「缺失条目全扫补播」都排在 apply **之后**，而 apply
+            // 会立刻触发一次布局 `prepare()`。那一刻这些 index 还没有条目 ⇒ `prepare()` 落到
+            // 兜底 `estimatedItemHeight`(200pt) ⇒ **帧被算成 200**；随后 PLAF 量出真实值
+            //（如 36/40/57pt）要求收缩，而 `shouldInvalidateLayout` 的 `deferSelfSizing` 分支
+            // 在**手势期间一律拒绝收缩**（`MessageListLayout.swift:356-374`）⇒ cell 继续占据
+            // 200pt 虚高帧 ⇒ **大片空白**；settle 时 `applyDeferredHeights()` 才落盘 ⇒ 空白
+            // "松手即消失"。
+            // 真机量化（`[DeferShrink]` 台账，一次拖动 3 秒内）：Σ|delta| = **928.6pt**、
+            // 单条最大 **−164.0pt**（`200.0→36.0`）、`pos` **全部 inside**、src 为
+            // estimated×8 / precalc×3。`[BlankProbe2]` 同步显示 `cellH=200/contentH=118`
+            //（差 82pt）与 `cellH=40/contentH=0`。
+            //
+            // ⚠️ 注意 `−164.0 / 200→36` 与 2026-09-12 那次「`liveShrink` 抖动事故」的数字
+            // **逐位相同**：那次是用「禁止手势期收缩」修掉的，代价正是今天这个空白。
+            // 两者同根 = **帧被算成 200**。故**治本点是别让 `prepare()` 看到 200**，
+            // 而不是放宽那个门（放宽＝把 −160pt 的抖动放回来）。
+            // 播种提前后：`prepare()` 直接读到正确条目 ⇒ 既不产生虚高帧、也就没有"需要拒绝的
+            // 收缩" ⇒ 空白与抖动同时不成立。这也是本文件 `:247 reseedTextBlock(before:)`
+            // 已经采用的正确时序（"让补齐发生在渲染之前"）。
+            if let cv = viewController?.collectionView, let layout = snapshotLayout {
+                if !inserted.isEmpty {
+                    for item in inserted {
+                        if let idx = newRows.firstIndex(of: item) {
+                            // 只清索引条目（保留 memo），随后立刻重新播种。原实现用
+                            // `invalidateHeight` 会连 memo 一起剔除且不重播 ⇒ 重进会话时
+                            // 全部落到 200pt 兜底再大修正 ⇒ 上滑持续抖动（2026-09-06 真机）。
+                            layout.purgeIndexEntry(at: idx)
+                            seedHeight(at: idx, item: item, messages: messages,
+                                       width: cv.bounds.width, isReseed: true)
+                        }
+                    }
+                }
+                // 按缺失条目全扫：与 inserted 是否为空无关，成本仅 O(n) 字典查询。
+                // 提前到 apply 前的意义同上——避免 `prepare()` 对任何 index 落到 200pt 兜底。
+                for (i, item) in newRows.enumerated() where layout.cachedHeight(at: i) == nil {
+                    seedHeight(at: i, item: item, messages: messages,
+                               width: cv.bounds.width, isReseed: true)
+                }
+            }
+
             snapshotLayout?.suppressContentOffsetAdjustment = true
             flushingNow = true
             cellConfigCount = 0
@@ -261,48 +303,12 @@ extension MessageCollectionView.Coordinator {
             viewController?.collectionView.setNeedsLayout()
 
             if let cv = viewController?.collectionView {
-                if !inserted.isEmpty,let layout = snapshotLayout {
-                    for item in inserted {
-                        if let idx = newRows.firstIndex(of: item) {
-                            // 只清索引条目（保留 memo），随后立刻重新播种。
-                            // 原实现用 invalidateHeight，既清索引又剔除 memo，且
-                            // 不重播——重进会话时 ALL items 都算 inserted，全部种子
-                            // 被清空后每个 cell 落到 estimatedItemHeight(200pt) 首次
-                            // 自测大修正，offset 补偿在 tracking/decel 期间又不生效
-                            // → 重进会话上滑持续抖动（2026-09-06 真机复现）。
-                            layout.purgeIndexEntry(at: idx)
-                            seedHeight(at: idx,item: item,messages: messages,
-                                       width: viewController?.collectionView.bounds.width ?? 390,
-                                       isReseed: true)
-                        }
-                    }
-                }
-
-                // [2026-09-13 行间空白根治] 上面那段只重播「本次**新增**（inserted）」的 item，
-                // 但 `remapHeights` 是**按 item 身份**重建高度表的：任何**未匹配**的 index 都会丢条目，
-                // 而它们不在 `inserted` 里 ⇒ **无人重播** ⇒ 永久空条目 ⇒ 布局回落兜底，
-                // 列表凭空长出上百 pt（真机实录同一会话 totalH 在 **2390 ↔ 2675** 之间交替，
-                // `flow` 从 `[w:118,h:25,b:40,b:36…]` 变成 `[w:200,h:200,b:44,b:44…]` ——
-                // 肉眼就是"行间空行 / 一停手内容缩小视图变了"）。
-                // 铁证：header 的播种分支写死 28，绝不可能出现 200 ⇒ 那些 index 根本没条目。
-                // 这里补一次**按缺失条目全扫**：与 inserted 是否为空无关，成本仅 O(n) 字典查询。
-                if let layout = snapshotLayout {
-                    let sweepWidth = cv.bounds.width
-                    var swept = 0
-                    for (i, item) in newRows.enumerated() where layout.cachedHeight(at: i) == nil {
-                        seedHeight(at: i, item: item, messages: messages,
-                                   width: sweepWidth, isReseed: true)
-                        swept += 1
-                    }
-                    // [2026-09-13] 补播之后**必须让布局重排一次**：上面的 `dataSource.apply` 已经让布局
-                    // 跑过一遍，而那时这些 index 还没有条目 ⇒ 回落到兜底（真机实录拖动期
-                    // `flow=[w:200, h:28, …]`、停手 `flow=[w:118, h:25, …]`，顶部两项差 82pt，
-                    // 肉眼即"顶部用户消息与 AI 回复在抖"）。不重排的话那些帧会一直停在兜底值。
-                    // 门控 `!deferSelfSizing`：手势进行中不主动改几何（与"浏览期冻结"一致），
-                    // 交给 settle 的既有 `invalidateLayout()` 收口。
-                    if swept > 0, !layout.deferSelfSizing { layout.invalidateLayout() }
-                }
-
+                // [2026-09-13 空白根治] 原在此处的两段补播——「本次新增（inserted）补播」与
+                // 「按缺失条目全扫补播」——**已上移到 `dataSource.apply` 之前**（见上方同名
+                // 根治注释）。它们排在这里（apply 之后）时，apply 触发的那次布局 `prepare()`
+                // 看不到新 index 的条目 ⇒ 落到 200pt 兜底 ⇒ 虚高帧 ⇒ 拖动期空白。
+                // 提前后此处无需补播，那次为"补播后必须重排"而设的 `!deferSelfSizing` 门控
+                // 也随之取消（不再存在"补播晚于布局"的窗口）。
                 cv.layoutIfNeeded()
                 snapshotLayout?.suppressContentOffsetAdjustment = false
                 flushingNow = false
