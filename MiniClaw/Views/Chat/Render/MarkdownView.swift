@@ -903,45 +903,15 @@ struct MarkdownView: UIViewRepresentable {
             // ⇒ **尾部那一行被排到了 textView 自己的 `contentSize/bounds` 之外**（textView 高度落后一行）
             // ⇒ 排完不画；而 cell 高度来自另一条路径（正确）⇒ 那个位置留下空白。
             // 标准解法（同资料）：**不要信 `contentSize`，直接用排版结果（`usedRect + inset`）定高**。
-            if tailCut && !storageBehind {
-                let lm = textView.layoutManager
-                let tc = textView.textContainer
-                lm.ensureLayout(for: tc)
-                let usedH = lm.usedRect(for: tc).height
-                    + textView.textContainerInset.top + textView.textContainerInset.bottom
-                if usedH > textView.frame.height + 0.5 {
-                    var f = textView.frame
-                    f.size.height = usedH
-                    textView.frame = f
-                    AppLogger.shared.warning(
-                        "[TruncL-FIX3] textView 高度落后一行 → 按 usedRect 定高 \(String(format: "%.1f", cellH)) → \(String(format: "%.1f", usedH)) blk=\(blkSnap) glyphs=\(total) visEnd=\(visEnd)",
-                        category: "RenderProbe")
-                }
-                // [Fix 2026-09-14 第三处·"一次算准"] 同一测量值**同时**推给 cell 那一层：
-                // 真机实证流式期两者互相追 —— `tvFrameH=519 > cellContentH=475 (clipped=1)`、
-                // 或 `cellShort=1 entry=nil`（该行压根没条目 ⇒ cell 矮）。根因是"内容变了"这件事
-                // **分别**更新了 textView 与 cell 两条链路、时机不同。
-                // 修法：既然这里已经拿到排版真值 `usedH`，就把同一口径的高度也推给该行条目
-                //（含 4pt chrome，与 cell 的组成一致），让两层在同一次 pass 里对齐。
-                if let cell = cellRef,
-                   let cv = cell.superview as? UICollectionView,
-                   let ip = cv.indexPath(for: cell),
-                   let layout = cv.collectionViewLayout as? MessageListLayout {
-                    let cellNeeded = usedH + 4
-                    let cur = layout.cachedHeight(at: ip.item) ?? 0
-                    if cur < cellNeeded - 0.5 {
-                        // 先剔条目（否则陈旧实测条目会挡住写入），再按同一测量值写入预演高度；
-                        // 真实值随后由 cell 自 sizing 覆盖（`.measured > .precalc`）。
-                        cell.clearCachedHeight()
-                        layout.invalidateHeight(at: ip.item)
-                        layout.setPrecalcHeight(cellNeeded,at: ip.item)
-                        layout.invalidateLayout()
-                        AppLogger.shared.warning(
-                            "[TruncL-FIX4] cell 高度落后 → 与 textView 同口径定高 \(String(format: "%.1f", cur)) → \(String(format: "%.1f", cellNeeded)) blk=\(blkSnap) idx=\(ip.item)",
-                            category: "RenderProbe")
-                    }
-                }
-            }
+            // ⚠️ [2026-09-14 撤销 FIX3/FIX4] 这里曾用 `usedRect` 直接改写 textView 的 frame、并把
+            // 同一测量值写进该行高度条目。**那是错的，已撤销**，真机后果：
+            //   · 条件写成"只增不减"（`usedH > frame.height`）⇒ **跨 cell 复用时代代累积**，
+            //     textView 被撑到 495pt 而当前内容只需 28pt（真机 `tvFrameH=495.1 / tvContentH=28.0
+            //     / cellH=32.0 / clipped=1`），把高度体系搞乱；
+            //   · 在**诊断探针里**改几何，本身就是"打补丁"而不是"算准"。
+            // 结论：这块几何必须由**布局路径**（cell 的高度提交处）统一驱动，不能在探针里各改各的。
+            // 保留的两处修复是**有证据支持**的：① 关 `allowsNonContiguousLayout`（字形全排好，
+            // `glyphs == storageLen` 实证）；② 终态收敛（终态签名全绿实证）。
             guard forceLog || bad else { return }
             // [Diag] 不依赖时机的**裁剪**判据：textView 的 frame 底边是否超出 cell 内容区底边。
             // 这比 `visEnd`（依赖 textView.bounds，会受"布局还没跑"的时机影响）可靠得多：
