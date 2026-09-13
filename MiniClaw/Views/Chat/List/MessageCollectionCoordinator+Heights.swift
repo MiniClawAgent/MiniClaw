@@ -166,7 +166,12 @@ extension MessageCollectionView.Coordinator {
             // 文本块一致），并复用统一高度缓存（按宽度分存，旋转自动覆盖）。
             let renderKey = MarkdownRenderCache.key(for: text, fontSize: fontSize)
             if let h = MarkdownRenderCache.shared.cachedHeight(for: renderKey, width: Int(usableTextWidth)) {
-                let total = h+20+attachH+1
+                // [2026-09-13 估高同源·补外层间距] `ChatMessageRow` 里「附件列表」与「气泡」是同一个
+                // `VStack(alignment:.trailing, spacing: 6)` 的**两个 child** ⇒ 两者同时存在时真实行高
+                // = `attachStripH + 6 + 气泡高`。原先三条返回路径都只加了 `attachH`，漏了这 6pt
+                // ⇒ 系统性**低估约 5pt**（6 − 1pt 余量）。方向是低估（首次实测增长、手势期放行、
+                // 不产生空白），但会造成一次可见跳变。故附件存在时补上这 6pt。
+                let total = h+20+(attachH > 0 ? attachH+6 : 0)+1
                 setUserBubbleMemoValue(total,forKey: key)
                 return total
             }
@@ -183,7 +188,7 @@ extension MessageCollectionView.Coordinator {
                     options: [.usesLineFragmentOrigin,.usesFontLeading],
                     context: nil
                 )
-                return ceil(bounds.height)+20+attachH+1
+                return ceil(bounds.height)+20+(attachH > 0 ? attachH+6 : 0)+1
             }
             // 精确路径（真正要显示时）：走 cmark 管线，与渲染同源。
             let parsed = MarkdownContent(prepareMarkdownForRender(text))
@@ -207,7 +212,7 @@ extension MessageCollectionView.Coordinator {
             // bubble 垂直 padding (10*2) + 附件块 + 1pt 安全余量。
             // 原 CJK +7 补偿已删：那是补偿 UILabel 与 SwiftUI Text 的行盒差异，
             // 现在测量与渲染同走 TextKit，不再需要。
-            let total = measured+20+attachH+1
+            let total = measured+20+(attachH > 0 ? attachH+6 : 0)+1
             setUserBubbleMemoValue(total,forKey: key)
             return total
         }

@@ -211,6 +211,17 @@ enum MiniClawChatAdapter {
 
     /// 把一段 markdown 拆成「文本 + 文件块」交错序列。
     /// 文件引用 = 非媒体扩展名的 markdown 图片/链接(排除 http/https)。
+    /// 同一片段内文件/文本子块的 order 步长。
+    ///
+    /// [2026-09-13 P4] 原为字面量 `0.05`。它有个**无上界**的缺陷：事件前正文段的基准是
+    /// `eventOrder - 0.5`，故当该片段含 **≥5 个文件引用**时 `sub` 会到 10 ⇒
+    /// `baseOrder + 10*0.05 == eventOrder` ⇒ 文件块与**紧随其后的思考/工具块 order 相等**。
+    /// 此前靠"排序不保证稳定"随机决定先后（本身就是 bug）；本轮给排序补了 `id` 次键后，
+    /// 这个相等会被**固定**成一个确定但可能错误的方向 —— 等于把既有建模缺陷固化。
+    /// 故把步长缩小到 `0.005`：单片段需 **100 个**子块才会撞到 `eventOrder`（现实中不可能），
+    /// 同时仍远大于 Double 在该量级的精度间隔（基准是 `maxEventOrder+0.5` 这种小数量级）。
+    private static let splitFileSubStep = 0.005
+
     private static func splitFileBlocks(markdown: String, messageID: UUID, baseOrder: Double, startOffset: Int) -> [(order: Double, block: AssistantBlock)] {
         var out: [(order: Double, block: AssistantBlock)] = []
         let pattern = #"!\[[^\]]*\]\(([^)\s]+)\)|\[[^\]]*\]\(([^)\s]+)\)"#
@@ -230,7 +241,7 @@ enum MiniClawChatAdapter {
             if m.range.location > cursor {
                 let text = ns.substring(with: NSRange(location: cursor, length: m.range.location - cursor))
                 if !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    let o = baseOrder + Double(sub) * 0.05
+                    let o = baseOrder + Double(sub) * splitFileSubStep
                     out.append((o, makeTextBlock(messageID: messageID, startOffset: startOffset + cursor, content: text, order: o)))
                     sub += 1
                 }
@@ -239,7 +250,7 @@ enum MiniClawChatAdapter {
             let rawName = (canonical as NSString).lastPathComponent
             let fileName = rawName.removingPercentEncoding ?? rawName
             let fb = AssistantBlock(id: deterministicTextBlockID(messageID: messageID, startOffset: startOffset + m.range.location), kind: .file(url: canonical), content: fileName)
-            let o = baseOrder + Double(sub) * 0.05
+            let o = baseOrder + Double(sub) * splitFileSubStep
             fb.timelineOrder = o
             out.append((o, fb))
             sub += 1
@@ -248,7 +259,7 @@ enum MiniClawChatAdapter {
         if cursor < ns.length {
             let text = ns.substring(with: NSRange(location: cursor, length: ns.length - cursor))
             if !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                let o = baseOrder + Double(sub) * 0.05
+                let o = baseOrder + Double(sub) * splitFileSubStep
                 out.append((o, makeTextBlock(messageID: messageID, startOffset: startOffset + cursor, content: text, order: o)))
             }
         }
