@@ -1264,6 +1264,33 @@ func renderMarkdownBlocks(_ blocks: [BlockNode]) -> NSAttributedString {
     MarkdownNSRenderer(baseFontSize: FontSettings.shared.scaledMessage(16.5)).render(blocks: blocks)
 }
 
+/// [2026-09-13 重构·内容指纹统一] 全库唯一的「内容是否变了」指纹。
+///
+/// **为什么需要它**：工程里原本有 4 处缓存各自拿「字符数 / `textStorage.length`」当指纹，
+/// 而**等长改写**（长度不变、内容不同 —— 如 `A`→`B`、数字改动、翻页式替换）会被判成
+/// "未变" ⇒ 缓存/高度/尺寸沿用旧值。这是真机 `flapping`（同一内容量出 `20.3` 与 `30.4/36/40`）
+/// 与 `liveShrink` 族的结构成因之一。
+///
+/// **口径**：**长度 + 确定性全量哈希（FNV-1a）**。
+/// - 含长度：让"追加型增长"必然变化，且空串与非空串不会撞；
+/// - 用 FNV-1a 而**不用 `Hasher`**：`Hasher` 的种子逐进程随机，跨启动不稳定；
+///   FNV-1a 与 `MiniClawChatAdapter.textBlockID` 的既有做法同源、跨进程稳定。
+/// - 返回值**恒不为 0**（FNV 偏移基址非零），故 `0` 可安全用作"未设置"哨兵。
+///
+/// **使用边界（重要）**：只用于**相等性**判据。**序关系**判据（如
+/// `lastStreamPendingSourceLen < markdown.count` 的"快照是否落后"）语义是"谁更短"，
+/// 必须继续用长度比较，换成指纹会直接破坏语义。
+enum ContentFingerprint {
+    static func of(_ s: String) -> Int {
+        var h: UInt64 = 0xcbf2_9ce4_8422_2325
+        for b in s.utf8 {
+            h = (h ^ UInt64(b)) &* 0x0000_0100_0000_01b3
+        }
+        h ^= UInt64(truncatingIfNeeded: s.utf8.count)
+        return Int(truncatingIfNeeded: h)
+    }
+}
+
 extension NSAttributedString.Key {
     static let inlineCodeBackground = NSAttributedString.Key("miniClawInlineCodeBackground")
     static let inlineCodeText = NSAttributedString.Key("miniClawInlineCodeText")

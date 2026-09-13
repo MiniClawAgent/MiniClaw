@@ -72,7 +72,10 @@ final class MarkdownTextView: UITextView,UIGestureRecognizerDelegate {
     var lastComputedHeight: CGFloat = 0
 
     /// `invalidateCellSizeIfChanged` to skip the costly sizeThatFits + collection
-    private var lastSizedStorageLen: Int = -1
+    /// [2026-09-13 指纹统一] 原为 `lastSizedStorageLen: Int = -1`（只比 `textStorage.length`）。
+    /// 等长改写（长度不变、内容不同）会被判"未变" ⇒ 返回陈旧高度。改用 `ContentFingerprint`
+    /// （长度 + FNV-1a 全量哈希，恒不为 0，故 `0` 作"未设置"哨兵）。
+    private var lastSizedStorageFingerprint: Int = 0
     private var lastSizedWidth: CGFloat = -1
     private var lastSizedTableGenSum: UInt64 = 0
     var rawMarkdown: String = ""
@@ -977,7 +980,7 @@ final class MarkdownTextView: UITextView,UIGestureRecognizerDelegate {
             layoutManager.invalidateLayout(forCharacterRange: NSRange(location: 0,length: self.textStorage.length),actualCharacterRange: nil)
         }
         // (b) reset the sizeThatFits fingerprint so invalidateCellSizeIfChanged
-        lastSizedStorageLen = -1
+        lastSizedStorageFingerprint = 0
         lastSizedWidth = -1
         lastComputedHeight = 0
         // otherwise refreshAttachViews sees an empty previousViewMap
@@ -1050,7 +1053,7 @@ final class MarkdownTextView: UITextView,UIGestureRecognizerDelegate {
             if let coord = (self.delegate as? MarkdownView.Coordinator) {
                 coord.cachedSizes.removeAll(keepingCapacity: true)
             }
-            lastSizedStorageLen = -1
+            lastSizedStorageFingerprint = 0
             lastSizedWidth = -1
             let storage = self.textStorage
         if storage.length>0 {
@@ -1156,8 +1159,11 @@ final class MarkdownTextView: UITextView,UIGestureRecognizerDelegate {
         }
         let measureWidth: CGFloat = bounds.width>1 ? bounds.width : textContainer.size.width
         let tableGenSum = currentTableGenerationSum()
-        if lastSizedStorageLen >= 0,
-           textStorage.length == lastSizedStorageLen,
+        // [2026-09-13 指纹统一] 用 `ContentFingerprint`（长度 + 全量哈希）替代纯 `textStorage.length`：
+        // 等长改写（长度不变、内容不同）在纯长度判据下会被当"未变"⇒ 返回陈旧高度。
+        // 成本可接受：一次 O(N) 字节扫描，命中后省下的是完整 TextKit 重排（远贵于扫描）。
+        if lastSizedStorageFingerprint != 0,
+           ContentFingerprint.of(textStorage.string) == lastSizedStorageFingerprint,
            abs(measureWidth-lastSizedWidth)<0.5,
            tableGenSum == lastSizedTableGenSum,
            lastComputedHeight>0 {
@@ -1171,7 +1177,7 @@ final class MarkdownTextView: UITextView,UIGestureRecognizerDelegate {
         }
         let previousHeight = lastComputedHeight
         if abs(newHeight-previousHeight) <= 1 {
-            lastSizedStorageLen = textStorage.length
+            lastSizedStorageFingerprint = ContentFingerprint.of(textStorage.string)
             lastSizedWidth = measureWidth
             lastSizedTableGenSum = tableGenSum
             return
@@ -1236,7 +1242,7 @@ final class MarkdownTextView: UITextView,UIGestureRecognizerDelegate {
             }
         }
 
-        lastSizedStorageLen = textStorage.length
+        lastSizedStorageFingerprint = ContentFingerprint.of(textStorage.string)
         lastSizedWidth = measureWidth
         lastSizedTableGenSum = tableGenSum
         lastComputedHeight = newHeight
