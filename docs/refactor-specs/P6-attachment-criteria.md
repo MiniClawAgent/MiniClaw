@@ -89,7 +89,27 @@ doc §1 表 S3 行说的「`+12` 与 `MCS:630` 两个不一致落点」属于 **
 
 **但与真实渲染比，两套都不对**（`Stubs:723-799`）：真实瓦片 `tileSize = 64`（非 70）、媒体**固定 4 列**（非按宽除）、文档文件**每行 40pt**、`spacing 6` 是**行间**间距（N 行只有 N−1 个）。
 
-**判据**：渲染是唯一真相（`UserAttachmentList`）。但按阶段纪律（行为等价），P6 第一步只把 A/B 合并成**一处单一函数并保持现有数值**，把「70→64、动态列→4 列、文档 40pt、spacing (rows−1)*6」列为**显式独立待办**（会改高度数值 = 修 bug，不属纯结构重排）。
+**判据**：渲染是唯一真相（`UserAttachmentList`）。
+
+✅ **已修（`839b9c7`）**：按渲染真构成收敛为唯一入口 `MessageCollectionCoordinator.attachmentStripHeight(_:)`：
+
+```
+渲染真相（逐行读出）：VStack(alignment:.trailing, spacing: 6) {
+    媒体(image/video/audio) → LazyVGrid(GridItem(.fixed(64), spacing: 6) × max(1, min(media.count, 4)))
+    文档(非媒体)            → ForEach **每条一行**，frame(height: 40)
+}
+⇒ 媒体段 = rows*64 + (rows-1)*6（rows = ceil(media.count / min(media.count,4))）
+⇒ 文档段 = n*40 + (n-1)*6
+⇒ 两段之间再计一次 6pt
+```
+
+原先的 `rows*70+6` 把两类附件一并处理，误差是结构性的：
+纯图片 1 张 估 76 / 实 64（**+12**）；纯文档 1 个 估 76 / 实 40（**+36**）；纯文档 2 个 估 76 / 实 86（−10，安全侧）。
+因手势期策略是「只拒绝收缩」，前两类**高估会变成拖动期可见空白**、松手才消失。
+
+⚠️ **该修复顺带暴露的一处正确性缺失（已一并修）**：`measureUserBubbleHeight` 的进程级 memo 键原先只含附件**数量**（`attachCount`），而新高度依赖**媒体/文档构成** ⇒ 同为 1 个附件时「1 张图」(64) 与「1 个文档」(40) 会算出不同高度却撞同一个键、命中旧值算错高。键中已加入算好的 `Int(attachH)`。
+
+> 未动：`estimateItemHeight` 的 user 回退分支（`MCH:250-259`）—— 仅在空文本且无附件时到达；且其 `tw = width-80` 比真实 `-92` 更宽 ⇒ 偏短 ⇒ 安全侧，按「最少代码」保留。
 
 ### 2.2 附件计数有两套，`inputAttachments` 疑似"第二个 `lastHeightByKey`"
 
@@ -110,6 +130,15 @@ doc §1 表 S3 行说的「`+12` 与 `MCS:630` 两个不一致落点」属于 **
 **后果**：一条 user 消息若含 `![x](...)` 或 `$$...$$` 或 `---` 但**不含**代码块和 `|`，`MCH:148` 判 false → 走 CT 快路径 → CTFramesetter 不调用 `attachmentBounds` → 高度塌陷。这正是 `MCH:20-25` 与 `MDView:1160-1168` 注释反复警告的 bug（`MCH:24` 原话："MarkdownView 的 sizeThatFits 早有同款 hasAnyAttachment 门，此处漏了"）。
 
 **判据**：优先级应为 **产物 `hasAnyAttachment`（B1）> 源文 `hasRichSyntax`（B2）**。`MCH:148` 必须改掉。
+
+**★该残缺清单有第二处（2026-09-13 补）**：`MessageCollectionCoordinator+Heights.swift:195` ——
+`measureUserBubbleHeight` 的精确路径用 `if text.contains("```") || text.contains("|")` 决定
+「走 TextKit 精测」还是「走 CTFramesetter 快路径」。同一条残缺清单、同一后果（CT 不调用
+`attachmentBounds` ⇒ 含图片/公式/分隔线的用户消息高度失真）。
+
+**失真方向是偏矮** ⇒ cell 需要**增长** ⇒ 手势期放行 ⇒ **不产生空白**，但会造成首次实测时的一次
+可见跳变。故优先级**低于**已修的估高同源两笔（那两笔是高估 ⇒ 直接变空白）。
+修法同上：换成 `AssistantBlock.hasRichSyntax(text)`。
 
 ### 2.4 `hasRichSyntax` 自身漏判行内 `$...$`
 
@@ -152,9 +181,13 @@ doc §1 表 S3 行说的「`+12` 与 `MCS:630` 两个不一致落点」属于 **
 `cvWidth-32-60`（＝−92）；`estimateItemHeight` 的 user 分支也用 `hPad = 80`（`MCH:239-240`）。
 ⇒ **三套可用宽基数（−80 / −92 / −32）并存**，属 §2.1 同一病根。
 
-**处置建议**：归入 P6，但**必须按"数值会变"独立成一笔**（同 §2.1 的 70→64）。取向应为
-「**估算宁短勿长**」—— 低估的高度会在首次实测时**增长**（手势期放行、不产生空白），
-而高估会被冻结成空白。
+✅ **已修（`d723027`）**：`hPad` 已由 `80` 改为 `32`，即与渲染真相 `cell 宽 − 2×blockHPadding` 同源。
+改动只落在这一个函数（全库唯一调用点是 `estimateItemHeight` 的 `.text` 分支）。
+**未一并改的**：`estimateItemHeight` 的 user 回退（`-80`，比真实的 `-120` 更**宽** ⇒ 偏短 ⇒ 安全侧）
+与 user 瓦片基数（`-92`，已与 `measureUserBubbleHeight` 一致）。
+
+**取向纪律（可复用）**：本函数的估算应取「**宁短勿长**」—— 低估的高度会在首次实测时**增长**
+（手势期放行、不产生空白），而高估会被冻结成空白。
 
 ## 3 `+12` 与 `MCS:630` 的真实身份
 
