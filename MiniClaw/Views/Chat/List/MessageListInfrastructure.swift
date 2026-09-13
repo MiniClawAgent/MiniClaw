@@ -563,6 +563,49 @@ class SelfSizingCell: UICollectionViewCell {
     }
 
 
+    /// [Single height source] 本 cell **已提交**的正文高度（= cell 提交高 − assistantBlockVerticalChrome）。
+    /// 正文侧（`MarkdownView.sizeThatFits`）读它并原样返回 ⇒ 宿主据此写 textView 的 frame ⇒
+    /// 「cell 高度」与「正文 view 高度」**同源**，不再是两条链各自取数、互相追。
+    /// 0 = 尚未提交（正文侧走正常测量）。
+    private(set) var committedTextHeight: CGFloat = 0
+    /// 上面那个值对应的**内容指纹**（`ContentFingerprint.of(rawMarkdown)`，`Int`）。
+    /// 硬前提：cell 复用后旧值**绝不能**被当成新内容的高度（历史事故：跨 cell 累积 495pt）。
+    private(set) var committedFingerprint: Int = 0
+    /// 只有**助手正文块**才允许把 cell 高度反推为正文高度。
+    /// 用户气泡同样内嵌 `MarkdownTextView`，但其 cell 高度含气泡内边距，直接反推会每帧叠加而跑飞。
+    /// 由 `configureCell` 按块类型每次重设（不残留）。
+    var commitsTextHeightAsCellContent = false
+
+    /// [Single height source] **唯一**的高度提交出口：写 cell 高度，并把「正文部分高度 + 内容指纹」
+    /// 记为权威值供正文侧回灌。
+    /// ⚠️ 这里**绝不写 textView 的 frame** —— frame 物理上由 SwiftUI hosting 每次重排时按
+    /// `MarkdownView.sizeThatFits` 的返回值写入，手写会被同帧改回（历史事故形状：跨 cell 累积 495pt）。
+    @discardableResult
+    private func commitHeight(_ h: CGFloat, into attrs: UICollectionViewLayoutAttributes) -> UICollectionViewLayoutAttributes {
+        attrs.size.height = h
+        guard commitsTextHeightAsCellContent,
+              let tv = firstMarkdownTextView(in: contentView) else { return attrs }
+        let textHeight = h - Self.assistantBlockVerticalChrome
+        if textHeight > 1 {
+            committedTextHeight = textHeight
+            committedFingerprint = ContentFingerprint.of(tv.rawMarkdown)
+        }
+        return attrs
+    }
+
+    /// 在 contentView 子树里找正文视图（广度优先，命中即停）。
+    private func firstMarkdownTextView(in root: UIView) -> MarkdownTextView? {
+        var queue: [UIView] = [root]
+        var head = 0
+        while head < queue.count {
+            let v = queue[head]
+            head += 1
+            if let tv = v as? MarkdownTextView { return tv }
+            queue.append(contentsOf: v.subviews)
+        }
+        return nil
+    }
+
     override func preferredLayoutAttributesFitting(
         _ layoutAttributes: UICollectionViewLayoutAttributes
     ) -> UICollectionViewLayoutAttributes {
@@ -579,7 +622,7 @@ class SelfSizingCell: UICollectionViewCell {
            abs(layoutAttributes.size.width-cachedW)<1 {
             let copy = layoutAttributes.copy() as! UICollectionViewLayoutAttributes
             copy.size.width = cachedW
-            copy.size.height = cached
+            _ = commitHeight(cached, into: copy)
             tracePLAF("dedup", cached, cachedW, layoutAttributes.size.width)
             return copy
         }
@@ -627,7 +670,7 @@ class SelfSizingCell: UICollectionViewCell {
                 // 当前测量本身便宜（与屏上渲染同源的 MarkdownTextView），实测不再昂贵。
                 let copy = layoutAttributes.copy() as! UICollectionViewLayoutAttributes
                 copy.size.width = cachedW
-                copy.size.height = max(cached, engineFloor)
+                _ = commitHeight(max(cached, engineFloor), into: copy)
                 tracePLAF("defer-cached", copy.size.height, cachedW, layoutAttributes.size.width)
                 return copy
             }
@@ -643,7 +686,7 @@ class SelfSizingCell: UICollectionViewCell {
                 let copy = layoutAttributes.copy() as! UICollectionViewLayoutAttributes
                 // [2026-09-12 裁尾修复] 流式 cell 走这条短路；precalc 由每个 chunk 重新播种，
                 // 但播种值可能滞后于引擎实测（含附件块尤其），故同样取引擎下限。
-                copy.size.height = max(precalc, engineFloor)
+                _ = commitHeight(max(precalc, engineFloor), into: copy)
                 tracePLAF("precalc", copy.size.height, layoutAttributes.size.width, layoutAttributes.size.width)
                 return copy
             }
@@ -673,7 +716,7 @@ class SelfSizingCell: UICollectionViewCell {
             lastMeasureMedia = CACurrentMediaTime()
             traceSet("seed→lastCalc", seededH, layoutAttributes.size.width)
             let copy = layoutAttributes.copy() as! UICollectionViewLayoutAttributes
-            copy.size.height = seededH
+            _ = commitHeight(seededH, into: copy)
             tracePLAF("seed", seededH, layoutAttributes.size.width, layoutAttributes.size.width)
             return copy
         }
@@ -690,7 +733,7 @@ class SelfSizingCell: UICollectionViewCell {
             Self.sizingLogger.info("[CellSizing] ⚠️ super.preferredLayoutAttributesFitting threw — using fallback height")
             if let cached = lastCalcH {
                 let copy = layoutAttributes.copy() as! UICollectionViewLayoutAttributes
-                copy.size.height = cached
+                _ = commitHeight(cached, into: copy)
                 tracePLAF("super-throw-cached", cached, copy.size.width)
                 return copy
             }
@@ -710,7 +753,7 @@ class SelfSizingCell: UICollectionViewCell {
             // 放行分支必须同样拦截：非有限/负值一律弃用实测、维持 cached。
             let measured = attrs.size.height
             guard measured.isFinite,measured >= 0,cached.isFinite,cached >= 0 else {
-                attrs.size.height = max(cached.isFinite ? cached : 0,0)
+                _ = commitHeight(max(cached.isFinite ? cached : 0,0), into: attrs)
                 tracePLAF("nonfinite-clamp", attrs.size.height, attrs.size.width, layoutAttributes.size.width)
                 return attrs
             }
@@ -729,7 +772,7 @@ class SelfSizingCell: UICollectionViewCell {
                 // 真正变短必然换 contentKey（key 含内容长度 `w:<mid>:<n>:<a>`）
                 // → 新内容走 applyContentConfiguration 重置 → 本守卫自然失效。
                 if measured < cached - 2, cfgGen == gen {
-                    attrs.size.height = cached
+                    _ = commitHeight(cached, into: attrs)
                     tracePLAF("smooth-keep-shorter", cached, attrs.size.width, layoutAttributes.size.width)
                     return attrs
                 }
@@ -737,7 +780,7 @@ class SelfSizingCell: UICollectionViewCell {
                 lastMeasureMedia = CACurrentMediaTime()
                 traceSet("smooth→lastCalc(lastCalcW未更新)", measured, -1)
             } else {
-                attrs.size.height = cached
+                _ = commitHeight(cached, into: attrs)
             }
             tracePLAF("smooth", attrs.size.height, attrs.size.width, layoutAttributes.size.width)
             return attrs
@@ -830,7 +873,7 @@ class SelfSizingCell: UICollectionViewCell {
         if flooredFit > clampedFit + 0.5 {
             Self.sizingLogger.info("[PLAF] HOST-FLOOR idx=\(idx) host=\(String(format: "%.1f", clampedFit))→\(String(format: "%.1f", flooredFit)) textH=\(String(format: "%.1f", engineTextHeight)) key=\(contentKey ?? "nil") — 宿主实测低于引擎实测，按同源下限抬高")
         }
-        attrs.size.height = flooredFit
+        _ = commitHeight(flooredFit, into: attrs)
         if fittingSize.height >= 4 {
             lastCalcH = flooredFit
             lastCalcW = layoutAttributes.size.width
@@ -869,5 +912,10 @@ class SelfSizingCell: UICollectionViewCell {
         lastCalcH = nil
         lastCalcW = nil
         lastMeasureMedia = nil
+        // [Single height source] 复用即作废权威值 —— 绝不让上一个内容的提交高被当成新内容的高度
+        //（历史事故形状：跨 cell 累积 495pt）。正文侧另有指纹校验兜底，这里是第一道。
+        commitsTextHeightAsCellContent = false
+        committedTextHeight = 0
+        committedFingerprint = 0
     }
 }

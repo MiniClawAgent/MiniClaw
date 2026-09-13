@@ -398,6 +398,10 @@ extension MessageCollectionView {
                 }
                 let bridge = getOrCreateBridge(for: message,in: messages)
                 cell.backgroundColor = .clear
+                // [Single height source] 只有助手**正文**块才把 cell 高度反推为正文高度。
+                // 用户气泡也内嵌 `MarkdownTextView`，但其 cell 高含气泡内边距（约 +20~40pt），
+                // 直接反推会让正文 view 撑高 → cell 再长 → 每帧叠加跑飞。
+                cell.commitsTextHeightAsCellContent = (block.kind == .text)
                 let config = UIHostingConfiguration {
                     BridgedAssistantBlock(
                         block: block,

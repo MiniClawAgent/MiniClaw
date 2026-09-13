@@ -1086,16 +1086,16 @@ struct MarkdownView: UIViewRepresentable {
     }
 
     ///
-    /// [Diag 2026-09-13 截断定位 · 不影响功能] 量「尾部有没有被画进可见范围」：
-    /// 可见字形区间终点 vs 字形总数。这是"文字是否真的画出来"的**直接**判据 ——
-    /// 此前量的 storage / attrLen / cellH 三层在真机上都正常，那就只剩这一层没量。
-    /// `tailCut=1` = 尾部未绘制。
-    static func glyphProbe(_ tv: UITextView) -> String {
-        let lm = tv.layoutManager
-        let total = lm.numberOfGlyphs
-        guard total > 0,tv.bounds.height > 1 else { return "glyphs=\(total) visEnd=n/a tailCut=0" }
-        let visEnd = NSMaxRange(lm.glyphRange(forBoundingRect: tv.bounds,in: tv.textContainer))
-        return "glyphs=\(total) visEnd=\(visEnd) tailCut=\(visEnd < total ? 1 : 0)"
+    /// 沿 superview 链上溯找承载本视图的 `SelfSizingCell`（找不到返回 nil）。
+    /// [Single height source] 让 `sizeThatFits` 读到 cell 已提交的正文高度 —— 那条链必然经过
+    /// cell（SwiftUI 内容挂在 `SelfSizingCell.contentView` 子树内），故上溯即可命中。
+    private func enclosingSelfSizingCell(of view: UIView) -> SelfSizingCell? {
+        var cur: UIView? = view.superview
+        while let v = cur {
+            if let cell = v as? SelfSizingCell { return cell }
+            cur = v.superview
+        }
+        return nil
     }
 
     static func ctFramesetterHeight(for attrStr: NSAttributedString,width: CGFloat) -> CGFloat {        guard attrStr.length>0,width>0 else { return 0 }
@@ -1157,6 +1157,16 @@ struct MarkdownView: UIViewRepresentable {
         let t0 = CFAbsoluteTimeGetCurrent()
 
         let widthKey = Int(width.rounded())
+        // [Single height source] cell 已按**同一内容**提交过正文高度 ⇒ 直接返回它。
+        // 宿主（SwiftUI hosting）就是拿本函数的返回值去写 textView 的 frame ⇒ 于是「cell 高度」与
+        // 「正文 view 高度」同源，不再是两条链各自取数、互相追（这正是尾部掉出可见范围的机制）。
+        // 必须放在**所有缓存判定之前**：否则缓存会先返回它自己算的那个值，回灌失效。
+        // 指纹校验是硬前提 —— cell 复用后旧值绝不能被当成新内容的高度（历史事故：跨 cell 累积 495pt）。
+        if let cell = enclosingSelfSizingCell(of: uiView),
+           cell.committedTextHeight > 1,
+           cell.committedFingerprint == bindingFingerprint {
+            return CGSize(width: width,height: cell.committedTextHeight)
+        }
         if bindingFingerprint == coord.cachedSizeFingerprint,
            let cachedHeight = coord.cachedSizes[widthKey] {
             coord.sizeThatFitsCacheHitCount &+= 1
