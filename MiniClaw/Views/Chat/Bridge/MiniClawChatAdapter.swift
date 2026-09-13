@@ -156,7 +156,15 @@ enum MiniClawChatAdapter {
             }
         }
 
-        return items.sorted { $0.order < $1.order }.map(\.block)
+        // [2026-09-13 P4] 末尾排序补 **id 次键**：原为 `$0.order < $1.order`，而 Swift 的
+        // `sorted` **不保证稳定** ⇒ order 相等时结果跟实现细节/输入顺序有关（非确定性）。
+        // 渲染层（`+Snapshot` 构建 `newRows` 时对 `message.blocks` 的兜底排序）早已是
+        // 「order 优先、`id.uuidString` 次之」，两侧必须**同规则** —— 否则同一份 blocks
+        // 在两个排序点可以得到不同的显示顺序，且这类不一致极难复现定位。
+        return items.sorted {
+            if $0.order != $1.order { return $0.order < $1.order }
+            return $0.block.id.uuidString < $1.block.id.uuidString
+        }.map(\.block)
     }
 
     // MARK: - 文件引用拆分(块级渲染,消除行内附件黑边)
