@@ -484,6 +484,13 @@ class SelfSizingCell: UICollectionViewCell {
     /// 用于定位「cell 提交高度恒为 1703.0 而实测 1711.3 → 尾部半行被裁」。
     /// 只读、不写任何状态，不可能引发循环；定位完成后删除。
     private func tracePLAF(_ branch: String,_ h: CGFloat,_ w: CGFloat,_ reqW: CGFloat? = nil) {
+        #if DEBUG
+        // [2026-09-13 P0 降噪] 同 `traceSet`：挂到 `logs/.scroll-metrics-on` 哨兵。
+        // 本函数在 PLAF 的每个分支上各打一行，属最热路径之一；默认静默，
+        // 需要细查时放哨兵即可恢复全量（含 `[JITTER]` 专报）。
+        ScrollMetricsRecorder.shared.ensureEnabledChecked()
+        guard ScrollMetricsRecorder.shared.isEnabled else { return }
+        #endif
         let r = reqW.map { String(format: " reqW=%.1f", $0) } ?? ""
         let full = contentKey ?? "nil"
         // key 放宽到 90 字符：`b:<mid>:<bid>:<n>` 全长 > 76，截断到 20 就看不到内容长度 `n`，
@@ -540,6 +547,15 @@ class SelfSizingCell: UICollectionViewCell {
     /// 恰好切掉了 `b:<mid>:<bid>:<n>` 里的 `:n`（内容长度），而「小内容配大高度」
     /// （如 `:4` 的块拿到 1000+ 高度）正是「消息中间大块空白」的判别特征。
     private func traceSet(_ src: String,_ h: CGFloat,_ w: CGFloat) {
+        #if DEBUG
+        // [2026-09-13 P0 降噪] 挂到工程既有的哨兵开关（`logs/.scroll-metrics-on`，
+        // 见 `ScrollMetricsRecorder.refreshFromSentinel`）。此探针**无差别**打在高度热路径上
+        // （每次 cell 配置/测量各一行，实测 12 分钟 15k 行 `ChatList.CellMetrics`），把真异常
+        // （UNDER-HEIGHT / HOST-FLOOR / SEED-FLOOR）淹掉——这是"定位不到根因"的直接原因之一。
+        // 哨兵不存在 ⇒ 静默（默认）；`devicectl copy to` 放入哨兵 ⇒ 全量明细。
+        ScrollMetricsRecorder.shared.ensureEnabledChecked()
+        guard ScrollMetricsRecorder.shared.isEnabled else { return }
+        #endif
         let idxTag = (superview as? UICollectionView)?.indexPath(for: self).map { " idx=\($0.item)" } ?? ""
         let keyTag = contentKey.map { "\($0.prefix(14))…\($0.suffix(8))" } ?? "nil"
         Self.sizingLogger.info("[PLAF-SET] src=\(src) h=\(String(format: "%.1f", h)) w=\(String(format: "%.1f", w))\(Self.scrollPhaseTag(from: self))\(idxTag) key=\(keyTag)")

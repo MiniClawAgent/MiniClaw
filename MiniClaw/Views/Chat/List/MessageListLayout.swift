@@ -832,13 +832,21 @@ final class ScrollMetricsRecorder: @unchecked Sendable {
     /// `isEnabled` 为 false 时 record 每帧都会走到这里，所以必须用标志位保证只做一次文件 stat。
     private var sentinelChecked = false
 
-    func record(kind: String,idx: Int = -1,a: Double = 0,b: Double = 0,
-                key: String = "", src: String = "", pos: String = "",
-                offset: Double = 0, note: String = "", tag: String = "") {
+    /// [2026-09-13 P0 降噪] 把「一次性哨兵检查」抽成方法：既供本类 `record`，
+    /// 也供**不走 record 的热路径探针**（`traceSet`/`tracePLAF`）复用同一个开关。
+    /// 若各写一份，那些探针会永远等不到开关（`refreshFromSentinel` 原本只在 `record` 里跑）。
+    /// 仍然只做**一次**文件 stat（`sentinelChecked` 标志），此后热路径只剩一次 Bool 读。
+    func ensureEnabledChecked() {
         if !sentinelChecked {
             sentinelChecked = true
             refreshFromSentinel()
         }
+    }
+
+    func record(kind: String,idx: Int = -1,a: Double = 0,b: Double = 0,
+                key: String = "", src: String = "", pos: String = "",
+                offset: Double = 0, note: String = "", tag: String = "") {
+        ensureEnabledChecked()
         guard isEnabled else { return }
         let e = Event(t: CACurrentMediaTime(),kind: kind,idx: idx,a: a,b: b,
                       key: key,src: src,pos: pos,offset: offset,note: note,tag: tag)
