@@ -521,10 +521,15 @@ public final class MessageListLayout: UICollectionViewLayout {
                 // ⚠️ 与之互补：下面的 `pendingAboveShift` 在"已立即补偿"时**不再累加**（防双重补偿 ⇒ 反跳）。
                 ctx.contentOffsetAdjustment = CGPoint(x: 0,y: delta)
             } else if !cv.isTracking,!cv.isDecelerating {
-                // 视口内/下方的补偿仍只在非手势期做（避免与用户手势竞争，原意保留）。
-                if cellTopY >= vpTop && cellTopY<vpBottom && !isStreamingCell(index) {
-                    ctx.contentOffsetAdjustment = CGPoint(x: 0,y: delta)
-                } else if isStreamingCell(index) && isAutoScrollPinning && delta>0 {
+                // [Fix 2026-09-14 「内容往上顶、盖住上方工具指示器」] **删掉视口内 cell 的 +delta 补偿**。
+                // 真机描述（唐唐）：拖动正在流式的消息时，「思考指示器停在原地，而内容往上顶、
+                // 文字冲到工具指示器上面」；而**正确形态是"横线处锚定、向下展开"**。
+                // 原因：`contentOffsetAdjustment = +delta` 的语义是"把可见内容**整体上移** delta"。
+                // 而**视口内**的 cell 变高时它的**顶边并没有动** —— 下方内容自然被推下就够了；
+                // 此时再补 `+delta` ⇒ 可见内容被上移 ⇒ 正好盖住它上方的块（chip）。
+                // ⇒ 补偿只应服务于「**顶边在视口之外**（above）」这一类：那时不补才会看到跳动。
+                // ⚠️ 保留下面这条：贴底（autoScrolling）时让流式块跟随，属既有"钉底"语义。
+                if isStreamingCell(index) && isAutoScrollPinning && delta>0 {
                     // Actively streaming cell
                     ctx.contentOffsetAdjustment = CGPoint(x: 0,y: delta)
                 }
