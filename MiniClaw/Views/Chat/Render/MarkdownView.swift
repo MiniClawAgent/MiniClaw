@@ -459,6 +459,24 @@ struct MarkdownView: UIViewRepresentable {
         // 缺尾旧快照（上一轮走了流式节流复用，窗长见 Coordinator.streamThrottleWindow）时，正是本条 updateUIView 要追平。
         // [2026-09-13 回退] 不再放行 `storageMissingTail`：它是**误报判据**（含链接 / 行内代码的
         // 收尾行渲染后只剩显示文本 ⇒ 永远找不到），放行它只会让整条链多跑一次渲染、解决不了任何问题。
+        // [Fix 2026-09-14 「尾部被旧短快照覆盖」治本]
+        // 流式期内容**只增长**。若本次进来的 `markdown` 是「上一次已渲染的那一份」的**真前缀**
+        //（= 一份更旧的快照）就直接跳过整轮更新 —— 否则它会用旧短内容覆盖已经渲染好的更长内容。
+        // 真机签名（12:34）：`storageLen=257 < attrLen=269`，显示恰好缺尾 12 字（与截图逐字吻合），
+        // 且 cell 高度也按短内容算 ⇒ **看不到空白**（与「帧够高只是没画出来」是两类问题，别混）。
+        // 用**前缀**判据而不是单纯比长度：真正的编辑（非前缀）不会被误拦。
+        let prevRenderedMarkdown = context.coordinator.lastMarkdown
+        if !markdown.isEmpty, markdown.count < prevRenderedMarkdown.count,
+           prevRenderedMarkdown.hasPrefix(markdown) {
+            let now = CACurrentMediaTime()
+            if now - context.coordinator.lastStaleLogAt > 1.0 {
+                context.coordinator.lastStaleLogAt = now
+                AppLogger.shared.warning(
+                    "[StaleRender] 拒绝更短的旧快照 mdCnt=\(markdown.count) lastCnt=\(prevRenderedMarkdown.count) blk=\(blockId?.uuidString.prefix(8) ?? "?") — 不覆盖已渲染的更长内容",
+                    category: "RenderProbe")
+            }
+            return
+        }
         guard markdown != context.coordinator.lastMarkdown || fontChanged
             || context.coordinator.streamSnapshotStale else {
             let shouldRecover = textView.window != nil
@@ -795,6 +813,11 @@ struct MarkdownView: UIViewRepresentable {
                 textView.attributedText = attributed
             }
         }
+        // [Diag 修正 2026-09-14] 赋值后**同步**读一次存储长度。此前探针是在异步块里读
+        // `textStorage.length`，却与**同步捕获**的 `attrLen` 相比 ⇒ **两帧混读**，
+        // 会把"另一轮更新的结果"记成本轮的落差（12:34 那条 `storageLen=257 < attrLen=269`
+        // 有可能是这么来的）。改为同刻取值，`storageBehind` 才可信。
+        let storageLenAfterAssign = textView.textStorage.length
 
         if let revealRange = fadeRevealRange {
             context.coordinator.fadeTextView = textView
@@ -868,7 +891,7 @@ struct MarkdownView: UIViewRepresentable {
                 visEnd = total
             }
             let tailCut = visEnd < total
-            let storageBehind = textView.textStorage.length != attrLenSnap
+            let storageBehind = storageLenAfterAssign != attrLenSnap
             let cellTooShort = cellH > 0 && cellH < contentH - 0.5
             let bad = storageBehind || cellTooShort || tailCut
             // [Fix 2026-09-13 「尾行被裁」根治] 真机签名：`storageLen == attrLen`（内容完整、已上屏）
@@ -915,7 +938,7 @@ struct MarkdownView: UIViewRepresentable {
                     category: "RenderProbe")
             }
             AppLogger.shared.warning(
-                "[TruncL]\(bad ? " ⚠BAD" : "") blk=\(blkSnap) storageLen=\(textView.textStorage.length) attrLen=\(attrLenSnap) mdCnt=\(mdCntSnap) tvContentH=\(String(format: "%.1f", contentH)) cellH=\(String(format: "%.1f", cellH)) path=\(pathSnap) streaming=\(streamSnap ? 1 : 0) glyphs=\(total) visEnd=\(visEnd) tailCut=\(tailCut ? 1 : 0) storageBehind=\(storageBehind ? 1 : 0) cellShort=\(cellTooShort ? 1 : 0) \(geomInfo)",
+                "[TruncL]\(bad ? " ⚠BAD" : "") blk=\(blkSnap) storageLen=\(storageLenAfterAssign) attrLen=\(attrLenSnap) mdCnt=\(mdCntSnap) tvContentH=\(String(format: "%.1f", contentH)) cellH=\(String(format: "%.1f", cellH)) path=\(pathSnap) streaming=\(streamSnap ? 1 : 0) glyphs=\(total) visEnd=\(visEnd) tailCut=\(tailCut ? 1 : 0) storageBehind=\(storageBehind ? 1 : 0) cellShort=\(cellTooShort ? 1 : 0) \(geomInfo)",
                 category: "RenderProbe")
         }
         let storage = textView.textStorage
@@ -1525,6 +1548,8 @@ struct MarkdownView: UIViewRepresentable {
         /// （`isStreaming` true→false 是入参变化，必然带来一次 `updateUIView`）。
         var lastWasStreaming: Bool?
         var lastMarkdown: String = ""
+        /// [StaleRender 限流] 上一次打印"拒绝更短的旧快照"的时间（1s 节流，防流式期刷屏）。
+        var lastStaleLogAt: CFTimeInterval = 0
         var lastRenderedContentHash: Int? = nil
         var pendingMarkdown: String? = nil
         private var replayDeferredRender: (() -> Void)?
