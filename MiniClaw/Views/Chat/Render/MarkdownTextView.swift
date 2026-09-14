@@ -1250,6 +1250,17 @@ final class MarkdownTextView: UITextView,UIGestureRecognizerDelegate {
                 return found
             }()
             let isLargeGrowth = delta>30
+            // ⚠️ [2026-09-14 回退] 我一度把这里改成"放行所有增长"(`|| delta > 0`)，**已撤销**。
+            // 理由（业界调研 + Apple 约束）：`contentOffsetAdjustment` —— Apple 对"高度变化导致位置跳变"
+            // 给的**唯一**专门机制（WWDC2014/226）—— **在手势期失效**（手指正在写 contentOffset，
+            // 公开 API 里没有替代）。放开 G26 会让拖动期高度跟着内容长、却**无补偿手段可用**
+            // ⇒ 手指底下长高、下方被顶走（抖动）必然复现。
+            // ⇒ 本门（G26）实际是"①溢出重叠 ⟷ ②抖动"之间**唯一还拦着的门**，不能单独拆。
+            // 真根因是**两源不同代**：内容路径（`MiniClawChatBridge.swift:205-211` 就地写 `block.content`，
+            // **早于** `:281` 的 suspended 早退）⇒ 内容恒**最新代**；而高度恒**旧代**
+            // ⇒ 文本按 1457 布局、cell 帧只有 126/329.3 ⇒ 必然溢出到相邻消息与工具指示器。
+            // 正解 = **(a) 延后**：冻结期让**内容与高度同代**（内容也进缓冲，松手/减速后一次性 flush
+            // 内容 + 高度 + 条目），与 Agmente 同构（它冻结的是**整个 entry 数组**，故永不重叠）。
             if cellHasImageAttachment && isLargeGrowth {
                 cellSizeLogger.info("[AttachHang][CellMetrics] ALLOW through defer — image attachment placeholder→loaded growth prev=\(String(format: "%.1f", previousHeight))→new=\(String(format: "%.1f", newHeight)) delta=\(String(format: "%+.1f", delta))")
             } else {
