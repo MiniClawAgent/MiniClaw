@@ -931,7 +931,14 @@ struct MarkdownView: UIViewRepresentable {
             // 若 `clipped=0` 而 `visEnd` 仍小 ⇒ 只是我量早了（测量假象，不该再当病灶修）。
             var geomInfo = "clipped=n/a"
             if let cell = cellRef {
-                geomInfo = "clipped=\(clippedNow ? 1 : 0)"
+                // [Diag 2026-09-14] 补 `scroll=`：`streaming=1` 只表示"该块被判流式"，
+                // **不代表"用户正在滚动"**（`deferSelfSizing` 才代表）。
+                // 没有这个字段，就无法区分 cellShort 是"滚动期零测量导致的"还是"非滚动流式期也落后" ——
+                // 前者该冻渲染、后者该修流式高度链路，改错层会白做工。
+                let cv = cell.superview as? UICollectionView
+                let scrollTag = (cv?.isDragging ?? false) ? "drag"
+                    : ((cv?.isDecelerating ?? false) ? "decel" : "idle")
+                geomInfo = "clipped=\(clippedNow ? 1 : 0) scroll=\(scrollTag)"
             }
             // [Obs 2026-09-13] `cellShort=1` 且**内容已定型**（storage 完整）⇒ 该行的实测高度条目
             // 陈旧（内容长了约一行、条目没跟着更新），末行被 cell 裁掉 =「少一行字」。
