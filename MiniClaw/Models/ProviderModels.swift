@@ -37,7 +37,11 @@ struct ProviderBehaviorDecl: Codable {
     var capabilities: ProviderCapabilitiesDecl? = nil
     // ── 思考开关参数映射（原 extraBodyFields 的条件分支）──
     var thinkingParam: ThinkingParamDecl? = nil
-    // ── 无条件附加的请求体字段（如 Grok 的 store:false）──
+    // ── 无条件附加的请求体字段 ──
+    // ⚠️ 示例已更正（2026-09-14，按 xAI 官方文档核对）：**不要**拿 Grok 的 `store:false` 当例子 ——
+    // `store` **不在 Chat Completions 的 OpenAPI `ChatRequest` 里**（它属 Responses API），
+    // 在 Chat Completions 上发这个字段是错的。本字段只应放**该厂商在 Chat Completions
+    // 官方文档里明确要求/必须的无条件请求体字段**。
     var extraBody: [String: JSONSchemaValue]? = nil
     // ── 采样参数约束（原 clampSampling）──
     var samplingRules: SamplingRulesDecl? = nil
