@@ -258,6 +258,20 @@ extension MessageCollectionView.Coordinator {
                 AppLogger.shared.info("[CHANGE] from=\(caller) bottomInset \(String(format: "%.1f", prevBottomInset))→\(String(format: "%.1f", desiredBottomInset)) Δ\(String(format: "%+.1f", desiredBottomInset - prevBottomInset)) — \(reason)", category: "ChatList.SubViewport")
                 cv.contentInset.bottom = desiredBottomInset
             }
+            if scrollMode == .autoScrolling {
+                //
+                // [T2] `baseBottomInset` 现已含底部安全区，故不再二次叠加（否则多 34pt）。
+                let pinBottomInset = bottomInsetBase
+                let rawTarget = cv.contentSize.height-cv.bounds.height+pinBottomInset
+                let inflatedMaxOff = cv.contentSize.height-cv.bounds.height+cv.adjustedContentInset.bottom
+                let topLimit = -cv.adjustedContentInset.top
+                let target = min(max(rawTarget,topLimit),inflatedMaxOff)
+                let offsetBefore = cv.contentOffset.y
+                if target>topLimit-0.5 && abs(cv.contentOffset.y-target)>0.5 {
+                    // [T1 2026-09-12] 转场期间同样不直接写 offset（此写入不经 `setContentOffset`，
+                    // 探针抓不到，但同属「转场期提交 offset」这一类）——推迟到转场完成后的贴底。
+                }
+            }
             return needsCompensation
         }
 
@@ -1125,8 +1139,7 @@ extension MessageCollectionView.Coordinator {
 
         /// 把锚点 item 还原到**同一屏内位置**。幂等：item 已不在快照里、或取不到其 frame 时原样返回。
         ///
-        /// 只在**真正改了 offset** 时打印一条：那是「带图片回复是否还会跳位」以及
-        /// 「附件异步高度变更后的 offset 修正幅度」的唯一判据。
+        /// 命中与否都要打印一次：这条日志是「带图片回复是否还会跳位」的唯一判据。
         func restoreViewportTopAnchor(_ anchor: ViewportTopAnchor?,reason: String) {
             guard let anchor,let cv = viewController?.collectionView,
                   let layout = cv.collectionViewLayout as? MessageListLayout,
@@ -1139,12 +1152,16 @@ extension MessageCollectionView.Coordinator {
             } else if let attrs = layout.layoutAttributesForItem(at: ip) {
                 minY = attrs.frame.minY
             } else {
+                AppLogger.shared.info("[AttachAnchor] 取不到 frame，放弃锚定（\(reason)）", category: "ChatList.Scroll")
                 return
             }
             let maxOffset = max(0,cv.contentSize.height-cv.bounds.height+cv.adjustedContentInset.bottom)
             let target = min(max(minY-anchor.deltaInViewport,-cv.adjustedContentInset.top),maxOffset)
             let before = cv.contentOffset.y
-            guard abs(target-before) > 0.5 else { return }
+            guard abs(target-before) > 0.5 else {
+                AppLogger.shared.info("[AttachAnchor] 无需还原（\(reason)）offset=\(String(format: "%.1f", before))", category: "ChatList.Scroll")
+                return
+            }
             cv.contentOffset.y = target
             AppLogger.shared.info("[AttachAnchor] 按身份还原（\(reason)）offset \(String(format: "%.1f", before))→\(String(format: "%.1f", target)) delta=\(String(format: "%.1f", anchor.deltaInViewport))", category: "ChatList.Scroll")
         }
