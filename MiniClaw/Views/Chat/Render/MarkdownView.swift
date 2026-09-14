@@ -893,7 +893,15 @@ struct MarkdownView: UIViewRepresentable {
             let tailCut = visEnd < total
             let storageBehind = storageLenAfterAssign != attrLenSnap
             let cellTooShort = cellH > 0 && cellH < contentH - 0.5
-            let bad = storageBehind || cellTooShort || tailCut
+            // [判据可信度 2026-09-14] 流式期"视图比内容晚一帧"是**正常**的（下一帧自然追上），
+            // 故 `tailCut` 只在**终态帧**参与异常判定；流式期只认下面三个更可靠的量。
+            // 教训：`tailCut` 在流式期大量为 1，却与用户看到的截断**无关**（真因是 `[StaleRender]`），
+            // 不收紧它就会持续把人往几何层引（本轮为此白追了好几轮）。
+            let clippedNow: Bool = {
+                guard let cell = cellRef else { return false }
+                return textView.frame.maxY > cell.contentView.bounds.height + 0.5
+            }()
+            let bad = storageBehind || cellTooShort || clippedNow || (tailCut && !streamSnap)
             // [Fix 2026-09-13 「尾行被裁」根治] 真机签名：`storageLen == attrLen`（内容完整、已上屏）
             // 且 `cellShort=0`（cell 够高），**但 `tailCut=1`** —— 可见字形区间只覆盖到
             // `visEnd=28/89`、`121/132`、`165/252` ⇒ **尾部字形没进 textView 自己的可见范围**。
@@ -923,7 +931,7 @@ struct MarkdownView: UIViewRepresentable {
             // 若 `clipped=0` 而 `visEnd` 仍小 ⇒ 只是我量早了（测量假象，不该再当病灶修）。
             var geomInfo = "clipped=n/a"
             if let cell = cellRef {
-                geomInfo = "clipped=\((textView.frame.maxY > cell.contentView.bounds.height + 0.5) ? 1 : 0)"
+                geomInfo = "clipped=\(clippedNow ? 1 : 0)"
             }
             // [Obs 2026-09-13] `cellShort=1` 且**内容已定型**（storage 完整）⇒ 该行的实测高度条目
             // 陈旧（内容长了约一行、条目没跟着更新），末行被 cell 裁掉 =「少一行字」。
