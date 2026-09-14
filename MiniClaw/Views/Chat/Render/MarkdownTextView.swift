@@ -1155,11 +1155,17 @@ final class MarkdownTextView: UITextView,UIGestureRecognizerDelegate {
         // preferredLayoutAttributesFitting 的 flush 自然消费真实高度。
         // （ImageAttachment 的 placeholder→loaded 大增长例外保留：仍先测量，
         //   largeGrowth 放行——见函数后段原 defer 块。）
-        if (findCollectionView()?.collectionViewLayout as? MessageListLayout)?.deferSelfSizing == true,
-           !hasImageAttachmentCached {
-            armDeferredRemeasure()
-            return
-        }
+        // [Fix 2026-09-14 「拖动期内容增长不更新高度」治本]
+        // ⚠️ 原实现在**此处**（函数入口）整段拦截：`deferSelfSizing == true` 时"零测量直接 return"。
+        // 它的初衷是省成本（滑动期每 cell 跑 sizeThatFits 含附件块 755-811ms，见下方大段注释），
+        // 但它把「**内容变长**」这个**事实**也一起否定了 ⇒ cell 高停在旧值、内容溢出 cell
+        // ⇒ 与相邻 cell（工具指示器）重叠。
+        // 真机实证（17:47）：`cellH` 连续 10 帧恒定 329.3，而 `tvContentH` 从 1067.3 涨到 1342.0
+        //（差 **1012pt**）；37 条欠高全部命中，其中 **34 条 `scroll=drag`**；且松手后（`streaming=0`）
+        // `cellH` 仍是 329.3 ⇒ 解冻后也没有补测。
+        // ⇒ 判定**下移到结果处**（见 `delta` 之后）：变矮仍拒绝（防抖，原意保留），变高则采纳。
+        // 成本护栏天然存在：紧随其后的"内容指纹未变 ⇒ return"早退会让**未变化的块零成本**，
+        // 真正会测的只有"内容真的变了"的块（流式期就是那一个流式块）。
         // `sizeThatFits` → `invalidateCellSizeIfChanged`. Without this guard
         if isInvalidatingCellSize {
             reentryGuardHits &+= 1
@@ -1192,6 +1198,16 @@ final class MarkdownTextView: UITextView,UIGestureRecognizerDelegate {
             return
         }
         let delta = newHeight-previousHeight
+
+        // [Fix 2026-09-14] 冻结期（手势/减速中）**只拒绝收缩、放行增长** —— 这是本子系统的既定原则，
+        // 原实现把它做成了"入口整段拦截"，导致"内容变长"也被否定（→ 溢出重叠，见函数上方说明）。
+        // 现在只在**结果处**拒绝收缩；变高照常采纳并上报（内容事实必须尊重；
+        // 由此产生的"上方 cell 变高"对下方内容的位移，由既有 `pendingAboveShift` 机制补偿 offset）。
+        if (findCollectionView()?.collectionViewLayout as? MessageListLayout)?.deferSelfSizing == true,
+           delta < 0 {
+            armDeferredRemeasure()
+            return
+        }
 
         // [2026-09-12 裁尾修复+诊断] **引擎文本实测上报** + 零歧义欠高探针。
         //
