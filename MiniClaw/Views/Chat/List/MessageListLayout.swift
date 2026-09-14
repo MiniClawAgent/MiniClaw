@@ -481,8 +481,11 @@ public final class MessageListLayout: UICollectionViewLayout {
             //   pendingΣ=-9.3   offset 0.0→-9.3      把首项的顶部藏起来 ⇒ 肉眼就是那一下轻抖。
             // 语义上：offset == 0 时顶部边界**就是内容起点**，条目变高不会改变"offset 0 处是什么"
             // ⇒ 此时锚定没有意义，反而制造位移。故加 `cv.contentOffset.y > 0.5` 前置条件。
-            if cv.contentOffset.y > 0.5,
-               pos == "above" || (pos == "inside" && !isStreamingCell(index)) {
+            // [Fix 2026-09-14] `pos == "above"` 已在上面用 `contentOffsetAdjustment` **立即补偿**
+            //（且与手势无关）⇒ 这里**不再累加**，否则解冻时 `applyDeferredHeights` 会再锚一次
+            // ⇒ 双重补偿 ⇒ 反跳。`inside` 的累加保留：它的立即补偿只在非手势期做，
+            // 手势期仍走"延后到解冻锚定"这条原路，口径不变、两者互不重叠。
+            if cv.contentOffset.y > 0.5, pos == "inside", !isStreamingCell(index) {
                 pendingAboveShift += delta
             }
             #if DEBUG
@@ -503,18 +506,28 @@ public final class MessageListLayout: UICollectionViewLayout {
 
         // memo here could capture a mid-stream height. See.
 
-        if let cv = collectionView,!cv.isTracking,!cv.isDecelerating,!suppressContentOffsetAdjustment {
+        if let cv = collectionView,!suppressContentOffsetAdjustment {
             let cellTopY = originalAttributes.frame.minY
             let cellBottom = originalAttributes.frame.maxY
             let vpTop = cv.contentOffset.y
             let vpBottom = vpTop+cv.bounds.height
             if cellTopY<vpTop && cellBottom <= vpTop {
+                // [Fix 2026-09-14] **视口上方**的变高补偿：与手势无关，必须做。
+                // Apple 官方对这种"高度变化导致位置跳变"给的唯一专门机制就是 `contentOffsetAdjustment`
+                //（WWDC2014/226：「so you don't see jump from one position to another」）。
+                // 原实现把整段补偿门控在 `!isTracking && !isDecelerating` 内 ⇒ 手势期完全不补偿；
+                // 而本次已放行"拖动期内容长高" ⇒ 上方块变高会把可见内容整体平移 = 手指下那阵抖动。
+                // 语义澄清：这不是"手势期改几何"，而是**保持屏幕内容不变** ⇒ 必须与手势无关。
+                // ⚠️ 与之互补：下面的 `pendingAboveShift` 在"已立即补偿"时**不再累加**（防双重补偿 ⇒ 反跳）。
                 ctx.contentOffsetAdjustment = CGPoint(x: 0,y: delta)
-            } else if cellTopY >= vpTop && cellTopY<vpBottom && !isStreamingCell(index) {
-                ctx.contentOffsetAdjustment = CGPoint(x: 0,y: delta)
-            } else if isStreamingCell(index) && isAutoScrollPinning && delta>0 {
-                // Actively streaming cell
-                ctx.contentOffsetAdjustment = CGPoint(x: 0,y: delta)
+            } else if !cv.isTracking,!cv.isDecelerating {
+                // 视口内/下方的补偿仍只在非手势期做（避免与用户手势竞争，原意保留）。
+                if cellTopY >= vpTop && cellTopY<vpBottom && !isStreamingCell(index) {
+                    ctx.contentOffsetAdjustment = CGPoint(x: 0,y: delta)
+                } else if isStreamingCell(index) && isAutoScrollPinning && delta>0 {
+                    // Actively streaming cell
+                    ctx.contentOffsetAdjustment = CGPoint(x: 0,y: delta)
+                }
             }
         }
 
