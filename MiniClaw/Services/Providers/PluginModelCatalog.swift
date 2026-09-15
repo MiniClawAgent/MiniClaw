@@ -99,6 +99,7 @@ enum PluginModelCatalog {
             contextWindow: m.contextLimit,
             maxOutputTokens: m.maxOutputTokens,
             deepThinking: m.deepThinking,
+            thinkingLevels: m.thinkingLevels,
             input: inputModalities(m),
             output: outputModalities(m),
             apiFormats: m.apiFormats,

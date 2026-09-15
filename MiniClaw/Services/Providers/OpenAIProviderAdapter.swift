@@ -78,6 +78,14 @@ class OpenAIProviderAdapter: LLMProviderAdapter, @unchecked Sendable {
                 body[tp.body] = on.foundationValue
             }
         }
+        // [2026-09-16 可观测性] 真正注入的厂商字段此前只存在于代码推断里——
+        // 排查「显式档位是否多发了 thinking」时只能靠落盘 reqdump 才看清。
+        // 与 [LLM] 行同量级：每次请求一行，只打注入的顶层键值（键序固定，便于 diff）。
+        if !body.isEmpty,
+           let data = try? JSONSerialization.data(withJSONObject: body,options: [.sortedKeys]),
+           let text = String(data: data,encoding: .utf8) {
+            AppLogger.shared.info("[LLM] 厂商注入字段 \(text)", category: "LLM")
+        }
         return body.isEmpty ? nil : body
     }
 

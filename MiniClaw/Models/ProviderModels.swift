@@ -109,6 +109,11 @@ struct ModelPluginModelDecl: Codable {
     var responsesSupported: Bool? = nil
     /// 特殊参数约束（思考模式禁用参数、回传要求等，文本说明）。
     var specialConstraints: String? = nil
+    /// 该模型支持的思考档位子集（如 ["low","high","max"]）；nil = UI 用默认
+    /// [low, medium, high]。**只在此声明不会生效**：必须同时经
+    /// `PluginModelCatalog.info(from:)` 透传到 `BuiltinModelInfo.thinkingLevels`，
+    /// 那才是 `ChatView.availableThinkingLevels` 读取的数据。
+    var thinkingLevels: [String]? = nil
     /// 定价说明（每百万 token，官网公布时填写）。
     var pricing: String? = nil
 }
