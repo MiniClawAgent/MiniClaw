@@ -10,8 +10,10 @@ struct TokenUsageReport {
     let output: Int
     let cachedRead: Int
     let cachedWrite: Int
-    /// 输出流式阶段耗时（毫秒），用于计算平均输出速度。
-    let outputDurationMs: Double
+    /// [2026-09-15 DSH 对齐] 本步首 token 延迟（请求发出 → 首个生成 token，毫秒）；无样本为 nil。
+    let ttftMs: Double?
+    /// [2026-09-15 DSH 对齐] 本步解码窗口（首个生成 token → 该步完成，毫秒）；无样本为 nil。
+    let decodeMs: Double?
     /// Agent 循环总次数（本轮 run 内的模型调用轮次）。
     let agentLoops: Int
 }

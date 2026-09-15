@@ -321,7 +321,8 @@ final class AgentRunService {
                 cachedRead: report.cachedRead,
                 cachedWrite: report.cachedWrite,
                 agentLoops: report.agentLoops,
-                outputDurationMs: report.outputDurationMs
+                ttftMs: report.ttftMs,
+                decodeMs: report.decodeMs
             )
             // 上下文圆环占比由 engine.onContextUsage 单独驱动（与压缩判定同源），
             // 圆环已不再展示缓存数字，此处只做用量统计落盘。

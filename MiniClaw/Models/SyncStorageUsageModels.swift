@@ -49,8 +49,16 @@ struct SessionTokenUsageData: Codable {
     var cachedWrite: Int? = nil
     /// Agent 循环总次数（模型被调用的轮次累计）。
     var agentLoops: Int = 0
-    /// 输出流式阶段累计耗时（毫秒），用于计算平均输出速度。
-    var outputDurationMs: Double = 0
+    /// [2026-09-15 DSH 对齐] 输出吞吐 = **ΣdecodeTokens ÷ ΣdecodeMs**（求和后相除的 token 加权聚合，
+    /// **不是**逐次平均、也不是中位数）——口径与 DSH `dsh-session-stats` 投影逐字一致。
+    /// 只累计「同时带解码窗口与 output token 数」的步（DSH 原注："counting only steps that carry both"）。
+    var decodeTokens: Int = 0
+    /// Σ 解码窗口（首个生成 token → 该步完成，毫秒）。
+    var decodeMs: Double = 0
+    /// Σ 首 token 延迟（请求发出 → 首个生成 token，毫秒）。
+    var ttftMs: Double = 0
+    /// 带 TTFT 样本的步数（展示用 ΣttftMs ÷ ttftSteps 的平均值）。
+    var ttftSteps: Int = 0
 }
 
 /// 挂载点

@@ -218,7 +218,10 @@ struct SessionTokenUsageView: View {
                     }
 
                     Section(String(localized: "speed")) {
-                        UsageRow(label: String(localized: "output_speed_average"), value: speedString(d), color: .teal)
+                        UsageRow(label: String(localized: "output_speed"), value: speedString(d), color: .teal)
+                        if d.ttftSteps > 0 {
+                            UsageRow(label: String(localized: "output_ttft"), value: ttftString(d), color: .teal)
+                        }
                     }
 
                     Section(String(localized: "agent_loop")) {
@@ -373,10 +376,17 @@ struct SessionTokenUsageView: View {
         return String(format: "%.1f%%", Double(cr) / Double(d.input) * 100)
     }
 
+    /// [2026-09-15 DSH 对齐] 输出吞吐 = **ΣdecodeTokens ÷ ΣdecodeMs**（求和后相除的 token 加权聚合，
+    /// 非逐次平均、非中位数）——与 DSH `dsh-session-stats` 投影 / TimePill 的取值方式逐字一致。
     private func speedString(_ d: SessionTokenUsageData) -> String {
-        guard d.outputDurationMs > 0, d.output > 0 else { return "—" }
-        let tps = Double(d.output) / (d.outputDurationMs / 1000)
-        return String(format: "%.1f tok/s", tps)
+        guard d.decodeTokens > 0, d.decodeMs > 0 else { return "—" }
+        return String(format: "%.1f tok/s", Double(d.decodeTokens) / (d.decodeMs / 1000))
+    }
+
+    /// [2026-09-15 DSH 对齐] 首 token 平均延迟 = **ΣttftMs ÷ ttftSteps**（DSH 同口径）。
+    private func ttftString(_ d: SessionTokenUsageData) -> String {
+        guard d.ttftSteps > 0 else { return "—" }
+        return String(format: "%.0f ms", d.ttftMs / Double(d.ttftSteps))
     }
 
     private func reload() {

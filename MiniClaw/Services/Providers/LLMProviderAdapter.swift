@@ -36,6 +36,56 @@ enum LLMStreamEvent: Sendable {
     case toolCallStreaming(id: String, name: String, partialArgs: String, bytes: Int)
     case usage(prompt: Int, completion: Int, cachedRead: Int, cachedWrite: Int)
     case finishReason(String?)
+    /// [2026-09-15 速度口径修正] 本次调用的时间锚点，全部为**到达时间**（URLSession 委托队列打点）：
+    /// - `requestStartedAt`：请求交给 URLSession 的时刻（端到端窗口的起点，含 TTFT 与网络 RTT）；
+    /// - `first` / `last`：首个与末个**生成 token**（`.token`/`.reasoning`）的到达时刻（解码窗口）。
+    /// 由 `GenerationTimingProbe` 在 `.usage` 之前补发，上层据此算单次调用的 tok/s。
+    case outputTiming(requestStartedAt: Date, first: Date, last: Date)
+}
+
+/// [2026-09-15 速度口径修正] 「生成窗口」**到达端**探针：给适配器的事件出口套一层时间戳。
+///
+/// 为什么必须打在到达端：`LLMClient` 是在一个 `Task` 里 `for try await` 消费 `AsyncThrowingStream`，
+/// 消费端会被流缓冲 + 主线程繁忙拖成「成批到达」——真机实测某次 206 个 output token 只量到 98ms
+/// （≈2100 tok/s，物理上不可能）。在委托队列（事件刚解析出来）打点才是真正的到达时间。
+/// 判定与既有事件同源：`.token`（正文）与 `.reasoning`（思考）都是模型生成的 token。
+///
+/// ⚠️ 两个窗口都要给上层：**解码窗口**（首→末 delta）是业界口径，但服务端**成块下发**时它会漏掉
+/// 首块自身的生成时间、输出越短偏高越多（真机实测 110tok/117ms≈940 tok/s）；**端到端窗口**
+/// （请求发出→末 delta）不受成块影响，更贴近"用户感知到的速度"。
+enum GenerationTimingProbe {
+    /// 包装适配器的 `delegate.onEvent`：累积首/末到达时间，并在收到 `.usage` 时先补发一条
+    /// `.outputTiming`，再原样放行 usage。
+    static func wrap(_ yield: @escaping (LLMStreamEvent) -> Void,
+                     requestStartedAt: Date) -> (LLMStreamEvent) -> Void {
+        let lock = NSLock()
+        var first: Date?
+        var last: Date?
+        return { event in
+            switch event {
+            // [2026-09-15] 工具参数流式增量（`.toolCallStreaming`）同样是模型生成的 token、
+            // 同样计入 completion_tokens：漏掉它会让"纯工具轮"的调用完全量不到窗口
+            //（真机实测 output=98/88/91 的三笔全部落到「无 delta 时间戳」）。
+            case .token, .reasoning, .toolCallStreaming:
+                let now = Date()
+                lock.lock()
+                if first == nil { first = now }
+                last = now
+                lock.unlock()
+            case .usage:
+                lock.lock()
+                let f = first
+                let l = last
+                lock.unlock()
+                if let f, let l {
+                    yield(.outputTiming(requestStartedAt: requestStartedAt, first: f, last: l))
+                }
+            default:
+                break
+            }
+            yield(event)
+        }
+    }
 }
 
 /// 流式请求参数包(与 LLMClient.streamChat 的参数面对齐)。

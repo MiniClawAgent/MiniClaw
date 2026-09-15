@@ -161,12 +161,17 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
     /// 暂停/恢复时续写的助手气泡 ID（恢复时写回同一气泡，避免第二个回复气泡）。
     private var streamingMessageID: UUID? = nil
 
-    /// 输出流式阶段的时间锚点（用于计算平均输出速度）。
-    /// 仅记录「正文（body）」首/末字符时间，不含思考（reasoning）与工具/等待间隔；
-    /// 按单次 run 重置（见 run()/resume()），并在 run 结束时统一结算一次。
-    private var outputStreamStart: Date? = nil
-    private var outputStreamEnd: Date = Date()
-    /// 最近一次上报用量所用的 modelId，供结算正文耗时的报告复用（避免污染全局统计的 key）。
+    /// [2026-09-15 速度口径修正] 单次模型调用的生成窗口锚点：**首个生成 token → 末个生成 token**。
+    ///
+    /// 旧口径（run 级「正文首末字」）的分母只覆盖正文、还会把中间的工具调用/等待间隔算进去，
+    /// 而分子是整轮所有迭代的 output tokens（含 reasoning）⇒ 分子分母不同源，真机实测虚高到 1373.8 tok/s。
+    /// 现按业界标准（AWS AI on EKS《Key Metrics for Benchmarking LLMs》：ITL/TPOT = generation_time ÷
+    /// (output_tokens − 1)，**明确排除 TTFT**）改为：窗口 = 单次调用内首个 delta → 末个 delta，
+    /// 分子 = 该次调用的 output tokens；reasoning 也算生成 token（DeepSeek 的 completion_tokens 本就含它），
+    /// 两端同源。每次调用（含重试）重新计时，跨调用不累加、不平均。
+    private var callFirstDeltaAt: Date? = nil
+    private var callLastDeltaAt: Date? = nil
+    /// 最近一次上报用量所用的 modelId（供全局统计 key 复用）。
     private var lastReportedModelId: String = ""
 
     var onToken: ((String) -> Void)?
@@ -458,10 +463,10 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
 
         await state.configureRunning()
 
-        // 输出速度计时锚点按「单次 run（一条用户消息的一轮回复）」重置，
-        // 避免跨 run 泄漏；本轮耗时在 run 结束时统一结算一次（见 emitRunOutputDuration）。
-        outputStreamStart = nil
-        outputStreamEnd = Date()
+        // 速度锚点按「单次模型调用」计时（见 callFirstDeltaAt / callLastDeltaAt），
+        // 这里只需清掉跨 run 残留，避免上一轮的值被当成本轮样本。
+        callFirstDeltaAt = nil
+        callLastDeltaAt = nil
         lastReportedModelId = ""
 
         // 后台任务挂钩：开始 Live Activity（若「后台运行」开启）。
@@ -548,9 +553,8 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
 
         await state.configureRunning()
 
-        // 恢复也是一次新 run：重置输出速度计时锚点（暂停期间不计入正文耗时）。
-        outputStreamStart = nil
-        outputStreamEnd = Date()
+        callFirstDeltaAt = nil
+        callLastDeltaAt = nil
         lastReportedModelId = ""
 
         // 后台任务挂钩：恢复时也视作一次 Agent 运行开始。
@@ -737,6 +741,12 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
                 retryLoop: while true {
                     passError = nil
                     capturedUsage = nil
+                    // [2026-09-15 速度口径修正·修 bug] **每次调用**（含每次重试）都必须重置生成窗口。
+                    // 只在 run 起点重置是不够的：一轮回复里有 N 次模型调用（工具循环迭代），窗口会从
+                    // 本轮首个 token 起单调增长 —— 真机实测 windowMs 1953ms → 68129ms 一路拉长、
+                    // 速度被稀释到几 tok/s；而首次调用（窗口真正独立）实测 301 tok/s，才是正确量级。
+                    callFirstDeltaAt = nil
+                    callLastDeltaAt = nil
 
                     await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
                         let task = llmClient.streamChat(
@@ -754,16 +764,24 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
                             parallelToolCalls: sampling?.parallelToolCalls,
                             onToken: { [weak self] token in
                                 streamedText += token
+                                // [2026-09-15 速度口径修正] 正文 delta = 生成 token，打进本次调用的窗口。
+                                self?.markCallDelta()
                                 self?.emitToken(token)
                             },
                             onToolCall: { toolCall in
                                 collectedToolCalls.append(toolCall)
                             },
                             onToolCallStreaming: { [weak self] callID, name, partialArgs, bytes in
+                                // [2026-09-15 速度口径修正] 工具参数流式增量同样是模型生成的 token
+                                //（计入 completion_tokens），必须进窗口；否则"纯工具轮"的调用量不到速度。
+                                self?.markCallDelta()
                                 self?.upsertStreamingToolExecution(callID: callID, name: name, partialArgs: partialArgs, bytes: bytes)
                             },
                             onReasoning: { [weak self] piece in
                                 streamedReasoning += piece
+                                // 思考 delta 同样是模型生成 token（DeepSeek 的 completion_tokens 含它），
+                                // 必须一起进窗口，否则分子分母口径不同源（旧实现的病根）。
+                                self?.markCallDelta()
                                 self?.emitReasoning(piece)
                             },
                             onUsage: { input, output, cachedRead, cachedWrite in
@@ -817,8 +835,9 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
                     streamedText = ""
                     streamedReasoning = ""
                     collectedToolCalls.removeAll()
-                    // 重置输出计时：被丢弃的半截输出不计入平均输出速度统计。
-                    outputStreamStart = nil
+                    // 重置本次调用的生成窗口：被丢弃的半截输出不计入速度样本。
+                    callFirstDeltaAt = nil
+                    callLastDeltaAt = nil
                     // 退后台期间网络请求无法运行，先等回到前台再重试。
                     let reached = await waitUntilActive(timeoutSeconds: 30)
                     let pausedNow = await state.isPausedRequested()
@@ -923,12 +942,28 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
                             breakdown: AgentLoopHelpers.scale(requestBreakdown, to: inputTokens)
                         )
                     }
+                    // [2026-09-15 速度口径修正] 本次调用的输出速度样本：
+                    // **优先用到达端窗口**（适配器 GenerationTimingProbe 在 URLSession 委托队列打的时间戳，
+                    // 反映真实生成过程）；拿不到时才回退到本引擎的消费端锚点（会被流缓冲压缩、精度较低，
+                    // 但好过直接显示「—」）。日志里用 src= 标明这一笔用的是哪一路，便于真机核对。
+                    let arrival = llmClient.lastOutputWindow
+                    let speed = Self.outputSpeedSample(outputTokens: outputTokens,
+                                                       arrival: arrival,
+                                                       fallbackFirst: callFirstDeltaAt,
+                                                       completedAt: Date())
+                    // 注意：不在消息里重复写 [Speed]（AppLogger 已经输出 `[INFO] [Speed] …`）。
+                    // 字段与 DSH `dsh-session-stats` 一一对应：ttft / decode / tps(=tokens÷decode)。
+                    AppLogger.shared.info(
+                        "\(endpoint.modelName) output=\(speed.outputTokens) ttftMs=\(speed.ttftMs.map { String(Int($0.rounded())) } ?? "—") decodeMs=\(speed.decodeMs.map { String(Int($0.rounded())) } ?? "—") tps=\(speed.tps.map { String(format: "%.1f", $0) } ?? "—") (\(speed.note), src=\(arrival != nil ? "arrival" : "fallback"))",
+                        category: "Speed", subsystem: "TokenUsage")
                     emitTokenUsage(
                         endpoint.modelId,
                         inputTokens,
                         outputTokens,
                         cachedRead: cachedReadTokens,
-                        cachedWrite: cachedWriteTokens
+                        cachedWrite: cachedWriteTokens,
+                        ttftMs: speed.ttftMs,
+                        decodeMs: speed.decodeMs
                     )
                 } else if let error = passError,
                           streamedText.isEmpty,
@@ -1338,8 +1373,6 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
     }
 
     private func emitToken(_ token: String) {
-        if outputStreamStart == nil { outputStreamStart = Date() }
-        outputStreamEnd = Date()
         // 有文本输出 = 正在给用户反馈 → 检索收敛预算清零（允许新一轮工具推进）。
         toolCallsSinceOutput = 0
         guard let onToken else { return }
@@ -1359,7 +1392,59 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
         deliverOnMain { onReasoning(piece, iteration) }
     }
 
-    private func emitTokenUsage(_ modelId: String, _ input: Int, _ output: Int, cachedRead: Int = 0, cachedWrite: Int = 0) {
+    /// 记录一次「模型生成了 token」的时刻（正文与思考都算：两者都是模型生成的 token）。
+    private func markCallDelta() {
+        let now = Date()
+        if callFirstDeltaAt == nil { callFirstDeltaAt = now }
+        callLastDeltaAt = now
+    }
+
+    /// 单次调用的输出速度样本：保留**原始三元组**（output token 数 / 生成窗口 / 结果），
+    /// 供日志与 UI 共用——先把原始值落下来，再谈换算，避免又出现"分子分母不同源还看不出来"。
+    /// [2026-09-15 DSH 对齐] 单步速度样本，字段与 `dsh-session-stats` 投影一一对应：
+    /// - `ttftMs`：请求交给 URLSession → 首个**生成 token**（正文/思考/工具参数 delta）到达；
+    /// - `decodeMs`：首个生成 token → **本步完成**（DSH 用 `completedTime − firstTokenTime`，
+    ///   这里取 usage 结算时刻）；
+    /// - `outputTokens`：本步 output tokens。
+    /// 三者齐备才算有效样本（DSH 原注："counting only steps that carry both"）。
+    private struct OutputSpeedSample {
+        let outputTokens: Int
+        let ttftMs: Double?
+        let decodeMs: Double?
+        var valid: Bool { ttftMs != nil && decodeMs != nil && outputTokens > 0 }
+        /// 仅诊断/日志用：本步速率（tokens ÷ decodeMs），**不是**聚合展示值
+        ///（聚合展示 = ΣdecodeTokens ÷ ΣdecodeMs，由 TokenUsageTracker 累计）。
+        var tps: Double? {
+            guard let decodeMs, decodeMs > 0, outputTokens > 0 else { return nil }
+            return Double(outputTokens) / (decodeMs / 1000)
+        }
+        let note: String
+    }
+
+    /// 计算单步速度样本。时间锚点优先用**到达端**（`LLMClient.lastOutputWindow`，由
+    /// `GenerationTimingProbe` 在 URLSession 委托队列打点）；拿不到到达端锚点时 `ttftMs` 记 nil
+    /// （没有请求发起时刻就测不出首 token 延迟）⇒ 该步不计入聚合 —— 与 DSH「只统计同时带窗口与
+    /// 词元数的步」一致，而不是用消费端锚点硬凑一个数。
+    private static func outputSpeedSample(outputTokens: Int,
+                                          arrival: LLMClient.OutputTimingWindow?,
+                                          fallbackFirst: Date?,
+                                          completedAt: Date) -> OutputSpeedSample {
+        guard let first = arrival?.first ?? fallbackFirst else {
+            return OutputSpeedSample(outputTokens: outputTokens, ttftMs: nil, decodeMs: nil, note: "无 delta 时间戳")
+        }
+        let decodeMs = completedAt.timeIntervalSince(first) * 1000
+        guard let startedAt = arrival?.requestStartedAt else {
+            return OutputSpeedSample(outputTokens: outputTokens, ttftMs: nil, decodeMs: decodeMs,
+                                     note: "无请求发起时刻(消费端回退)")
+        }
+        let ttftMs = first.timeIntervalSince(startedAt) * 1000
+        guard outputTokens > 0, decodeMs > 0 else {
+            return OutputSpeedSample(outputTokens: outputTokens, ttftMs: ttftMs, decodeMs: decodeMs, note: "窗口或词元为 0")
+        }
+        return OutputSpeedSample(outputTokens: outputTokens, ttftMs: ttftMs, decodeMs: decodeMs, note: "ok")
+    }
+
+    private func emitTokenUsage(_ modelId: String, _ input: Int, _ output: Int, cachedRead: Int = 0, cachedWrite: Int = 0, ttftMs: Double? = nil, decodeMs: Double? = nil) {
         lastReportedModelId = modelId
         // 主引擎：顺带刷新 Live Activity 时间戳。
         if !isSubagentEngine {
@@ -1367,38 +1452,17 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
             Task { await BackgroundTaskController.shared.agentDidUpdateTime(sessionID: sid) }
         }
         guard let onTokenUsage else { return }
-        // 单轮调用的 词元 用量照常上报；正文耗时（outputDurationMs）不在此处累加——
-        // 否则每个 agent 循环迭代都会把「首字符→当前末字符」的整段跨度重复计入，
-        // 把中间的工具调用/等待时间也算进输出速度，导致数值失真。
-        // 正文耗时统一在 run 结束时由 emitRunOutputDuration() 结算一次。
+        // 单轮调用的 词元 用量 + **本步的**速度样本（ttft / decode）一并上报；
+        // 聚合由 `TokenUsageTracker` 按 DSH 口径（ΣdecodeTokens ÷ ΣdecodeMs）累计，这里不做任何换算。
         let report = TokenUsageReport(
             modelId: modelId,
             input: input,
             output: output,
             cachedRead: cachedRead,
             cachedWrite: cachedWrite,
-            outputDurationMs: 0,
+            ttftMs: ttftMs,
+            decodeMs: decodeMs,
             agentLoops: iterations
-        )
-        deliverOnMain { onTokenUsage(report) }
-    }
-
-    /// run 结束时结算一次「正文输出速度」耗时：仅统计从正文（body）第一个字
-    /// 到最后一个字的时间跨度，不含思考过程、工具调用与等待间隔。
-    /// 只上报 duration（词元 数已在各轮 emitTokenUsage 累计），避免重复计入。
-    private func emitRunOutputDuration() {
-        // 本轮没有任何正文输出（例如只产生工具调用）则不结算耗时。
-        guard let start = outputStreamStart else { return }
-        let runSpanMs = max(1, outputStreamEnd.timeIntervalSince(start) * 1000)
-        guard let onTokenUsage else { return }
-        let report = TokenUsageReport(
-            modelId: lastReportedModelId,
-            input: 0,
-            output: 0,
-            cachedRead: 0,
-            cachedWrite: 0,
-            outputDurationMs: runSpanMs,
-            agentLoops: 0
         )
         deliverOnMain { onTokenUsage(report) }
     }
@@ -1433,8 +1497,8 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
     }
 
     private func emitComplete(replyText: String) {
-        // run 结束：结算一次正文输出速度耗时（首字→末字，不含思考/工具/等待）。
-        emitRunOutputDuration()
+        // [2026-09-15 速度口径修正] 输出速度改为「单次调用」口径，已在各次 emitTokenUsage 上报，
+        // 不再在 run 结束时结算「正文首末字跨度」（旧口径分子分母不同源）。
         // 记录最终轮答复文本（工具循环结束后最后一轮的 streamedText）：
         // 首页列表摘要以此为准，避免显示整轮拼接 content 开头的过程叙述（见 ChatMessage.previewText）。
         finalReplyText = replyText
@@ -1456,8 +1520,7 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
     }
 
     private func emitError(_ error: Error) {
-        // run 结束（出错）：若本轮已输出部分正文，仍结算其正文耗时。
-        emitRunOutputDuration()
+        // run 结束（出错）：输出速度已在各次 emitTokenUsage 按「单次调用」口径上报，此处无需再结算。
         if !isSubagentEngine {
             Task { @MainActor in await BackgroundTaskController.shared.agentDidFinish(sessionID: sessionID?.uuidString, success: false) }
         }
@@ -1475,8 +1538,7 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
     }
 
     private func emitInterrupted() {
-        // run 中断：结算已输出正文的耗时。
-        emitRunOutputDuration()
+        // run 中断：输出速度已在各次 emitTokenUsage 按「单次调用」口径上报，此处无需再结算。
         if !isSubagentEngine {
             Task { @MainActor in BackgroundTaskController.shared.agentDidInterrupt(sessionID: sessionID?.uuidString) }
         }

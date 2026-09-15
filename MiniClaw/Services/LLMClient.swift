@@ -1,4 +1,5 @@
 import Foundation
+import os
 
 // MARK: - LLM Message Models
 
@@ -60,6 +61,21 @@ final class LLMClient: @unchecked Sendable {
     /// [2026-09-15 OpenAI 官方合规] 会话级路由粘性键（官方 Prompt Caching §4.4）。
     /// nil = 不发（供应商未收录该字段时适配器本来也会忽略）。
     private var promptCacheKey: String?
+
+    /// [2026-09-15 速度口径修正] 最近一次调用的时间锚点（**到达端**，来自适配器 `.outputTiming`）：
+    /// `requestStartedAt`（请求交给 URLSession 的时刻）+ `first`/`last`（首末生成 token 到达时刻）。
+    /// 加锁：写入在消费 Task，读取在引擎的调用返回之后。为 nil 时引擎回退到自己的消费端锚点。
+    /// 用 `OSAllocatedUnfairLock` 而非 `NSLock`：后者的 lock/unlock 在**异步上下文**里被 Swift 标记为
+    /// 不可用（可能跨越挂起点持锁），`withLock` 才是异步安全的（AppLogger 同款用法）。
+    struct OutputTimingWindow: Sendable {
+        let requestStartedAt: Date
+        let first: Date
+        let last: Date
+    }
+    private let outputWindow = OSAllocatedUnfairLock<OutputTimingWindow?>(initialState: nil)
+    var lastOutputWindow: OutputTimingWindow? {
+        outputWindow.withLock { $0 }
+    }
 
     init(
         endpointURL: String,
@@ -367,6 +383,11 @@ final class LLMClient: @unchecked Sendable {
                     case .toolCall(let tc): box.onToolCall(tc)
                     case .toolCallStreaming(let id, let name, let args, let bytes): box.onToolCallStreaming(id, name, args, bytes)
                     case .usage(let p, let c, let cr, let cw): box.onUsage(p, c, cr, cw)
+                    case .outputTiming(let startedAt, let f, let l):
+                        // [2026-09-15 速度口径修正] 记下到达端锚点（端到端 + 解码两个窗口都用它）。
+                        self.outputWindow.withLock {
+                            $0 = OutputTimingWindow(requestStartedAt: startedAt, first: f, last: l)
+                        }
                     case .finishReason(let fr): box.onFinishReason(fr)
                     }
                 }

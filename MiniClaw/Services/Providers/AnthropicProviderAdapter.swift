@@ -85,7 +85,8 @@ final class AnthropicProviderAdapter: LLMProviderAdapter, @unchecked Sendable {
         AppLogger.shared.info("适配器请求发起 provider=Anthropic url=\(config.endpointURL)", category: "LLMClient", subsystem: "Adapter")
 
         let events = AsyncThrowingStream<LLMStreamEvent, Error> { continuation in
-            delegate.onEvent = { continuation.yield($0) }
+            // [2026-09-15 速度口径修正] 在**到达端**（委托队列）给事件打时间戳，供上层算单次调用 tok/s。
+            delegate.onEvent = GenerationTimingProbe.wrap({ continuation.yield($0) }, requestStartedAt: Date())
             delegate.onFinish = { result in
                 switch result {
                 case .success: continuation.finish()

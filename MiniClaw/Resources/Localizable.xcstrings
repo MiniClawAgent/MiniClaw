@@ -39578,31 +39578,60 @@
         }
       }
     },
-    "output_speed_average" : {
+    "output_speed" : {
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Output speed (average)"
+            "value" : "Tokens per second (TPS)"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "出力速度（平均）"
+            "value" : "出力速度（TPS）"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "출력 속도 (평균)"
+            "value" : "출력 속도 (TPS)"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "输出速度（平均值）"
+            "value" : "输出速度（TPS）"
+          }
+        }
+      }
+    },
+    "output_ttft" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Avg time to first token (TTFT)"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "初回トークン平均（TTFT）"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "첫 토큰 평균(TTFT)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "首 token 平均（TTFT）"
           }
         }
       }

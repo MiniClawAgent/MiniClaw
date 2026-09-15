@@ -44,10 +44,9 @@ enum TokenUsageTracker {
     /// 累计一次调用到指定会话的用量（按 sessionID 索引）。必须在主线程调用。
     static func recordSession(sessionID: UUID, modelId: String, input: Int, output: Int,
                                cachedRead: Int = 0, cachedWrite: Int = 0,
-                               agentLoops: Int = 0, outputDurationMs: Double = 0) {
-        // 纯耗时报告（run 结束时由 emitRunOutputDuration 上报，input/output/agentLoops 均为 0、
-        // 仅 outputDurationMs 有值）也必须放行，否则会话级输出速度永远拿不到耗时、显示「—」。
-        guard input > 0 || output > 0 || agentLoops > 0 || outputDurationMs > 0 else { return }
+                               agentLoops: Int = 0, ttftMs: Double? = nil, decodeMs: Double? = nil) {
+        // 只带速度样本的报告（input/output/agentLoops 可能为 0）也必须放行，否则会话级速度永远拿不到样本。
+        guard input > 0 || output > 0 || agentLoops > 0 || decodeMs != nil else { return }
         var map = SettingsStore.shared.settings.sessionTokenUsage ?? [:]
         let key = sessionID.uuidString
         var d = map[key] ?? SessionTokenUsageData()
@@ -56,7 +55,15 @@ enum TokenUsageTracker {
         d.cachedRead = (d.cachedRead ?? 0) + max(0, cachedRead)
         d.cachedWrite = (d.cachedWrite ?? 0) + max(0, cachedWrite)
         d.agentLoops += agentLoops
-        d.outputDurationMs += max(0, outputDurationMs)
+        // [2026-09-15 DSH 对齐] 与 `dsh-session-stats` 同口径：只累计「同时带解码窗口与 output token」的步，
+        // 吞吐 = ΣdecodeTokens ÷ ΣdecodeMs（求和后相除；不是逐次平均、不是中位数），
+        // TTFT 另按 ΣttftMs ÷ ttftSteps 展示平均。
+        if let ttft = ttftMs, let decode = decodeMs, decode > 0, output > 0 {
+            d.decodeTokens += output
+            d.decodeMs += decode
+            d.ttftMs += ttft
+            d.ttftSteps += 1
+        }
         map[key] = d
         SettingsStore.shared.settings.sessionTokenUsage = map
         SettingsStore.shared.save()
