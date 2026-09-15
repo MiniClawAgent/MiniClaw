@@ -55,6 +55,11 @@ struct LLMStreamRequest: Sendable {
     var seed: Int?
     var responseFormat: ResponseFormat?
     var parallelToolCalls: Bool?
+    /// [2026-09-15 OpenAI 官方合规] 路由粘性键（官方 Cookbook《Prompt Caching 201》§4.4）。
+    /// 取值 = 会话级稳定 id：同一会话（含其子代理）的请求带同一个 key，提升落到同一台
+    /// 推理机的概率、进而提升前缀复用率。适配器只在**官方收录该字段的供应商**上发送
+    /// （见 `ProviderType.supportsPromptCacheKey`），其余供应商保持不发。
+    var promptCacheKey: String?
     var stream: Bool = true
 }
 

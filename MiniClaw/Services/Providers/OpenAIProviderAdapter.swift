@@ -280,6 +280,13 @@ class OpenAIProviderAdapter: LLMProviderAdapter, @unchecked Sendable {
         if let extra = extraBodyFields(request: adjusted) {
             for (k, v) in extra { dict[k] = v }
         }
+        // [2026-09-15 OpenAI 官方合规] 路由粘性键（官方 Cookbook《Prompt Caching 201》§4.4：
+        // 「Requests are routed to inference engines based on a hash of the first ~256 tokens…
+        // providing a prompt_cache_key … increases routing stickiness」；官方实测 60% → 87%）。
+        // 只对官方收录该字段的供应商发送（OpenAI），其余保持不发，避免未知字段 400。
+        if let key = adjusted.promptCacheKey, !key.isEmpty, config.providerType.supportsPromptCacheKey {
+            dict["prompt_cache_key"] = key
+        }
         return (try? JSONSerialization.data(withJSONObject: dict, options: [.sortedKeys])) ?? Data()
     }
 
@@ -348,7 +355,10 @@ class OpenAIProviderAdapter: LLMProviderAdapter, @unchecked Sendable {
             // 其余(DeepSeek/OpenRouter)省略该字段,避免 400(厂商能力表 supportsReasoningNone)。
             reasoning: request.reasoningEffort.map { effort in
                 effort == "none" && !config.providerType.supportsReasoningNone ? nil : ResponsesRequest.Reasoning(effort: effort)
-            } ?? nil
+            } ?? nil,
+            // [2026-09-15 OpenAI 官方合规] 路由粘性键：Responses API 同样收录该字段（同上 §4.4）。
+            promptCacheKey: (config.providerType.supportsPromptCacheKey && !(request.promptCacheKey ?? "").isEmpty)
+                ? request.promptCacheKey : nil
         )
         return (try? Self.cacheStableEncoder.encode(req)) ?? Data()
     }

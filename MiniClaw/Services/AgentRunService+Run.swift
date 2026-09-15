@@ -66,6 +66,17 @@ extension AgentRunService {
             engine.setSystemPrompt(stable: stable, volatile: volatile)
             engine.configure(sampling: samplingConfig())
             runtime.mcpPreparationTask = nil
+            // [2026-09-15 缓存治本] 引擎把本轮易变段快照拼进 user 消息后回调这里，由本会话把它
+            // （连同附件提示段）落盘成 `apiContextSuffix`，下一轮 `buildHistory` 逐字回放 ⇒
+            // 请求序列保持「上一轮 + 尾巴」纯追加，前缀缓存可覆盖历史。
+            // 引擎是这些字节的唯一生产者，这里只负责记录，不另行拼装。
+            engine.onTurnAPISuffixComposed = { suffix in
+                Task { @MainActor in
+                    AgentRunService.shared.recordAPIContextSuffix(
+                        session: session, userMessageID: userMessageID,
+                        enrichedInput: enrichedInput, engineSuffix: suffix)
+                }
+            }
             // 把会话相对路径（"attachments/<name>"）解析为绝对路径再传给 Agent/工具。
             // message.attachments 存相对路径是为了持久化抗容器 UUID 变化，
             // 但工具层（iSH shell / VisionAnalyzer）需要绝对路径才能读取文件。
@@ -84,6 +95,42 @@ extension AgentRunService {
         }
         runtime.mcpPreparationTask = preparationTask
         return (engine, runtime)
+    }
+
+    // MARK: - 易变段快照落盘（2026-09-15 缓存治本）
+
+    /// 把**引擎实际拼进本轮请求**的易变段后缀记录下来，落盘为 `ChatMessage.apiContextSuffix`。
+    ///
+    /// 不变量：发送正文（引擎拼的）与历史回放（`buildHistory` 读的）必须逐字节一致，
+    /// 因此这里只做"记录 + 落盘"，**绝不另行拼装**后缀（两处各拼一次，只要差一字节就会
+    /// 重新打断前缀缓存）。
+    /// - 落盘的后缀 = [调用方注入的附件提示段] + [引擎给的易变段后缀]；附件提示虽是
+    ///   `enrichedInput` 相对落盘 `content` 的增量，但为保持字节一致必须一起回放。
+    /// - 易变段已不再挂到 system 的 `volatileSuffix`：那条路径把快照临时拼在请求末尾且不落盘，
+    ///   使请求序列失去「上一轮 + 尾巴」的嵌套结构，前缀缓存只能命中静态前块。
+    func recordAPIContextSuffix(
+        session: ChatSession,
+        userMessageID: UUID,
+        enrichedInput: String,
+        engineSuffix: String
+    ) {
+        guard let idx = session.messages.firstIndex(where: { $0.id == userMessageID }) else {
+            // 不应发生（调用方前置要求 userMessage 已落库）：留下危机标记便于定位。
+            AppLogger.shared.crisisMark("recordAPIContextSuffix: user message \(userMessageID) 未落库")
+            return
+        }
+        let content = session.messages[idx].content
+        var suffix = ""
+        if enrichedInput.hasPrefix(content) {
+            suffix = String(enrichedInput.dropFirst(content.count))
+        } else {
+            AppLogger.shared.warn(
+                "[CacheSuffix] enrichedInput 不以落盘正文开头，附件提示段将不入后缀（本轮缓存退化）",
+                category: "Cache", subsystem: "Context")
+        }
+        suffix += engineSuffix
+        session.messages[idx].apiContextSuffix = suffix.isEmpty ? nil : suffix
+        SessionManager.shared.persist(session)
     }
 
 // MARK: - 智能体会话标题生成（2026-08-07 自 ChatView 迁入：UI 与 headless 共用）

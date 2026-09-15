@@ -14,6 +14,15 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
     /// 与「本会话已加载技能正文」分离存放，便于 rebuildVolatile() 在 skill_load 后增量重算易变段，
     /// 而不必重新走 ChatView.buildSystemPrompt（后者含磁盘 IO 与挂载扫描）。
     private var baseVolatile: String = ""
+    /// [2026-09-15 缓存治本] 已经**发给过模型**的易变段快照文本。
+    ///
+    /// 快照落点分两处，且都必须保证「请求序列 = 上一轮 + 尾巴」这个前缀缓存前提：
+    /// 1. 本轮开局：快照由 `run()` 拼进本轮 user 消息正文尾部（并经 `onTurnAPISuffixComposed`
+    ///    由主会话落盘、下一轮逐字回放），这里记下它的值；
+    /// 2. 轮内变化（`skill_load` 后正文进入易变段）：**在消息流末尾追加一条新的快照消息**，
+    ///    绝不改写已有字节——改写会让本轮已发出的前缀全部作废。
+    /// 轮内变化不落盘：下一轮的快照会重新包含已加载技能正文（`loadedSkillBodies` 按会话累积）。
+    private var lastDeliveredVolatile: String = ""
     /// 深度思考等级覆盖：nil=跟随模型/组默认，有值=强制开启到该档位（"low"/"medium"/"high"/"xhigh"/"max"）。
     /// 由 run(forceThinkingLevel:) 写入，runLoop + emitReasoning 内读取。
     private var forceThinkingOverride: String?
@@ -140,6 +149,12 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
     }
     /// 当前任务所属会话（检查点落盘文件名 key）。
     private var sessionID: UUID? = nil
+    /// [2026-09-15 OpenAI 官方合规] 会话级路由粘性键（官方 Cookbook《Prompt Caching 201》§4.4）。
+    /// 主引擎自身的请求、压缩回放调用、以及它派出的**所有子代理**共用同一个 key ⇒ 更可能落到
+    /// 同一台推理机，从而复用同一份前缀缓存（子代理与主代理共享 L0 前缀，分散路由会各自冷写）。
+    /// 由 `configure(sessionID:)` 取会话 id 生成；子引擎在创建处显式继承父引擎的值。
+    private(set) var promptCacheKey: String?
+
     /// 本轮 run 的 history 对应的 session 消息 id（与 history 参数一一对应），
     /// 自动压缩成功时据此定位锚点消息，写回 session 持久层。
     private var historySourceIDs: [UUID] = []
@@ -165,6 +180,13 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
     private let retryInterval: TimeInterval = 3
     /// 每次成功 LLM 调用的真实/估算用量上报（聚合为 TokenUsageReport）。
     var onTokenUsage: ((TokenUsageReport) -> Void)?
+    /// [2026-09-15 缓存治本] 本轮 user 消息的**易变段后缀已确定**时回调（仅主会话设置）。
+    ///
+    /// 引擎是本轮请求字节的**唯一生产者**（见 `run()` 把后缀拼进 user 消息），主会话据此把它
+    /// 连同附件提示段一起落盘为 `ChatMessage.apiContextSuffix`，下一轮 `buildHistory` 逐字回放
+    /// ⇒ 请求序列保持「上一轮 + 尾巴」的纯追加结构。**不要在调用方另行拼一遍**：两处各拼一次
+    /// 只要有一字节差异就会重新打断前缀缓存。
+    var onTurnAPISuffixComposed: ((String) -> Void)?
     /// 当前会话的「上下文占用快照」：口径 = 真正发出的那一份请求
     /// （system 稳定段 + 易变段 + 工具 schema 定义 + 历史 + 本轮输入 + 多模态），
     /// 与压缩阈值严格同源（快照里带 compactThreshold）。有服务商真值时 measured=true。
@@ -229,7 +251,7 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
         // schema（activity 注入）/执行/生命周期管线。子引擎共享父 router，contains 幂等；
         // 可见性由 buildToolSchemas 按角色/深度过滤，编排逻辑经 ToolEngineScope 回呼本引擎。
         if !toolRouter.contains(DispatchSubagentTool.toolName) {
-            toolRouter.register(DispatchSubagentTool(maxParallel: subagentMaxConcurrentSnapshot))
+            toolRouter.register(DispatchSubagentTool())
         }
         if !toolRouter.contains(CloseSubagentTool.toolName) {
             toolRouter.register(CloseSubagentTool())
@@ -274,6 +296,9 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
     func configure(sessionID: UUID, streamingMessageID: UUID?) {
         self.sessionID = sessionID
         self.streamingMessageID = streamingMessageID
+        // [2026-09-15 OpenAI 官方合规] 路由粘性键 = 会话 id（官方 Prompt Caching §4.4：
+        // 按会话分组最贴合本 App 的形态——一个会话就是一条共享前缀的对话）。
+        self.promptCacheKey = sessionID.uuidString
     }
     private var sampling: SamplingConfig?
 
@@ -304,10 +329,14 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
 
     /// 重算 system 易变段 = 基础易变段（ChatView 传入的挂载列表 + 时间戳）+ 本会话已加载技能正文
     /// （技能正文插在尾部「子代理段」**之前**，见下）。
-    /// 已加载技能正文由 `SkillManager` 按会话隔离维护，随 `skill_load` 调用累积；
-    /// 注入到缓存断点之后的易变段，绝不进入缓存前缀，故对 KV 缓存命中率零影响。
-    /// 同时刷新 `self.systemVolatile` 与 messages 中 system 消息的 `volatileSuffix`，
-    /// 使同一次 run / resume 内、skill_load 之后的后续模型调用立即看到技能正文。
+    /// 已加载技能正文由 `SkillManager` 按会话隔离维护，随 `skill_load` 调用累积。
+    ///
+    /// [2026-09-15 缓存治本] 本函数**只做纯计算**，不再改写任何已发出的消息字节。
+    /// 旧实现把结果写进 system 的 `volatileSuffix`，由适配器把易变段临时拼到请求末尾；
+    /// 那条路径让请求序列失去「请求 N+1 = 请求 N + 尾巴」的嵌套结构，使服务端前缀缓存
+    /// 只能命中静态前块（真机实证：命中恒为 sys+tools、历史逐轮 0 命中）。
+    /// 现在的落点：本轮开局由 `run()` 把快照拼进 user 消息（并经 `onTurnAPISuffixComposed`
+    /// 落盘、下一轮逐字回放）；轮内变化由 `deliverVolatileDeltaIfNeeded()` 在消息流**末尾追加**新快照。
     private func rebuildVolatile() async {
         let skills = await SkillManager.shared.loadedSkillBodies(for: sessionID)
         // 技能正文插在「子代理段」**之前**（2026-09-11）：该段（铁律 + 存活子代理短码）
@@ -332,9 +361,25 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
             combined = [baseVolatile, skills].filter { !$0.isEmpty }.joined(separator: "\n\n")
         }
         self.systemVolatile = combined
-        if let idx = messages.firstIndex(where: { $0.role == "system" }) {
-            messages[idx].volatileSuffix = combined
-        }
+    }
+
+    /// 轮内易变段变化 → **在消息流末尾追加**一条新的快照消息（纯追加，绝不改写已有字节）。
+    ///
+    /// 触发场景：`skill_load` 之后技能正文进入易变段，而本轮开局落盘的那份快照不含它。
+    /// 旧实现直接改写 system 的 `volatileSuffix`（因为它本来就被临时拼在末尾，所以"就地改写"看着无害）；
+    /// 现在快照已经是**已发出字节的一部分**，改写等于把本轮所有请求的前缀作废 ⇒ 必须追加。
+    /// 追加位置在整批工具消息之后，不影响 `assistant(tool_calls) → tool…` 的紧邻性。
+    /// 文本出参用 `APIContextSuffix.volatile`（与落盘快照同一构造点），保证格式一致。
+    private func deliverVolatileDeltaIfNeeded() async {
+        await rebuildVolatile()
+        guard systemVolatile != lastDeliveredVolatile else { return }
+        let suffix = APIContextSuffix.volatile(systemVolatile)
+        guard !suffix.isEmpty else { return }
+        messages.append(ChatCompletionMessage(role: "user", content: suffix))
+        lastDeliveredVolatile = systemVolatile
+        AppLogger.shared.info(
+            "[Volatile] 轮内易变段变化 → 末尾追加快照消息（bytes=\(suffix.count)），已发前缀保持不变",
+            category: "Cache", subsystem: "Context")
     }
 
     // MARK: - 控制接口（主线程调用，fire-and-forget 写入 actor）
@@ -443,17 +488,30 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
         toolCallsSinceOutput = 0
         convergenceHintInjected = false
 
-        // 基础消息：system（稳定段，易变段经 volatileSuffix 随请求拼到缓存前缀之后）+ 历史 + 用户本轮输入
-        // 先刷新易变段：把本会话已加载技能正文注入（缓存前缀不变，命中率不受影响）。
+        // 基础消息：system（**只放稳定段**）+ 历史 + 用户本轮输入。
+        // [2026-09-15 缓存治本] 本轮「易变段快照」拼在本轮 user 消息**正文尾部**（不再是 system
+        // 上由适配器临时追加的尾部消息），并回调主会话把它落盘、下一轮逐字回放——请求序列因此
+        // 保持「上一轮 + 尾巴」的纯追加结构，服务端前缀缓存才能覆盖历史。
         await rebuildVolatile()
+        let turnSuffix = APIContextSuffix.volatile(systemVolatile)
+        // 记为"已送达"，使轮内 `deliverVolatileDeltaIfNeeded()` 只在易变段**真的变化**时才追加快照。
+        lastDeliveredVolatile = systemVolatile
+        // [2026-09-15 缓存治本·只增量、不重复] 若历史里最后一条 user 消息已经携带**逐字相同**的快照，
+        // 本轮就不再重复追加一份：模型仍能从历史读到它，请求保持纯追加结构，而快照不会随轮次
+        // 线性累积（否则 20 轮会话会攒下 20 份内容几乎一样的快照，白白吃上下文窗口，还会提前触发
+        // 压缩——而压缩本身按官方说明必然打断缓存）。
+        // 只有易变段**真的变化**（整点/记忆更新/子代理增减/挂载变化…）才产生一条新的增量。
+        let lastUserText = history.last(where: { $0.role == "user" })?.content?.asText
+        let alreadyInContext = turnSuffix.isEmpty || (lastUserText?.hasSuffix(turnSuffix) ?? false)
+        let effectiveSuffix = alreadyInContext ? "" : turnSuffix
+        // 先回调落盘再发请求：即使本轮请求失败/被取消，后缀也已经与将要发出的字节一致。
+        if !effectiveSuffix.isEmpty { onTurnAPISuffixComposed?(effectiveSuffix) }
         messages = []
         if !systemStable.isEmpty {
-            var systemMessage = ChatCompletionMessage(role: "system", content: systemStable)
-            systemMessage.volatileSuffix = systemVolatile
-            messages.append(systemMessage)
+            messages.append(ChatCompletionMessage(role: "system", content: systemStable))
         }
         messages.append(contentsOf: history)
-        messages.append(ChatCompletionMessage(role: "user", messageContent: LLMClient.buildUserContent(text: userMessage, attachments: attachments)))
+        messages.append(ChatCompletionMessage(role: "user", messageContent: LLMClient.buildUserContent(text: userMessage + effectiveSuffix, attachments: attachments)))
 
         // 会话前上下文占用检查：达到分档阈值先用 LLM 压缩旧历史，
         // 避免单轮直接超出模型上下文窗口导致截断或报错。压缩失败则静默跳过、照常继续。
@@ -509,8 +567,24 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
         // 恢复队列输入（检查点里的；resume 时不依赖外部参数）
         for input in task.pendingUserInputs { await state.enqueue(input) }
         messages = task.messages
+        // [2026-09-15 OpenAI 官方合规·指令恒定] 检查点里的 system 是**当时**那份 stable；
+        // 若期间规则/技能/角色/人格有变，恢复后这一轮会与后续所有轮次（都用当前 stable）分叉 ⇒
+        // 官方 §5「Changes to instructions or system prompts」式的整段 miss。
+        // 统一对齐成当前 stable，使恢复轮与后续轮次的 system 逐字节一致（另有 volatileSuffix 的
+        // 旧值一并清空——快照已改为写在 user 消息里，不再走 system 的易变字段）。
+        if !systemStable.isEmpty {
+            if let sysIdx = messages.firstIndex(where: { $0.role == "system" || $0.role == "developer" }) {
+                messages[sysIdx].content = .text(systemStable)
+                messages[sysIdx].volatileSuffix = nil
+            } else {
+                messages.insert(ChatCompletionMessage(role: "system", content: systemStable), at: 0)
+            }
+        }
         // 检查点里可能不含本会话已加载技能正文（易变段，每轮重拼）：刷新易变段补回，保证恢复后模型仍看得到技能指令。
         await rebuildVolatile()
+        // [2026-09-15 缓存治本] 检查点里的 messages 已含此前发出去的快照/增量（正文都在 content 里），
+        // 因此把当前值记为"已送达"，避免恢复瞬间多追加一条重复快照。
+        lastDeliveredVolatile = systemVolatile
         activeEndpointIndex = task.activeEndpointIndex
         iterations = task.loopIteration
         // 熔断计数跨恢复重置（v1 简化：恢复即重新推导）
@@ -636,7 +710,9 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
                     projectId: endpoint.projectId.isEmpty ? nil : endpoint.projectId,
                     clientRequestId: UUID(),
                     customHeaders: endpoint.customHeaders,
-                    providerType: endpoint.providerType
+                    providerType: endpoint.providerType,
+                    // [2026-09-15 OpenAI 官方合规] 会话级路由粘性键（官方 Prompt Caching §4.4）。
+                    promptCacheKey: promptCacheKey
                 )
                 let requestMessages = limitMessages(messages, endpoint: endpoint)
                 // 2026-08-31 缓存命中诊断：对实际发出的请求计算前缀指纹并与上一轮对比。
@@ -1055,9 +1131,10 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
                 emitInterrupted()
                 return
             }
-            // skill_load 可能在本批次内改变了本会话已加载技能集合：刷新易变段，
-            // 使下一轮模型调用在 system 易变段看到新加载的技能正文（缓存前缀不受影响）。
-            // 注意：本函数只改 system 消息的 volatileSuffix，不 append 消息，位置无约束。
+            // skill_load 可能在本批次内改变了本会话已加载技能集合：刷新易变段。
+            // [2026-09-15 缓存治本] 这里**只做重算**；真正的"让下一步请求看到新正文"由下方
+            // 整批工具消息落盘后的 `deliverVolatileDeltaIfNeeded()` 以追加方式完成
+            // （此处若 append 会把 user 消息夹进 tool_calls 与其结果之间 → 端点 400）。
             await rebuildVolatile()
 
             var trippedFailureCircuit: (name: String, result: ToolResult)?
@@ -1143,6 +1220,11 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
                 messages.append(contentsOf: pendingToolImageMessages)
                 Self.enforceToolImageBudget(messages: &messages)
             }
+
+            // [2026-09-15 缓存治本] 易变段轮内变化（skill_load 注入技能正文）→ 在**整批工具消息之后**
+            // 末尾追加快照消息。位置必须在这里：夹在 `assistant(tool_calls)` 与其 `tool` 结果之间会被
+            // 端点判 400（同上一条纪律），而**改写**已有字节则会让本轮已发出的前缀全部作废。
+            await deliverVolatileDeltaIfNeeded()
 
             // 安全点②：本轮工具结果已落库、上下文完整后，若请求暂停 → 落地为 .paused。
             if await state.isPausedRequested() {
@@ -1440,6 +1522,16 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
     /// 预算取 `ContextPolicy.hardTrimBudget`（窗口扣掉输出预留与安全边际），
     /// 并先扣除 system 与工具 schema 的固定开销，剩余额度从尾部保留完整消息，
     /// 避免截断工具调用 JSON 或拆散 tool_call / tool_result 配对。
+    ///
+    /// [2026-09-15 OpenAI 官方合规·避免 naive truncation] 官方 Prompt Caching 把
+    /// 「Naive truncation from hitting the models' context window」明确列为低命中原因：
+    /// 「每轮只砍掉最旧一条」会让**历史的开头每轮都变** ⇒ 前缀从第一条起整段失效。
+    /// 官方对同一问题（Realtime 的上下文裁剪）给的解法是 `truncation: retention_ratio` ——
+    /// **一次性砍掉一大块**，换取更长的稳定期。此处照此办理：一旦确实需要裁剪，就按
+    /// `trimRetentionRatio` 多留出余量，使后续若干轮不再触发裁剪。
+    /// 代价与官方文档所述一致：单次会多丢一些旧历史。
+    private static let trimRetentionRatio = 0.7
+
     private func limitMessages(
         _ messages: [ChatCompletionMessage],
         endpoint: ModelRouteEndpoint
@@ -1456,40 +1548,56 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
         // system 与工具定义无法裁剪，先扣掉；至少给正文留 1000 token 的活动空间。
         let budget = max(1_000, policy.hardTrimBudget - systemTokens - toolTokens)
 
-        var result: [ChatCompletionMessage] = []
-        var used = 0
-        var toolCallIDsToInclude = Set<String>()
-        var isCollectingToolExchange = false
+        /// 从最新往前收集到 `limit` 为止；tool_call 与其 tool 结果必须整对保留。
+        /// 返回是否发生了裁剪（未裁剪 = 全部正文消息都留下来了）。
+        func select(limit: Int) -> (kept: [ChatCompletionMessage], trimmed: Bool) {
+            var result: [ChatCompletionMessage] = []
+            var used = 0
+            var toolCallIDsToInclude = Set<String>()
+            var isCollectingToolExchange = false
 
-        for message in messages.reversed() {
-            if message.role == "system" || message.role == "developer" { continue }
-            let belongsToToolExchange = message.role == "tool" ||
-                (message.role == "assistant" && !(message.toolCalls?.isEmpty ?? true))
-            let parts = ContextUsageEstimator.estimate(message: message)
-            let cost = parts.text + parts.media + ContextUsageEstimator.perMessageOverhead
+            for message in messages.reversed() {
+                if message.role == "system" || message.role == "developer" { continue }
+                let belongsToToolExchange = message.role == "tool" ||
+                    (message.role == "assistant" && !(message.toolCalls?.isEmpty ?? true))
+                let parts = ContextUsageEstimator.estimate(message: message)
+                let cost = parts.text + parts.media + ContextUsageEstimator.perMessageOverhead
 
-            if !result.isEmpty,
-               used + cost > budget,
-               !isCollectingToolExchange,
-               !belongsToToolExchange {
-                break
-            }
+                if !result.isEmpty,
+                   used + cost > limit,
+                   !isCollectingToolExchange,
+                   !belongsToToolExchange {
+                    break
+                }
 
-            result.append(message)
-            used += cost
-            if message.role == "tool", let toolCallID = message.toolCallID {
-                toolCallIDsToInclude.insert(toolCallID)
-                isCollectingToolExchange = true
-            } else if message.role == "assistant", let calls = message.toolCalls {
-                let callIDs = Set(calls.map(\.id))
-                if !toolCallIDsToInclude.isDisjoint(with: callIDs) {
-                    isCollectingToolExchange = false
-                    toolCallIDsToInclude.subtract(callIDs)
+                result.append(message)
+                used += cost
+                if message.role == "tool", let toolCallID = message.toolCallID {
+                    toolCallIDsToInclude.insert(toolCallID)
+                    isCollectingToolExchange = true
+                } else if message.role == "assistant", let calls = message.toolCalls {
+                    let callIDs = Set(calls.map(\.id))
+                    if !toolCallIDsToInclude.isDisjoint(with: callIDs) {
+                        isCollectingToolExchange = false
+                        toolCallIDsToInclude.subtract(callIDs)
+                    }
                 }
             }
+            let bodyCount = messages.filter { $0.role != "system" && $0.role != "developer" }.count
+            return (result.reversed().map { $0 }, result.count < bodyCount)
         }
 
-        var final = result.reversed().map { $0 }
+        // 第一趟按真实预算收集：**没触发裁剪就直接返回**（绝大多数轮次走这条，前缀不受影响）。
+        var picked = select(limit: budget)
+        if picked.trimmed {
+            // 已触发裁剪 ⇒ 一次多留余量（retention ratio），避免「每轮砍一条」反复打断前缀。
+            picked = select(limit: max(1_000, Int(Double(budget) * Self.trimRetentionRatio)))
+            AppLogger.shared.info(
+                "[Trim] 硬裁剪按官方 retention-ratio 思路一次性大步长（\(Self.trimRetentionRatio)）：保留正文 \(picked.kept.count) 条，避免每轮微调前缀",
+                category: "Cache", subsystem: "Context")
+        }
+
+        var final = picked.kept
         // system / developer 消息始终保留在最前（顺序与原始一致）。
         if !systemMessages.isEmpty {
             final.insert(contentsOf: systemMessages, at: 0)
@@ -1735,7 +1843,10 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
                 projectId: endpoint.projectId.isEmpty ? nil : endpoint.projectId,
                 clientRequestId: UUID(),
                 customHeaders: endpoint.customHeaders,
-                providerType: endpoint.providerType
+                providerType: endpoint.providerType,
+                // [2026-09-15 OpenAI 官方合规] 压缩调用**回放同一前缀**，用同一 key 才能落到同一台
+                // 推理机、复用已缓存前缀（否则路由分散会让这次回放白付全价）。
+                promptCacheKey: promptCacheKey
             )
             var summaryText = ""
             var summarizeMessages: [ChatCompletionMessage] = []
@@ -2477,6 +2588,9 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
             focus: focus,depth: childDepth,canDispatchDeeper: canDispatchDeeper)
         child.setSystemPrompt(stable: systemPrompt,volatile: volatile)
         child.configure(sessionID: subID, streamingMessageID: nil)
+        // [2026-09-15 OpenAI 官方合规] 子代理**继承父会话的路由粘性键**：子代理与主代理共享 L0
+        // 前缀，只有落到同一台推理机才能复用那份缓存（各自换 key 会把共享前缀拆散到不同机器）。
+        child.promptCacheKey = promptCacheKey
         // 子代理 usage 转发到父引擎统计（P6）：TokenUsageTracker 只绑主引擎，
         // 不转发则子代理消耗在用量/费用统计里系统性缺失。
         child.onTokenUsage = { [weak self] report in

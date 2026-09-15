@@ -162,7 +162,10 @@ final class AgentRunService {
         }
         for m in historyMessages {
             let role = m.role == .user ? "user" : "assistant"
-            var content = m.content
+            // [2026-09-15 缓存治本] 用 `apiContent`（content + 落盘的易变段快照后缀）回放，
+            // 与发送侧（`startRun`）逐字节一致 ⇒ 请求序列保持「上一轮 + 尾巴」的纯追加结构，
+            // 服务端前缀缓存才能覆盖历史。直接用 `content` 会丢掉快照字节、重新打断前缀。
+            var content = m.apiContent
             // 被用户中途打断/停止、或出错的回复：明确标注其不完整且已终止，
             // 避免模型把历史里半截的 assistant 内容当成「需要续写」的对象，
             // 从而略过用户最新消息（如强制发送的队列消息2）继续补全消息1。
@@ -649,19 +652,18 @@ final class AgentRunService {
     }
 
     func buildSystemPromptCached(with toolRouter: ToolRouter, extraSkillName: String? = nil, sessionID: UUID) async -> (stable: String, volatile: String) {
-        if extraSkillName == nil, let stable = stablePromptCache[sessionID] {
-            let (_, volatile) = await buildSystemPrompt(with: toolRouter, sessionID: sessionID)
+        // [2026-09-15 OpenAI 官方合规·指令恒定] stable 已与 extraSkillName 解耦——「本轮强制使用的
+        // 技能」正文改由 volatile 段尾部注入（见 buildSystemPrompt 2.6）。因此**任何轮次都可复用
+        // 同一份 stable**：`/技能` 轮不再让自身与相邻轮次的 system 从插入点起分叉。
+        if let stable = stablePromptCache[sessionID] {
+            let (_, volatile) = await buildSystemPrompt(with: toolRouter, extraSkillName: extraSkillName, sessionID: sessionID)
             return (stable, volatile)
         }
         let built = await buildSystemPrompt(with: toolRouter, extraSkillName: extraSkillName, sessionID: sessionID)
-        // 技能注入轮(extraSkillName 非 nil)不写缓存:「本轮强制使用」的技能是一次性注入,
-        // 固化进缓存会让技能指令泄漏到会话后续所有轮次(用户无感知的行为回归)。
-        if extraSkillName == nil {
-            if stablePromptCache.count >= 20, let first = stablePromptCache.keys.first {
-                stablePromptCache.removeValue(forKey: first)
-            }
-            stablePromptCache[sessionID] = built.stable
+        if stablePromptCache.count >= 20, let first = stablePromptCache.keys.first {
+            stablePromptCache.removeValue(forKey: first)
         }
+        stablePromptCache[sessionID] = built.stable
         return built
     }
 

@@ -57,6 +57,9 @@ final class LLMClient: @unchecked Sendable {
     private var providerType: ProviderType
     /// 用户自定义请求头（provider 配置附带），在默认头之后合并、用户优先
     private var customHeaders: [String: String]?
+    /// [2026-09-15 OpenAI 官方合规] 会话级路由粘性键（官方 Prompt Caching §4.4）。
+    /// nil = 不发（供应商未收录该字段时适配器本来也会忽略）。
+    private var promptCacheKey: String?
 
     init(
         endpointURL: String,
@@ -67,7 +70,8 @@ final class LLMClient: @unchecked Sendable {
         projectId: String? = nil,
         clientRequestId: UUID? = nil,
         customHeaders: [String: String]? = nil,
-        providerType: ProviderType = .openai
+        providerType: ProviderType = .openai,
+        promptCacheKey: String? = nil
     ) {
         let config = URLSessionConfiguration.default
         config.timeoutIntervalForRequest = 30
@@ -85,6 +89,7 @@ final class LLMClient: @unchecked Sendable {
         self.clientRequestId = clientRequestId
         self.customHeaders = customHeaders
         self.providerType = providerType
+        self.promptCacheKey = promptCacheKey
     }
 
     func streamChat(
@@ -337,6 +342,7 @@ final class LLMClient: @unchecked Sendable {
             seed: seed,
             responseFormat: responseFormat,
             parallelToolCalls: parallelToolCalls,
+            promptCacheKey: promptCacheKey,
             stream: true
         )
         let handle = adapter.streamChat(request: request)

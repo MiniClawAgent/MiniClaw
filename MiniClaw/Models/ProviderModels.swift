@@ -349,6 +349,23 @@ enum ProviderType: String, Codable, CaseIterable {
         }
     }
 
+    /// [2026-09-15 OpenAI 官方合规] 是否发送 `prompt_cache_key`。
+    ///
+    /// 官方依据（OpenAI Cookbook《Prompt Caching 201》§4.4「Use `prompt_cache_key` to Improve
+    /// Routing Stickiness」）：「Requests are routed to inference engines based on a hash of the
+    /// first ~256 tokens of the prompt. When you provide a `prompt_cache_key`, it is combined with
+    /// that hash to increase routing stickiness」；官方实测某编码客户命中率 **60% → 87%**。
+    ///
+    /// **只对官方明确写出的供应商开启**：DeepSeek / 智谱 / 千问 / Grok / OpenRouter / custom 的
+    /// 官方文档均未收录该字段，按仓库纪律（官方负向依据缺失时不发明参数）保持不发送，
+    /// 避免未知字段被严格网关判 400。
+    var supportsPromptCacheKey: Bool {
+        switch self {
+        case .openai: return true
+        default: return false
+        }
+    }
+
     /// 厂商 embedding 支持登记（单一事实来源，2026-08 官网核对）。
     /// 适配新厂商 / 厂商能力变化时**必须**更新本表（「模型适配资料完整」纪律的组成部分）：
     /// 记忆嵌入设置的端点解析（AppState.resolveEmbeddingEndpoint）与运行时探测均以此为准，

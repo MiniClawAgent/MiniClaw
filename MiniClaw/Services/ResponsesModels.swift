@@ -11,10 +11,14 @@ struct ResponsesRequest: Encodable {
     var tools: [ResponsesTool]?
     var maxOutputTokens: Int?
     var reasoning: Reasoning?
+    /// [2026-09-15 OpenAI 官方合规] 路由粘性键（官方 Cookbook《Prompt Caching 201》§4.4）。
+    /// Responses API 同样收录该字段；只在 `ProviderType.supportsPromptCacheKey` 为真时填入。
+    var promptCacheKey: String?
 
     enum CodingKeys: String, CodingKey {
         case model, instructions, input, stream, tools, reasoning
         case maxOutputTokens = "max_output_tokens"
+        case promptCacheKey = "prompt_cache_key"
     }
 
     struct Reasoning: Encodable {

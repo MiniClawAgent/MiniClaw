@@ -60,15 +60,21 @@ extension AgentRunService {
         }
 
         // 2.6 本次一次性强制使用的技能（/技能名 触发）：无论该技能是否启用，都临时注入其正文，
-        // 让 智能体在本轮直接按该技能执行。注意：放在「已启用技能」之后，优先级更高。
+        // 让 智能体在本轮直接按该技能执行。
+        // [2026-09-15 OpenAI 官方合规·指令不得逐轮变] 原先插在 stableParts **中段**，导致
+        // `/技能` 轮与相邻两轮的 stable 从插入点起全部不同（官方 §5 把「Changes to instructions
+        // or system prompts」列为低命中原因）。现改为**延迟到 volatile 段尾部注入**（官方 §4.2：
+        // 「Move volatile content … to the end」）——stable 从此与 extraSkillName 无关，
+        // 可以正常读写会话级缓存；强制技能正文作为「本轮新增的尾巴」出现，不影响任何已有前缀。
+        var forcedSkillSection: String? = nil
         if let name = extraSkillName, let body = await SkillManager.shared.skillBody(named: name),
            !body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            stableParts.append("""
+            forcedSkillSection = """
             ## 本轮强制使用的技能：\(name)
             下面是用户通过「/\(name)」指令要求本轮必须使用的技能正文。请严格遵循其指令完成本次任务，\
             并在需要时引用同目录下的 references/、scripts/、assets/ 等。
             \(body)
-            """)
+            """
         }
 
         // 3./4./miniclaw:// 链接/搜索策略四段已迁入 AgentPromptCore.sharedPrefix（置于 stable 最前，供主代理与子代理共享缓存前缀）。
@@ -178,6 +184,12 @@ extension AgentRunService {
         // 时间已改为小时级粒度（见 currentEnvironmentPromptSection），比子代理清单稳定，
         // 故置于子代理段之前（次末位）——不再自称「最末尾」，以免与下方事实不符。
         volatileParts.append(currentEnvironmentPromptSection())
+
+        // 2.6 的强制技能正文：按「变化频率升序」放在易变段靠后位置（紧邻子代理段之前），
+        // 既有最强的末尾权重，又不破坏「子代理段恒定收尾 / 铁律作切分点」这条既有不变量。
+        if let forcedSkillSection {
+            volatileParts.append(forcedSkillSection)
+        }
 
         // 3.4.5 子代理操作铁律 + 当前会话的子代理清单（**成对收尾**：短码就近可读）。
         // 铁律**无条件**注入——它防的是「回复文本里声称已派发/已关闭」的假执行，与是否

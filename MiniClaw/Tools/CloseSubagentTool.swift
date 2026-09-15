@@ -15,27 +15,23 @@ final class DispatchSubagentTool: AgentTool {
     static let toolName = "dispatch_subagent"
     var name: String { Self.toolName }
 
-    /// 并行上限快照（注册时由引擎注入，schema 文案与执行限制同源）。
-    private let maxParallel: Int
-
-    init(maxParallel: Int) {
-        self.maxParallel = maxParallel
-    }
-
     /// 子代理整轮回复可达分钟级，不受 120s 工具超时约束（与旧拦截路径行为一致）。
     var executionTimeout: TimeInterval? { nil }
     /// 长时编排：绝不自动重试（v1 元数据；恢复场景从检查点重放整轮）。
     var resumePolicy: ResumePolicy { .neverRetry }
 
-    /// profile 参数的角色列表由 SubAgentProfileStore 动态生成（用户可自建角色）。
+    /// [2026-09-15 OpenAI 官方合规·tools 必须恒定] 本 schema **不得包含任何运行时数据**。
+    ///
+    /// 官方 Prompt Caching 明确要求「Keep Tools and Schemas Identical」：tools/schema 参与缓存前缀
+    /// （且会被注入在 developer instructions **之前**），任何逐轮差异都会让其后的全部内容 miss。
+    /// 此前这里把 `SubAgentProfileStore` 的角色清单与 `maxParallel` 设置值内联进 description：
+    /// 角色重载 / 改设置即改 schema；更糟的是启动期 `SubAgentProfileStore.reload` 与首轮存在竞态，
+    /// 会让同一会话的首轮（短句）与次轮（角色长清单）不同 ⇒ 缓存整段作废。
+    /// 现改为**纯静态文案**，运行时信息改由两个官方认可的位置承载：
+    /// - 可用角色清单 → **stable system 段**（`SubAgentGuide.guideWithProfiles()`，会话内冻结）；
+    /// - 并行上限 → 执行期截断并在工具结果里回报（`AgentLoopEngine` 的 `loop_parallel_dropped`）。
     var schema: ToolSchema {
-        let profileList = SubAgentProfileStore.shared.allSummaries()
-            .map { "- `\($0.name)`：\($0.displayName)（\($0.summary)）" }
-            .joined(separator: "\n")
-        let profileDescription = profileList.isEmpty
-            ? String(localized: "param_subagent_role_default")
-            : String(format: String(localized: "loop_subagent_roles"), profileList)
-        return ToolSchema(
+        ToolSchema(
             type: "function",
             function: ToolSchema.FunctionDef(
                 name: Self.toolName,
@@ -45,11 +41,11 @@ final class DispatchSubagentTool: AgentTool {
                     properties: [
                         "task": JSONSchema.JSONProperty(type: "string", description: String(localized: "param_subtask_desc_independent")),
                         "focus": JSONSchema.JSONProperty(type: "string", description: String(localized: "param_subagent_focus_label")),
-                        "profile": JSONSchema.JSONProperty(type: "string", description: profileDescription),
+                        "profile": JSONSchema.JSONProperty(type: "string", description: String(localized: "param_subagent_role_default")),
                         "subagent_id": JSONSchema.JSONProperty(type: "string", description: String(localized: "param_subagent_id_reuse")),
                         "tasks": JSONSchema.JSONProperty(
                             type: "array",
-                            description: String(format: String(localized: "loop_parallel_tasks_desc"), maxParallel),
+                            description: String(localized: "loop_parallel_tasks_desc"),
                             items: JSONSchema(
                                 type: "object",
                                 properties: [

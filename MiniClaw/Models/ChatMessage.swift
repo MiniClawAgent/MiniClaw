@@ -32,6 +32,25 @@ final class ChatMessage: Identifiable, Codable {
     /// 分段思考过程：按「agent loop 轮次（iterations）」切片，每段独立可折叠、穿插在正文/工具调用之间。
     var reasoningSegmentsData: Data?
 
+    /// [2026-09-15 缓存治本] 本条消息在**实际请求体**里 `content` 之后必须逐字重放的字节
+    /// （= 附件提示段 + 本轮「易变段快照」）。只进 API 请求，不进 UI；可选类型，旧数据为 nil。
+    ///
+    /// 为什么必须落盘并逐字回放：服务端提示词缓存按「缓存前缀单元 / 最长公共前缀」命中，前提是
+    /// **请求 N+1 逐字节以请求 N 开头**。易变段（时间 / 工具清单 / 环境变量 / 挂载 / 记忆 / 子代理清单）
+    /// 若每轮临时拼在请求末尾，上一轮请求的结尾在下一轮里不存在 ⇒ 缓存只能命中静态前块
+    /// （真机实证：`[Cache命中]` 恒等于 sys+tools，历史逐轮 0 命中、未命中与 prompt 增量 1:1）。
+    /// 把易变段落进本条消息并逐字回放后，请求序列恢复为纯追加 ⇒ 缓存可覆盖全部历史。
+    /// 根因与实测见 `Doc/MiniClaw_缓存命中率-根因报告-20260915.md`。
+    var apiContextSuffix: String?
+
+    /// 本条消息实际发给模型的正文 = `content` + `apiContextSuffix`。
+    /// **发送侧与历史回放侧必须都走这里**（`AgentRunService+Run.startRun` / `buildHistory`），
+    /// 否则两侧字节不一致会重新打断前缀缓存。
+    var apiContent: String {
+        guard let suffix = apiContextSuffix, !suffix.isEmpty else { return content }
+        return content + suffix
+    }
+
     /// 内存反向引用（不参与编码）：由 SessionManager 加载时装配。
     weak var session: ChatSession?
 
@@ -290,6 +309,23 @@ struct ReasoningSegment: Codable, Identifiable, Equatable {
         text = try c.decode(String.self, forKey: .text)
         position = try c.decodeIfPresent(Int.self, forKey: .position) ?? 0
         timelineOrder = try c.decodeIfPresent(Int.self, forKey: .timelineOrder) ?? 0
+    }
+}
+
+// MARK: - 易变段 → 请求体后缀（唯一构造点）
+
+/// [2026-09-15 缓存治本] 「易变段快照」拼进请求体的**唯一构造点**。
+///
+/// 发送侧（`AgentRunService+Run.startRun` 落盘快照）与轮内增量（`AgentLoopEngine` 在
+/// `skill_load` 后追加）都从这里取文本，保证同一段快照在任何位置逐字节一致——
+/// 前缀缓存只认字节，任何"两处各拼一遍"的分叉都会重新打断嵌套。
+enum APIContextSuffix {
+    /// 把易变段包成可直接追加到消息末尾的后缀（含"这不是用户指令"的显式标注）。
+    /// 易变段为空时返回空串（此时请求保持纯追加，不产生任何尾巴）。
+    static func volatile(_ text: String) -> String {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return "" }
+        return "\n\n" + String(format: String(localized: "env_snapshot_note"), trimmed)
     }
 }
 

@@ -45,6 +45,8 @@ final class SQLiteStore: @unchecked Sendable {
             var reasoning: String?
             var previewText: String?
             var reasoningSegmentsData: Data?
+            /// [2026-09-15 缓存治本] API 请求体里 content 之后必须逐字重放的后缀（易变段快照）。
+            var apiContextSuffix: String?
         }
         var id: UUID
         var title: String
@@ -86,7 +88,8 @@ final class SQLiteStore: @unchecked Sendable {
                                toolCallName: $0.toolCallName, toolCallResult: $0.toolCallResult,
                                toolCallsData: $0.toolCallsData, attachmentsData: $0.attachmentsData,
                                reasoning: $0.reasoning, previewText: $0.previewText,
-                               reasoningSegmentsData: $0.reasoningSegmentsData)
+                               reasoningSegmentsData: $0.reasoningSegmentsData,
+                               apiContextSuffix: $0.apiContextSuffix)
                 }
             )
         }
@@ -159,9 +162,13 @@ final class SQLiteStore: @unchecked Sendable {
         }
     }
 
-    /// 列级迁移集合:messages.is_paused + sessions.compact_anchor_id/compact_summary。
+    /// 列级迁移集合:messages.is_paused + messages.api_context_suffix
+    /// + sessions.compact_anchor_id/compact_summary。
     private func migrateSchemaIfNeeded() {
         ensureColumn(table: "messages", column: "is_paused", definition: "is_paused INTEGER NOT NULL DEFAULT 0")
+        // [2026-09-15 缓存治本] 易变段快照后缀:旧库缺列时补上,否则带该列的 SELECT/INSERT 会报
+        // no such column → 所有会话读不出来(与 is_paused 同款事故)。
+        ensureColumn(table: "messages", column: "api_context_suffix", definition: "api_context_suffix TEXT")
         ensureColumn(table: "sessions", column: "compact_anchor_id", definition: "compact_anchor_id TEXT")
         ensureColumn(table: "sessions", column: "compact_summary", definition: "compact_summary TEXT")
     }
@@ -223,6 +230,7 @@ final class SQLiteStore: @unchecked Sendable {
             reasoning TEXT,
             preview_text TEXT,
             reasoning_segments_data BLOB,
+            api_context_suffix TEXT,
             sort_order INTEGER NOT NULL
         );
         CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id, sort_order);
@@ -369,8 +377,9 @@ final class SQLiteStore: @unchecked Sendable {
         INSERT OR REPLACE INTO messages (id, session_id, role_raw, content, created_at, is_streaming,
                                          is_paused, was_stopped, was_interrupted, task_elapsed_seconds,
                                          tool_call_name, tool_call_result, tool_calls_data, attachments_data,
-                                         reasoning, preview_text, reasoning_segments_data, sort_order)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                                         reasoning, preview_text, reasoning_segments_data, api_context_suffix,
+                                         sort_order)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         """
         var stmt: OpaquePointer?
         guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
@@ -398,7 +407,8 @@ final class SQLiteStore: @unchecked Sendable {
             bindOptText(stmt, 15, m.reasoning)
             bindOptText(stmt, 16, m.previewText)
             bindOptBlob(stmt, 17, m.reasoningSegmentsData)
-            sqlite3_bind_int64(stmt, 18, Int64(idx))
+            bindOptText(stmt, 18, m.apiContextSuffix)
+            sqlite3_bind_int64(stmt, 19, Int64(idx))
             guard sqlite3_step(stmt) == SQLITE_DONE else {
                 AppLogger.shared.error("SQLiteStore.replaceMessageRows: INSERT step 失败 session=\(sid) idx=\(idx)",
                                        category: "Session", subsystem: "SQLite")
@@ -455,7 +465,7 @@ final class SQLiteStore: @unchecked Sendable {
                 SELECT id, session_id, role_raw, content, created_at, is_streaming, is_paused,
                        was_stopped, was_interrupted, task_elapsed_seconds, tool_call_name,
                        tool_call_result, tool_calls_data, attachments_data, reasoning, preview_text,
-                       reasoning_segments_data
+                       reasoning_segments_data, api_context_suffix
                 FROM messages ORDER BY session_id, sort_order ASC
                 """, -1, &mstmt, nil) == SQLITE_OK else { return result }
             defer { sqlite3_finalize(mstmt) }
@@ -477,6 +487,7 @@ final class SQLiteStore: @unchecked Sendable {
                 msg.reasoning = colOptText(mstmt, 14)
                 msg.previewText = colOptText(mstmt, 15)
                 msg.reasoningSegmentsData = colOptBlob(mstmt, 16)
+                msg.apiContextSuffix = colOptText(mstmt, 17)
                 bySession[sid, default: []].append(msg)
             }
             for session in result {
