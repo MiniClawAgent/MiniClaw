@@ -2,46 +2,13 @@ import Foundation
 import UIKit
 import MiniClawKit
 
-/// 浏览器 UA 预设（提取自 BrowserController，供 UA 字符串解析使用）。
-enum UAProfile: String, CaseIterable {
-    case mobile
-    case desktop
-}
-
-/// 浏览器控制器纯逻辑工具（2026-08 提取：UA 预设 / 动作参数解析 / URL 工具，可独立单测）。
+/// 浏览器纯逻辑工具（2026-08 提取：UA 参数解析 / 动作参数解析 / URL 工具，可独立单测）。
+///
+/// [2026-09-15 体系统一] 原在这里的 `enum UAProfile`（mobile/desktop，key
+/// "miniClaw.browserUAProfile"）与 `defaultUAString()` / `desktopUA` / `mobileUA` 已删除：
+/// UA 的唯一事实来源是**引擎池**的 `MiniClawUAProfile`（key "BrowserUserAgentProfile"）。
+/// 旧的这套只作用于从不上屏的旧标签（旧体系），留着就是第二套真相。
 enum BrowserActionHelpers {
-
-
-    /// 桌面 Safari UA（提供给 智能体使用）
-    static let desktopUA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15"
-
-    /// 移动端（iOS）UA
-    static let mobileUA = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
-
-
-    /// 当前 UA 预设（持久化到 UserDefaults，默认 Mobile Safari）
-    /// fileprivate：供同文件内的 BrowserTab.init 直接读取，避免触发 `BrowserController.shared` 递归初始化。
-    static let uaProfileKey = "miniClaw.browserUAProfile"
-
-    /// 当前 UA 字符串：**以浏览器 UA 预设（uaProfile）为单一事实来源**。
-    /// 之前误读 settings.browser.uaMode（通用设置另一套存储），导致在浏览器设置里
-    /// 切「Desktop Safari」后 applyUAProfileToAllTabs 仍应用移动 UA，页面不变。
-    /// desktop → 桌面 UA；mobile → 移动 UA（通用设置配了 custom 且非空时用 custom）。
-    static func defaultUAString() -> String {
-        let profile = UAProfile(rawValue: UserDefaults.standard.string(forKey: uaProfileKey) ?? "") ?? .mobile
-        switch profile {
-        case .desktop:
-            return Self.desktopUA
-        case .mobile:
-            let b = SettingsStore.shared.settings.browser
-            if b.uaMode == "custom" {
-                let custom = b.userAgent.trimmingCharacters(in: .whitespacesAndNewlines)
-                if !custom.isEmpty { return custom }
-            }
-            return Self.mobileUA
-        }
-    }
-
 
     /// 智能体工具入口：在指定会话上下文内执行，完全独立于全局 currentSessionID（首页/手动浏览）。
     /// 通过 scopedSessionID 临时覆盖 activeContext 的解析目标，调用结束后恢复。

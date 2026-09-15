@@ -300,58 +300,33 @@ struct MessageBubbleView: View {
             return content.isEmpty ? [] : [.text(content, ordinal: 0)]
         }
 
-        struct TimelineEntry {
-            let position: Int
-            let timelineOrder: Int
-            let item: AssistantSegment
-        }
-
-        var timeline: [TimelineEntry] = []
-
+        // [2026-09-15 收敛] 事件排序 + 正文切分统一交给 `MiniClawChatAdapter.planTimeline`
+        //（**与主聊天列表 `buildBlocks`、流式路径共用同一实现**）—— 本文件不再自持一套同构
+        // 拷贝，切分规则只有一份。
+        var items: [AssistantSegment] = []
+        var eventMeta: [(order: Double, position: Int)] = []
         for seg in segments {
-            timeline.append(TimelineEntry(
-                position: seg.position,
-                timelineOrder: seg.timelineOrder,
-                item: .reasoning(seg)
-            ))
+            items.append(.reasoning(seg))
+            eventMeta.append((Double(seg.timelineOrder), seg.position))
         }
         for ev in events {
-            timeline.append(TimelineEntry(
-                position: ev.position,
-                timelineOrder: ev.timelineOrder,
-                item: .tool(ev)
-            ))
-        }
-
-        let hasValidTimeline = timeline.contains { $0.timelineOrder > 0 }
-        if hasValidTimeline {
-            timeline.sort { $0.timelineOrder < $1.timelineOrder ||
-                          ($0.timelineOrder == $1.timelineOrder && $0.position < $1.position) }
-        } else {
-            timeline.sort { $0.position < $1.position }
+            items.append(.tool(ev))
+            eventMeta.append((Double(ev.timelineOrder), ev.position))
         }
 
         var result: [AssistantSegment] = []
-        var textCursor = 0
         // 文本段序号：与工具/思考段的 id 一起构成稳定渲染身份（见 AssistantSegment.id）。
         var textOrdinal = 0
-
-        for entry in timeline {
-            let entryPos = min(max(entry.position, 0), content.count)
-            if entryPos > textCursor {
-                let startIdx = content.index(content.startIndex, offsetBy: textCursor)
-                let endIdx = content.index(content.startIndex, offsetBy: entryPos)
-                result.append(.text(String(content[startIdx..<endIdx]), ordinal: textOrdinal))
+        for step in MiniClawChatAdapter.planTimeline(content: content,
+                                                    events: eventMeta,
+                                                    identifier: "subagent") {
+            switch step.content {
+            case .event(let index):
+                result.append(items[index])
+            case .text(_, let text):
+                result.append(.text(text, ordinal: textOrdinal))
                 textOrdinal += 1
             }
-            result.append(entry.item)
-            textCursor = entryPos
-        }
-
-        if textCursor < content.count {
-            let startIdx = content.index(content.startIndex, offsetBy: textCursor)
-            result.append(.text(String(content[startIdx..<content.endIndex]), ordinal: textOrdinal))
-            textOrdinal += 1
         }
 
         return result

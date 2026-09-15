@@ -60,10 +60,37 @@ struct BrowserTool: AgentTool {
         let tabIDRaw = parameters["tab_id"]
         let tabID: String? = (tabIDRaw as? String) ?? (tabIDRaw as? Int).map(String.init)
 
+        // [2026-09-14 唐唐 · 遵守度观测探针] **只读、不参与任何决策**，用来验证快照里那条
+        // 「工具选择决策优先级」规则到底有没有被遵守。判据：navigate/fetch 选中的主机
+        // 是否落在快照的「可用」列表里（`isSearchEngine=1` 且 host 是 google ⇒ 未遵守的典型）。
+        // 按 §11：不影响功能的诊断探针直接加，不单独征求许可。
+        if action == "navigate" || action == "fetch",
+           let rawURL = (params["url"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !rawURL.isEmpty {
+            let host = URL(string: rawURL)?.host?.lowercased() ?? "-"
+            // 探针本地常量（**不参与任何决策**，仅用于把日志一眼读成"选了哪个引擎"）。
+            let knownSearchHosts: Set<String> = [
+                "google.com", "www.google.com", "bing.com", "www.bing.com", "cn.bing.com",
+                "baidu.com", "www.baidu.com", "sogou.com", "www.sogou.com",
+                "duckduckgo.com", "www.duckduckgo.com", "so.com", "www.so.com"
+            ]
+            let isSearch = knownSearchHosts.contains(host) ? 1 : 0
+            let act = (parameters["activity"] as? String) ?? ""
+            AppLogger.shared.info(
+                "[NetPolicy] action=\(action) host=\(host) isSearchEngine=\(isSearch) activity=\(act.prefix(40))",
+                category: "NetPolicy")
+        }
+
+        // [2026-09-14 搜索引擎策略] 按 `SearchEnginePolicy`（用户偏好 > 地区先验 > 可达性事实）
+        // 解析本轮应使用的引擎。设置快照按工程纪律走 `snapshot()`（@MainActor，
+        // **不裸读 SettingsStore**，与 ShellTool 同款约束）。
+        let engineSetting = await SettingsStore.shared.snapshot().browser.searchEngine
+
         if action == "navigate",
            ((params["url"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true) {
             let activity = (parameters["activity"] as? String) ?? ""
-            if let query = searchQuery(from: activity), let searchURL = makeSearchURL(query: query) {
+            if let query = searchQuery(from: activity),
+               let searchURL = makeSearchURL(query: query, engineSetting: engineSetting) {
                 params["url"] = searchURL
             } else {
                 return ToolResult(
@@ -90,7 +117,7 @@ struct BrowserTool: AgentTool {
             // 引擎作用域（子代理引擎经 TaskLocal 携带自身 subID → 独立 BrowserContext/标签组；
             // 主引擎为 nil → 回落 currentSessionID（父会话），行为与之前一致）。
             let scopeSessionID = EngineBrowserScope.sessionID ?? currentSessionID
-            let result = try await BrowserController.shared.run(action: action, paramsData: paramsData, tabIndex: tabIndex, tabID: tabID, sessionID: scopeSessionID)
+            let result = try await BrowserEngineAdapter.shared.run(action: action, paramsData: paramsData, tabIndex: tabIndex, tabID: tabID, sessionID: scopeSessionID)
             return ToolResult(success: true, text: result)
         } catch {
             return ToolResult(success: false, text: String(format: String(localized: "browser_action_failed"), action, error.localizedDescription))
@@ -125,9 +152,16 @@ struct BrowserTool: AgentTool {
         return query.isEmpty ? nil : query
     }
 
-    private func makeSearchURL(query: String) -> String? {
-        var components = URLComponents(string: "https://www.baidu.com/s")
-        components?.queryItems = [URLQueryItem(name: "wd", value: query)]
-        return components?.url?.absoluteString
+    /// 按统一策略 `SearchEnginePolicy`（用户偏好 > 地区先验 > 可达性事实）解析搜索 URL。
+    ///
+    /// [2026-09-14 唐唐] 原为**硬编码百度**（`https://www.baidu.com/s?wd=…`），
+    /// 完全忽略用户在「浏览器设置 → 搜索引擎」里的选择 ⇒ 智能体与地址栏各说各话。
+    /// 现与地址栏搜索**共用同一套策略**：用户显式选定优先；「自动」/未设置时按
+    /// 地区先验 + 代理信号解析。**注意 `google` 永远留在候选表内**（策略只排序、不过滤），
+    /// 因为用户完全可能挂代理让 Google 可用（唐唐明确：不能一刀切不让访问）。
+    private func makeSearchURL(query: String, engineSetting: String?) -> String? {
+        SearchEnginePolicy
+            .preferred(rawSetting: engineSetting)
+            .searchURL(query: query)
     }
 }

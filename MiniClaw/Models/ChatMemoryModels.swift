@@ -46,8 +46,8 @@ struct BrowserSettings: Codable, Equatable {
     var blockPopups: Bool = true
     var defaultHomeURL: String = "https://www.apple.com"
     /// 地址栏搜索词使用的搜索引擎（仅切换搜索，不影响默认首页）：
-    /// bing / sogou / so360 / baidu / google / duckduckgo，默认 bing。
-    var searchEngine: String = "bing"
+    /// auto / bing / sogou / so360 / baidu / google / duckduckgo，默认 auto
+    var searchEngine: String = "auto"
 
     enum CodingKeys: String, CodingKey {
         case maxTabs, uaMode, userAgent, blockPopups, defaultHomeURL, searchEngine
@@ -61,7 +61,7 @@ struct BrowserSettings: Codable, Equatable {
         userAgent = try c.decodeIfPresent(String.self, forKey: .userAgent) ?? ""
         blockPopups = try c.decodeIfPresent(Bool.self, forKey: .blockPopups) ?? true
         defaultHomeURL = try c.decodeIfPresent(String.self, forKey: .defaultHomeURL) ?? "https://www.apple.com"
-        searchEngine = try c.decodeIfPresent(String.self, forKey: .searchEngine) ?? "bing"
+        searchEngine = try c.decodeIfPresent(String.self, forKey: .searchEngine) ?? "auto"
     }
 
     init() {}

@@ -96,6 +96,10 @@ struct BrowserView: View {
             controller.loadingProgress = 0
             greenFillOpacity = 0.35
             fadeTask?.cancel()
+            // [2026-09-15 治本] 兜住「池里一个标签都没有」的状态：任何入口（首页/会话/工具/深链）
+            // 打开浏览器都先确保池已就绪（建 0 号标签 + 修越界选择），否则 activeManager 恒 nil
+            // ⇒ 网页区永远空白、地址栏点「前往」静默无反应。放在 syncURL 之前，保证读到的是修好后的状态。
+            controller.ensureUIPoolReady()
             syncURL()
             if let url = startURL {
                 // 程序性自动打开（会话页点链接 / 深链）：以【新标签】打开，绝不覆盖正在操作的网页。
@@ -429,6 +433,12 @@ struct BrowserView: View {
 
     private func syncURL() {
         if let info = controller.tabInfos[safe: controller.activeIndex] {
+            // [2026-09-14 观测] 若在**编辑中**被覆盖，说明"输入打字被打断"的来源在此
+            //（onAppear/activeIndex 两条路径没有 isEditingURL 守卫）。
+            if isEditingURL && urlString != info.url {
+                AppLogger.shared.warning(
+                    "[BrowserUse] syncURL 覆盖编辑中的输入: \(info.url)", category: "BrowserUse")
+            }
             urlString = info.url
         }
     }

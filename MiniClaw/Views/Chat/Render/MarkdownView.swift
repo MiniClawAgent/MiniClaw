@@ -396,13 +396,10 @@ struct MarkdownView: UIViewRepresentable {
         let currentFontSize = FontSettings.shared.scaledMessage(16.5)
         let fontChanged = context.coordinator.lastFontSize != currentFontSize
 
-        let imgCacheN = context.coordinator.renderer.imageAttachmentCache.count
-        if imgCacheN>0 {
-            let prevLen = context.coordinator.lastMarkdown.count
-            let curLen = markdown.count
-            let isAppend = curLen>prevLen && markdown.hasPrefix(context.coordinator.lastMarkdown)
-            AppLogger.shared.info("[UPD] entry imgCache=\(imgCacheN) prevLen=\(prevLen) curLen=\(curLen) Δ\(curLen - prevLen) appendOnly=\(isAppend ? 1 : 0) fontChanged=\(fontChanged ? 1 : 0)", category: "ChatList.Attach")
-        }
+        // [2026-09-14 降噪] 此处原有 `[UPD] entry imgCache=… appendOnly=… fontChanged=…` 逐次更新日志
+        //（实测全天 534 行）。它报的是"这次更新带了几个图片附件/是不是纯追加"这类**恒定信息**，
+        // 且每次渲染都打一遍 —— 附件链路的真信号是 `[REFRESH] entry`（异步加载完成）与
+        // `[IMG][NEW]/[REUSE]/[MAKEVIEW]`（视图增删），两者均已保留。
 
         let _curW = textView.textContainer.size.width
         let _prevW = context.coordinator.lastRenderedWidth
@@ -605,17 +602,11 @@ struct MarkdownView: UIViewRepresentable {
         let _hasPlainSuffix = !_splitForUpdate.plainSuffix.isEmpty
         let prepared = prepareMarkdownForRender(_splitForUpdate.prefix)
         let content = (_hasPlainSuffix ? nil : cachedContent) ?? MarkdownContent(prepared)
-        let imageMatches = markdown.ranges(of: /!\[([^\]]*)\]\(([^)]+)\)/)
-        if !imageMatches.isEmpty {
-            for match in imageMatches {
-                let matchStr = String(markdown[match])
-                imgLogger.info("[MiniClawImage][StreamParse] image markdown found: \(matchStr)")
-            }
-            let imageBlockCount = content.blocks.flatMap { Self.collectImageNodes(from: $0) }.count
-            if imageBlockCount>0 {
-                imgLogger.info("[MiniClawImage][StreamParse] parsed \(imageBlockCount) image node(s) from \(content.blocks.count) block(s), markdownLen=\(markdown.count)")
-            }
-        }
+        // [2026-09-14 降噪] 这里原有两条**逐 chunk** 的解析日志（实测全天 826 行，是单类别里最多的一项）：
+        //   · `[StreamParse] image markdown found: …`（对**每一处**图片语法打一行）
+        //   · `[StreamParse] parsed N image node(s) …`
+        // 它们只报"本次解析看到几张图"，不报结果；真正的落地信号是
+        // `[InlineParse]` → `[RenderAttach] CREATE new` → `[IMG][NEW]`（真的建了附件并上屏），均已保留。
 
         var hasher = Hasher()
         hasher.combine(cachedContent != nil ? cachedContent!.blocks.hashValue : markdown.hashValue)
@@ -945,13 +936,9 @@ struct MarkdownView: UIViewRepresentable {
             // ⚠️ 此处**只观测、不改几何**：曾在探针里调用 `clearCachedHeight()` /
             // `invalidateHeight(at:)` / `invalidateLayout()`，那是"在诊断探针里改几何"（历史事故：
             // 跨 cell 复用代代累积，textView 被撑到 495pt）—— 已删，几何只能由布局路径统一驱动。
-            if cellTooShort, !storageBehind, let cell = cellRef,
-               let cv = cell.superview as? UICollectionView,
-               let ip = cv.indexPath(for: cell) {
-                AppLogger.shared.warning(
-                    "[TruncL-FIX2] cellShort 观测（不改几何）blk=\(blkSnap) idx=\(ip.item) cellH=\(String(format: "%.1f", cellH)) contentH=\(String(format: "%.1f", contentH))",
-                    category: "RenderProbe")
-            }
+            // [2026-09-14 降噪] 此处原有 `[TruncL-FIX2] cellShort 观测（不改几何）…`（全天 188 行），
+            // 它与**紧随其后**的 `[TruncL]` 行完全重复（blk / cellH / contentH 三者都在那行里，
+            // 且那行还带 `cellShort=` 标志本身）⇒ 纯冗余，删除。
             AppLogger.shared.warning(
                 "[TruncL]\(bad ? " ⚠BAD" : "") blk=\(blkSnap) storageLen=\(storageLenAfterAssign) attrLen=\(attrLenSnap) mdCnt=\(mdCntSnap) tvContentH=\(String(format: "%.1f", contentH)) cellH=\(String(format: "%.1f", cellH)) path=\(pathSnap) streaming=\(streamSnap ? 1 : 0) glyphs=\(total) visEnd=\(visEnd) tailCut=\(tailCut ? 1 : 0) storageBehind=\(storageBehind ? 1 : 0) cellShort=\(cellTooShort ? 1 : 0) \(geomInfo)",
                 category: "RenderProbe")

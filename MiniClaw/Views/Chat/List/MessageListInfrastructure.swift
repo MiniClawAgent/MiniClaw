@@ -57,6 +57,33 @@ final class CellStateBridge: ObservableObject {
     var onShowCompactSummary: ((String) -> Void)?
 }
 
+/// 顶栏总高（状态栏 + 导航栏）的**稳定常量**。
+///
+/// 用途：顶部磨砂（第三版）要求列表**穿过顶栏**（内容才能滑到栏下、系统才会换栏背景），
+/// frame 一穿过，首条消息就必须让开这一段 = `contentInset.top`。
+///
+/// [2026-09-14] 取值纪律（与本文件 :81-92 记的事故同源）：
+/// **必须是"不切换的常量"** —— 只在方向变化/首次出现时刷新，其余时间沿用旧值。
+/// 反面教材：用「容器瞬时安全区」当数据源 ⇒ 入口转场期它在 116 ↔ 0 之间切换 ⇒
+/// `.never` 下 UIKit 逐帧补偿 `contentOffset` ⇒ 整屏位移。故这里只在"真的有窗口、
+/// 且值落在合理区间"时接受新值，异常值一律丢弃（宁可沿用旧常量）。
+enum TopBarInset {
+    /// `nonisolated(unsafe)`：Swift 6 对"可变的静态状态"一律报错。这里显式声明**只由主线程读写**：
+    /// 写点只有 VC 生命周期（均在主线程），读点是主线程上的布局数学与 SwiftUI body ⇒ 无竞态。
+    nonisolated(unsafe) private(set) static var height: CGFloat = 0
+
+    static func refresh(from vc: UIViewController) {
+        guard vc.view.window != nil else { return }
+        // 顶栏底边在**窗口坐标**里的位置 = 状态栏 + 导航栏高度（正是"CV 缺失的覆盖量"）。
+        let navBar = vc.navigationController?.navigationBar
+        let barBottom = navBar.map { $0.convert($0.bounds, to: nil).maxY } ?? 0
+        let candidate = max(barBottom, vc.view.safeAreaInsets.top)
+        guard candidate > 20, candidate < 200 else { return }   // 未布局 / 异常值：不采纳
+        guard abs(candidate - height) > 0.5 else { return }
+        height = candidate
+    }
+}
+
 public final class MessageListViewController: UIViewController {
     public var collectionView: UICollectionView!
     public var messageListLayout: MessageListLayout!
@@ -103,6 +130,48 @@ public final class MessageListViewController: UIViewController {
         //   .insetsLayoutMarginsFromSafeArea = false` 无效（margin 非载体）；`viewDidLayoutSubviews`
         //   里改 frame 会引发布局循环（真机 = 首页极卡顿）；`safeAreaLayoutGuide.bottomAnchor`
         //   会被键盘撑大（CV 高度塌 340pt、offset 不动 ⇒ 整屏跳位）。
+    }
+
+    /// [2026-09-14 顶部磨砂·第三版] 顶部留白的数据源 = `TopBarInset`（常量、只在方向变化时刷新）。
+    /// `viewWillAppear` **早于首次布局**，可以避开入口转场期"瞬时安全区在 116 ↔ 0 之间切换"那个窗口。
+    public override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        TopBarInset.refresh(from: self)
+    }
+
+    /// 只读刷新 + 把注册补上（`setContentScrollView` 要在 parent 链完整后才有效）。
+    /// **只读**——这里绝不动 frame（历史事故：`viewDidLayoutSubviews` 里改 frame 会引发布局循环）。
+    public override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        TopBarInset.refresh(from: self)
+        // `TopBarInset` 变化后立刻同步给 CV，避免"下一帧才补上"造成首条消息被顶栏盖住一帧。
+        // 用 `.never` 下"直接赋值 + 不锚定"的既有口径（该常量本就不切换，无需锚定）。
+        if let cv = collectionView, abs(cv.contentInset.top - TopBarInset.height) > 0.5 {
+            cv.contentInset.top = TopBarInset.height
+        }
+        registerCollectionViewForNavBarScrollEdge()
+    }
+
+    /// [2026-09-14 顶部磨砂·第三版 · 本方案的核心一步] 把本页的 collection view **注册给导航栏**，
+    /// 让**系统**自己去切换栏的背景（这才是首页那层"玻璃"的真正来源）：
+    ///   · 滚动到顶部 / 栏下没有内容 ⇒ 栏用 `scrollEdgeAppearance` = **透明** ⇒ 直接映射背景色（纯黑/纯白）
+    ///   · 内容滑到栏下 ⇒ 栏用 `standardAppearance` = **材质** ⇒ 内容隐约透出来
+    ///
+    /// 为什么必须手工注册：首页是 SwiftUI `List`，导航栈能自动发现它并盯住它的滚动位置；
+    /// 而本页列表是藏在 representable 里的 UIKit `UICollectionView`，**SwiftUI 的导航栈看不见它**
+    /// ⇒ 不注册的话系统永远不会切换栏背景：静止时透明（看起来"没有效果"）、
+    /// 内容滑过时也依然透明（标题直接压在**未模糊**的内容上）。
+    ///
+    /// 另一个坑：驱动栏的是**导航栈最上层**的 VC（SwiftUI 的宿主 VC），不是本层子 VC，
+    /// 所以要沿 `parent` 链上溯到第一个拿得到 `navigationController` 的那一层再调。
+    private func registerCollectionViewForNavBarScrollEdge() {
+        guard let cv = collectionView else { return }
+        var vc: UIViewController? = self
+        while let cur = vc, cur.navigationController == nil { vc = cur.parent }
+        guard let owner = vc else { return }
+        if owner.contentScrollView(for: .top) !== cv {
+            owner.setContentScrollView(cv, for: .top)
+        }
     }
 
     /// scrolls them back into view the MarkdownTextView is hosted
@@ -507,7 +576,14 @@ class SelfSizingCell: UICollectionViewCell {
         // [抖动专报 2026-09-12 修正版] **按内容键变化重置**（旧版挂在 applyContentConfiguration，
         // 而滑动时每个 pass 都重新配置 cell ⇒ 每次清零 ⇒ 永远没有「上一次」可比 ⇒ 0 条）。
         // 不再限制在 drag/decel：真机实证该抖动在 `scroll=idle off=0` 时同样发生。
-        if jitterPrevKey == full {
+        // [2026-09-14 误报修复] **流式 cell 没有内容身份可比** —— 它的 `contentKey` 恒为 nil
+        //（内容每 chunk 都在变，长度是刻意排除的），于是 `full` 恒为 "nil" ⇒
+        // `jitterPrevKey == full` 恒成立 ⇒ **每一次正常的流式增长都被判成抖动**。
+        // 真机实录（G26 装机后）：25 条 `[JITTER]` 的高度序列**严格单调递增**（32→79.3→245.7
+        // →…→1036.3，与内容增长同步），全属误报 —— 与 skill「先怀疑探针」同一条教训。
+        // 修法：只有**存在内容键**时才做比较（键 = "同一版内容"的身份，nil 不构成身份）。
+        // `else` 分支照旧写 `jitterPrevKey`，故从 nil 段切到真实键时不会跨段比较。
+        if contentKey != nil,jitterPrevKey == full {
             if jitterPrevH > 1, abs(h - jitterPrevH) > 0.5 {
                 // [±34 归因探针 2026-09-12] 真机实证「同一 key 高度恰好差 34.0」（34 = home
                 // indicator 安全区高）。假设：cell 落入底部安全区带时，其 contentView 的

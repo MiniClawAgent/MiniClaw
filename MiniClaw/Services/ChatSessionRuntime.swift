@@ -115,6 +115,15 @@ final class ChatSessionRuntime: ObservableObject, @MainActor Identifiable {
     /// 思考（reasoning）节流缓冲：每个 reasoning 词元 先按迭代轮次追加进这里，
     /// 由与正文共享的 ~100ms 调度窗口批量刷入 `streamingReasoningSegments`，把每 词元 一次的重绘降到约 10fps。
     private var pendingReasoning: [(piece: String, iteration: Int)] = []
+
+    /// 已为「本轮首次出现的思考」占好的时间线序号（iteration → order）。
+    ///
+    /// [2026-09-15 治本·顺序错乱] 序号必须在**词元到达时**就占，不能等 ~100ms 防抖 flush 时才分配：
+    /// 否则同一轮的工具挂载（同步分配）会先拿到更小的序号 ⇒ 该轮思考段被排到工具之后，界面
+    /// 表现为「工具卡后面跟一段正文」「两段思考连着」（真机 18:29 日志实证：`AnchorProbe iter=7`
+    /// 与 `ToolPosProbe` 落在**同一毫秒**、序号因此颠倒）。词元到达天然早于同轮工具（工具是模型
+    /// 输出完本轮内容之后才产生的）⇒ 此刻占号就得到正确的发生顺序。
+    private var pendingReasoningOrders: [Int: Int] = [:]
     /// 全局时间线序号计数器：每次创建新的思考段或工具调用时递增，
     /// 用于渲染时按真实发生顺序交错排列（而非按 position 堆叠）。
     @Published var nextTimelineOrder: Int = 1
@@ -134,6 +143,57 @@ final class ChatSessionRuntime: ObservableObject, @MainActor Identifiable {
     }
     private var roundAnchor: RoundAnchor?
 
+    // MARK: - 轮边界（三类块位置的唯一事实源）
+
+    /// 本轮边界 = **上一轮正文的确定终点**。在「本轮第一个流式事件到达」这一刻冻结一次。
+    ///
+    /// 为什么必须是这一刻（2026-09-15 真机实测）：若在"上一轮刚结束"时取值，会把上一轮
+    /// **仍在流式投递途中的尾 N 个字符**漏掉 —— 实测切分点精确少 2、偶见 4，正是该轮最后
+    /// 一个 content delta 的字符数；`buildBlocks` 按此切正文 ⇒ 该轮句尾 N 字被切到工具卡
+    /// 之后（真机表现：一句话被劈成两半、「思考完毕，现在」+工具卡+「开始」）。
+    /// 而这一刻取值可靠：下一轮请求已发出，上一轮尾 token 必已到齐。
+    ///
+    /// **同源同时机**：思考段锚点（`commitReasoningBuffer`）与工具段 position（本函数）取的是
+    /// **同一个值**；文本块没有独立位置，其两端都由这些 position 切出 ⇒ 三类块同源。
+    private var frozenRoundBoundary: Int?
+
+    /// 已定稿的工具执行个数（`streamingToolExecutions` 的**前缀**）。索引 ≥ 本值的属于
+    /// 「上一轮新增」⇒ 待定稿；< 本值的已写死，**不得再改**（否则后一轮的冻结会把上一轮
+    /// 已定稿的位置覆盖成新边界值）。`rollbackToRoundSafePoint()` 截断工具后须同步回退。
+    private var settledToolCount = 0
+
+    /// 冻结本轮边界，并用它写死**上一轮新增**工具块的位置。
+    /// - 每个轮边界只冻结一次（本轮内重复调用直接返回 false）。
+    /// - `markRoundSafePoint()`（本轮结束）会清空冻结值，使下一轮重新冻结。
+    /// - 返回 true = 确有工具块位置被修正 ⇒ 调用方须重新同步落盘对象
+    ///   （`assistantMessage.toolCalls = runtime.streamingToolEvents`），否则落盘/中断
+    ///   留下的仍是临时位置。
+    @discardableResult
+    func freezeRoundBoundary() -> Bool {
+        if frozenRoundBoundary == nil {
+            frozenRoundBoundary = streamingContent.count + pendingText.count
+        }
+        guard let boundary = frozenRoundBoundary else { return false }
+        var changed = false
+        while settledToolCount < streamingToolExecutions.count {
+            let exec = streamingToolExecutions[settledToolCount]
+            if exec.position != boundary { exec.position = boundary; changed = true }
+            settledToolCount += 1
+        }
+        if changed {
+            AppLogger.shared.info(
+                "[BoundaryProbe] 轮边界定稿 boundary=\(boundary) sc=\(streamingContent.count) pt=\(pendingText.count) 已定稿工具=\(settledToolCount)",
+                category: "Timeline", subsystem: "Bridge")
+        }
+        return changed
+    }
+
+    /// 会话恢复（重进会话 / 断点续跑）时调用：此刻 `streamingToolExecutions` 里的位置来自
+    /// **落盘事件、已是权威值**，不得再被 `freezeRoundBoundary()` 改写 ⇒ 直接视为已定稿。
+    func markRestoredToolsSettled() {
+        settledToolCount = streamingToolExecutions.count
+    }
+
     /// 在每个工具开始挂载前调用：此刻之前的所有流式内容（历史轮 + 本轮已流出
     /// 正文/思考）都已安全 —— 本轮重试只丢弃锚点之后的半截输出。
     func markRoundSafePoint() {
@@ -142,6 +202,9 @@ final class ChatSessionRuntime: ObservableObject, @MainActor Identifiable {
         // [2026-09-13 轮次分隔符] 轮次边界：下一段正文前插一个空行（见 `needsRoundSeparator`）。
         // 每次工具挂载前都会调本函数 ⇒ 同一轮内多次调用是幂等的（只置位一次）。
         needsRoundSeparator = true
+        // [2026-09-15 治本] 本轮到此结束 ⇒ 解除边界冻结，下一轮的第一个流式事件重新冻结
+        // （届时才能拿到本轮正文的确定终点 —— 见 `frozenRoundBoundary` 的说明）。
+        frozenRoundBoundary = nil
         roundAnchor = RoundAnchor(
             contentCount: streamingContent.count,
             order: nextTimelineOrder,
@@ -169,6 +232,10 @@ final class ChatSessionRuntime: ObservableObject, @MainActor Identifiable {
             nextTimelineOrder = 1
             pendingText = ""
             pendingReasoning.removeAll()
+            // [2026-09-15 治本] 内容被整段丢弃 ⇒ 边界冻结失效，重试成功后重新冻结。
+            frozenRoundBoundary = nil
+            settledToolCount = 0
+            pendingReasoningOrders.removeAll()
             return
         }
         if streamingContent.count > a.contentCount {
@@ -183,6 +250,12 @@ final class ChatSessionRuntime: ObservableObject, @MainActor Identifiable {
         nextTimelineOrder = a.order
         pendingText = ""
         pendingReasoning.removeAll()
+        // [2026-09-15 治本] 正文被截断回锚点 ⇒ 已冻结的边界（可能落在被截掉的内容里）失效。
+        // 已定稿工具数随工具数组截断回退（保留前缀仍视为已定稿，其位置不回改）。
+        frozenRoundBoundary = nil
+        settledToolCount = min(settledToolCount, streamingToolExecutions.count)
+        // 回滚会把段截断 ⇒ 占号表作废（重试后重新占号，避免用到已失效的序号）。
+        pendingReasoningOrders.removeAll()
     }
     /// 是否正在响应（驱动输入栏「发送/停止」切换，跨重建保持准确）
     @Published var isResponding: Bool = false
@@ -249,6 +322,13 @@ final class ChatSessionRuntime: ObservableObject, @MainActor Identifiable {
     /// `streamingReasoningSegments`，消除「每 词元 一次整段重绘 + 每 词元 全量重解析 Markdown」卡顿。
     /// 与正文共用同一调度窗口，避免各起一套定时器。
     func bufferReasoningToken(_ piece: String, iteration: Int) {
+        // [2026-09-15 治本] 本轮思考首次到达 ⇒ **立刻占时间线序号**（不能等 flush，见
+        // `pendingReasoningOrders`）。与工具挂载同一时序口径 ⇒ 顺序与真实发生顺序一致。
+        if pendingReasoningOrders[iteration] == nil,
+           !streamingReasoningSegments.contains(where: { $0.index == iteration }) {
+            pendingReasoningOrders[iteration] = nextTimelineOrder
+            nextTimelineOrder += 1
+        }
         pendingReasoning.append((piece, iteration))
         scheduleFlush()
     }
@@ -294,19 +374,32 @@ final class ChatSessionRuntime: ObservableObject, @MainActor Identifiable {
             if let idx = segments.firstIndex(where: { $0.index == iteration }) {
                 segments[idx].text += piece
             } else {
-                // 锚点 = 已提交正文 + 未提交缓冲 = 模型真实流式位置。
-                // 只用 streamingContent.count 会在轮次边界竞态下偏早：上一轮尾包还在
-                // pendingText 里时下一轮思考先到（flush 先思考后正文），锚点落进上一轮
-                // 回复内部 → buildBlocks 把思考块插进上一轮回复中间，且随落盘固化。
-                // 本轮正常场景（思考先于本轮正文到达）不受影响：锚点时刻缓冲里只有上一轮尾巴。
-                let pos = streamingContent.count + pendingText.count
-                let order = nextTimelineOrder
-                nextTimelineOrder += 1
+                // [2026-09-15 治本] 锚点取**冻结的轮边界** —— 与工具块 position 是同一个值
+                //（`freezeRoundBoundary()` 已在本轮第一个流式事件时冻结）⇒ 三类块同源同时机。
+                // 兜底：极端路径下若尚未冻结（本轮无任何前置流式事件），退回当前累计值。
+                let pos = frozenRoundBoundary ?? (streamingContent.count + pendingText.count)
+                // [2026-09-15 治本] 序号取**词元到达时占好的号**（`pendingReasoningOrders`）：
+                // 在此刻才分配会晚于同轮工具挂载 ⇒ 该轮思考被排到工具之后。
+                let order: Int
+                if let reserved = pendingReasoningOrders[iteration] {
+                    order = reserved
+                } else {
+                    order = nextTimelineOrder
+                    nextTimelineOrder += 1
+                }
+                AppLogger.shared.info(
+                    "[AnchorProbe] iter=\(iteration) order=\(order) pos=\(pos) frozen=\(frozenRoundBoundary != nil ? 1 : 0) sc=\(streamingContent.count) pt=\(pendingText.count)",
+                    category: "Timeline", subsystem: "Bridge")
                 segments.append(ReasoningSegment(index: iteration, text: piece, position: pos, timelineOrder: order))
             }
         }
         streamingReasoningSegments = segments
         pendingReasoning.removeAll()
+        // 已建段的 iteration 不再需要占号（后续词元走上面的追加分支）。
+        if !pendingReasoningOrders.isEmpty {
+            let built = Set(segments.map(\.index))
+            pendingReasoningOrders = pendingReasoningOrders.filter { !built.contains($0.key) }
+        }
     }
 }
 

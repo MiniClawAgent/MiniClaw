@@ -88,21 +88,70 @@ final class MarkdownTextView: UITextView,UIGestureRecognizerDelegate {
     /// Armed when a REAL height change was
     /// skipped. Guarantees one post-settle retry of invalidateCellSizeIfChanged
     private var pendingDeferredRemeasure = false
-    /// [2026-09-08] 是否含 ImageAttachment（defer 例外判定用；枚举一次即短路）。
-    private var hasImageAttachmentCached: Bool {
-        var found = false
-        textStorage.enumerateAttribute(.attachment,in: NSRange(location: 0,length: textStorage.length),options: []) { value,_,stop in
-            if value is ImageAttachment { found = true; stop.pointee = true }
-        }
-        return found
-    }
+    // [2026-09-14 删死代码] 这里原有 `hasImageAttachmentCached`（枚举 textStorage 找 ImageAttachment），
+    // 全库零引用：唯一的同类判据是 `invalidateCellSizeIfChanged` 里的局部闭包，而那个闭包已随
+    // 「放行增长」一起删除（增长不再需要图片例外）。"defer 例外判定"这层语义整体消失。
     /// arm 一次性 0.6s 延迟重测（幂等：飞行中不重复 arm）。
+    ///
+    /// [2026-09-14 观测补盲] 本机制此前**完全没有探针** —— 它是"冻结期拒绝收缩"的配套重试，
+    /// 唯一调用点是下方 `delta < 0` 分支，拖动期每次收缩都会 arm 一次；真机上既看不到它被 arm
+    /// 了几次，也看不到飞出时是否仍在冻结，于是无法判断这个 0.6s 心跳到底是负担还是背景噪声。
+    /// 补三个计数器 + 两条日志（纯观测，不改任何行为）。
+    // [2026-09-14 计数口径修复] 计数器必须是**进程级**的：`MarkdownTextView` **每个 cell 一个实例**，
+    // 实例存储会让计数在每个视图里从 1 重来（真机实录：9 条 `FIRST-MEASURE SKIP`，而日志里的 `#`
+    // 只涨到 2 ⇒ 按 `#` 读会严重少算）。
+    // 写法：`static` 存储 + **实例计算属性**（get/set 代理）⇒ 调用点 `x &+= 1` 与 `"#\(x)"` 零改动。
+    // 线程：`MarkdownTextView` 是 `UITextView` 子类（@MainActor），故 static var 天然主线程隔离。
+    private static var _deferredRemeasureArmCount = 0
+    private static var _deferredRemeasureFireCount = 0
+    private static var _deferredRemeasureCoalescedCount = 0
+    private static var _firstMeasureSkipCount = 0
+
+    private var deferredRemeasureArmCount: Int {
+        get { Self._deferredRemeasureArmCount }
+        set { Self._deferredRemeasureArmCount = newValue }
+    }
+    private var deferredRemeasureFireCount: Int {
+        get { Self._deferredRemeasureFireCount }
+        set { Self._deferredRemeasureFireCount = newValue }
+    }
+    private var deferredRemeasureCoalescedCount: Int {
+        get { Self._deferredRemeasureCoalescedCount }
+        set { Self._deferredRemeasureCoalescedCount = newValue }
+    }
+    /// 首测早退（`previousHeight <= 0` 且 cell 现值与实测差 ≤8pt）的静默跳过次数。
+    /// 见该分支处的说明：这条早退跳过几何刷新但语义自洽，此前无任何观测。
+    private var firstMeasureSkipCount: Int {
+        get { Self._firstMeasureSkipCount }
+        set { Self._firstMeasureSkipCount = newValue }
+    }
+
+    private func scrollPhaseTagForProbe() -> String {
+        guard let cv = findCollectionView() else { return " idx=-1 scroll=none" }
+        let phase = cv.isDragging ? "drag" : (cv.isDecelerating ? "decel" : "idle")
+        // [2026-09-14 归属补全] 带上 idx。本文件的探针原先**没有归属字段**，于是
+        //「某个特定块是否在反复 arm / 反复首测跳过」这类问题答不了（只能靠 storage=/newH= 反推）。
+        // 写法与 `MessageListInfrastructure.traceSet` 的 idxTag 同源。
+        let idx = (findCell() as? SelfSizingCell).flatMap { cv.indexPath(for: $0)?.item }
+        return " idx=\(idx.map(String.init) ?? "-1") scroll=\(phase)"
+    }
     private func armDeferredRemeasure() {
-        guard !pendingDeferredRemeasure else { return }
+        guard !pendingDeferredRemeasure else {
+            deferredRemeasureCoalescedCount &+= 1
+            return
+        }
         pendingDeferredRemeasure = true
+        deferredRemeasureArmCount &+= 1
+        // 用 `warning` 而非 `info`：`log()` 对 warn 及以上**立即 flushPending**，
+        // 从而免疫"尾部不足 32 行且此后无调用 ⇒ 滞留内存"这一残留风险（info 走攒批）。
+        // 两条都极低频（仅收缩期 arm / 0.6s 后飞一次），不会刷屏。
+        cellSizeLogger.warning("[DeferRetry] ARMED #\(deferredRemeasureArmCount) coalesced=\(deferredRemeasureCoalescedCount) lastH=\(String(format: "%.1f", lastComputedHeight)) storage=\(textStorage.length) scroll=\(scrollPhaseTagForProbe())")
         DispatchQueue.main.asyncAfter(deadline: .now()+0.6) { [weak self] in
             guard let self else { return }
             self.pendingDeferredRemeasure = false
+            self.deferredRemeasureFireCount &+= 1
+            let layout = self.findCollectionView()?.collectionViewLayout as? MessageListLayout
+            cellSizeLogger.warning("[DeferRetry] FIRE #\(self.deferredRemeasureFireCount) stillDeferred=\((layout?.deferSelfSizing ?? false) ? 1 : 0) lastH=\(String(format: "%.1f", self.lastComputedHeight)) storage=\(self.textStorage.length) scroll=\(self.scrollPhaseTagForProbe())")
             self.invalidateCellSizeIfChanged()
         }
     }
@@ -707,17 +756,12 @@ final class MarkdownTextView: UITextView,UIGestureRecognizerDelegate {
                 return
             }
         }
-        let imageAttachmentCount: Int = {
-            let storage = self.textStorage
-            var n = 0
-            storage.enumerateAttribute(.attachment,in: NSRange(location: 0,length: storage.length),options: []) { v,_,_ in
-                if v is ImageAttachment { n += 1 }
-            }
-            return n
-        }()
-        if imageAttachmentCount>0 {
-            AppLogger.shared.info("[UAV] enter imgAttach=\(imageAttachmentCount) prevViews=\(self.attachmentViews.count) tcW=\(String(format: "%.0f", self.textContainer.size.width))", category: "ChatList.Attach")
-        }
+        // [2026-09-14 降噪] 此处原有「先对 textStorage 做一遍全量属性扫描数图片附件、再打一行
+        // `[UAV] enter imgAttach=… prevViews=… tcW=…`」（全天 369 行）。两个理由删除：
+        //   ① 该扫描结果**只服务于这行日志**（无其他消费者）；
+        //   ② 进入本函数这件事本身由 `[RefreshAttachViews]`/`[REFRESH] entry` 与
+        //      `[IMG][NEW]/[REUSE]/[MAKEVIEW]` 覆盖，逐次打印只报"调用了几次"。
+        // 净效果：既少一行日志，也少一遍 O(属性数) 扫描。
         let previousViewMap = attachmentViewMap
         var newViews: [UIView] = []
         var newViewMap: [ObjectIdentifier: UIView] = [:]
@@ -1123,7 +1167,16 @@ final class MarkdownTextView: UITextView,UIGestureRecognizerDelegate {
         }
     }
 
-    private let cellSizeLogger = AppLogger(category: "CellSize")
+    /// [2026-09-14 探针落盘修复] `AppLogger` 的攒批缓冲是**逐实例**的（`pendingLock` 是实例属性，
+    /// 且 flush 只在**该实例的下一次 log 调用**时判定：`count >= 32 || sinceFlush >= 1s`）。
+    /// 本属性原为 `private let … = AppLogger(category:)` ⇒ **每个 MarkdownTextView 各持一个缓冲**：
+    /// 单个流式块在几分钟内只写十几行，既凑不满 32 条、又没有后续调用来触发时间判定
+    /// ⇒ **整批滞留在内存、永不落盘**（真机实证 19:04–19:06：`engineTextHeight=471.3` 已证明
+    /// 本文件的测量/上报路径确实执行了，但 `[CellSize]` 一行都没有；而同一时刻
+    /// `[PLAF]`/`[ChatList.*]` 那 264 行全在 —— 因为 `sizingLogger` 是 **static** 的）。
+    /// ⇒ 这不是"路径没跑"，是探针被吞。改为**全类共享同一实例**（调用量合并，足够触发 1s 判定）。
+    private static let sharedCellSizeLogger = AppLogger(category: "CellSize")
+    private let cellSizeLogger = MarkdownTextView.sharedCellSizeLogger
 
     /// currently in `textStorage`. Used as part of the cell-size dedup
     /// fingerprint so in-place table mutations defeat the early-exit even
@@ -1203,6 +1256,10 @@ final class MarkdownTextView: UITextView,UIGestureRecognizerDelegate {
         // 原实现把它做成了"入口整段拦截"，导致"内容变长"也被否定（→ 溢出重叠，见函数上方说明）。
         // 现在只在**结果处**拒绝收缩；变高照常采纳并上报（内容事实必须尊重；
         // 由此产生的"上方 cell 变高"对下方内容的位移，由既有 `pendingAboveShift` 机制补偿 offset）。
+        // ⚠️ [2026-09-14 收敛后]**这是本子系统冻结期唯一的门**。上方那段「只拒收缩」的语义、
+        // 以及下方 `isDeferred` 分支里所有关于"放行/拒绝"的历史分支，最终都收敛到这一个 if。
+        // 改它之前必须先读 `MessageListLayout.shouldInvalidateLayout` 里 `deferSelfSizing` 分支的
+        // `liveShrink −160pt` 事故注释：冻结期一旦允许收缩，拖动中会看到 cell 当场缩下去、下方内容上跳。
         if (findCollectionView()?.collectionViewLayout as? MessageListLayout)?.deferSelfSizing == true,
            delta < 0 {
             armDeferredRemeasure()
@@ -1239,43 +1296,45 @@ final class MarkdownTextView: UITextView,UIGestureRecognizerDelegate {
         //
         // correct 280pt by refreshAttachViews — is clipped by the cell's
         if isDeferred {
-            let cellHasImageAttachment: Bool = {
-                var found = false
-                textStorage.enumerateAttribute(.attachment,in: NSRange(location: 0,length: textStorage.length),options: []) { value,_,stop in
-                    if value is ImageAttachment {
-                        found = true
-                        stop.pointee = true
-                    }
-                }
-                return found
-            }()
-            let isLargeGrowth = delta>30
-            // ⚠️ [2026-09-14 回退] 我一度把这里改成"放行所有增长"(`|| delta > 0`)，**已撤销**。
-            // 理由（业界调研 + Apple 约束）：`contentOffsetAdjustment` —— Apple 对"高度变化导致位置跳变"
-            // 给的**唯一**专门机制（WWDC2014/226）—— **在手势期失效**（手指正在写 contentOffset，
-            // 公开 API 里没有替代）。放开 G26 会让拖动期高度跟着内容长、却**无补偿手段可用**
-            // ⇒ 手指底下长高、下方被顶走（抖动）必然复现。
-            // ⇒ 本门（G26）实际是"①溢出重叠 ⟷ ②抖动"之间**唯一还拦着的门**，不能单独拆。
-            // 真根因是**两源不同代**：内容路径（`MiniClawChatBridge.swift:205-211` 就地写 `block.content`，
-            // **早于** `:281` 的 suspended 早退）⇒ 内容恒**最新代**；而高度恒**旧代**
-            // ⇒ 文本按 1457 布局、cell 帧只有 126/329.3 ⇒ 必然溢出到相邻消息与工具指示器。
-            // 正解 = **(a) 延后**：冻结期让**内容与高度同代**（内容也进缓冲，松手/减速后一次性 flush
-            // 内容 + 高度 + 条目），与 Agmente 同构（它冻结的是**整个 entry 数组**，故永不重叠）。
-            if cellHasImageAttachment && isLargeGrowth {
-                cellSizeLogger.info("[AttachHang][CellMetrics] ALLOW through defer — image attachment placeholder→loaded growth prev=\(String(format: "%.1f", previousHeight))→new=\(String(format: "%.1f", newHeight)) delta=\(String(format: "%+.1f", delta))")
-            } else {
-                // Return WITHOUT touching the
-                cellSizeLogger.info("[invalidateCell] SKIPPED — deferSelfSizing active (correction NOT consumed, delta=\(String(format: "%+.1f", delta)); will retry)")
-                if !pendingDeferredRemeasure {
-                    pendingDeferredRemeasure = true
-                    DispatchQueue.main.asyncAfter(deadline: .now()+0.6) { [weak self] in
-                        guard let self else { return }
-                        self.pendingDeferredRemeasure = false
-                        self.invalidateCellSizeIfChanged()
-                    }
-                }
-                return
-            }
+            // [Fix 2026-09-14 「拖动期高度链整体冻死」治本 · 决策：放行增长]
+            //
+            // 四路门控审计（W1/W2/W3/W4）+ 业界调研收敛到这一处，真机实证：
+            // `[invalidateCell] SKIPPED … delta=+NN` **139 条，正 delta 139 / 负 delta 0** ⇒ 增长被 100% 拒绝。
+            // 而这里 return 掉的正是本链**唯一**能刷新几何的两个动作：
+            //   · `cell.clearCachedHeight()`（下方）⇒ 不清 ⇒ `lastCalcH` 永不过期
+            //     ⇒ PLAF 的宽度 dedup（`MessageListInfrastructure:630`，无内容维度、无流式豁免）每帧命中 ⇒ 返回旧高
+            //   · `collectionViewLayout.invalidateLayout()`（下方）⇒ 不重排 ⇒ `invalidationContext`
+            //     不跑 ⇒ 条目 `.measured` 永不重写
+            // ⇒ 内容恒**最新代**（`BridgedCellViews:16-18` 的 `@ObservedObject block` 直喂 cell，
+            //   绕过 `applySnapshot`/`streamingUIUpdatesSuspended`）而高度恒**旧代**
+            // ⇒ 真机病形：拖动期「cell 帧 126 / 布局条目 1461」正文被裁在 126 内；
+            //   settle 一跳后 126 以 `.measured` 写回为权威 ⇒ 其后所有 cell 的 y 上移 1335pt ⇒ **与工具指示器重叠**。
+            //
+            // **为什么放行增长是安全的**（此前我一度回退，是被一条**引错的代码引用**误导）：
+            // 真正的几何补偿门在 `MessageListLayout:509-537`，其中 **`above` 分支已无手势门**
+            //（注释原文「与手势无关，必须做」），**只有 `inside` 分支保留**；而 `inside` 的 `+delta`
+            // 正是造成「内容往上顶、盖住上方工具指示器」的那处，**今天已按真机现象删除**。
+            // ⇒ 内容与高度同代时，"长高"不改变该 cell 的 **y**，只是 height 变大 ⇒
+            //   用户看到的是**自然的向下展开**（顶边固定）；既不需要、也不应该再做 `inside` 补偿。
+            // ⇒ 语义修正：**冻结期只拒绝收缩（防抖动），放行增长（内容事实必须尊重）**。
+            //
+            // [2026-09-14 收敛为单点] 原先此处还有一个
+            //   `if (cellHasImageAttachment && isLargeGrowth) || delta > 0 { ALLOW 日志 }
+            //    else { SKIPPED 日志 + 内联 0.6s arm + return }`，**已整体删除**。
+            // 理由（可复核）：走到这里 `delta > 1` 恒成立 ——
+            //   · `|delta| <= 1` 已在上面 return；
+            //   · 所有 `delta < 0` 已被上方 `deferSelfSizing == true && delta < 0` 分支提前 return；
+            //   · 两个读点（上方判据与下方 `isDeferred`）取的是同一个 `findCollectionView()` 结果、
+            //     同为主线程同步执行、且 `isInvalidatingCellSize` 禁止重入 ⇒ 两处 `deferSelfSizing` 必然同值。
+            // ⇒ 该 if 恒真、`else` 是死代码（放行增长后的真机日志里 `SKIPPED` 为 0 亦印证）。
+            // ⇒「冻结期只拒绝收缩」自此收敛到**唯一一处**（上方 `delta < 0` 的那个 if）；
+            //   那一处是本子系统冻结期唯一的门，改动它之前先读 `MessageListLayout` 的 `liveShrink` 事故注释。
+            // 同时删除的还有：`cellHasImageAttachment`（每次增长对 textStorage 做一遍全量属性扫描）、
+            // `isLargeGrowth`（已无消费者）。旧措辞「image attachment placeholder→loaded 大增长」也已失真 ——
+            // 真机 15 条 ALLOW 里有 2 条 `delta = +23.7 / +27.7`（≤30，够不上 `isLargeGrowth`）却带着这行字，
+            // 它们是**纯文本增长**。日志串前缀 `ALLOW through defer` 保留，供历史 grep 续接。
+            // `warning` ⇒ 立即落盘。此行的攒批滞留曾导致"整场测试零条记录"（见 `sharedCellSizeLogger` 说明）。
+            cellSizeLogger.warning("[AttachHang][CellMetrics] ALLOW through defer — growth consumed prev=\(String(format: "%.1f", previousHeight))→new=\(String(format: "%.1f", newHeight)) delta=\(String(format: "%+.1f", delta))")
         }
 
         lastSizedStorageFingerprint = ContentFingerprint.of(textStorage.string)
@@ -1303,9 +1362,20 @@ final class MarkdownTextView: UITextView,UIGestureRecognizerDelegate {
         }
 
         if previousHeight <= 0 {
-            guard let cell = findCell() as? SelfSizingCell,
+            let probeCell = findCell() as? SelfSizingCell
+            guard let cell = probeCell,
                   cell.bounds.height>4,
-                  abs(cell.bounds.height-newHeight)>8 else { return }
+                  abs(cell.bounds.height-newHeight)>8 else {
+                // [2026-09-14 观测补盲] 这条早退**跳过几何刷新**（不清 `lastCalcH`、不 `invalidateLayout`），
+                // 语义自洽（首测且 cell 现值与实测差 ≤8pt ⇒ 没有需要改的东西）；但它此前**完全静默** ——
+                // 于是"函数被调了却没做事"与"函数根本没被调"在日志里长得一模一样。
+                // 补一条计数日志让它在真机上可数，重点看：**流式增长期是否也会走到这里**。
+                // （`cell` 在 guard 的 else 里不在作用域，故上面用 `probeCell` 兜住取值。）
+                firstMeasureSkipCount &+= 1
+                // `warning` ⇒ 立即落盘，免疫攒批滞留（见 `sharedCellSizeLogger` 处说明）。
+                cellSizeLogger.warning("[CellSize] FIRST-MEASURE SKIP #\(firstMeasureSkipCount) cellH=\(String(format: "%.1f", probeCell?.bounds.height ?? -1)) newH=\(String(format: "%.1f", newHeight)) measureW=\(String(format: "%.1f", measureWidth)) storage=\(textStorage.length) isDeferred=\(isDeferred ? 1 : 0) scroll=\(scrollPhaseTagForProbe()) — 首测且就近，本函数在此 return，不改几何")
+                return
+            }
             // [2026-09-12 说明] 此处曾临时加过「写回 memo + 统一缓存」以求收敛。真凶
             //（后台预热用异源 NSLayoutManager 栈把同源高度覆盖成矮值）修复后已回退：
             // 写回值需要 `cell 高 − 文本视图高` 作装饰差，而该差值在「cell 与文本视图

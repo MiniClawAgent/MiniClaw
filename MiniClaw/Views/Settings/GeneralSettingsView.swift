@@ -90,6 +90,6 @@ struct GeneralSettingsView: View {
     private func saveBrowser() {
         SettingsStore.shared.set(browser, domain: .browser, summary: String(localized: "edit_browser_settings"))
         // 立即把 UA 形态同步到浏览器运行时（若当前有打开的标签）。
-        BrowserController.shared.applyUAProfileToAllTabs()
+        BrowserEngineAdapter.shared.applyUAProfileToAllTabs()
     }
 }

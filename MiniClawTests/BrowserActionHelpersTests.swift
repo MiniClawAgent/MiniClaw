@@ -35,15 +35,7 @@ final class BrowserActionHelpersTests: XCTestCase {
     }
 
     // MARK: - UA 字符串常量
-
-    func testUAConstantsNonEmpty() {
-        XCTAssertTrue(BrowserActionHelpers.desktopUA.contains("Safari"))
-        XCTAssertTrue(BrowserActionHelpers.mobileUA.contains("iPhone"))
-        XCTAssertNotEqual(BrowserActionHelpers.desktopUA, BrowserActionHelpers.mobileUA)
-    }
-
-    func testUAProfileRawValues() {
-        XCTAssertEqual(UAProfile.mobile.rawValue, "mobile")
-        XCTAssertEqual(UAProfile.desktop.rawValue, "desktop")
-    }
+    // [2026-09-15 体系统一] desktopUA/mobileUA 与旧 `UAProfile` 已随旧 UA 体系删除：
+    // UA 的唯一事实来源是引擎池 `MiniClawUAProfile`（其 userAgentString 自带断言价值），
+    // 这里不再重复断言一份已不存在的常量。
 }

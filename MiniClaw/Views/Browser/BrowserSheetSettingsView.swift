@@ -5,11 +5,13 @@ import WebKit
 struct BrowserSheetSettingsView: View {
     @Environment(\.dismiss) private var dismiss
 
-    @State private var uaProfile: UAProfile = BrowserController.shared.uaProfile
+    /// UA 预设：[2026-09-15 体系统一] 类型改为引擎池的 `MiniClawUAProfile`——
+    /// 旧的 `UAProfile` 只作用于从不上屏的旧标签，改了等于没改。
+    @State private var uaProfile: MiniClawUAProfile = BrowserEngineAdapter.shared.uaProfile
     @State private var cookieGroups: [CookieGroup] = []
     /// 搜索引擎本地状态（驱动 Picker 即时刷新；onChange 写回 SettingsStore 持久化）。
     @State private var searchEngine: SearchEngine =
-        SearchEngine(rawValue: SettingsStore.shared.settings.browser.searchEngine) ?? .bing
+        SearchEngine(rawValue: SettingsStore.shared.settings.browser.searchEngine) ?? .auto
     /// 缓存大小文本（WebKit 磁盘缓存 + URLCache，后台计算，不卡主线程）。
     @State private var cacheSizeText: String = String(localized: "calculating")
 
@@ -25,19 +27,20 @@ struct BrowserSheetSettingsView: View {
             // MARK: UA 设置
             Section(String(localized: "user_agent")) {
                 Picker(String(localized: "ua_preset"), selection: $uaProfile) {
-                    Text("Mobile Safari").tag(UAProfile.mobile)
-                    Text("Desktop Safari").tag(UAProfile.desktop)
+                    Text("Mobile Safari").tag(MiniClawUAProfile.mobileSafari)
+                    Text("Desktop Safari").tag(MiniClawUAProfile.desktopSafari)
                 }
                 .pickerStyle(.segmented)
 
-                Text(uaProfile == .mobile ? BrowserActionHelpers.mobileUA : BrowserActionHelpers.desktopUA)
+                // 预览：直接取引擎池解析出的 UA 字符串（与实际生效的 UA 同源，不是另一套常量）。
+                Text(uaProfile.userAgentString ?? BrowserEngineAdapter.shared.currentUAString)
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .textSelection(.enabled)
             }
 
             // MARK: 搜索引擎
-            // 仅切换「地址栏搜索词」跳转的引擎（默认 bing），与默认首页无关。
+            // 仅切换「地址栏搜索词」跳转的引擎（默认 auto=按地区先验+可达性解析，见 SearchEnginePolicy），与默认首页无关。
             Section(String(localized: "search_engine")) {
                 Picker(String(localized: "search_engine"), selection: $searchEngine) {
                     ForEach(SearchEngine.allCases) { engine in
@@ -84,7 +87,7 @@ struct BrowserSheetSettingsView: View {
 
                 Button(role: .destructive) {
                     Task {
-                        let store = BrowserController.shared.activeContext.cookieStore
+                        let store = BrowserEngineAdapter.shared.cookieStore
                         let all = await store.allCookies()
                         for cookie in all { await store.deleteCookie(cookie) }
                         await reloadCookies()
@@ -118,13 +121,15 @@ struct BrowserSheetSettingsView: View {
             Task { await reloadCookies() }
             reloadCacheSize()
             // 外部可能已修改（如设置页）：进入时同步一次。
-            searchEngine = SearchEngine(rawValue: SettingsStore.shared.settings.browser.searchEngine) ?? .bing
+            searchEngine = SearchEngine(rawValue: SettingsStore.shared.settings.browser.searchEngine) ?? .auto
         }
         .onChange(of: uaProfile) { newVal in
-            BrowserController.shared.uaProfile = newVal
-            BrowserController.shared.applyUAProfileToAllTabs()
+            BrowserEngineAdapter.shared.uaProfile = newVal
+            BrowserEngineAdapter.shared.applyUAProfileToAllTabs()
             // UA 变更只影响后续 HTTP 请求：立即刷新当前页让新 UA 生效。
-            BrowserController.shared.uiReload()
+            // [2026-09-15 体系统一] 旧 UAProfile 体系（key "miniClaw.browserUAProfile"）已删，
+            // UA 唯一事实来源 = 引擎池 MiniClawUAProfile；刷新也走适配器（即用户看到的页面）。
+            BrowserEngineAdapter.shared.uiReload()
         }
     }
 
@@ -162,12 +167,12 @@ struct BrowserSheetSettingsView: View {
     /// 清理缓存：统一走 BrowserController.clearBrowserCaches()
     /// （WebKit 磁盘/内存/离线缓存 + URLCache + 共享区 browser/ + Caches/MiniClaw/）。
     private func clearCache() async {
-        await BrowserController.shared.clearBrowserCaches()
+        await BrowserEngineAdapter.shared.clearBrowserCaches()
         await MainActor.run { reloadCacheSize() }
     }
 
     private func reloadCookies() async {
-        let cookies = await BrowserController.shared.activeContext.cookieStore.allCookies()
+        let cookies = await BrowserEngineAdapter.shared.cookieStore.allCookies()
         var dict: [String: Int] = [:]
         for cookie in cookies {
             dict[cookie.domain, default: 0] += 1

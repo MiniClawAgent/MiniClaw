@@ -381,8 +381,13 @@ struct ToolLiveSheet: View {
 
                 Spacer()
 
-                Text("MiniClaw Computer")
+                // [2026-09-14 唐唐] 原为固定文案 `MiniClaw Computer`；现将 L1 工具信息行的
+                // 标题**上提到这里**（那一行只留副标题与耗时）—— 即"第二行改到标题行、去掉
+                // MiniClaw Computer"。文案本身改走中文且**不带 MiniClaw 前缀**，只说明在用什么
+                // 工具（见 `toolTitle`，已按 i18n 规则落 `Localizable.xcstrings`）。
+                Text(toolTitle)
                     .font(.system(size: 15,weight: .semibold))
+                    .lineLimit(1)
 
                 Spacer()
 
@@ -501,9 +506,12 @@ struct ToolLiveSheet: View {
         }
         .padding(.horizontal,16)
         .padding(.vertical,10)
-        // nav 行背景与卡片主体（cardSurface）一致——纯黑/纯白会与 systemGray5
-        // 主体割裂（唐唐反馈：顶部关闭按钮行的颜色改成下面内容的那种颜色）。
-        .background(cardSurface ? Color(UIColor.systemGray5) : Color(UIColor.systemBackground))
+        // [2026-09-14 唐唐] 背景改为**与下面那张正式卡片同色**（L1/L2/L3 内容卡用的是
+        // `systemGray6`，见 `body` 里三处 `.background(Color(UIColor.systemGray6))`）。
+        // 上一轮这里用的是 `systemGray5`（= cardSurface 外层容器的底色）⇒ 与紧邻的内容卡
+        // **差一档**，顶部标题行看起来像另贴了一层。唐唐原话：「卡片顶部 miniclaw computer
+        // 标题行背景对齐下面正式卡片的背景颜色」。
+        .background(cardSurface ? Color(UIColor.systemGray6) : Color(UIColor.systemBackground))
         .fullScreenCover(isPresented: $showTerminal) {
             NavigationStack {
                 ISHTerminalView(
@@ -1506,12 +1514,13 @@ struct ToolLiveSheet: View {
         HStack(spacing: 8) {
             statusIcon
             VStack(alignment: .leading,spacing: 1) {
-                Text(toolTitle)
-                    .font(.system(size: 13,weight: .semibold))
-                    .foregroundStyle(ChatColors.primaryText)
-                    .lineLimit(1)
+                // [2026-09-14 唐唐] 这里原有一行 `Text(toolTitle)`（13pt semibold，文案
+                // "MiniClaw is using Browser"）——**已上提到 nav 标题行**（见 `sheetNavBar`），
+                // 本行只留副标题 + 耗时。
+                // 副标题字号 11 → **14**（唐唐：这一行字体加大点）。颜色不动（仍是 secondary，
+                // 保持与标题行的层级差；只按要求改字号，不擅自改配色）。
                 Text(toolSubtitle)
-                    .font(.system(size: 11))
+                    .font(.system(size: 14))
                     .foregroundStyle(ChatColors.secondaryText)
                     .lineLimit(1)
                     .truncationMode(.tail)
@@ -1737,20 +1746,23 @@ struct ToolLiveSheet: View {
         }
     }
 
+    /// nav 标题行文案：**中文**、**不带 `MiniClaw` 前缀**、只说明正在用哪个工具。
+    ///
+    /// [2026-09-14 唐唐] 旧实现是硬编码英文（"MiniClaw is using Browser" …）⇒ **中文环境下也显示英文**，
+    /// 这也是"改成中文显示"的直接原因。现按 i18n 纪律改造：catalog 的 `sourceLanguage` 是 **en**，
+    /// 故 key 取英文原句，中文由 `Localizable.xcstrings` 的 `zh-Hans` 提供（条目已随本次一起加入）。
+    /// 非工具类 kind 保留产品名本身（这里不是"前缀"问题，去掉会变成空字符串）。
     private var toolTitle: String {
         switch block.kind {
-        case .shellTool: return "MiniClaw is using Shell"
-        case .fileReadTool: return "MiniClaw is reading File"
-        case .fileWriteTool: return "MiniClaw is using Editor"
-        case .fileEditTool: return "MiniClaw is editing File"
-        case .browserTool: return "MiniClaw is using Browser"
-        case .readImageTool: return "MiniClaw is reading Image"
-        case .memoryTool: return "MiniClaw is using Memory"
-        case .subagentTool: return "MiniClaw is managing Subagents"
-        case .info: return "MiniClaw"
-        case .text: return "MiniClaw"
-        case .thinking: return "MiniClaw"
-        case .file: return "MiniClaw"
+        case .shellTool: return String(localized: "Using Shell")
+        case .fileReadTool: return String(localized: "Reading File")
+        case .fileWriteTool: return String(localized: "Using Editor")
+        case .fileEditTool: return String(localized: "Editing File")
+        case .browserTool: return String(localized: "Using Browser")
+        case .readImageTool: return String(localized: "Reading Image")
+        case .memoryTool: return String(localized: "Using Memory")
+        case .subagentTool: return String(localized: "Managing Subagents")
+        case .info,.text,.thinking,.file: return "MiniClaw"
         }
     }
 

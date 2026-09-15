@@ -1168,15 +1168,17 @@ final class MarkdownNSRenderer: @unchecked Sendable {
             return renderInlines(children,baseAttributes: linkAttrs)
 
         case .image(let source,let children):
+            // [2026-09-14 降噪] 原有两行**逐节点**日志（`.image node src=… alt=…` 215 行 + `routing to IMAGE …`
+            // 207 行，合计全天 422 行）。它们报的是"解析器看见了什么语法/选了哪条分支"，
+            // 而落地信号在 `[RenderAttach] CREATE new` 与 `[IMG][NEW]`（真的建了附件），后者保留。
+            // ⚠️ `children`/`altText` **必须保留**：下面的"非媒体 → FILE 附件"分支要用它当文件名。
             let ext = URL(string: source)?.pathExtension.lowercased() ?? ""
             let altText = children.plainText
-            imgLogger.info("[MiniClawImage][InlineParse] .image node src=\(source) ext=\(ext) alt=\(altText)")
             if nativeAudioExts.contains(ext) {
                 return renderAudioAttach(source: source)
             } else if nativeVideoExts.contains(ext) {
                 return renderVideoAttach(source: source)
             } else if nativeImageExts.contains(ext) || ext.isEmpty {
-                imgLogger.info("[MiniClawImage][InlineParse] routing to IMAGE attachment src=\(source)")
                 return renderImageAttach(source: source)
             } else {
                 // 非媒体文件(pdf/md/docx 等)→「📃文件名」文本附件(2026-08-13 治本:
