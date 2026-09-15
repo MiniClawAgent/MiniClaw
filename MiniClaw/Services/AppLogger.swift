@@ -134,7 +134,10 @@ final class AppLogger: @unchecked Sendable {
         // 2026-09-15:缓存命中专项排障期镜像——[Cache命中]/[Cache指纹]/[Volatile]/
         // [CacheSuffix]/[Trim] 都是 info 级,不镜像就只能翻 App 内文件日志;
         // 镜像后可直接在 Xcode 控制台(或 MCP GetConsoleOutput)按正则过滤真机数据。
-        "Cache"
+        "Cache",
+        // 2026-09-15:输出速度口径修正排障期镜像——[Speed] 每次调用打印 output/window/tps,
+        // 用于真机直接核对速度口径(同样是 info 级,不镜像就只能在 App 内文件日志里看)。
+        "Speed"
     ]
 
     /// 诊断插桩静默类别（2026-09-11 降噪）：这些 category 的 info/debug
