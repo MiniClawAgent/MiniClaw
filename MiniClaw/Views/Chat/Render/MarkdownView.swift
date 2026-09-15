@@ -775,22 +775,37 @@ struct MarkdownView: UIViewRepresentable {
 
         var fastPathTaken = false
         var newAttachInTail = 0
+        // 未命中增量路径的原因（诊断用；终态帧走全量属预期，不计入未命中）。
+        var fastAppendMissReason = ""
         let prevStorage = textView.textStorage
-        if prevStorage.length>0,
-           attributed.length>prevStorage.length {
+        // 增量追加门槛（2026-09-16 主线程卡死·治本）：
+        //  ① 只在**流式期**增量——终态帧强制走全量赋值，让属性/几何一次性收敛；
+        //  ② 只要求「已上屏前缀**逐字不变**」，不再逐属性比对。
+        // 为什么去掉属性比对：流式期 storage 的属性本就会被显示层改写（`TextFadeAnimator`
+        // 逐帧改 `.foregroundColor` 做逐词淡入），且渲染器每轮重建附件/段落样式实例、
+        // `isEqual` 不保证成立 ⇒ 旧门槛在真机 87 次流式渲染里命中 **0** 次，每次都退化成
+        // `textView.attributedText = attributed` 全量赋值 + TextKit 整篇重排（单次
+        // 0.55–1.12s、2s 窗口累计 >2s）⇒ 看门狗 `MAIN THREAD BLOCKED`。
+        if isStreaming, Self.hasStableStringPrefix(attributed,prevStorage) {
             let prefixLen = prevStorage.length
-            let newPrefix = attributed.attributedSubstring(from: NSRange(location: 0,length: prefixLen))
-            let _oldPrefix = prevStorage.attributedSubstring(from: NSRange(location: 0,length: prefixLen))
-            if Self.prefixesEqualIgnoringFontSubstitution(newPrefix,_oldPrefix) {
-                let tailRange = NSRange(location: prefixLen,length: 0)
-                let tail = attributed.attributedSubstring(from: NSRange(location: prefixLen,length: attributed.length-prefixLen))
-                tail.enumerateAttribute(.attachment,in: NSRange(location: 0,length: tail.length),options: []) { v,_,_ in
-                    if v != nil { newAttachInTail += 1 }
-                }
-                prevStorage.beginEditing()
-                prevStorage.replaceCharacters(in: tailRange,with: tail)
-                prevStorage.endEditing()
-                fastPathTaken = true
+            let tailRange = NSRange(location: prefixLen,length: 0)
+            let tail = attributed.attributedSubstring(from: NSRange(location: prefixLen,length: attributed.length-prefixLen))
+            tail.enumerateAttribute(.attachment,in: NSRange(location: 0,length: tail.length),options: []) { v,_,_ in
+                if v != nil { newAttachInTail += 1 }
+            }
+            prevStorage.beginEditing()
+            prevStorage.replaceCharacters(in: tailRange,with: tail)
+            prevStorage.endEditing()
+            fastPathTaken = true
+        } else if isStreaming {
+            fastAppendMissReason = "prefix-changed"
+            // 节流 2s 一条：真机确认增量路径为何未命中（Q1/Q3：诊断与生产逻辑分离）。
+            let now = CACurrentMediaTime()
+            if now - context.coordinator.lastFastAppendMissLogAt > 2 {
+                context.coordinator.lastFastAppendMissLogAt = now
+                AppLogger.shared.info(
+                    "[FastAppend] MISS reason=\(fastAppendMissReason) attrLen=\(attributed.length) storageLen=\(prevStorage.length) mdCnt=\(markdown.count)",
+                    category: "Render")
             }
         }
         if !fastPathTaken {
@@ -1002,7 +1017,7 @@ struct MarkdownView: UIViewRepresentable {
         #if DEBUG
         let msgIdShort = messageId?.uuidString.prefix(8) ?? "—"
         if updateElapsed >= 300 {
-            Self.watchdogProbe.warning("[WatchdogProbe][upd] slow updateUIView elapsed=\(String(format: "%.1f", updateElapsed))ms attrLen=\(textView.attributedText?.length ?? 0) markdownLen=\(markdown.count) msgId=\(msgIdShort)")
+            Self.watchdogProbe.warning("[WatchdogProbe][upd] slow updateUIView elapsed=\(String(format: "%.1f", updateElapsed))ms attrLen=\(textView.attributedText?.length ?? 0) markdownLen=\(markdown.count) fast=\(fastPathTaken ? 1 : 0) miss=\(fastAppendMissReason.isEmpty ? "-" : fastAppendMissReason) msgId=\(msgIdShort)")
         }
         Self.recordUpdateUIView(elapsedMs: updateElapsed,attrLen: textView.attributedText?.length ?? 0,msgId: messageId)
         #endif
@@ -1012,34 +1027,23 @@ struct MarkdownView: UIViewRepresentable {
         }
     }
 
-    private static let nsOriginalFontKey = NSAttributedString.Key("NSOriginalFont")
-
+    /// 流式增量追加的门槛：**已上屏前缀逐字不变**即可（属性交给终态帧收敛）。
     ///
-    /// A genuine font/size change still breaks the match.
-    private static func prefixesEqualIgnoringFontSubstitution(
-        _ newPrefix: NSAttributedString,
-        _ oldPrefix: NSAttributedString
+    /// 不再逐属性比对的原因（2026-09-16 主线程卡死·治本）：流式期 textStorage 的属性
+    /// 本就会被显示层改写——`TextFadeAnimator` 逐帧改 `.foregroundColor`（逐词 alpha 0→1）；
+    /// 渲染器每轮还会重建附件/段落样式实例，`isEqual` 不保证成立 ⇒ 旧门槛在真机
+    /// 87 次流式渲染里命中 **0** 次，每次退化成 `textView.attributedText = attributed`
+    /// 全量赋值 + TextKit 整篇重排（单次 0.55–1.12s、2s 窗口累计 >2s），
+    /// 触发看门狗 `MAIN THREAD BLOCKED`。
+    ///
+    /// 属性一致性由调用处保证：`!isStreaming`（终态帧）永不走增量，强制全量赋值收敛。
+    private static func hasStableStringPrefix(
+        _ new: NSAttributedString,
+        _ oldStorage: NSTextStorage
     ) -> Bool {
-        guard newPrefix.length == oldPrefix.length else { return false }
-        guard (newPrefix.string as NSString).isEqual(oldPrefix.string) else { return false }
-        let fontKey = NSAttributedString.Key.font
-        let full = NSRange(location: 0,length: newPrefix.length)
-        var equal = true
-        newPrefix.enumerateAttributes(in: full,options: []) { aN,range,stop in
-            let aO = oldPrefix.attributes(at: range.location,effectiveRange: nil)
-            let fontN = aN[fontKey] as? UIFont
-            let fontO = aO[fontKey] as? UIFont
-            let originalO = aO[nsOriginalFontKey] as? UIFont
-            let fontsOK = (fontN == fontO) || (fontN != nil && fontN == originalO)
-            if !fontsOK { equal = false; stop.pointee = true; return }
-            var nN = aN; nN.removeValue(forKey: fontKey); nN.removeValue(forKey: nsOriginalFontKey)
-            var nO = aO; nO.removeValue(forKey: fontKey); nO.removeValue(forKey: nsOriginalFontKey)
-            if !(nN as NSDictionary).isEqual(to: nO) {
-                equal = false
-                stop.pointee = true
-            }
-        }
-        return equal
+        let oldLen = oldStorage.length
+        guard oldLen > 0, new.length > oldLen else { return false }
+        return (new.string as NSString).substring(to: oldLen) == oldStorage.string
     }
 
     private static func collectImageNodes(from block: BlockNode) -> [String] {
@@ -1552,6 +1556,8 @@ struct MarkdownView: UIViewRepresentable {
         var lastMarkdown: String = ""
         /// [StaleRender 限流] 上一次打印"拒绝更短的旧快照"的时间（1s 节流，防流式期刷屏）。
         var lastStaleLogAt: CFTimeInterval = 0
+        /// [FastAppend 限流] 上一次打印"增量路径未命中原因"的时间（2s 节流）。
+        var lastFastAppendMissLogAt: CFTimeInterval = 0
         var lastRenderedContentHash: Int? = nil
         var pendingMarkdown: String? = nil
         private var replayDeferredRender: (() -> Void)?
