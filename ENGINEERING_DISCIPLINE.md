@@ -48,9 +48,9 @@ MiniClaw/
 ### 2.1 标准构建命令
 
 ```bash
+# CLI 回退路径（仅在 Xcode MCP 不可用时使用；首选见 B5）
 # 完整构建（产物不进项目）
-cd /Users/neartop/Desktop/MiniClowDevelopment/MiniClaw && \
-xcodegen generate && \
+cd /Users/neartop/MiniClowDevelopment/MiniClaw && \
 xcodebuild build -project MiniClaw.xcodeproj -scheme MiniClaw \
   -destination 'generic/platform=iOS' -configuration Debug \
   CODE_SIGNING_ALLOWED=NO \
@@ -64,8 +64,32 @@ xcodebuild build -project MiniClaw.xcodeproj -scheme MiniClaw \
 |---|------|------|
 | B1 | **每次代码修改后必须执行完整构建并确认 BUILD SUCCEEDED**，方可向用户汇报 | 防止"改了但没编译就交付" |
 | B2 | **构建产物必须放在 `-derivedDataPath /tmp/miniclaw-build`**，绝不放进项目目录 | 避免污染 git / Xcode 索引 |
-| B3 | **沙盒 workaround (`-disable-sandbox`) 只通过命令行传参**，不写进 `project.yml` | 保持 project.yml 干净可移植 |
-| B4 | **XcodeGen 先于 xcodebuild**——每次构建前先 `xcodegen generate` 确保 pbxproj 最新 | 避免 pbxproj 过期导致奇怪链接错误 |
+| B3 | **沙盒 workaround (`-disable-sandbox`) 只通过命令行传参**，不写进 `project.yml` | 保持 project.yml 干净可移植。⚠️ 必须作为 `OTHER_SWIFT_FLAGS`（Swift 前端开关）传入；当成顶层 xcodebuild 选项会直接报 `invalid option '-disable-sandbox'` |
+| B4 | ~~**XcodeGen 先于 xcodebuild**~~ **【已作废 2026-09-15】**：源文件增删/移动**不要**跑 `xcodegen generate`——它会直接产出编不过的工程；`project.pbxproj` 是权威，在其上直接改 | 更正依据：`.workbuddy/memory/2026-09-15.md` 记忆核对结论（原条目与工作区笔记相反） |
+| B5 | **Xcode 工程相关操作一律优先走 Xcode MCP 通道**——构建、编译诊断、运行/安装、抓日志、调试、设备交互、工程/方案/目标/目的机查询、测试、崩溃与性能；**能走 MCP 就不得**改用 `xcodebuild` / `devicectl` / 手工读工程文件替代 | MCP 与 Xcode 状态**同源**（同一个 workspace/scheme/目的机），且不受外部进程沙箱干扰——CLI 构建会因 `sandbox-exec` 与 Swift 宏插件被拒而炸出上千条假错误（实测 `SwiftUIMacros.StateMacro … malformed response`） |
+
+### 2.3 Xcode MCP 通道对照表（B5 的执行细则）
+
+| 任务 | 走 MCP | 不再使用 |
+|---|---|---|
+| 构建 / 编译验证 | `BuildProject`；单文件诊断 `XcodeRefreshCodeIssuesInFile` | `xcodebuild build` |
+| 构建日志 | `GetBuildLog`（severity / pattern / glob 过滤） | 读构建日志文件 |
+| 安装 + 运行 | `DeviceInteractionStartWorkspaceSession` → `DeviceInteractionInstallAndRun`（或 `RunProject`） | `devicectl install/launch` |
+| 运行时日志 | `GetConsoleOutput`（stdio + oslog，支持正则与上下文行；`AppLogger` 经 `print` 进控制台，`[Cache命中]`/`[Cache指纹]` 可直接过滤） | `devicectl … copy from Documents/MiniClaw/logs` |
+| 调试 | `InvokeDebuggerCommand`（lldb：`bt` / `po` / 断点 / 单步，与 Xcode 调试台同一会话） | — |
+| 设备 UI 操作 | `DeviceInteractionSynthesize`（tap / swipe / type，附截图与 UI 层级） | 人工手点后口述现象 |
+| 工程 / 目标 / 方案 / 目的机 | `XcodeListWorkspaces/Schemes/Targets/RunDestinations`、`GetTargetBuildSettings`、`XcodeLS/Read/Grep/Glob`、`XcodeMakeDir/MV/RM` | `find` / `grep` 工程文件 |
+| 测试 | `GetTestList` + `RunAllTests` / `RunSomeTests` | `xcodebuild test` |
+| 崩溃 / 性能 | `GetTopCrashIssues` / `GetCrashIssueLogs`、`GetTopFieldPerformanceIssues` | — |
+| Info.plist / 权限 | `AddInfoPlist` / `AddEntitlement`（**不直接编辑 plist / entitlements 文件**） | 直接改文件 |
+
+**前置条件（不满足就先做）**
+1. **必须先有打开的 workspace**：MCP 的构建/运行/日志/调试工具都要求 workspace + scheme + 目的机已就位；没有就先用 `XcodeOpenWorkspace` 打开 `MiniClaw.xcodeproj`。
+2. **调用方授权有有效期**：Xcode 首次会弹窗批准「哪个 agent 可访问哪个工程目录」（当前 `/bin/bash` 这条授权到 2026-09-16 13:11 UTC）。过期或换调用方时，第一次工具调用要在 Xcode 里点一次允许。
+3. 目的机用 `XcodeSwitchRunDestination` 切换（真机调试/抓日志前务必确认不是模拟器）。
+
+**已知缺口（MCP 未覆盖，需另行处理且先问用户）**
+- MCP **没有**「从 App 容器拷文件」的工具 ⇒ `Documents/MiniClaw/logs/reqdump_*.json` 这类**沙盒文件**目前没有 MCP 通道。首选解法是**在 App 内算好结果再用 `AppLogger` 打到控制台**（例如相邻两次请求体的首个不同字节偏移 + 上下文 + 所属段），这样抓日志全程可走 MCP；在此之前若确需容器文件，先征得用户同意再临时用 `devicectl`。
 
 ---
 
