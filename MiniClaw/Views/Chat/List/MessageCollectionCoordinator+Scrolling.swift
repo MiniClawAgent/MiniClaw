@@ -194,13 +194,23 @@ extension MessageCollectionView.Coordinator {
         ///      **CV 的 frame 本来就在导航栏下方** ⇒ 顶部留白**本就应为 0**，加上 116 就多出大片空白。
         /// 常量 0 同时带来关键性质：**该值不切换** ⇒ `.never` 下 `adjustedContentInset` 恒定
         /// ⇒ UIKit 无需补偿 ⇒ 入口期不再位移。
+        ///
+        /// [2026-09-14 顶部磨砂·第三版 · 上述②的前提已反转]
+        /// 顶部要做成"跟首页一样"（内容从栏下穿过、系统在内容滑过时给栏上材质），
+        /// **前提是 CV 的 frame 必须穿过顶栏**；frame 一穿过，首条消息就必须让开
+        /// "状态栏 + 导航栏"这一段 ⇒ 顶部留白从 0 变为**顶栏真实高度**（`TopBarInset`）。
+        /// 于是②"多出 116pt 空白"不再成立（那时 frame 在栏下、现在在栏上）。
+        ///
+        /// ⚠️ **取值纪律一个字没变**：`TopBarInset.height` 仍是**不切换的常量**
+        ///（只在方向变化/首次出现时刷新），绝不用容器瞬时安全区 —— 那才是 116↔0 位移事故的成因。
+        /// `.never` + 常量 ⇒ `adjustedContentInset` 恒定 ⇒ UIKit 不介入补偿。
         public var baseContentInsetTop: CGFloat {
             appBaseContentInsetTop
         }
 
-        /// App 自有顶部基础留白（与设备无关的那部分）。
+        /// App 自有顶部基础留白。见上方 2026-09-14 注：语义已从"0"改为"顶栏真实高度"。
         public var appBaseContentInsetTop: CGFloat {
-            if #available(iOS 26,*) { return 0 } else { return 8 }
+            TopBarInset.height
         }
 
         /// contentInset.bottom — it reads this base and adds overflowH.
@@ -881,11 +891,10 @@ extension MessageCollectionView.Coordinator {
             decelFrameCount += 1
             guard gapH>decelSlowFrameThreshold else { return }
             decelSlowFrameCount += 1
-            let sinceStart = (now-decelStartTime)*1000
-            let offY = scrollView.contentOffset.y
-            let dir = offY >= decelStartOffset ? "↓" : "↑"
-            let visibleN = viewController?.collectionView?.visibleCells.count ?? -1
-            AppLogger.shared.warning("[Decel][SLOW-FRAME] +\(String(format: "%.0f", sinceStart))ms into decel gapH=\(String(format: "%.0f", gapH * 1000))ms offset=\(String(format: "%.0f", offY))\(dir) remainToTarget=\(String(format: "%.0f", self.decelTargetOffset - offY)) visibleCells=\(visibleN) frame#\(self.decelFrameCount)", category: "ChatList.Decel")
+            // [2026-09-14 降噪] 删除**逐帧**告警（实测全天 719 行）。聚合信号早已存在：
+            // `[Decel][END]` 的 `slowFrames=` 与 `[DecelDisplayLink][SUMMARY]` 的
+            // `frames=/drops=/gapRange=[min..max]ms`。逐帧行只多告诉"是第几帧"，
+            // 代价却是把真正的异常行淹掉（skill「per-frame logging floods the real signal out」）。
             #endif
         }
 
@@ -909,11 +918,9 @@ extension MessageCollectionView.Coordinator {
             let dropThreshold = decelDLExpectedMs*1.5
             if gapMs>dropThreshold {
                 decelDLDrops += 1
-                let cv = viewController?.collectionView
-                let offY = cv?.contentOffset.y ?? 0
-                let sinceStart = (CACurrentMediaTime()-decelStartTime)*1000
-                let dropped = Int((gapMs/decelDLExpectedMs).rounded())-1
-                AppLogger.shared.warning("[DecelDisplayLink][DROP] +\(String(format: "%.0f", sinceStart))ms into decel gapH=\(String(format: "%.1f", gapMs))ms (expected \(String(format: "%.1f", self.decelDLExpectedMs))ms, ~\(dropped) frame(s) dropped) offset=\(String(format: "%.0f", offY)) remainToTarget=\(String(format: "%.0f", self.decelTargetOffset - offY)) frame#\(self.decelDLFrames)", category: "ChatList.Decel")
+                // [2026-09-14 降噪] 删除**逐帧**丢帧告警（实测全天 3,356 行 = 全天日志的 16.5%）。
+                // 聚合信号已在 `[DecelDisplayLink][SUMMARY]`：`frames=/drops=/gapRange=[min..max]ms`
+                // —— 最坏那一帧的间隔就落在 gapRange 上界里，逐帧行没有额外信息量。
             }
         }
 
@@ -980,6 +987,14 @@ extension MessageCollectionView.Coordinator {
                 }
             }
             if !holeTag.isEmpty || !empties.isEmpty {
+                // [2026-09-14 降噪] 挂到既有哨兵 `logs/.scroll-metrics-on`：默认静默
+                //（实测默认态全天 426 行，且 1Hz 反复打印同一批空格）。
+                // 「条目丢失 → 行间空白」仍是**未结案项**（洞= 那一段仍是唯一量化），故保留探针而非删除；
+                // 需要查时 `devicectl copy to` 放哨兵即恢复全量。
+                #if DEBUG
+                ScrollMetricsRecorder.shared.ensureEnabledChecked()
+                guard ScrollMetricsRecorder.shared.isEnabled else { return }
+                #endif
                 AppLogger.shared.info("[BlankProbe2] attrIdx=\(idxs.first ?? -1)~\(idxs.last ?? -1) 属性数=\(attrs.count)\(holeTag) 空内容格(\(empties.count)): \(empties.prefix(12).joined(separator: " | "))",
                                       category: "ChatList.Blank")
             }

@@ -58,10 +58,132 @@ enum MiniClawChatAdapter {
     /// 正文按思考段/工具调用的 position 切分成多个片段,每段 order = 前一事件
     /// order + 0.5,实现「思考1→工具1→回复1→思考2→工具2→回复2」的真实穿插
     /// (与子代理会话 assistantSegments 的顺序规则一致)。
-    private static func buildBlocks(_ message: ChatMessage) -> [AssistantBlock] {
-        var items: [(order: Double, block: AssistantBlock)] = []
+    /// 把正文切分点吸附到最近的**轮边界**（轮间分隔符 `"\n\n"` 的起点），仅在 `tolerance`
+    /// 字符内吸附。
+    ///
+    /// [2026-09-15 治本] 切分点来自流式事件的 `position`，而它在**流式期间本质上拿不到权威值**
+    /// —— 工具事件的位置要等「下一轮开始 / 终态」才定稿（实测当场取值少 2、偶见 4 = 在途尾
+    /// token 数）⇒ 流式中按它切正文会把该轮句尾劈到工具卡之后，下一轮定稿后又自愈
+    /// （真机日志实证：`[SplitProbe] pos=29/31` → 终态 `textLens` 恢复整齐）。
+    ///
+    /// 轮边界是**结构性事实**（每轮正文之间必有分隔符，与取值时机无关）⇒ 以它为准，切分便
+    /// 不再依赖 `position` 的精度。偏差超过 `tolerance` 的不吸附：那说明是模型自己在正文里
+    /// 换的行，动它反而错。
+    /// 返回的 offset 是分隔符**起点**（= 上一轮正文终点；分隔符本身归属下一轮的文本片段）。
+    static func snapToRoundBoundary(_ pos: Int, in content: String, tolerance: Int = 6) -> Int {
+        guard pos > 0, pos < content.count else { return pos }
+        var best = pos
+        var bestDist = tolerance + 1
+        // 候选 ① **正文末尾**：流式进行中「当前轮」之后**还没有分隔符**，末位就是本轮正文终点。
+        //（真机 18:24 实证：`pos=18/20`，此刻唯一的 `\n\n` 在 9、距离 9 > 容差 ⇒ 只认分隔符
+        // 会漏吸附，工具卡照旧插进本轮句尾 —— 这正是"吸附了却依然劈句"的原因。）
+        if content.count - pos <= tolerance {
+            best = content.count
+            bestDist = content.count - pos
+        }
+        // 候选 ② 每个 `\n\n` 的**起点**（= 上一轮正文终点；分隔符本身归属下一轮文本片段）。
+        let lo = max(2, pos - tolerance)
+        let hi = min(content.count - 2, pos + tolerance)
+        if lo <= hi {
+            for offset in lo...hi {
+                let a = content.index(content.startIndex, offsetBy: offset)
+                let b = content.index(a, offsetBy: 1)
+                guard b < content.endIndex else { continue }
+                if content[a] == "\n", content[b] == "\n" {
+                    let d = abs(offset - pos)
+                    if d < bestDist { bestDist = d; best = offset }
+                }
+            }
+        }
+        return best
+    }
 
-        // 收集事件(思考段 + 工具调用),按 timelineOrder 排序,含 position。
+    // MARK: - 时间线规划（流式与终态的唯一入口）
+
+    /// 时间线规划的一步：正文片段 或 第 `index` 个事件。
+    struct TimelineStep {
+        enum Content {
+            /// 正文片段。`startOffset` = 它在 content 中的起点（文本块 id 由它派生）。
+            case text(startOffset: Int, text: String)
+            /// 事件块（思考 / 工具）。`index` = 调用方传入事件的**原始下标**。
+            case event(index: Int)
+        }
+        let content: Content
+        /// 排序键：事件前正文片段 = 事件 order − 0.5；事件 = 自身 order；尾部片段 = 最大事件 order + 0.5。
+        let order: Double
+    }
+
+    /// 把「正文 + 事件」规划为交错的 `TimelineStep` 序列 —— **流式与终态共用的唯一实现**。
+    ///
+    /// [2026-09-15 收敛] 此前流式（`MiniClawChatBridge`）与终态（本文件 `buildBlocks`）各写一份
+    /// 同构拷贝，规则靠注释人工同步 ⇒ 改一处漏一处：治本修复只改了终态那份，流式期仍在劈句
+    /// （真机 `[SplitProbe] pos=29/31` 实证）。现在只有这一份，两条路径不可能再漂移。
+    ///
+    /// 规则：
+    /// 1. **事件排序**：order 优先、position 次之；整批无 order（旧数据）时退化按 position，并赋 order = position + 1。
+    /// 2. **切分点吸附到轮边界**（`snapToRoundBoundary`）：流式期间事件 position 拿不到权威值
+    ///    （要等下一轮/终态定稿），轮边界才是结构性事实 ⇒ 两条路径得到**同一套切分点**。
+    /// 3. **游标只前进**：同轮多个事件、或吸附造成的回退，都不会让正文被重复输出。
+    /// 4. **order 数值**：片段必须落在 Double 精确区间内 —— 曾用 `Int.max - 1` 作尾部基准，
+    ///    该量级精度间隔 2048，`splitFileBlocks` 的 `+0.05*k` 子序被吞 ⇒ 文件块与正文块同 order
+    ///    ⇒ 真机「文件指示器总在最终回复上面」。
+    static func planTimeline(content: String,
+                             events: [(order: Double, position: Int)],
+                             identifier: String) -> [TimelineStep] {
+        let hasTimeline = events.contains { $0.order > 0 }
+        let sorted: [(index: Int, order: Double, position: Int)]
+        if hasTimeline {
+            sorted = events.enumerated()
+                .map { (index: $0.offset, order: $0.element.order, position: $0.element.position) }
+                .sorted { $0.order < $1.order || ($0.order == $1.order && $0.position < $1.position) }
+        } else {
+            sorted = events.enumerated()
+                .map { (index: $0.offset, order: Double($0.element.position + 1), position: $0.element.position) }
+                .sorted { $0.position < $1.position }
+        }
+
+        var steps: [TimelineStep] = []
+        var cursor = 0
+        for e in sorted {
+            let pos = snapToRoundBoundary(min(max(e.position, 0), content.count), in: content)
+            // [诊断哨兵] 吸附后仍落在句子中间 = position 偏离轮边界超出容差（正常应为零命中）。
+            if pos > 0, pos < content.count {
+                let before = content[content.index(content.startIndex, offsetBy: pos - 1)]
+                let after = content[content.index(content.startIndex, offsetBy: pos)]
+                if before != "\n", after != "\n" {
+                    let cut = content.index(content.startIndex, offsetBy: pos)
+                    let head = content[content.index(content.startIndex, offsetBy: max(0, pos - 8))..<cut]
+                    let tail = content[cut..<content.index(content.startIndex, offsetBy: min(content.count, pos + 8))]
+                    AppLogger.shared.warn(
+                        "[SplitProbe] 正文被劈开（吸附后仍在句内）pos=\(pos)/\(content.count) order=\(e.order) id=\(identifier) ctx=「\(head)|\(tail)」",
+                        category: "Timeline", subsystem: "Bridge")
+                }
+            }
+            if pos > cursor {
+                steps.append(TimelineStep(
+                    content: .text(startOffset: cursor, text: substring(content, cursor, pos)),
+                    order: e.order - 0.5))
+            }
+            steps.append(TimelineStep(content: .event(index: e.index), order: e.order))
+            cursor = max(cursor, pos)
+        }
+        if cursor < content.count {
+            steps.append(TimelineStep(
+                content: .text(startOffset: cursor, text: substring(content, cursor, content.count)),
+                order: (sorted.map(\.order).max() ?? 0) + 0.5))
+        }
+        return steps
+    }
+
+    /// content 的 `[from, to)` 子串。
+    private static func substring(_ content: String, _ from: Int, _ to: Int) -> String {
+        let a = content.index(content.startIndex, offsetBy: from)
+        let b = content.index(content.startIndex, offsetBy: to)
+        return String(content[a..<b])
+    }
+
+    private static func buildBlocks(_ message: ChatMessage) -> [AssistantBlock] {
+        // 收集事件(思考段 + 工具调用)。排序与正文切分由 `planTimeline` 统一处理。
         var events: [(order: Int, position: Int, block: AssistantBlock)] = []
 
         // 2026-08-12 兜底:reasoningSegments 为空但 message.reasoning(单串)非空时,
@@ -93,69 +215,34 @@ enum MiniClawChatAdapter {
             events.append((event.timelineOrder, event.position, block))
         }
 
-        let hasTimeline = events.contains { $0.order > 0 }
-        let sortedEvents: [(order: Double, position: Int, block: AssistantBlock)]
-        if hasTimeline {
-            sortedEvents = events.sorted {
-                $0.order < $1.order || ($0.order == $1.order && $0.position < $1.position)
-            }.map { (Double($0.order), $0.position, $0.block) }
-        } else {
-            sortedEvents = events.sorted {
-                $0.position < $1.position
-            }.map { (Double($0.position + 1), $0.position, $0.block) }
-        }
-
-        // 正文按 position 切分:每个事件前的正文片段 order = 事件 order - 0.5,
-        // 事件后的剩余正文排最后(Int.max-1)。
-        // 注意:每个 block(事件块与正文片段)都必须在创建时把 order 写回
-        // block.timelineOrder——渲染层按 block.timelineOrder 兜底排序(2026-08-10),
-        // 若只按元组排序不写回,渲染层读默认值 Int.max-1 会全部相等→按 id 乱序。
+        // [2026-09-15 收敛] 事件排序 + 正文切分全部交给 `planTimeline`（与流式路径**同一实现**），
+        // 本函数只负责把规划结果转成块：事件 → 原事件块（回写 order），正文片段 → `splitFileBlocks`。
         let content = message.content
         // [2026-09-09 诊断] position 超界 = 事件 position 与落盘 content 不同源
         //（典型：流式中退出会话，segments/toolCalls 已落盘而 content 滞后）。
         // clamp 会让中间正文段被 cursor 跳过 → 重进会话正文"消失"。
         // 打 warn（低频异常路径）供真机日志一锤定音。
-        let overCount = sortedEvents.filter { $0.position > content.count || $0.position < 0 }.count
+        let overCount = events.filter { $0.position > content.count || $0.position < 0 }.count
         if overCount > 0 {
             AppLogger.shared.warn(
-                "[Timeline] position out of range: contentCount=\(content.count) events=\(sortedEvents.count) over=\(overCount) msgId=\(message.id.uuidString.prefix(8))",
+                "[Timeline] position out of range: contentCount=\(content.count) events=\(events.count) over=\(overCount) msgId=\(message.id.uuidString.prefix(8))",
                 category: "Timeline", subsystem: "Bridge")
         }
-        var textCursor = 0
-        for (order, position, block) in sortedEvents {
-            block.timelineOrder = order
-            let pos = min(max(position, 0), content.count)
-            if pos > textCursor {
-                let startIdx = content.index(content.startIndex, offsetBy: textCursor)
-                let endIdx = content.index(content.startIndex, offsetBy: pos)
-                // [Fix 重进会话跳屏·方案B] 正文片段无持久化事件 id,用
-                // (mid+起始字符位置) 生成确定性 UUID:同内容同切分 → 同 id →
-                // contentKey 稳定 → memo 跨会话命中。
-                let segment = String(content[startIdx..<endIdx])
-                for (o, b) in splitFileBlocks(markdown: segment, messageID: message.id, baseOrder: order - 0.5, startOffset: textCursor) {
-                    items.append((o, b))
-                }
-            }
-            items.append((order, block))
-            textCursor = max(textCursor, pos)
-        }
-        if textCursor < content.count {
-            let startIdx = content.index(content.startIndex, offsetBy: textCursor)
-            let segment = String(content[startIdx..<content.endIndex])
-            // [2026-09-12 文件指示器错位修复] 尾部片段（= 最终回复）此前用
-            // `baseOrder: Double(Int.max - 1)`。该量级下 **Double 的精度间隔是 2048**，
-            // 于是 splitFileBlocks 内部的 `baseOrder + 0.05*k` **全部被吞掉** → 尾部里的
-            // 文本块与文件块拿到**完全相同**的 order → `sorted`（不保证稳定）把文件块
-            // 排到了正文之前 ⇒ 真机表现为「文件指示器总在最终回复上面」（截图实证）。
-            // （同款坑在本文件 110-112 行的注释里已记录：默认值 Int.max-1 会让 order 全相等。）
-            // 修法：基准取**实际最大事件 order + 0.5** —— 仍严格大于所有事件与事件前正文段
-            // （后者是 eventOrder - 0.5），同时保持在 Double 精确表示范围内，子序 0.05*k 不丢。
-            let tailBase = (sortedEvents.map(\.order).max() ?? 0) + 0.5
-            for (o, b) in splitFileBlocks(markdown: segment, messageID: message.id, baseOrder: tailBase, startOffset: textCursor) {
-                items.append((o, b))
+        let items: [(order: Double, block: AssistantBlock)] = planTimeline(
+            content: content,
+            events: events.map { (order: Double($0.order), position: $0.position) },
+            identifier: String(message.id.uuidString.prefix(8))
+        ).flatMap { step -> [(order: Double, block: AssistantBlock)] in
+            switch step.content {
+            case .event(let index):
+                let block = events[index].block
+                block.timelineOrder = step.order
+                return [(step.order, block)]
+            case .text(let startOffset, let text):
+                return splitFileBlocks(markdown: text, messageID: message.id,
+                                       baseOrder: step.order, startOffset: startOffset)
             }
         }
-
         // [2026-09-13 P4] 末尾排序补 **id 次键**：原为 `$0.order < $1.order`，而 Swift 的
         // `sorted` **不保证稳定** ⇒ order 相等时结果跟实现细节/输入顺序有关（非确定性）。
         // 渲染层（`+Snapshot` 构建 `newRows` 时对 `message.blocks` 的兜底排序）早已是

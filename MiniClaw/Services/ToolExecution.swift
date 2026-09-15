@@ -44,13 +44,21 @@ final class ToolExecution: @unchecked Sendable {
     private var outputLineBuffer: [String] = []
     private var lastOutputFlush = Date.distantPast
 
-    init(name: String, callID: String, startedAt: Date = Date()) {
+    /// [2026-09-14 身份统一·治本] 工具块的**终身身份**：流式块、落盘事件（`toEvent`）、
+    /// 终态重建（`buildBlocks` 的 `event.id`）三者共用同一个 id。
+    /// 此前流式块用随机 `UUID()`、终态用 `event.id` ⇒ 回复完毕那次重建时每个工具块 id 全变
+    /// ⇒ diffable 判废旧 cell + `configureCell MISS` ⇒ 工具指示器丢失、重进会话才恢复
+    ///（22:07 真机实测）。与 2026-09-09 text 块的确定性 id（messageID+startOffset）同一思路。
+    let eventID: UUID
+
+    init(name: String, callID: String, startedAt: Date = Date(), eventID: UUID = UUID()) {
         self.name = name
         self.callID = callID
         self.startedAt = startedAt
+        self.eventID = eventID
         self._argsJSON = ""
         self.block = AssistantBlock(
-            id: UUID(),
+            id: eventID,
             kind: MiniClawChatAdapter.toolKind(name),
             content: "",
             toolStatus: .streaming(bytes: 0),
@@ -159,7 +167,8 @@ final class ToolExecution: @unchecked Sendable {
         } else {
             resolvedCallID = UUID().uuidString
         }
-        self.init(name: event.name, callID: resolvedCallID, startedAt: event.timestamp)
+        // [身份统一] 恢复场景沿用落盘事件的 id ⇒ 恢复出来的块与终态重建同身份。
+        self.init(name: event.name, callID: resolvedCallID, startedAt: event.timestamp, eventID: event.id)
         argsJSON = event.arguments
         result = ToolResult(success: event.success, text: event.resultText)
         duration = event.duration ?? 0
@@ -193,8 +202,11 @@ final class ToolExecution: @unchecked Sendable {
     // MARK: - 落盘
 
     /// 转持久化事件（position/timelineOrder 由宿主在挂载时分配）。
+    /// [身份统一] `id: eventID` —— 落盘事件的 id 与流式块**同一个**，
+    /// 终态 `buildBlocks` 重建出的块身份与流式期间完全一致，不再全变。
     func toEvent(position: Int, timelineOrder: Int) -> ToolCallEvent {
         ToolCallEvent(
+            id: eventID,
             name: name,
             callID: callID,
             arguments: argsJSON,

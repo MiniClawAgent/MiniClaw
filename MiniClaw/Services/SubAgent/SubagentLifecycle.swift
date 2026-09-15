@@ -29,8 +29,10 @@ enum SubagentLifecycle {
         // 4. 移除头像卡片 + 对话（落盘 subagent_store.json），与用户长按删除同一方法。
         SubagentStore.shared.removeSubagent(sessionID: sessionID, subagentID: subagentID)
 
-        // 5. 释放该子代理独占的浏览器上下文（独立标签组，防止残留占资源）。
-        BrowserContextManager.shared.destroy(sessionID: subagentID)
+        // 5. 释放该子代理独占的浏览器标签组（防止残留占资源）。
+        // [2026-09-15 体系统一] 原为 BrowserContextManager.destroy（旧上下文体系，已删）；
+        // 现由适配器销毁该会话的引擎池（关闭其全部标签并移除池）。
+        BrowserEngineAdapter.shared.destroySession(subagentID)
 
         if existed {
             return (true, false, String(format: String(localized: "subagent_closed_msg"), subagentID.uuidString))

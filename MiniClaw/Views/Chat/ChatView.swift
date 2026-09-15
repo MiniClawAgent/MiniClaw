@@ -1034,6 +1034,13 @@ struct ChatView: View {
         .toolbar {
             chatToolbarItems
         }
+        // [2026-09-14 顶部磨砂·失败记录] 这里曾用
+        //   `.toolbarBackground(.bar, for: .navigationBar)` + `.toolbarBackground(.visible, …)`
+        // 给栏硬贴一层材质。**错的**：那会变成一块**常显的灰**，与首页"直接映射背景色"的行为
+        // 完全不同 —— 首页是 SwiftUI `List`，由**系统**在"内容滑到栏下"时才换上材质，
+        // 静止时栏是透明、直接映射背景（所以是纯黑/纯白）。
+        // ⇒ 正确做法见 `messageListView` 与 `MessageListViewController.registerCollectionViewForNavBarScrollEdge`：
+        //   让列表穿过顶栏 + 把列表注册给导航栏，背景切换由系统完成，本页**不自绘任何东西**。
         .onAppear {
             // [2026-09-11 「重复淡入」修复] 下面这一串状态更新会让 ChatView body 连续重算
             //（真机探针实测：首次进入 body 重算 7 次、菜单构建 7 次）→ toolbar 随之重建
@@ -1046,8 +1053,9 @@ struct ChatView: View {
             tx.disablesAnimations = true
             withTransaction(tx) {
                 lastMessageID = session.messages.last?.id
-                BrowserController.shared.setSession(session.id)
                 // 2026-08-12:浏览器 UI 标签池绑定到当前会话(与工具链同一池,指示器/工具/浏览器标签同步)
+                // [2026-09-15 体系统一] 原先这里还调 BrowserController.setSession（旧上下文体系），
+                // 与适配器是两套状态；旧体系已删，只保留适配器这一条。
                 BrowserEngineAdapter.shared.setSession(session.id)
                 // 2026-08-12 修复:播种 lastResponding——若进入时 agent 已在回复中,
                 // 完成翻转 true→false 才不会被漏检(否则排队消息不自动续跑)。
@@ -1199,7 +1207,18 @@ struct ChatView: View {
         adaptedListContent
         // 2026-08-11 恢复:仅列表延伸到小横条(消息可滚到小横条后面,底部无白条);
         // 输入栏 overlay 不受影响,仍尊重底部安全区停留在原位置。
-        .ignoresSafeArea(.container, edges: .bottom)
+        //
+        // [2026-09-14 顶部磨砂·第三版] 顶部也放开 ⇒ 内容会**从顶栏下穿过**。这是"跟首页一样"的
+        // **前提**：首页列表是 SwiftUI `List`，内容本来就从栏下穿过，系统才会在"有内容在栏下"时
+        // 把栏背景换成材质、没有内容时保持**透明直接映射背景**（所以静止时是纯黑/纯白）。
+        // 本页要补齐两件事，**都不自绘任何图层**：
+        //   ① 列表穿过顶栏（本行）；
+        //   ② 把列表**注册给导航栏**，让系统知道该盯哪个滚动视图 —— 见
+        //      `MessageListViewController.registerCollectionViewForNavBarScrollEdge`。
+        // 配套：顶部留白 = 顶栏真实高度（`TopBarInset` 常量），否则首条消息被顶栏盖住。
+        // ⚠️ 第一版"割裂"的根因是**自绘了一整条渐变叠层 + 强制常显材质 + 隐藏栏背景**，
+        // 三件事叠加成了"第二层"。这次一件都不做：颜色与材质**全部由系统栏自己给**。
+        .ignoresSafeArea(.container, edges: [.top, .bottom])
         .onAppear {
             shouldAutoFollow = true
             // 初始贴底：延迟到布局完成后滚动一次（用户已上滑则放弃）
@@ -1751,6 +1770,8 @@ struct ChatView: View {
         for event in bubble.toolCalls {
             runtime.registerStreamingToolExecution(ToolExecution(restoring: event), order: Double(event.timelineOrder))
         }
+        // [2026-09-15 治本] 这些位置来自落盘事件（权威）⇒ 标记已定稿，禁止后续冻结改写。
+        runtime.markRestoredToolsSettled()
         runtime.streamingReasoningSegments = bubble.reasoningSegments
         // 2026-08-12 修复:旧数据/停止时未落盘思考段的场景,bubble.reasoningSegments 为空时
         // 从检查点 task.messages 的最后一条 assistant 消息提取 reasoning_content 重建思考段,

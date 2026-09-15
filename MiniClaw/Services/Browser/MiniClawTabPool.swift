@@ -151,7 +151,13 @@ public final class MiniClawTabPoolRegistry {
 
 @MainActor
 public final class MiniClawTabPool: ObservableObject {
-    public static let maxTabs = 3
+    /// 最多标签数（「通用设置 → 浏览器 → 最大标签数」，范围 1…5，缺省 3）。
+    /// [2026-09-15 体系统一] 原为硬编码 `3`：旧体系（BrowserController）读 SettingsStore，
+    /// 旧体系删除后只剩引擎这一份，导致该设置静默失效 —— 改为读设置（与旧语义一致）。
+    public static var maxTabs: Int {
+        let v = SettingsStore.shared.settings.browser.maxTabs
+        return min(5, max(1, v))
+    }
 
     #if DEBUG
     public static weak var debugInstance: MiniClawTabPool?
@@ -298,19 +304,52 @@ public final class MiniClawTabPool: ObservableObject {
         return 0
     }
 
-    public func ensureTabForUI() {
-        if !tabs.contains(where: { $0.id == 0 }) {
-            guard MiniClawTabPoolRegistry.shared.requestSlot(for: self) else {
-                logger.info("Skipping UI prefetch tab — global cap reached and no idle siblings to evict")
-                return
-            }
-            let manager = makeManager()
-            let tab = Tab(id: 0,manager: manager,inUse: false)
-            tabs.append(tab)
-            selectedTabId = 0
-            restoreSavedURL(for: 0,manager: manager)
-            logger.info("Created tab 0 for UI")
+    /// 建 0 号 UI 标签（若尚无）。返回是否可用（已存在或新建成功）。
+    /// 拆出独立函数：`ensureTabForUI` 与 `repairSelectionIfNeeded` 都要用它，
+    /// 但不能互相调用（会递归）。
+    @discardableResult
+    private func createTab0IfPossible() -> Bool {
+        if tabs.contains(where: { $0.id == 0 }) { return true }
+        guard MiniClawTabPoolRegistry.shared.requestSlot(for: self) else {
+            // [2026-09-15 治本] 原实现这里**直接 return**：既不建标签也不修选择，
+            // 于是 activeManager 恒 nil ⇒ 地址栏/刷新/前进后退全部静默失效、内容区恒空白。
+            logger.error("createTab0 被拒（全局标签上限）tabs=\(tabs.count) selected=\(selectedTabId)")
+            return false
         }
+        let manager = makeManager()
+        let tab = Tab(id: 0,manager: manager,inUse: false)
+        tabs.append(tab)
+        selectedTabId = 0
+        restoreSavedURL(for: 0,manager: manager)
+        logger.info("Created tab 0 for UI")
+        return true
+    }
+
+    public func ensureTabForUI() {
+        _ = createTab0IfPossible()
+        _ = repairSelectionIfNeeded()
+    }
+
+    /// 选择修复（2026-09-15 治本）：`selectedTabId` 未命中任何标签时，
+    /// 回落到第一个有效标签；池内无标签则补建 0 号。
+    ///
+    /// **这是「地址栏输入毫无反应 + 网页区恒空白」的根因**：`activeManager` 的实现是
+    /// `tabs.first { $0.id == selectedTabId }?.manager` —— 一旦选择越界（标签被关后
+    /// 选择未回落、池从未建过标签、恢复的旧选择失效），它恒为 nil；而 UI 侧
+    /// `ControllerWebView.updateUIView` 用 `guard let webView = activeWebView else { return }`
+    /// 直接返回 ⇒ 页面永远不挂载；`uiNavigate` 用 `pool.activeManager?.loadURL(...)`
+    /// 可选链 ⇒ 点「前往」零日志零报错零反应。
+    /// 返回是否发生了修复。
+    @discardableResult
+    public func repairSelectionIfNeeded() -> Bool {
+        if tabs.contains(where: { $0.id == selectedTabId }) { return false }
+        let old = selectedTabId
+        if tabs.isEmpty { _ = createTab0IfPossible() }
+        if !tabs.contains(where: { $0.id == selectedTabId }) {
+            selectedTabId = tabs.first?.id ?? 0
+        }
+        logger.warn("选择修复: \(old) -> \(selectedTabId) ids=\(tabs.map(\.id))")
+        return true
     }
 
     public func newTab(url: String? = nil) -> MiniClawActionResult {
@@ -351,6 +390,14 @@ public final class MiniClawTabPool: ObservableObject {
 
     @discardableResult
     public func openWithConfiguration(_ configuration: WKWebViewConfiguration,url: URL?) -> WKWebView? {
+        // 「通用设置 → 浏览器 → 拦截弹窗」：开启时只拦**页面自动弹出**的窗，
+        // 放行 1s 内有用户手势触发的（登录/分享窗）—— 与旧体系 `BrowserNavDelegate` 同语义。
+        // [2026-09-15 体系统一] 旧体系删除后这条设置一度失效（所有 window.open 直接开标签）。
+        if SettingsStore.shared.settings.browser.blockPopups,
+           !(activeManager?.wasRecentUserGesture() ?? false) {
+            logger.info("Suppressing popup — blockPopups enabled and no recent user gesture")
+            return nil
+        }
         guard tabs.count<Self.maxTabs else {
             if let url {
                 activeManager?.loadURL(url.absoluteString)
@@ -980,6 +1027,22 @@ public final class MiniClawTabPool: ObservableObject {
             return customUserAgentString.isEmpty ? nil : customUserAgentString
         }
         return userAgentProfile.userAgentString
+    }
+
+    /// 设置 UA 预设（2026-09-15 体系统一：**UA 的唯一写入入口**）。
+    /// 必须同时写 UserDefaults（池 key）——池在 `init` 时才读它，不落盘的话改完 UA 后
+    /// 新开的会话/新池又会回到默认值。随后立即应用到本池现有标签。
+    public func setUserAgentProfile(_ profile: MiniClawUAProfile) {
+        userAgentProfile = profile
+        UserDefaults.standard.set(profile.rawValue, forKey: Self.uaProfileKey)
+        applyUserAgentToAllTabs()
+    }
+
+    /// 把当前 UA 预设应用到池内所有标签（新建标签在 `makeManager` 时自动带上，无需额外处理）。
+    public func applyUserAgentToAllTabs() {
+        for tab in tabs {
+            _ = tab.manager.setUserAgent(profile: userAgentProfile,customString: customUserAgentString)
+        }
     }
 
     public func resolvedViewportSize() -> (width: Int,height: Int) {

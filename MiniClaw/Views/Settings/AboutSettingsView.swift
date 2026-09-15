@@ -63,6 +63,14 @@ struct AboutView: View {
                                 .scaledToFit()
                                 .frame(width: aboutIconSide, height: aboutIconSide)
                                 .clipShape(RoundedRectangle(cornerRadius: aboutIconRadius, style: .continuous))
+                                // 2026-09-15 唐唐要求：描边颜色**对齐聊天页工具指示器**
+                                // （`ChatColors.toolBorder` = separator@50%，见 AssistantBlockView）。
+                                // 粗细取 1pt —— 图标 72pt 是工具胶囊（36pt）的两倍，同值 0.5pt 观感只有一半。
+                                // 圆角矩形参数与上方 clipShape 完全相同，描边才与外轮廓严丝合缝。
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: aboutIconRadius, style: .continuous)
+                                        .stroke(ChatColors.toolBorder, lineWidth: 1)
+                                )
                         } else {
                             // 兜底：读不到图标时保留原 SF Symbol，绝不渲染成空白。
                             Image(systemName: "cat.fill")

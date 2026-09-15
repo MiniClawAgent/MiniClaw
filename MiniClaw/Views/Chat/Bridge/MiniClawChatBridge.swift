@@ -157,43 +157,27 @@ final class MiniClawChatBridge: ObservableObject {
                 events.sort {
                     $0.order < $1.order || ($0.order == $1.order && $0.position < $1.position)
                 }
-                // 切分:每个事件前的正文片段 order = 事件order - 0.5;剩余排最后。
-                // [2026-09-09 流式切分收敛·治本] 先算出**目标 text 块集合**（与终态
-                // buildBlocks 完全同构：id=det(mid,startOffset)、order 同规则），再统一
-                // upsert + **孤儿清理**。此前边遍历边 upsert：工具 position 赋值与正文
-                // token 到达存在竞态（onToolExecutionBegin 时最后一批 token 可能尚未
-                // 进入 streamingContent/pendingText → position 少记），cursor 漂移后旧
-                // startOffset 的块不再被任何 upsert 命中、又不被删除 → 流式显示截短
-                //（真机：正文段只剩「三」一个字，重进会话才恢复完整）。目标集收敛后：
-                // 无论时序怎么抖，每次 refresh 后 text 块集合 = 当前 (events, content)
+                // [2026-09-15 收敛] 排序 + 正文切分统一交给 `MiniClawChatAdapter.planTimeline`
+                //（**与终态 `buildBlocks` 同一实现**）。此前本文件另有一份同构拷贝，规则靠注释
+                // 人工同步 ⇒ 治本修复只改到终态那份、流式期仍在劈句（真机 `[SplitProbe]
+                // pos=29/31` 实证）。现在切分规则只有一份，两条路径不可能再漂移。
+                //
+                // 目标集收敛（2026-09-09 治本）：先算出**目标 text 块集合**（id = det(mid,startOffset)），
+                // 再统一 upsert + **孤儿清理**。此前边遍历边 upsert：工具 position 赋值与正文 token
+                // 到达存在竞态（position 少记）⇒ cursor 漂移后旧 startOffset 的块不再被任何 upsert
+                // 命中、又不被删除 → 流式显示截短（真机：正文段只剩「三」一个字，重进会话才恢复）。
+                // 目标集收敛后：无论时序怎么抖，每次 refresh 后 text 块集合 = 当前 (events, content)
                 // 的正确切分，且 id 与终态完全一致 → 终态合并零跳变。
                 let content = runtime.streamingContent
-                var targets: [(startOffset: Int, content: String, order: Double)] = []
-                var cursor = 0
-                for (order, position) in events {
-                    let p = min(max(position, 0), content.count)
-                    if p > cursor {
-                        let startIdx = content.index(content.startIndex, offsetBy: cursor)
-                        let endIdx = content.index(content.startIndex, offsetBy: p)
-                        targets.append((cursor, String(content[startIdx..<endIdx]), order - 0.5))
+                let targets: [(startOffset: Int, content: String, order: Double)] =
+                    MiniClawChatAdapter.planTimeline(
+                        content: content,
+                        events: events,
+                        identifier: String(lastAI.id.uuidString.prefix(8))
+                    ).compactMap { step in
+                        guard case .text(let startOffset, let text) = step.content else { return nil }
+                        return (startOffset: startOffset, content: text, order: step.order)
                     }
-                    cursor = max(cursor, p)
-                }
-                if cursor < content.count {
-                    let startIdx = content.index(content.startIndex, offsetBy: cursor)
-                    // [2026-09-13 P4·两套尾部 order 收敛] 原先这里写死 `Double(Int.max - 1)`，
-                    // 而终态 `MiniClawChatAdapter.buildBlocks` 的尾部基准是 `maxEventOrder + 0.5`
-                    // ⇒ **同一个块在流式与终态拿到两个不同的 order**，只能靠终态合并时事后同步
-                    //（`bridgedMessage` 里同步 timelineOrder）⇒ 排序键跳变。
-                    // 更硬的理由是精度：`Int.max` 量级下 Double 的**精度间隔是 2048**，
-                    // 任何 `+0.05*k` 子序都会被吞成同一个值（终态 2026-09-12 的
-                    // 「文件指示器总在最终回复上面」就是这个坑，同规则注释见 Adapter 尾部）。
-                    // 改为与终态**同一条规则**：`maxEventOrder + 0.5` —— 仍严格大于所有事件 order
-                    // 与「事件前正文段」（后者 = eventOrder - 0.5，恒小于事件本身），
-                    // 同时落在 Double 精确表示范围内，子序不丢。两条路径从此同构。
-                    let tailBase = (events.map { $0.order }.max() ?? 0) + 0.5
-                    targets.append((cursor, String(content[startIdx..<content.endIndex]), tailBase))
-                }
                 // 孤儿清理：不在目标集的 text 块 = 旧切分残留（position 漂移产物），
                 // 删除使其不再占据显示。thinking/tool 块不在本清理范围
                 //（§② 前缀匹配、§③ toolUseId 幂等各自管理）。
@@ -211,21 +195,23 @@ final class MiniClawChatBridge: ObservableObject {
                 }
             }
             // ② 思考段:按 timelineOrder 交错插入 .thinking block。
-            // 段文本流式增长(新全文以旧全文为前缀),用「新文本以旧内容开头」
-            // 匹配已存在的段并就地更新;新段追加并强制折叠。
+            // [2026-09-14 身份统一·治本] 匹配**优先按 seg.id 精确命中**（块创建时用的就是
+            // seg.id；段对象在 runtime 内按 index 复用、id 稳定）。原先的「新文本以旧内容
+            // 为前缀」匹配在两段开头相近时会**错误命中更早的段** ⇒ 新段文本写进旧块
+            // （旧 id ≠ seg.id）⇒ 终态按 seg.id 重建时身份再次洗牌 ⇒ configureCell MISS、
+            // 思考 chip 乱序/丢失（22:07 真机实测，与工具 chip 丢失同根因）。
+            // id 匹配已足够：同一段的块必然以 seg.id 存在；跨段文本增长由 runtime 的
+            // index 归并承担（commitReasoningBuffer 按 index 追加），不依赖这里的前缀判断。
             for seg in runtime.streamingReasoningSegments {
-                let prefixMatch = lastAI.blocks.first { b in
-                    b.kind == .thinking && !b.content.isEmpty && seg.text.hasPrefix(b.content)
-                }
-                if let existing = prefixMatch {
+                if let existing = lastAI.blocks.first(where: { $0.id == seg.id }) {
                     existing.content = seg.text
-                } else {
-                    // [Fix 重进会话跳屏·方案B] 传 seg.id 保持与终态 Adapter 重建一致。
-                    let tb = AssistantBlock(id: seg.id, kind: .thinking, content: seg.text)
-                    tb.isThinkingExpanded = false
-                    tb.thinkingUserToggled = false
-                    insertBlock(tb, order: Double(seg.timelineOrder), into: &lastAI.blocks)
+                    continue
                 }
+                // [Fix 重进会话跳屏·方案B] 传 seg.id 保持与终态 Adapter 重建一致。
+                let tb = AssistantBlock(id: seg.id, kind: .thinking, content: seg.text)
+                tb.isThinkingExpanded = false
+                tb.thinkingUserToggled = false
+                insertBlock(tb, order: Double(seg.timelineOrder), into: &lastAI.blocks)
             }
             // ③ 工具调用（直接引用架构）：ToolExecution 内持 AssistantBlock 引用，
             // 执行逻辑直接写 block（@Published 自驱动 cell 刷新）——bridge 只负责

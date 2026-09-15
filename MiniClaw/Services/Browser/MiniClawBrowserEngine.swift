@@ -49,7 +49,10 @@ extension MiniClawBrowserEngine: WKNavigationDelegate {
             self.isLoading = false
             // see didFail above.
             self.loadError = MiniClawWebLoadError(error: error,failedURL: self.lastRequestedURL)
-            logger.error("Provisional navigation failed: \(error.localizedDescription)")
+            // [2026-09-14 观测] 补记**失败的目标 URL** 与错误码：排查「地址栏搜索闪一下就失败」
+            // 必须知道实际导航的主机（`未能找到使用指定主机名的服务器` = CannotFindHost，
+            // 分类见 `MiniClawWebLoadError`）。此前日志只有错误描述，无法区分「URL 拼错」与「网络/DNS 断」。
+            logger.error("Provisional navigation failed: \(error.localizedDescription) url=\(self.lastRequestedURL?.absoluteString ?? "nil") code=\((error as NSError).domain)/\((error as NSError).code)")
 
             if let cont = self.navigationContinuation {
                 self.navigationContinuation = nil
@@ -164,8 +167,19 @@ extension MiniClawBrowserEngine: WKNavigationDelegate {
 extension MiniClawBrowserEngine: WKScriptMessageHandler {
     public func userContentController(_ userContentController: WKUserContentController,
                               didReceive message: WKScriptMessage) {
+        if message.name == Self.gestureMessageHandlerName {
+            // 页面内用户手势（touchstart/click）→ 记录时间戳，供「拦截弹窗」放行手势型弹窗。
+            lastUserGestureAt = Date()
+            return
+        }
         guard message.name == Self.printMessageHandlerName else { return }
         presentPrintDialog()
+    }
+
+    /// 最近 1 秒内是否有用户手势（点击/触摸）——与旧体系 `BrowserTab.wasRecentUserGesture()` 同语义：
+    /// 「拦截弹窗」开启时，只拦页面自动弹出的广告窗，放行用户主动点击的登录/分享窗。
+    public func wasRecentUserGesture() -> Bool {
+        Date().timeIntervalSince(lastUserGestureAt ?? .distantPast) < 1.0
     }
 }
 
@@ -179,6 +193,8 @@ private let logger = AppLogger(category: "BrowserUse")
 public final class MiniClawBrowserEngine: NSObject,ObservableObject {
 
     @Published public var currentURL: String = ""
+    /// 最近一次页面内用户手势时间（由注入脚本回传；供「拦截弹窗」判断手势型弹窗）。
+    private var lastUserGestureAt: Date?
     @Published public var pageTitle: String = ""
     @Published public var isLoading: Bool = false
     /// Non-nil when the last navigation failed
@@ -248,6 +264,7 @@ public final class MiniClawBrowserEngine: NSObject,ObservableObject {
         webView.navigationDelegate = self
         webView.uiDelegate = self
         registerPrintHandler(on: webView)
+        registerGestureHandler(on: webView)
     }
 
     init(profile: MiniClawUAProfile,customString: String?,configuration: WKWebViewConfiguration,
@@ -263,6 +280,7 @@ public final class MiniClawBrowserEngine: NSObject,ObservableObject {
         webView.navigationDelegate = self
         webView.uiDelegate = self
         registerPrintHandler(on: webView)
+        registerGestureHandler(on: webView)
     }
 
     private static func resolveViewport(profile: MiniClawUAProfile,
@@ -295,6 +313,7 @@ public final class MiniClawBrowserEngine: NSObject,ObservableObject {
 
         // every page (miniclaw:// and external http/https) at document start so a
         config.userContentController.addUserScript(printBridgeScript())
+        config.userContentController.addUserScript(gestureBridgeScript())
 
         let vp = resolveViewport(profile: profile,width: viewportWidth,height: viewportHeight)
 
@@ -346,6 +365,32 @@ public final class MiniClawBrowserEngine: NSObject,ObservableObject {
         })();
         """
         return WKUserScript(source: js,injectionTime: .atDocumentStart,forMainFrameOnly: true)
+    }
+
+    /// 手势桥脚本名（与旧体系「1s 内手势放行弹窗」同语义，2026-09-15 体系统一补回）。
+    nonisolated static let gestureMessageHandlerName = "miniclawGesture"
+
+    /// 手势追踪脚本：捕获 touchstart/click/mousedown 并回传原生侧。
+    /// 捕获阶段（`true`）监听，确保即使页面自身 stopPropagation 也能记到。
+    nonisolated static func gestureBridgeScript() -> WKUserScript {
+        let js = """
+        (function() {
+            var mark = function() {
+                try {
+                    window.webkit.messageHandlers.\(gestureMessageHandlerName).postMessage(null);
+                } catch (e) {}
+            };
+            document.addEventListener('touchstart', mark, true);
+            document.addEventListener('mousedown', mark, true);
+            document.addEventListener('click', mark, true);
+        })();
+        """
+        return WKUserScript(source: js,injectionTime: .atDocumentStart,forMainFrameOnly: false)
+    }
+
+    private func registerGestureHandler(on webView: WKWebView) {
+        webView.configuration.userContentController
+            .add(WeakScriptMessageHandler(self), name: Self.gestureMessageHandlerName)
     }
 
     private func registerPrintHandler(on webView: WKWebView) {

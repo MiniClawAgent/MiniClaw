@@ -310,7 +310,7 @@ struct StorageSettingsView: View {
     private func cleanBrowserCache() {
         isBusy = true
         Task {
-            await BrowserController.shared.clearBrowserCaches()
+            await BrowserEngineAdapter.shared.clearBrowserCaches()
             await MainActor.run {
                 isBusy = false
                 cleanupMessage = String(localized: "browser_cache_cleared")

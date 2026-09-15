@@ -989,17 +989,44 @@ final class ScrollMetricsRecorder: @unchecked Sendable {
     /// 用**哨兵文件**而不是 UI 或启动参数：真机上 `devicectl copy to` 即可开关，
     /// 不需要为它加任何界面；哨兵不存在时录制保持关闭，热路径只剩 `guard isEnabled`
     /// 一次 Bool 读（与改动前一致，故不影响性能与现有行为）。
+    /// 哨兵最长有效期（秒）。见 `refreshFromSentinel` 的「可关闭化」说明。
+    static let sentinelTTL: TimeInterval = 72 * 3600
+
+    /// [2026-09-14 可关闭化] 实测发现 **`devicectl` 没有删除文件的能力**（只有 `copy to` / `copy from`）
+    /// —— 于是"存在即开启"的判据意味着**一旦放上去就关不掉**，只能靠重装 App。
+    /// 而它 gate 的 `[PLAF]`/`[PLAF-SET]`/`[JITTER]` 是高度热路径探针（实测占单日日志 1.1k 行），
+    /// 忘掉一次就把日志长期放大 —— 与"减少日志"直接冲突。故补两条关闭途径：
+    ///   ① **内容写 `off`**：`devicectl copy to` 覆盖同一路径即可关（不需要删除）；
+    ///   ② **自动过期**（`sentinelTTL`，默认 72h）：重新 `copy to` 一次即刷新有效期。
+    /// 日志里新增 `why=` 字段说明本次为何开/关，避免"到底哪条判据生效"再次要靠猜。
     func refreshFromSentinel() {
         let sentinel = FileSystemManager.shared.miniClawRoot
             .appendingPathComponent("logs", isDirectory: true)
             .appendingPathComponent(".scroll-metrics-on")
-        let on = FileManager.default.fileExists(atPath: sentinel.path)
+        let fm = FileManager.default
+        var on = fm.fileExists(atPath: sentinel.path)
+        var why = on ? "present" : "absent"
+        if on {
+            let mtime = (try? fm.attributesOfItem(atPath: sentinel.path))?[.modificationDate] as? Date
+            let age = Date().timeIntervalSince(mtime ?? .distantPast)
+            let cmd = ((try? String(contentsOf: sentinel,encoding: .utf8)) ?? "")
+                .trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            if cmd == "off" {
+                on = false
+                why = "content=off"
+            } else if age > Self.sentinelTTL {
+                on = false
+                why = "EXPIRED age=\(Int(age/3600))h>\(Int(Self.sentinelTTL/3600))h"
+            } else {
+                why = "age=\(Int(age/3600))h\(cmd.isEmpty ? "" : " content=\(cmd)")"
+            }
+        }
         // [2026-09-12] 每次调用都留证据（相位变化很少，一次会话几行）。原先只在状态变化时打，
         // 于是「文件没找到」与「函数没被调用」两种情况都表现为**没有任何日志**，无法区分 ——
-        // 这正是上次导出拿不到数据却查不出原因的地方。这里把 on / isEnabled / 解析出的路径
-        // 全部打出，一眼可对照文件到底该放哪。
+        // 这正是上次导出拿不到数据却查不出原因的地方。这里把 on / isEnabled / 判定理由 /
+        // 解析出的路径全部打出，一眼可对照文件到底该放哪。
         AppLogger.shared.info(
-            "[ScrollMetrics] 哨兵 on=\(on ? 1 : 0) isEnabled=\(isEnabled ? 1 : 0) root=\(FileSystemManager.shared.miniClawRoot.path)",
+            "[ScrollMetrics] 哨兵 on=\(on ? 1 : 0) isEnabled=\(isEnabled ? 1 : 0) why=\(why) root=\(FileSystemManager.shared.miniClawRoot.path)",
             category: "ChatList.CellMetrics")
         if on != isEnabled { setEnabled(on) }
     }

@@ -155,6 +155,24 @@ class OpenAIProviderAdapter: LLMProviderAdapter, @unchecked Sendable {
             body = buildChatCompletionsBody(request: request)
         }
         // 编码失败必须报错而不能静默发空 body(与旧路径 encodingFailed 语义一致)。
+        // [2026-09-15 诊断·临时] 请求体落盘（环转保留最近 3 份）。
+        // 目的：把**实际发出去的 body** 存下来，相邻两次请求一 diff ⇒ 第一处不同字节的位置
+        // 就是「前缀在哪一段发生变动」的答案。定位完成后删除本块。
+        // 落点 = 日志目录（与 AppLogger 同处，便于直接拉取）。
+        do {
+            if let base = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first {
+                let dir = base.appendingPathComponent("MiniClaw/logs", isDirectory: true)
+                try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+                let stamp = String(format: "%d", Int(Date().timeIntervalSince1970))
+                try? body.write(to: dir.appendingPathComponent("reqdump_\(stamp).json"), options: .atomic)
+                if let files = try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil) {
+                    let dumps = files
+                        .filter { $0.lastPathComponent.hasPrefix("reqdump_") }
+                        .sorted { $0.lastPathComponent < $1.lastPathComponent }
+                    for old in dumps.dropLast(2) { try? FileManager.default.removeItem(at: old) }
+                }
+            }
+        }
         guard !body.isEmpty else {
             let stream = AsyncThrowingStream<LLMStreamEvent, Error> { cont in
                 cont.finish(throwing: LLMError.encodingFailed)

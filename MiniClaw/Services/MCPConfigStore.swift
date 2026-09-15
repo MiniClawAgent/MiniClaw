@@ -213,9 +213,22 @@ final class MCPConfigStore: ObservableObject {
             } else if let url = entry["url"] as? String, !url.isEmpty {
                 let headers = (entry["headers"] as? [String: String]) ?? [:]
                 let transport: MCPTransport = url.lowercased().contains("/sse") ? .legacySSE : .http
-                let hasBearer = headers["Authorization"]?.hasPrefix("Bearer ") ?? false
+                // [2026-09-15 治本] `Authorization: "Bearer ${VAR}"` 是**环境变量引用**，不是包内明文令牌。
+                // 旧实现只判 `hasPrefix("Bearer ")`：把引用也当明文 ⇒ 既把字面量 `${VAR}` 存进 Keychain，
+                // 又把该 header 从 customHeaders 移除 ⇒ 发送前 `expandMCPVars` 展开不到 ⇒ 认证静默失效
+                //（插件作者写了正确的 `${VAR}` 反而被吃掉）。现按「值里有无 `$`」区分：
+                // 有 `$` = 引用 —— 留在 headers 里交给发送前展开，不视为已存令牌；
+                // 无 `$` = 字面量令牌 —— 照旧提取进 Keychain（保持 Claude Desktop 兼容）。
+                let authValue = headers["Authorization"]
+                let bearerLiteral = authValue.map { $0.hasPrefix("Bearer ") && !$0.contains("$") } ?? false
                 var customHeaders = headers
-                customHeaders.removeValue(forKey: "Authorization")
+                if bearerLiteral { customHeaders.removeValue(forKey: "Authorization") }
+                if bearerLiteral {
+                    // 明文令牌落包违反「包内不留密钥」规范：保留兼容，但提示作者改用 ${VAR}。
+                    AppLogger.shared.warn(
+                        "[MCPImport] 包内出现明文 Bearer 令牌（server=\(displayName)）——已存入 Keychain；建议改写为 \"Authorization\": \"Bearer ${ENV_NAME}\" 引用环境变量",
+                        category: "MCP", subsystem: "Import")
+                }
                 // 2026-09-01 唐唐拍板：mcp 插件 servers.json 必须声明认证方式——
                 // "auth": "oauth" 落到 requiresAuthorization（列表显示「认证」按钮，
                 // 走 MCP OAuth 2.1 授权流程）；bearer/缺省 = 静态令牌。
@@ -225,11 +238,11 @@ final class MCPConfigStore: ObservableObject {
                     endpointURL: url,
                     transport: transport,
                     isEnabled: true,
-                    hasBearerToken: hasBearer,
+                    hasBearerToken: bearerLiteral,
                     customHeaders: customHeaders,
                     requiresAuthorization: requiresAuth
                 )
-                if hasBearer, let token = headers["Authorization"]?.dropFirst("Bearer ".count) {
+                if bearerLiteral, let token = authValue?.dropFirst("Bearer ".count) {
                     // Bearer 令牌 不写进 MCPServerConfig 明文；调用方 upsert 时通过 bearerToken 参数入库。
                     importedBearerTokens[config.id] = String(token)
                 }

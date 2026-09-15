@@ -239,7 +239,7 @@ final class AgentRunService {
         let responseMessageID = assistantMessage.id
         let sessionID = session.id
 
-        engine.onToken = { [weak runtime] token in
+        engine.onToken = { [weak runtime, assistantMessage] token in
             MainActor.assumeIsolated {
                 guard let runtime, runtime.streamingMessageID == responseMessageID else { return }
                 // 成功收到首个输出 词元 = 重试已成功：移除重试指示器。
@@ -257,12 +257,18 @@ final class AgentRunService {
                     sessionID: sessionID.uuidString,
                     text: preview.isEmpty ? String(localized: "generating_ellipsis") : String(format: String(localized: "generating_format"), preview)
                 )
+                // [2026-09-15 治本] 本轮第一个流式事件到达 ⇒ 上一轮正文**确定结束** ⇒ 冻结轮边界，
+                // 并用它写死上一轮工具块的位置（与思考锚点同源同时机）。返回 true 说明位置被修正，
+                // 必须同步回落盘对象——否则中断/落盘留下的仍是临时位置，切正文时把上一轮句尾劈到工具卡之后。
+                if runtime.freezeRoundBoundary() {
+                    assistantMessage.toolCalls = runtime.streamingToolEvents
+                }
                 // 节流：词元 先入缓冲，由 ~100ms 定时器批量刷入 streamingContent（约 10fps），
                 // 不再每 token 触发整页重绘；也不再每 令牌 写持久化对象（统一在终态落盘，见 onComplete 等）。
                 runtime.bufferToken(token)
             }
         }
-        engine.onReasoning = { [weak runtime] piece, iteration in
+        engine.onReasoning = { [weak runtime, assistantMessage] piece, iteration in
             MainActor.assumeIsolated {
                 guard let runtime, runtime.streamingMessageID == responseMessageID else { return }
                 // 重试成功后可能先出思考/工具调用（无文本 词元）→ 同样视为已恢复,清除指示器。
@@ -280,6 +286,11 @@ final class AgentRunService {
                 // 节流：reasoning 词元 先入缓冲，由 ~100ms 定时器批量刷入 streamingReasoningSegments（约 10fps），
                 // 不再每 词元 触发整段重绘 + 全量重解析 Markdown；也不再每 令牌 写持久化对象
                 // （统一在终态落盘，见 onComplete/onError/onInterrupted/onPaused），消除展开态卡顿。
+                // [2026-09-15 治本] 与 onToken 同一入口语义：本轮思考到达 = 上一轮已结束 ⇒
+                // 冻结轮边界并定稿上一轮工具块位置（思考锚点随后在 commitReasoningBuffer 里取同值）。
+                if runtime.freezeRoundBoundary() {
+                    assistantMessage.toolCalls = runtime.streamingToolEvents
+                }
                 runtime.bufferReasoningToken(piece, iteration: iteration)
             }
         }
@@ -326,10 +337,14 @@ final class AgentRunService {
                     runtime.retryState = nil
                     runtime.taskStartOrResume()
                 }
-                // 挂载位置含未提交缓冲：streamingContent 漏算 ~100ms 节流缓冲里的
-                // 轮末尾字（如句号），工具 position 少记尾包 → 尾字落入工具卡之后的
-                // 分段（与思考段锚点同族竞态，见 77b11e6）。
+                // [2026-09-15 治本] 这里只写**临时位置**（供流式期间工具卡即时插入），值可能少记
+                // 在途的尾 N 个字符。**权威位置由 `freezeRoundBoundary()` 在「下一轮第一个流式
+                // 事件」这一刻定稿** —— 那时上一轮请求已结束、尾 token 必已到齐
+                //（真机实测：在这当场取值精确少 2、偶见 4，正是该轮最后一个 content delta 的长度）。
                 exec.position = Int(runtime.streamingContent.count + runtime.pendingText.count)
+                AppLogger.shared.info(
+                    "[ToolPosProbe] tool=\(exec.name) 临时pos=\(exec.position) sc=\(runtime.streamingContent.count) pt=\(runtime.pendingText.count)",
+                    category: "Timeline", subsystem: "Bridge")
                 let order = runtime.nextTimelineOrder
                 runtime.nextTimelineOrder += 1
                 runtime.registerStreamingToolExecution(exec, order: Double(order))
@@ -359,6 +374,9 @@ final class AgentRunService {
                 // 先提交节流缓冲，确保最后 <100ms 的尾包不丢，再统一落盘最终正文。
                 runtime.commitStreamBuffer()
                 runtime.commitReasoningBuffer()
+                // [2026-09-15 治本] 终态兜底定稿：最后一轮之后不会有"下一个流式事件"，在此冻结
+                // 边界即可拿到本轮正文的确定终点（commit 已把尾包并入 streamingContent）。
+                runtime.freezeRoundBoundary()
                 assistantMessage.content = runtime.streamingContent
                 // 任务总耗时：最终回复落盘时结算（含暂停/重试排除后的净时长）。
                 if !runtime.taskTimingInvalid, assistantMessage.taskElapsedSeconds == nil {
@@ -431,6 +449,10 @@ final class AgentRunService {
                 }
                 runtime.commitStreamBuffer()
                 runtime.commitReasoningBuffer()
+                // [2026-09-15 治本] **回滚之前**定稿：回滚会截断正文（丢弃本轮半截输出），
+                // 那时再取边界就只剩截断后的长度，会把上一轮工具位置写成错误值。
+                // 此处定稿 = 错误发生时的正文终点；随后的回滚只会让位置落到末尾（渲染侧 clamp）。
+                runtime.freezeRoundBoundary()
                 // [2026-09-09] 最终失败同样先回滚到安全点：已完成轮次内容保留，
                 // 只丢当前轮半截输出 —— 否则落盘 content 只剩错误提示。
                 runtime.rollbackToRoundSafePoint()
@@ -482,6 +504,9 @@ final class AgentRunService {
                 runtime?.commitReasoningBuffer()
                 // 暂停即落盘一次当前已产出内容，保证被杀后台/崩溃后可从 message.content / reasoning 恢复。
                 if let rt = runtime {
+                    // [2026-09-15 治本] 暂停点即本轮的确定终点（此后正文在 resume 后另起）
+                    // ⇒ 在此冻结边界、定稿已挂载工具位置（与思考锚点同源同时机）。
+                    rt.freezeRoundBoundary()
                     assistantMessage.content = rt.streamingContent
                     assistantMessage.reasoningSegments = rt.streamingReasoningSegments
                     assistantMessage.reasoning = rt.streamingReasoningSegments.map { $0.text }.joined(separator: "\n\n")
@@ -543,6 +568,8 @@ final class AgentRunService {
                 }
                 runtime.commitStreamBuffer()
                 runtime.commitReasoningBuffer()
+                // [2026-09-15 治本] 终态兜底定稿（同 onComplete）：中断点即本轮正文终点。
+                runtime.freezeRoundBoundary()
                 assistantMessage.content = runtime.streamingContent
                 // 中断也是终态：结算耗时（用户停止路径可能已结算）。
                 if !runtime.taskTimingInvalid, assistantMessage.taskElapsedSeconds == nil {

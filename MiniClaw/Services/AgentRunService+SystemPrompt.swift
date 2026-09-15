@@ -97,11 +97,16 @@ extension AgentRunService {
         //   近期记忆 → 长期记忆 → 环境快照(每小时) → 子代理段(每次派发/关闭都变，收尾)
 
         // 3.5 可用工具列表(会话中 MCP 工具可增减,每轮更新;schema 权威在 tools: 参数)
-        // 追加引擎保留工具 dispatch_subagent：它由引擎拦截执行（不在 toolRouter 注册表），
-        // 但必须出现在白名单里，否则「列表外禁止调用」铁律会让模型判定该工具不可用（子代理从不触发的根因）。
+        // 追加引擎保留工具 dispatch_subagent/close_subagent：它们由引擎拦截执行，必须出现在
+        // 白名单里，否则「列表外禁止调用」铁律会让模型判定该工具不可用（子代理从不触发的根因）。
+        // [2026-09-15 去重] 这两个工具现已由 `AgentLoopEngine.init` 幂等注册进 `ToolRouter`
+        // ⇒ `allToolNames()` 里**已经包含**它们，原先无条件 append 会让清单出现重复项
+        //（真机 reqdump 实证：`close_subagent`/`dispatch_subagent` 各出现两次）。
+        // 改为「缺失才补」，两种注册状态都正确。
         var toolNames = toolRouter.allToolNames()
-        toolNames.append("dispatch_subagent")
-        toolNames.append("close_subagent")
+        for engineReserved in ["dispatch_subagent", "close_subagent"] where !toolNames.contains(engineReserved) {
+            toolNames.append(engineReserved)
+        }
         toolNames.sort()
         volatileParts.append("""
         ## 可用工具 (\(toolNames.count) 个) — 完整列表如下，仅可调用此处列出的工具名
@@ -300,6 +305,9 @@ extension AgentRunService {
         let regionCode = locale.region?.identifier ?? String(localized: "unknown")
         let calendarIdentifier = String(describing: calendar.identifier)
 
+        // [2026-09-14] 曾按唐唐要求在此加过「工具选择决策优先级」规则（观察模型遵守度），
+        // 实测后**已撤回**：规则属"概率性引导"，与可达性探测（1a）无关。细节见
+        // `研究报告-搜索引擎选源方案` §4.7。
         return """
         ## 当前运行环境
         - 当前本地时间（小时级近似）：\(localFormatter.string(from: hourlyNow))

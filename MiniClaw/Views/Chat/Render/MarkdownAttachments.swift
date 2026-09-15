@@ -842,8 +842,13 @@ final class ImageAttachment: NSTextAttachment {
         let width = (rawWidth/4.0).rounded()*4.0
         // 计数在锁内自增：本方法会被主线程排版与后台预排版并发调用。
         let cnt = stateLock.withLock { attachmentBoundsCallCount &+= 1; return attachmentBoundsCallCount }
-        if cnt <= 5 || cnt%50 == 0 {
-            AppLogger.shared.info("[IMG][BOUNDS] #\(cnt) src=\(Self.shortSrc(self.source)) ptr=\(ObjectIdentifier(self).hashValue & 0xFFFFFF) rawW=\(String(format: "%.1f", rawWidth)) bucketW=\(String(format: "%.0f", width)) hasImg=\(self.loadedImage != nil) sampledAt=\(Int(self.downsampledAtPixelSize))", category: "ChatList.Attach")
+        // [2026-09-14 降噪] 原为 `cnt <= 5 || cnt%50 == 0` —— 但计数是**逐附件对象**的，
+        // 而一次会话会新建上百个附件对象（`[IMG][MAKEVIEW]` 实测 266 次/天）⇒ 全天 584 行，
+        // 报的却只是"该附件的宽度桶/是否已解码"，首次即定型。
+        // 改为**每个附件只留首次一行**：几何分桶是否异常这一唯一诊断价值仍在，
+        // 定位交给 `[IMG][MAKEVIEW]`（每次 makeView）与 `[IMG][BOUNDS][DOWNSAMPLE-FIRE]`（罕见且高价值）。
+        if cnt == 1 {
+            AppLogger.shared.info("[IMG][BOUNDS] first src=\(Self.shortSrc(self.source)) ptr=\(ObjectIdentifier(self).hashValue & 0xFFFFFF) rawW=\(String(format: "%.1f", rawWidth)) bucketW=\(String(format: "%.0f", width)) hasImg=\(self.loadedImage != nil) sampledAt=\(Int(self.downsampledAtPixelSize))", category: "ChatList.Attach")
         }
 
         if let img = loadedImage {
@@ -1082,7 +1087,8 @@ final class ImageAttachment: NSTextAttachment {
         // refreshAttachViews reuse path.
         AppLogger.shared.info("[IMG][MAKEVIEW] #\(self.makeViewCallCount) src=\(Self.shortSrc(self.source)) ptr=\(ObjectIdentifier(self).hashValue & 0xFFFFFF) hasImg=\(self.loadedImage != nil) width=\(String(format: "%.0f", width))", category: "ChatList.Attach")
         if let img = loadedImage {
-            imgLogger.info("[MiniClawImage][MakeView] rendering LOADED image src=\(self.source) imgSize=\(img.size.width)x\(img.size.height) containerWidth=\(width)")
+            // [2026-09-14 降噪] 原有 `rendering LOADED image …`（全天 236 行），
+            // 与**紧邻上方**的 `[IMG][MAKEVIEW] #N … hasImg=1 width=…` 完全同义 ⇒ 删除。
             return makeImageView(img,width: width)
         } else {
             // [2026-09-13 A 方案·本地图同步出首帧] 数据就在本机磁盘（真机日志实证
@@ -1127,7 +1133,9 @@ final class ImageAttachment: NSTextAttachment {
             h = maxH
             imgWidth = h/aspect
         }
-        imgLogger.info("[MiniClawImage][MakeView] layout src=\(self.source) displayWidth=\(imgWidth) displayHeight=\(h) aspect=\(aspect) maxImageWidth=\(Self.maxImageWidth)")
+        // [2026-09-14 降噪] 原有 `[MakeView] layout src=… displayWidth=… displayHeight=…`（全天 254 行）：
+        // 每次按宽度重算等比缩放都打一行，属**推导过程**而非结论；结论性几何由
+        // `[IMG][BOUNDS] first`（每个附件一行）与 `[IMG][MAKEVIEW]`（每次 makeView）覆盖到。
 
         let shadowInset: CGFloat = Self.imageShadowInset
         let container = UIView(frame: CGRect(x: 0,y: 0,width: imgWidth+shadowInset*2,height: h+shadowInset*2))

@@ -723,7 +723,11 @@ struct HomeView: View {
             Button {
                 // 切到首页手动浏览上下文，与任何 智能体会话完全隔离，
                 // 避免首页浏览器看到某会话 智能体搜过的内容。
-                BrowserController.shared.setManualSession()
+                // [2026-09-15 治本] BrowserView 实际用的是引擎适配器（BrowserEngineAdapter），
+                // 而这里原先只切换了旧控制器 —— 适配器的池从未被 ensureTabForUI()，
+                // 池内零标签 ⇒ activeManager 恒 nil ⇒ 首页浏览器「内容空白 + 地址栏输入毫无反应」。
+                // setSession(nil) 同时完成：池切到 fallbackPool + ensureTabForUI() + rebind()。
+                BrowserEngineAdapter.shared.setSession(nil)
                 showBrowserSheet = true
             } label: {
                 Label(String(localized: "browser"), systemImage: "globe")

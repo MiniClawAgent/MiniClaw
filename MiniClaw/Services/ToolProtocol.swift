@@ -179,7 +179,15 @@ final class ToolRouter {
     /// 为所有工具统一注入 activity 元数据，要求模型描述本次调用的具体业务行为。
     /// 工具实现无需单独解析该字段；它仅用于会话页工具指示器展示。
     func allSchemas() -> [ToolSchema] {
-        tools.values.map { tool in
+        // [2026-09-15 缓存稳定性·治本] **必须按工具名排序输出**。
+        //
+        // `tools` 是 `[String: AgentTool]` 字典，而 Swift 字典的遍历顺序**不保证稳定**：
+        // 同任务内（同一实例、无增删）恰好一致，但**每次新建 router / 跨进程**时插入顺序
+        // 与哈希种子都不同 ⇒ 工具段排列抖动 ⇒ 上下文缓存**从 tools 段整段失效**。
+        // 真机实证：同一会话内 `tools=` 指纹恒定，每换一个任务即变（用户未改任何工具）。
+        //
+        // 排序后顺序只由「工具集内容」决定 ⇒ 缓存指纹只反映真实内容差异。
+        tools.keys.sorted().compactMap { tools[$0] }.map { tool in
             let original = tool.schema
             let activityParameterName = tool.activityParameterName
             var parameters = original.function.parameters

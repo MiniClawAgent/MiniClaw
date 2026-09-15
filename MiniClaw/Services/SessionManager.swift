@@ -150,9 +150,9 @@ final class SessionManager: ObservableObject {
         SessionFileRouter.shared.unregister(sessionID: sid)
         SubagentRuntimeRegistry.shared.clear(sessionID: sid)
         Task { @MainActor in
-            BrowserContextManager.shared.destroy(sessionID: sid)
+            BrowserEngineAdapter.shared.destroySession(sid)
             for sub in SubagentStore.shared.avatars(for: sid) {
-                BrowserContextManager.shared.destroy(sessionID: sub.id)
+                BrowserEngineAdapter.shared.destroySession(sub.id)
             }
         }
         SubagentStore.shared.clearSession(sid)
@@ -205,9 +205,9 @@ final class SessionManager: ObservableObject {
         SessionFileRouter.shared.unregister(sessionID: id)
         SubagentRuntimeRegistry.shared.clear(sessionID: id)
         Task { @MainActor in
-            BrowserContextManager.shared.destroy(sessionID: id)
+            BrowserEngineAdapter.shared.destroySession(id)
             for sub in SubagentStore.shared.avatars(for: id) {
-                BrowserContextManager.shared.destroy(sessionID: sub.id)
+                BrowserEngineAdapter.shared.destroySession(sub.id)
             }
         }
         SubagentStore.shared.clearSession(id)
