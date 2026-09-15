@@ -130,7 +130,11 @@ final class AppLogger: @unchecked Sendable {
         "ChatInputInject",  // 2026-08-13:「添加到输入框」链路打点,排查期镜像控制台
         // 2026-09-02:MCP OAuth 排障期镜像——授权/回调/token 链路与 MCP 刷新链路
         // 需要在 Xcode 实时观察(ARDOT loopback 收码定位)
-        "MCP-OAuth", "MCP"
+        "MCP-OAuth", "MCP",
+        // 2026-09-15:缓存命中专项排障期镜像——[Cache命中]/[Cache指纹]/[Volatile]/
+        // [CacheSuffix]/[Trim] 都是 info 级,不镜像就只能翻 App 内文件日志;
+        // 镜像后可直接在 Xcode 控制台(或 MCP GetConsoleOutput)按正则过滤真机数据。
+        "Cache"
     ]
 
     /// 诊断插桩静默类别（2026-09-11 降噪）：这些 category 的 info/debug
