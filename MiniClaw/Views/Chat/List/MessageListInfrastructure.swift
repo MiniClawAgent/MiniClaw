@@ -466,6 +466,13 @@ class SelfSizingCell: UICollectionViewCell {
     /// Incremented each time contentConfiguration is applied. Used by
     private var cfgGen: UInt = 0
 
+    #if DEBUG
+    /// [Stage 0 · M11] 「测量期间内容代际变化」计数（见 `preferredLayoutAttributesFitting` 内说明）。
+    /// 只读观测状态，不参与任何判定。
+    private static var cfgGenChangedCount = 0
+    private static var cfgGenChangedLastLogAt: CFAbsoluteTime = 0
+    #endif
+
     private var lastCalcH: CGFloat?
 
     /// `lastCalcH` 是在哪个宽度下测得的。**去重判据只看宽度**：宽度变了就必须重测。
@@ -807,6 +814,14 @@ class SelfSizingCell: UICollectionViewCell {
             return copy
         }
 
+        #if DEBUG
+        // [Stage 0 · M11] 取代际必须在 **super 测量之前**：`:932` 那个
+        // `guard cfgGen == gen else { … }` 用的 `gen` 是**测量之后**取的（`:832 let gen = cfgGen`），
+        // 而 `cfgGen` 全库只在 `applyContentConfiguration`（`:537`）自增 ⇒ 该守卫**恒真**、
+        // `cfggen-changed` 永不触发。真正该问的是「相对**测量前**的代际有没有变」。
+        let genBeforeSuper = cfgGen
+        #endif
+
         var hostingSubtree: [UIView] = []
         Self.collectSubtree(self.contentView,into: &hostingSubtree)
         var superAttrs: UICollectionViewLayoutAttributes = layoutAttributes
@@ -929,6 +944,20 @@ class SelfSizingCell: UICollectionViewCell {
         if layoutAttributes.size.height<4 && fittingSize.height>20 {
             Self.sizingLogger.info("[TextDrift] ⚠️ CELL GREW FROM ~0: idx=\(idx) \(String(format: "%.0f", layoutAttributes.size.height))→\(String(format: "%.0f", fittingSize.height))pt — potential text overlap during this transition")
         }
+        #if DEBUG
+        // [Stage 0 · M11] 只观测，不改行为（下面那个恒真守卫原样保留）。
+        // 若 `genBeforeSuper != cfgGen`，说明这次超测结果**可能属于上一版内容**；而下方
+        // `commitHeight`/`setEntry` 会把它记成**当前**键（`setEntry` 盖 `contentKeyByIndex[index]`）
+        // ⇒ 陈旧测量被当成新内容的有效实测值，正是「裁尾 / 3 行消失」那一类。
+        if genBeforeSuper != cfgGen {
+            Self.cfgGenChangedCount &+= 1
+            let genNowTs = CFAbsoluteTimeGetCurrent()
+            if genNowTs - Self.cfgGenChangedLastLogAt >= 1.0 {
+                Self.cfgGenChangedLastLogAt = genNowTs
+                Self.sizingLogger.warning("[Stage0][M11] 测量期间内容代际变化 cfgGenChanged=\(Self.cfgGenChangedCount) idx=\(idx) genBefore=\(genBeforeSuper) genNow=\(cfgGen) attrsH=\(String(format: "%.1f", attrs.size.height)) fitH=\(String(format: "%.1f", fittingSize.height)) — 原 cfggen-changed 守卫因恒真从不触发")
+            }
+        }
+        #endif
         guard cfgGen == gen else {
             tracePLAF("cfggen-changed", attrs.size.height, attrs.size.width)
             return attrs
