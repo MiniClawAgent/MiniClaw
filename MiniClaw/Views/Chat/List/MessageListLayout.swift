@@ -356,7 +356,9 @@ public final class MessageListLayout: UICollectionViewLayout {
                 }
                 if diverged > 0 {
                     Self.frameDivergenceHits &+= 1
-                    AppLogger.shared.warning("[Stage0][M15] ⚠️ 屏上帧与布局帧背离 divergedCells=\(diverged)/\(cv.visibleCells.count) 最坏=\(String(format: "%.1f", worst))pt @idx=\(worstIdx) scroll=\((cv.isDragging) ? "drag" : (cv.isDecelerating ? "decel" : "idle")) — itemAttributes 自洽但屏上不同 ⇒ 重叠可发生在 prepare() 之外", category: "ChatList.CellMetrics")
+                    // [Stage 0 · M16] 判别"提交之后 prepare() 有没有重跑"（见 invalidationContext 内说明）。
+                    let ranPrepare = Self.prepareCallCount != Self.lastCommitPrepareCount
+                    AppLogger.shared.warning("[Stage0][M15] ⚠️ 屏上帧与布局帧背离 divergedCells=\(diverged)/\(cv.visibleCells.count) 最坏=\(String(format: "%.1f", worst))pt @idx=\(worstIdx) scroll=\((cv.isDragging) ? "drag" : (cv.isDecelerating ? "decel" : "idle")) :: M16 最近一次提交 idx=\(Self.lastCommitIdx) delta=\(String(format: "%.1f", Self.lastCommitDelta)) preparesThen=\(Self.lastCommitPrepareCount) preparesNow=\(Self.prepareCallCount) ⇒ \(ranPrepare ? "提交后【已】重跑 prepare（背离另有原因）" : "提交后【未】重跑 prepare ⇒ itemAttributes 未跟上")", category: "ChatList.CellMetrics")
                 } else {
                     Self.frameDivergenceClean &+= 1
                 }
@@ -564,6 +566,15 @@ public final class MessageListLayout: UICollectionViewLayout {
         return mustInvalidate
     }
 
+    #if DEBUG
+    /// [Stage 0 · M16] 「提交之后 `prepare()` 有没有重跑」的判别状态（见 `invalidationContext` 与
+    /// `layoutAttributesForElements` 内的说明）。**判别键是现成的 `prepareCallCount`** ——
+    /// 满足 §2.9.7 立下的纪律：跨日志行建因果链必须有共同关联键，此处键 = 索引 + prepare 次数。
+    private static var lastCommitIdx = -1
+    private static var lastCommitDelta: CGFloat = 0
+    private static var lastCommitPrepareCount = 0
+    #endif
+
     public override func invalidationContext(
         forPreferredLayoutAttributes preferredAttributes: UICollectionViewLayoutAttributes,
         withOriginalAttributes originalAttributes: UICollectionViewLayoutAttributes
@@ -579,6 +590,18 @@ public final class MessageListLayout: UICollectionViewLayout {
         let delta = newH-oldH
 
         let estimateSrc = heightEntries[index].map { $0.source.rawValue + "!" } ?? "def"
+        #if DEBUG
+        // [Stage 0 · M16] 记录"这次提交"的时刻（用 `prepareCallCount` 当时间戳）。
+        // 与 M15 的背离检测配对，用来判定：**提交之后 `prepare()` 到底有没有重跑**。
+        //   · 若背离发生时 `prepareCallCount == lastCommitPrepareCount` ⇒ 提交后**没跑过** prepare
+        //     ⇒ `itemAttributes` 仍是旧的 ⇒ S2.12 的修法是"提交后强制同步/重跑"；
+        //   · 若已跑过而仍背离 ⇒ 说明 `prepare()` 读了 `heightEntries` 却得出不同结果
+        //     ⇒ 修法转向"检查 setEntry 是否被优先级闸门拒绝"。
+        // 两条分支的改法完全不同，故必须先判别再动手。
+        Self.lastCommitIdx = index
+        Self.lastCommitDelta = delta
+        Self.lastCommitPrepareCount = Self.prepareCallCount
+        #endif
 
         // [NegMeasure 2026-09-10] 与 SelfSizingCell 的负测量闸门配对：PLAF 返回的
         // preferred 高度必须有限且非负才允许写 .measured。9-09 的 NaN 闸门只盖住了
