@@ -1229,3 +1229,85 @@ extension MessageCollectionView.Coordinator {
         }
 
 }
+
+#if DEBUG
+// MARK: - [Stage 0] 程序化手势替代（LayoutHarness）
+//
+// **动机（2026-09-16 实机确认）**：真机手势**无法**经 Xcode MCP 驱动 ——
+// `DeviceInteractionStartWorkspaceSession` 对 `唐唐的iPhone 16Pro` 直接报
+// "Cannot select specified device"，只返回模拟器列表。而本计划每道门禁都要求
+// 「同一组手势、**连续 3 次**」，全靠人工既慢又不可重复。
+// 故提供这套一次性、DEBUG-only 的滚动序列，把「进入会话 → 滚几屏 → 回顶 → 到底 → 回顶」
+// 变成**确定、可重复、不依赖人在场**的动作。
+//
+// **覆盖**：`prepare()` / PLAF / `sizeThatFits` / cell 复用 /
+// `MarkdownView.updateUIView`（M1 实例归因）/ `[TruncL]` 探针成本（M2）。
+//
+// **不覆盖（必须人工验收，判据不变）**：依赖 `isTracking`/`isDragging` 的分支 ——
+// `deferSelfSizing` 的拖动期推迟、`[DeferShrink]`、`[DeferRetry]`。
+// 程序化 `setContentOffset` **不会**置这两个标志，所以"拖动期不再重叠 / 松手不跳"
+// 这两条**只能人工验**。不要用本 harness 的结果替代它们。
+//
+// **安全边界**：只做「设 offset + `layoutIfNeeded`」——与既有代码
+// （`MessageCollectionCoordinator+Snapshot.swift:443`/`:447`）同款动作；
+// **不写入任何高度/缓存状态、不改几何**。历史上的探针越界教训见计划 §3.1。
+extension MessageCollectionView.Coordinator {
+
+    private static var stage0HarnessHasRun = false
+    private static var stage0HarnessBeganAt: CFAbsoluteTime = 0
+
+    /// 由 `applySnapshot` 的「会话进入类 caller」分支调用（与 `scheduleHeightPrewarm` 同一位置）。
+    /// 每次进程生命周期只跑一次。
+    func runStage0HarnessOnce() {
+        guard !Self.stage0HarnessHasRun else { return }
+        Self.stage0HarnessHasRun = true
+        guard let cv = viewController?.collectionView else { return }
+        Self.stage0HarnessBeganAt = CFAbsoluteTimeGetCurrent()
+        MarkdownView.stage0ResetCumulative()
+        let screens = 3
+        AppLogger.shared.warning("[Stage0][harness] BEGIN screens=\(screens) cvH=\(String(format: "%.0f", cv.bounds.height)) contentH=\(String(format: "%.0f", cv.contentSize.height)) items=\(cv.numberOfItems(inSection: 0)) — 程序化滚动替代人工手势；isDragging 分支不覆盖", category: "ChatList.Watchdog")
+        // 首步**延迟**而非在 `applySnapshot` 事务内同步执行：那里刚跑完 `cv.layoutIfNeeded()`，
+        // 同步再触发一次布局有重入风险（计划 §3.1 的探针越界教训）。延迟 0.5s 让本次快照事务彻底收尾。
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            Self.stage0HarnessStep(cv: cv, index: 0, screens: screens)
+        }
+    }
+
+    private static func stage0HarnessStep(cv: UICollectionView, index: Int, screens: Int) {
+        let total = screens + 3
+        if index >= total {
+            stage0HarnessEnd(cv: cv)
+            return
+        }
+        let maxOff = max(0, cv.contentSize.height - cv.bounds.height + cv.adjustedContentInset.bottom)
+        let top = -cv.adjustedContentInset.top
+        let target: CGFloat
+        let tag: String
+        switch index {
+        case 0..<screens:
+            target = min(maxOff, top + CGFloat(index + 1) * cv.bounds.height)
+            tag = "down\(index + 1)"
+        case screens:
+            target = top
+            tag = "top"
+        case screens + 1:
+            target = maxOff
+            tag = "bottom"
+        default:
+            target = top
+            tag = "top-again"
+        }
+        cv.setContentOffset(CGPoint(x: 0, y: target), animated: false)
+        cv.layoutIfNeeded()
+        AppLogger.shared.warning("[Stage0][harness] STEP \(index + 1)/\(total) \(tag) y=\(String(format: "%.0f", cv.contentOffset.y)) maxOff=\(String(format: "%.0f", maxOff))", category: "ChatList.Watchdog")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) {
+            stage0HarnessStep(cv: cv, index: index + 1, screens: screens)
+        }
+    }
+
+    private static func stage0HarnessEnd(cv: UICollectionView) {
+        let wallMs = (CFAbsoluteTimeGetCurrent() - stage0HarnessBeganAt) * 1000
+        AppLogger.shared.warning("[Stage0][harness] END wallMs=\(String(format: "%.0f", wallMs)) y=\(String(format: "%.0f", cv.contentOffset.y)) :: \(MarkdownView.stage0CumulativeLine())", category: "ChatList.Watchdog")
+    }
+}
+#endif

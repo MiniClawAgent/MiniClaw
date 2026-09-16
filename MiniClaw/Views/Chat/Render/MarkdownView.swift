@@ -380,6 +380,9 @@ struct MarkdownView: UIViewRepresentable {
         // makeUIView creates a FRESH textView +
         let rId = String(ObjectIdentifier(context.coordinator.renderer).hashValue&0xFFFFFF,radix: 16)
         AppLogger.shared.info("[MK-VIEW] new textView rnd=\(rId)", category: "MarkdownRenderer")
+        // [Stage 0 · M1] 每新建一个 textView 记一次（该行 info 被 quietInfoCategories 静默，
+        // 故实例归因改用下面的聚合计数随窗口行输出）。
+        Self.noteNewTextView()
         #endif
         return textView
     }
@@ -387,6 +390,11 @@ struct MarkdownView: UIViewRepresentable {
     func updateUIView(_ textView: MarkdownTextView,context: Context) {
         // [PerfTrace 2026-09-08] 渲染路径计时（此前只给测量侧打点，渲染侧是空白）
         let updateStart = CFAbsoluteTimeGetCurrent()
+        #if DEBUG
+        // [Stage 0 · M1] 计**每一次进入**（含随后被闸门早退的），与 `recordUpdateUIView`
+        // （只计真正做完工作的）配合即可区分「闸门失效」与「视图实例太多」。
+        Self.noteUpdateUIViewEnter(textView)
+        #endif
         context.coordinator.openURL = openURL
         textView.onTapBlank = onTapBlank
         textView.onCopyScreenshot = onCopyScreenshot
@@ -873,6 +881,12 @@ struct MarkdownView: UIViewRepresentable {
         let forceLog = !isStreaming || streamJustEnded || ScrollMetricsRecorder.shared.isEnabled
         DispatchQueue.main.async { [weak textView] in
             guard let textView else { return }
+            #if DEBUG
+            // [Stage 0 · M2] 本探针此前**完全没有被计时**（`updateElapsed` 在排期这个 async
+            // 之后就结算了）⇒ 真实主线程成本 > 已观测值。这里把它的成本量出来。
+            let truncProbeStart = CFAbsoluteTimeGetCurrent()
+            var truncEnsureMs: Double = 0
+            #endif
             var cellH: CGFloat = -1
             var cellRef: SelfSizingCell?
             var probeView: UIView? = textView
@@ -888,7 +902,13 @@ struct MarkdownView: UIViewRepresentable {
             // 查询前先 `ensureLayout`，否则数值随布局时机飘。
             let visEnd: Int
             if total > 0, textView.bounds.height > 1 {
+                #if DEBUG
+                let ensureStart = CFAbsoluteTimeGetCurrent()
+                #endif
                 lm.ensureLayout(for: textView.textContainer)
+                #if DEBUG
+                truncEnsureMs = (CFAbsoluteTimeGetCurrent()-ensureStart)*1000
+                #endif
                 let containerRect = textView.bounds.offsetBy(
                     dx: -textView.textContainerInset.left,
                     dy: -textView.textContainerInset.top)
@@ -908,6 +928,12 @@ struct MarkdownView: UIViewRepresentable {
                 return textView.frame.maxY > cell.contentView.bounds.height + 0.5
             }()
             let bad = storageBehind || cellTooShort || clippedNow || (tailCut && !streamSnap)
+            #if DEBUG
+            // 到这里为止的成本是**每次都会付出**的（在下面 `guard forceLog || bad` 之前），
+            // 所以它才是探针的真实代价。
+            Self.noteTruncProbe(probeMs: (CFAbsoluteTimeGetCurrent()-truncProbeStart)*1000,
+                                ensureLayoutMs: truncEnsureMs)
+            #endif
             // [Fix 2026-09-13 「尾行被裁」根治] 真机签名：`storageLen == attrLen`（内容完整、已上屏）
             // 且 `cellShort=0`（cell 够高），**但 `tailCut=1`** —— 可见字形区间只覆盖到
             // `visEnd=28/89`、`121/132`、`165/252` ⇒ **尾部字形没进 textView 自己的可见范围**。
@@ -1499,10 +1525,97 @@ struct MarkdownView: UIViewRepresentable {
     private static let windowAlarmThresholdMs: Double = 2000
     private static var alarmAlreadyFiredThisHop = false
 
+    // MARK: - [Stage 0] 实例归因（M1）与探针成本（M2）
+    //
+    // 目的：把「119 次 updateUIView / 2008ms」这两个数字**分解开**，否则后面每一步
+    // 的收益都无法证伪。两条硬约束（历史事故直接来自违反它们）：
+    //   · 只写 DEBUG 静态计数，**不触碰任何布局会读的状态**；
+    //   · 不做任何几何操作（曾被探针把 textView 撑到 495pt）。
+    // 全部读写都在主线程，与既有窗口计数同域。
+
+    private static var newTextViewCount: Int = 0
+    private static var distinctTextViewIds: Set<ObjectIdentifier> = []
+    private static var updatesPerTextViewId: [ObjectIdentifier: Int] = [:]
+    private static var allUpdateUIViewCount: Int = 0
+
+    private static var truncProbeRuns: Int = 0
+    private static var truncProbeMs: Double = 0
+    private static var truncEnsureLayoutMs: Double = 0
+    /// `[Stage0][metrics]` 的 1s 节流时间戳（与 hop 重置解耦，见 `installWindowObserverIfNeeded`）。
+    private static var stage0LastEmitAt: CFTimeInterval = 0
+
+    // [Stage 0 · 累积层] 上面那组是**窗口级**（每个 runloop hop / 每次 1s 节流输出后清零）。
+    // harness 需要的是「整段手势序列一共花了多少」，所以另存一组**只由显式 reset 清零**的量。
+    private static var cumNewTextViews: Int = 0
+    private static var cumDistinctTextViewIds: Set<ObjectIdentifier> = []
+    private static var cumAllUpdates: Int = 0
+    private static var cumStfMs: Double = 0
+    private static var cumUpdMs: Double = 0
+    private static var cumTruncRuns: Int = 0
+    private static var cumTruncMs: Double = 0
+    private static var cumTruncEnsureMs: Double = 0
+
+    fileprivate static func noteNewTextView() {
+        newTextViewCount += 1
+        cumNewTextViews += 1
+    }
+
+    fileprivate static func noteUpdateUIViewEnter(_ textView: MarkdownTextView) {
+        let id = ObjectIdentifier(textView)
+        allUpdateUIViewCount += 1
+        cumAllUpdates += 1
+        distinctTextViewIds.insert(id)
+        cumDistinctTextViewIds.insert(id)
+        updatesPerTextViewId[id, default: 0] += 1
+    }
+
+    fileprivate static func noteTruncProbe(probeMs: Double,ensureLayoutMs: Double) {
+        truncProbeRuns += 1
+        truncProbeMs += probeMs
+        truncEnsureLayoutMs += ensureLayoutMs
+        cumTruncRuns += 1
+        cumTruncMs += probeMs
+        cumTruncEnsureMs += ensureLayoutMs
+    }
+
+    /// harness BEGIN 调用：把累积层归零，使「整段序列」的统计只覆盖序列本身。
+    static func stage0ResetCumulative() {
+        cumNewTextViews = 0
+        cumDistinctTextViewIds.removeAll(keepingCapacity: true)
+        cumAllUpdates = 0
+        cumStfMs = 0
+        cumUpdMs = 0
+        cumTruncRuns = 0
+        cumTruncMs = 0
+        cumTruncEnsureMs = 0
+    }
+
+    /// harness END 调用的汇总（累积层）。
+    static func stage0CumulativeLine() -> String {
+        "newTV=\(cumNewTextViews) distinctTV=\(cumDistinctTextViewIds.count)"
+            + " allUpd=\(cumAllUpdates) stfMs=\(String(format: "%.1f", cumStfMs))"
+            + " updMs=\(String(format: "%.1f", cumUpdMs))"
+            + " truncRuns=\(cumTruncRuns)"
+            + " truncMs=\(String(format: "%.1f", cumTruncMs))"
+            + " truncEnsureMs=\(String(format: "%.1f", cumTruncEnsureMs))"
+    }
+
+    /// 随 `[WatchdogProbe]` 窗口行一起输出。**不新增独立日志**——探针自身不能成为病灶
+    /// （见 M2：`[TruncL]` 就是因为每次更新都无条件排版 + 打日志而变成成本的）。
+    private static func instanceProbeSuffix() -> String {
+        let maxPer = updatesPerTextViewId.values.max() ?? 0
+        return "newTV=\(newTextViewCount) distinctTV=\(distinctTextViewIds.count)"
+            + " allUpd=\(allUpdateUIViewCount) maxPerTV=\(maxPer)"
+            + " truncRuns=\(truncProbeRuns)"
+            + " truncMs=\(String(format: "%.1f", truncProbeMs))"
+            + " truncEnsureMs=\(String(format: "%.1f", truncEnsureLayoutMs))"
+    }
+
     fileprivate static func recordSTF(elapsedMs: Double,msgId: UUID?,attrLen: Int) {
         installWindowObserverIfNeeded()
         stfWindowTotalMs += elapsedMs
         stfWindowCallCount += 1
+        cumStfMs += elapsedMs
         if let msgId { distinctMsgIds.insert(msgId) }
         checkWindowAlarm(trigger: "stf", lastLen: attrLen, lastMsgId: msgId)
     }
@@ -1511,6 +1624,7 @@ struct MarkdownView: UIViewRepresentable {
         installWindowObserverIfNeeded()
         updWindowTotalMs += elapsedMs
         updWindowCallCount += 1
+        cumUpdMs += elapsedMs
         if let msgId { distinctMsgIds.insert(msgId) }
         checkWindowAlarm(trigger: "upd", lastLen: attrLen, lastMsgId: msgId)
     }
@@ -1520,7 +1634,7 @@ struct MarkdownView: UIViewRepresentable {
         guard total >= windowAlarmThresholdMs,!alarmAlreadyFiredThisHop else { return }
         alarmAlreadyFiredThisHop = true
         let msgIdShort = lastMsgId?.uuidString.prefix(8) ?? "—"
-        watchdogProbe.warning("[WatchdogProbe][window] 🚨 cumulative=\(String(format: "%.0f", total))ms (stf=\(String(format: "%.0f", stfWindowTotalMs)) upd=\(String(format: "%.0f", updWindowTotalMs))) sttCalls=\(stfWindowCallCount) updCalls=\(updWindowCallCount) distinctMsgs=\(distinctMsgIds.count) trigger=\(trigger) lastMsgId=\(msgIdShort) lastLen=\(lastLen) — main runloop is heading toward 0x8BADF00D (10s watchdog)")
+        watchdogProbe.warning("[WatchdogProbe][window] 🚨 cumulative=\(String(format: "%.0f", total))ms (stf=\(String(format: "%.0f", stfWindowTotalMs)) upd=\(String(format: "%.0f", updWindowTotalMs))) sttCalls=\(stfWindowCallCount) updCalls=\(updWindowCallCount) distinctMsgs=\(distinctMsgIds.count) trigger=\(trigger) lastMsgId=\(msgIdShort) lastLen=\(lastLen) \(instanceProbeSuffix()) — main runloop is heading toward 0x8BADF00D (10s watchdog)")
     }
 
     private static func installWindowObserverIfNeeded() {
@@ -1532,8 +1646,31 @@ struct MarkdownView: UIViewRepresentable {
             true,0
         ) { _,_ in
             let total = stfWindowTotalMs+updWindowTotalMs
-            if total >= 500 {
-                watchdogProbe.info("[WatchdogProbe][hop] cumulative=\(String(format: "%.0f", total))ms stf=\(String(format: "%.0f", stfWindowTotalMs)) upd=\(String(format: "%.0f", updWindowTotalMs)) stfCalls=\(stfWindowCallCount) updCalls=\(updWindowCallCount) distinctMsgs=\(distinctMsgIds.count)")
+            // [Stage 0 修正] 原条件只有 `total >= 500`，于是**恰好在健康的基线上什么都看不到**
+            // —— 而基线正是要冻结的那张表。改为「耗时高 **或** 实例/探针活动达到量级」即输出。
+            if total >= 500 || allUpdateUIViewCount >= 10 || truncProbeRuns >= 2 {
+                watchdogProbe.info("[WatchdogProbe][hop] cumulative=\(String(format: "%.0f", total))ms stf=\(String(format: "%.0f", stfWindowTotalMs)) upd=\(String(format: "%.0f", updWindowTotalMs)) stfCalls=\(stfWindowCallCount) updCalls=\(updWindowCallCount) distinctMsgs=\(distinctMsgIds.count) \(instanceProbeSuffix())")
+            }
+            // [Stage 0 · 通道修正] M1/M2 汇总必须走 **warn**。
+            // 实测依据：`AppLogger.log` 只把 warn/error/fault、以及 `consoleMirrorCategories`
+            // 白名单内的 info 镜像到控制台（`AppLogger.swift:160-162`），而 `ChatList.Watchdog`
+            // 不在白名单 ⇒ **info 级永远进不了控制台**，`GetConsoleOutput` 抓不到。
+            // 上一版把 M1/M2 挂在 `[WatchdogProbe][hop]`（info）上，等于白加。
+            // 同时按 1s 节流：探针自己不能成为病灶（见 A4/F2）。
+            let hadActivity = allUpdateUIViewCount > 0 || truncProbeRuns > 0 || newTextViewCount > 0
+            let nowTs = CFAbsoluteTimeGetCurrent()
+            if hadActivity, nowTs - stage0LastEmitAt >= 1.0 {
+                stage0LastEmitAt = nowTs
+                watchdogProbe.warning("[Stage0][metrics] stfMs=\(String(format: "%.1f", stfWindowTotalMs)) updMs=\(String(format: "%.1f", updWindowTotalMs)) stfCalls=\(stfWindowCallCount) updCalls=\(updWindowCallCount) \(instanceProbeSuffix())")
+                // 只在本行真正输出时清零 ⇒ 节流窗口内累积的量不会被丢掉
+                //（若跟着 hop 一起清，1s 内多个 hop 的数据就只有最后一个能看见）。
+                newTextViewCount = 0
+                distinctTextViewIds.removeAll(keepingCapacity: true)
+                updatesPerTextViewId.removeAll(keepingCapacity: true)
+                allUpdateUIViewCount = 0
+                truncProbeRuns = 0
+                truncProbeMs = 0
+                truncEnsureLayoutMs = 0
             }
             stfWindowTotalMs = 0
             stfWindowCallCount = 0

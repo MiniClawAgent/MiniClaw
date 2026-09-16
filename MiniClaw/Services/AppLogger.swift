@@ -137,7 +137,18 @@ final class AppLogger: @unchecked Sendable {
         "Cache",
         // 2026-09-15:输出速度口径修正排障期镜像——[Speed] 每次调用打印 output/window/tps,
         // 用于真机直接核对速度口径(同样是 info 级,不镜像就只能在 App 内文件日志里看)。
-        "Speed"
+        "Speed",
+        // [2026-09-16 流式布局 Stage 0] 布局链路的**验收判据全都是 info 级**,而 Xcode MCP 的
+        // `GetConsoleOutput` 只能看到 warn/error/fault + 本白名单 ⇒ 之前计划里写的判据
+        //（`[PLAF] branch=` 直方图、`[SizeFit] buckets=/hits=`、`[CellSizing] INVALIDATE`、
+        // `[DeferShrink]`、`[prepare]`）**一条都抓不到**,门禁形同虚设。故补入这两个类别:
+        //   · `ChatList.CellMetrics` —— sizingLogger/`[PLAF]`/`[PLAF-SET]`/`[JITTER]`/
+        //     `[CellSizing] INVALIDATE`/`[DeferShrink]`/`[SessionLoad]`/`[HangFix]`
+        //   · `MarkdownSTF` —— `[SizeFit] #N MISS … buckets= hits=`（S2.0 的直接判据）
+        // 代价:控制台行数上升,`print` 有开销 ⇒ **冻结基线与后续每一步必须在同一白名单下取数**,
+        // 否则对比不成立。`RenderCache`(含 `[MEMO]`/`[RC]`)仍留在 quietInfoCategories,
+        // 需要它时单独做一次针对性观测（见计划 §3.1 前提）。
+        "ChatList.CellMetrics", "MarkdownSTF"
     ]
 
     /// 诊断插桩静默类别（2026-09-11 降噪）：这些 category 的 info/debug

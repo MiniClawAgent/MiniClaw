@@ -472,6 +472,17 @@ extension MessageCollectionView.Coordinator {
                     Self.scheduleHeightPrewarm(messages: messages, cvWidth: cv.bounds.width,
                                                force: isStreamEnd)
                 }
+                #if DEBUG
+                // [Stage 0] 程序化手势替代（见 `+Scrolling.swift` 的 LayoutHarness 注释块）。
+                // 只挂**会话进入类** caller（不挂 isStreamEnd）：流式增量快照会反复触发，
+                // 而 harness 要的是"进入会话后走一遍固定滚动序列"。
+                // 每次进程生命周期只跑一次（`stage0HarnessHasRun`）。
+                if !isStreamEnd,
+                   caller.contains("loadSession") || caller.contains("suspend-resume")
+                   || caller.contains("bind1-messages") {
+                    runStage0HarnessOnce()
+                }
+                #endif
             } else {
                 snapshotLayout?.suppressContentOffsetAdjustment = false
                 flushingNow = false
