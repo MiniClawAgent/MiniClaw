@@ -364,14 +364,14 @@ struct ThinkingBlockView: View {
             RoundedRectangle(cornerRadius: 12)
                 .stroke(isStreaming ? Color.blue.opacity(0.15) : Color.green, lineWidth: 0.5)
         )
-        .task(id: block.id) {
-            // 2026-08-10 用户要求:思考块默认折叠,永不自动展开。
-            // 原 autoExpand(UserDefaults chat.autoExpandThinking)自动展开逻辑
-            // 已移除——即使用户设备残留旧值 true,新消息思考块也保持折叠;
-            // 手动 tap 仍可展开(ThinkingBlockView 的 onTapGesture 设置
-            // thinkingUserToggled,展开状态仅保留在当前消息生命周期内,
-            // 下次消息重建时由适配层强制重置)。
-        }
+        // [Stage 1 · §6.3.2 A9] 此处原有 `.task(id: block.id) { … }`，其闭包体内**只有注释**、
+        // 无任何语句 ⇒ 每次 block.id 变化都排期一个**空任务**。已删除该修饰符，但把那段注释
+        // 记录的**决策**保留在下面（Q6：删注释不等于删决策，决策不应静默丢失）：
+        //   2026-08-10 用户要求：思考块默认折叠、**永不自动展开**。原 autoExpand
+        //   （UserDefaults `chat.autoExpandThinking`）自动展开逻辑已移除——即使用户设备残留
+        //   旧值 true，新消息思考块也保持折叠；手动 tap 仍可展开（`ThinkingBlockView` 的
+        //   onTapGesture 设 `thinkingUserToggled`，展开态仅保留在当前消息生命周期内，
+        //   下次消息重建由适配层强制重置）。
         .onChange(of: isStreaming) { streaming in
             if !streaming,!block.thinkingUserToggled {
                 AppLogger.shared.info("[Collapse] auto-collapse block=\(block.id.uuidString.prefix(8)) streaming→false userToggled=false contentLen=\(block.content.count)", category: "ChatList.Collapse")

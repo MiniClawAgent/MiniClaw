@@ -268,20 +268,9 @@ extension MessageCollectionView.Coordinator {
                 AppLogger.shared.info("[CHANGE] from=\(caller) bottomInset \(String(format: "%.1f", prevBottomInset))→\(String(format: "%.1f", desiredBottomInset)) Δ\(String(format: "%+.1f", desiredBottomInset - prevBottomInset)) — \(reason)", category: "ChatList.SubViewport")
                 cv.contentInset.bottom = desiredBottomInset
             }
-            if scrollMode == .autoScrolling {
-                //
-                // [T2] `baseBottomInset` 现已含底部安全区，故不再二次叠加（否则多 34pt）。
-                let pinBottomInset = bottomInsetBase
-                let rawTarget = cv.contentSize.height-cv.bounds.height+pinBottomInset
-                let inflatedMaxOff = cv.contentSize.height-cv.bounds.height+cv.adjustedContentInset.bottom
-                let topLimit = -cv.adjustedContentInset.top
-                let target = min(max(rawTarget,topLimit),inflatedMaxOff)
-                let offsetBefore = cv.contentOffset.y
-                if target>topLimit-0.5 && abs(cv.contentOffset.y-target)>0.5 {
-                    // [T1 2026-09-12] 转场期间同样不直接写 offset（此写入不经 `setContentOffset`，
-                    // 探针抓不到，但同属「转场期提交 offset」这一类）——推迟到转场完成后的贴底。
-                }
-            }
+            // [Stage 1 · §6.3.1 A7] 此处原有 `if scrollMode == .autoScrolling { … }` 整块。
+            // 去掉注释后块内只有 6 个纯读取的 `let` 绑定与一个**空体 `if`**，且 `offsetBefore`
+            // 全库仅此一处声明、零读取 ⇒ **零副作用、零可观察行为**（证明见计划 §6.3.1），已删除。
             return needsCompensation
         }
 
@@ -1062,7 +1051,6 @@ extension MessageCollectionView.Coordinator {
 
             // and jittering.
             let atBottom = isWithinBottom(reacquireAutoScrollThreshold)
-            let nearBottom = isNearBottom()
             if atBottom {
                 scrollMode = .autoScrolling
             }
@@ -1079,7 +1067,6 @@ extension MessageCollectionView.Coordinator {
                 return
             }
 
-            _ = nearBottom
             layout.deferSelfSizing = false
 
             let savedOffset = cv.contentOffset.y

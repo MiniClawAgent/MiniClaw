@@ -259,19 +259,17 @@ extension MessageCollectionView.Coordinator {
                     for block in sortedBlocks {
                         newRows.append(.assistantBlock(message.id,block.id))
                     }
-                    // phantom 4pt gapH above the next user message. When the
-                    let isLastAssistant = (message.id == messages.last(where: { $0.role == .assistant })?.id)
                     // 2026-09-05 唐唐要求：**每一条** AI 回复都持久显示状态行（已完成/已停止/
                     // 已中断 + 耗时），不再只显示最后一条。
-                    let needsFooter = isLastAssistant
-                        || message.role == .assistant
-                        || message.error != nil
-                        || message.streamInterruptCount>0
-                        || (cellBridgeMap[message.id]?.canResume == true)
-                        || (cellBridgeMap[message.id]?.showUsage == true)
-                    if needsFooter {
-                        newRows.append(.assistantFooter(message.id))
-                    }
+                    // [Stage 1 · §6.3.1 A19] 原判据是六路析取
+                    // `isLastAssistant || role == .assistant || error != nil
+                    //  || streamInterruptCount>0 || canResume || showUsage`。本分支已在
+                    // `switch message.role { case .assistant: }` 内，而 `RenderMessage.role` 是
+                    // 不可变 `let`（RenderModels.swift:285）⇒ 第二项**结构上恒真**，整个析取恒真。
+                    // 故简化为无条件追加；连带删掉 `isLastAssistant`——它是一次
+                    // `messages.last(where:)` 的 **O(n) 线性扫描**，且因析取短路被**先求值再丢弃**，
+                    // 每条 assistant 消息白跑一次。
+                    newRows.append(.assistantFooter(message.id))
                 }
             }
 

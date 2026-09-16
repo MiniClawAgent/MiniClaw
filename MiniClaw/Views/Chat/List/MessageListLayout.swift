@@ -324,8 +324,6 @@ public final class MessageListLayout: UICollectionViewLayout {
     /// using the old height → contentSize stays frozen. Applied on thaw
     private var deferredHeights: [Int: CGFloat] = [:]
 
-    public var deferredHeightCount: Int { deferredHeights.count }
-
     /// Move deferred heights into the real cache. Call after scrolling ends.
     /// 返回**视口上方**的高度变化合计（`aboveSum`）。调用方须把它加到 `contentOffset.y` 上：
     /// 解冻后 offset 是数值恢复的，视口上方的高度变化会 1:1 平移可见内容；不锚定就会
@@ -420,7 +418,6 @@ public final class MessageListLayout: UICollectionViewLayout {
                     }
                     return false
                 }
-            } else {
             }
         }
 

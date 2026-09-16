@@ -294,7 +294,6 @@ extension MessageCollectionView.Coordinator {
                                        allowRenderBubble: Bool = true) -> CGFloat {
             let scale = FontSettings.shared.scaledMessage(16)
             let lineHeight = scale*1.4
-            let hPad: CGFloat = 80
 
             switch item {
             case .wholeMessage(let msgId):
@@ -316,17 +315,15 @@ extension MessageCollectionView.Coordinator {
                                                             allowRender: allowRenderBubble) {
                         return h
                     }
-                    let tw = max(width-hPad,100)
-                    let attachCount = msg.attachments.count
-                    let imgH: CGFloat
-                    if attachCount>0 {
-                        let tilesPerRow = max(1,Int(tw/70))
-                        let rows = ceil(CGFloat(attachCount)/CGFloat(tilesPerRow))
-                        imgH = rows*70
-                    } else {
-                        imgH = 0
-                    }
-                    return imgH+44
+                    // [Stage 1 · §6.3.1 A20] 此处原有「每行 70pt 网格」的附件估高公式
+                    // （`hPad`/`tw`/`tilesPerRow`/`rows`/`imgH` + `return imgH+44`）。
+                    // 它**恒不可达**：能走到这里 ⟺ `measureUserBubbleHeight` 返回 nil，
+                    // 而该函数唯一的 nil 出口是 `guard !text.isEmpty else { return attachCount>0 ? attachH : nil }`
+                    // ⇒ nil ⟺ `text` 空 ∧ 附件数 == 0 ⇒ `if attachCount>0` 恒假 ⇒ 恒 `return 44`。
+                    // 证明见计划 §6.3.1（含一处细节：该函数的 `attachCount` 是
+                    // `attachments.isEmpty ? inputAttachments.count : attachments.count` 的三元，
+                    // 与本处裸 `attachments.count` 定义不同，但 nil 强制两者都为 0，蕴含仍成立）。
+                    return 44
                 case .assistant: return 200
                 }
             case .assistantHeader:

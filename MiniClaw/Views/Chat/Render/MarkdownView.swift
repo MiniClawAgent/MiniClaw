@@ -32,7 +32,8 @@ final class MarkdownRenderCache {
         // 「无」必须表达为 nil，不能是空串。
         let attributed: NSAttributedString?
         var heights: [Int: CGFloat] = [:]
-        let insertedAt: CFAbsoluteTime
+        // [Stage 1 · §6.3.1 A13] 此处原有 `let insertedAt: CFAbsoluteTime`，仅在两处被**初始化**、
+        // 全库零读取（LRU 由独立的 `order` + `touch()` 承担，它并非 LRU 时间戳）⇒ 已删除。
     }
 
     private var entries: [String: Entry] = [:]
@@ -112,7 +113,7 @@ final class MarkdownRenderCache {
         // [2026-09-09 根源修复] 空渲染结果不入库（空 att 会被消费方当有效结果，
         // 曾致 height-only 空串占位连锁出「漏消息」死锁）。
         guard attributed.length > 0, entries[key] == nil else { return }
-        entries[key] = Entry(attributed: attributed, insertedAt: CFAbsoluteTimeGetCurrent())
+        entries[key] = Entry(attributed: attributed)
         order.append(key)
         while order.count > limit {
             let evict = order.removeFirst()
@@ -131,8 +132,7 @@ final class MarkdownRenderCache {
             entry.heights[width] = height
             entries[key] = entry
         } else {
-            var entry = Entry(attributed: nil, // height-only：无富文本，只有高度
-                              insertedAt: CFAbsoluteTimeGetCurrent())
+            var entry = Entry(attributed: nil) // height-only：无富文本，只有高度
             entry.heights[width] = height
             entries[key] = entry
             order.append(key)
@@ -1206,9 +1206,14 @@ struct MarkdownView: UIViewRepresentable {
         }
 
         // Near-width cache hit for FULLY
+        // [Stage 1 · §6.3.2 A25] 此处原有第三个合取项 `!coord.cachedSizes.isEmpty`，已删除：
+        // 空字典 ⇒ `for (bucket,h) in coord.cachedSizes` **零次迭代** ⇒ `nearestHeight` 恒 nil
+        // ⇒ `if let nearestHeight` 失败 ⇒ 与有该守卫时**结果完全相同**（严格被吸收）。
+        // ⚠️ 同批另外两个合取项**不删**，理由见计划 §6.3.2：
+        // `!attachmentViewMap.isEmpty`（去掉会让守卫由假变真 ⇒ 行为改变，已证伪）；
+        // `lastSizedStorageFingerprint != 0`（哨兵，其"恒不为 0"的论证不成立）。
         if bindingFingerprint == coord.cachedSizeFingerprint,
-           bindingLen == storageLen,
-           !coord.cachedSizes.isEmpty {
+           bindingLen == storageLen {
             var nearestHeight: CGFloat?
             var nearestDelta = Int.max
             for (bucket,h) in coord.cachedSizes {
