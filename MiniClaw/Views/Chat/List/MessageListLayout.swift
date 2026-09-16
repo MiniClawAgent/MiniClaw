@@ -281,6 +281,32 @@ public final class MessageListLayout: UICollectionViewLayout {
         }
         totalHeight = y
         lastItemCount = itemCount
+        #if DEBUG
+        // [Stage 0 · M13] **帧重叠终审探针**（只观测，不改返回值、不改几何）。
+        //
+        // 动机：用户症状 1「拖动期重叠」的几何类解释此前只是**推理**被排除（§2.7.2：cell 一定裁剪、
+        // `itemAttributes` 只有 `:271` 一个写入点、`prepare()` 用单调 `y += h`）。这里是**直接检测**：
+        // 本函数既然是唯一的帧写入者，逐对检查相邻帧即可一次性判定"重叠是不是帧层面的"。
+        // 恒不报 ⇒ 几何路径整条彻底关闭，重叠必在 cell 内部绘制或图层层面。
+        // 报出 ⇒ §2.7.2 的推理有漏，须立即复核（那将是最有价值的一条数据）。
+        if itemAttributes.count > 1 {
+            Self.frameOverlapChecks &+= 1
+            var worstOverlap: CGFloat = 0
+            var worstIdx = -1
+            for i in 1..<itemAttributes.count {
+                let ov = itemAttributes[i-1].frame.maxY - itemAttributes[i].frame.minY
+                if ov > worstOverlap { worstOverlap = ov; worstIdx = i }
+            }
+            if worstOverlap > 0.5 {
+                Self.frameOverlapCount &+= 1
+                let ovTs = CFAbsoluteTimeGetCurrent()
+                if ovTs - Self.frameOverlapLastLogAt >= 1.0 {
+                    Self.frameOverlapLastLogAt = ovTs
+                    AppLogger.shared.warning("[Stage0][M13] ⚠️ prepare() 产出重叠帧 overlapHits=\(Self.frameOverlapCount) 最坏=\(String(format: "%.1f", worstOverlap))pt @idx=\(worstIdx) items=\(itemAttributes.count) totalH=\(String(format: "%.0f", totalHeight)) — 帧层面确实重叠（与 §2.7.2 的推理矛盾，须立即复核）", category: "ChatList.CellMetrics")
+                }
+            }
+        }
+        #endif
         // [Stall] prepare() runs on every invalidateLayout; on long
         let elapsed = (CACurrentMediaTime()-t0)*1000
         Self.prepareCallCount &+= 1
@@ -382,6 +408,17 @@ public final class MessageListLayout: UICollectionViewLayout {
         deferredHeights.removeAll()
         return aboveSum
     }
+
+    #if DEBUG
+    /// [Stage 0 · M13] 帧重叠探测计数。`checks` = 检查过的 prepare() 次数（items>1 时）。
+    /// 供 harness END 汇总输出，从而给出"检查了 N 次、0 次重叠"这种**可关闭假设**的证据。
+    private static var frameOverlapCount = 0
+    private static var frameOverlapChecks = 0
+    private static var frameOverlapLastLogAt: CFAbsoluteTime = 0
+    static func frameOverlapSummary() -> String {
+        "M13帧重叠=\(frameOverlapCount)/检查\(frameOverlapChecks)次"
+    }
+    #endif
 
     #if DEBUG
     /// [Stage 0 · M10] 拖动期收缩绕过闸门的计数（见 `shouldInvalidateLayout` 内的说明）。
