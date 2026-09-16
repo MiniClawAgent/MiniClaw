@@ -842,9 +842,14 @@ class SelfSizingCell: UICollectionViewCell {
             return layoutAttributes
         }
         let attrs = superAttrs
-        // 内容配置代际：`applyContentConfiguration` 每次换内容就 +1。**同一 gen 内
-        // 内容未变**，是判定「实测值可信度」的依据（见下方 smooth 分支的塌行守卫）。
-        let gen = cfgGen
+        // [Stage 1 · 死条件删除] 此处原有 `let gen = cfgGen`，以及下方两处"代际守卫"
+        //（`if measured < cached - 2, cfgGen == gen` 与 `guard cfgGen == gen else { … }`）。
+        // 它们是**恒真的死条件**：`cfgGen` 全库只有一个自增点（`applyContentConfiguration`），
+        // 而 `gen` 在 super 测量**之后**取值、两处比较之间没有任何写入 ⇒ 条件恒成立。
+        // 真机 `M11` 探针（把代际改在 super 测量**之前**取——原写法连"想防的事"都测不到）
+        // 连续取样均为 0 ⇒ 该场景不发生 ⇒ 删除与保留等价。见计划 §2.9.5。
+        // ⚠️ 若将来要让"测量期间内容变了就丢弃这次测量"**真正生效**，必须把代际取在
+        // `super.preferredLayoutAttributesFitting` **之前**，不能照抄原写法。
 
         if let cached = lastCalcH,
            abs(layoutAttributes.size.width-attrs.size.width)<1 {
@@ -872,7 +877,9 @@ class SelfSizingCell: UICollectionViewCell {
                 // engineMinHeight 那样算出荒谬偏移）：同内容内高度只会增长，
                 // 真正变短必然换 contentKey（key 含内容长度 `w:<mid>:<n>:<a>`）
                 // → 新内容走 applyContentConfiguration 重置 → 本守卫自然失效。
-                if measured < cached - 2, cfgGen == gen {
+                // [Stage 1 · 死条件删除] 原为 `if measured < cached - 2, cfgGen == gen {`，
+                // 其中 `cfgGen == gen` 恒真（见本函数上方说明）⇒ 等价于当前的纯条件。
+                if measured < cached - 2 {
                     _ = commitHeight(cached, into: attrs)
                     tracePLAF("smooth-keep-shorter", cached, attrs.size.width, layoutAttributes.size.width)
                     return attrs
@@ -945,9 +952,14 @@ class SelfSizingCell: UICollectionViewCell {
             Self.sizingLogger.info("[TextDrift] ⚠️ CELL GREW FROM ~0: idx=\(idx) \(String(format: "%.0f", layoutAttributes.size.height))→\(String(format: "%.0f", fittingSize.height))pt — potential text overlap during this transition")
         }
         #if DEBUG
-        // [Stage 0 · M11] 只观测，不改行为（下面那个恒真守卫原样保留）。
-        // 若 `genBeforeSuper != cfgGen`，说明这次超测结果**可能属于上一版内容**；而下方
-        // `commitHeight`/`setEntry` 会把它记成**当前**键（`setEntry` 盖 `contentKeyByIndex[index]`）
+        // [Stage 0 · M11 —— 现为"死条件删除"的**回归见证**]
+        // 原用途：为上方那个恒真守卫（`guard cfgGen == gen`）做准入。
+        // 该守卫已按本探针的真机取样（连续为 0）**删除**；本探针**刻意保留**作为断言：
+        // 若它将来开始报警，说明"测量期间内容代际变化"确实会发生 ⇒ **当初的删除是错的**，
+        // 那时必须按上方注释在 `super.preferredLayoutAttributesFitting` **之前**取代际，
+        // 把"丢弃陈旧测量"真正实现出来。
+        // 判据本身与代际守卫无关：`genBeforeSuper != cfgGen` 只说"这次超测结果**可能属于上一版内容**"，
+        // 而 `commitHeight`/`setEntry` 会把它记成**当前**键（`setEntry` 盖 `contentKeyByIndex[index]`）
         // ⇒ 陈旧测量被当成新内容的有效实测值，正是「裁尾 / 3 行消失」那一类。
         if genBeforeSuper != cfgGen {
             Self.cfgGenChangedCount &+= 1
@@ -958,10 +970,16 @@ class SelfSizingCell: UICollectionViewCell {
             }
         }
         #endif
-        guard cfgGen == gen else {
-            tracePLAF("cfggen-changed", attrs.size.height, attrs.size.width)
-            return attrs
-        }
+        // [Stage 1 · 死条件删除] 此处原有：
+        //     guard cfgGen == gen else {
+        //         tracePLAF("cfggen-changed", attrs.size.height, attrs.size.width)
+        //         return attrs
+        //     }
+        // 该守卫的语义是"测量期间内容变了 ⇒ 丢弃这次测量"，但 `cfgGen == gen` **恒真**
+        //（`gen` 在本函数 super 测量之后取值、其间无任何写入）⇒ 这条 early-return
+        // **永远不会发生**，`cfggen-changed` 是死代码。真机 M11 连续取样为 0 ⇒ 删除等价。
+        // 注意：删除它**不改变**"陈旧测量被记成当前键"的风险本身（那是 `setEntry` 盖当前 key
+        // 的固有语义），只是不再假装有一道守卫拦着。若要真正拦截，须按上方说明在 super 之前取代际。
         // [NegMeasure 2026-09-10] SwiftUI hosting 在「思考块收起 + 同帧子代理活动卡
         // 更新」时会返回**负测量值**（真机实测 -40，崩溃现场 idx=44 est=340→pref=-40，
         // EXC_BAD_ACCESS in ViewGraphGeometryObservers.needsUpdate）。负高度一旦回流
