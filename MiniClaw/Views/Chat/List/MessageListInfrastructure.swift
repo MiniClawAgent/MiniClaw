@@ -974,8 +974,15 @@ class SelfSizingCell: UICollectionViewCell {
         }
         // [2026-09-12 删除死代码] 此处原有 `#if DEBUG` 的 `MessageListSnapshotCollector
         // .captureIfEnabled(from:trigger:triggerDetail:)` 调用，而该类型**在整个工程里已不存在**
-        // （全库 grep 零命中）。之所以一直没报错：工程的 `SWIFT_ACTIVE_COMPILATION_CONDITIONS`
-        // 里从来没有 `DEBUG` 定义 ⇒ 所有 `#if DEBUG` 从未参与编译。补齐 DEBUG 后它立刻变成硬错误。
+        //（2026-09-16 复核：`git grep -n MessageListSnapshotCollector -- .` 仅命中本注释自身）。
+        // ⚠️ 但原文后半句「工程的 `SWIFT_ACTIVE_COMPILATION_CONDITIONS` 里从来没有 `DEBUG` 定义
+        // ⇒ 所有 `#if DEBUG` 从未参与编译」**是错的，已删除**：`project.pbxproj:2317` 的 Debug
+        // 配置是 `SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG ISH_ENABLED"` ⇒ `DEBUG` **有**定义，
+        // 全部 `#if DEBUG` 参与编译（这也是当前所有布局探针能生效的前提）。
+        // ⚠️ 真正需要警惕的是相反方向：`project.yml:34-35` 只声明了 `["ISH_ENABLED"]`，与
+        // pbxproj **不一致**。按纪律 B4 不跑 `xcodegen generate`（它会产出编不过的工程），
+        // 但一旦有人跑了，Debug 的 `DEBUG` 会消失 ⇒ 约 46 处 `#if DEBUG` 整块静默消失
+        //（含 ScrollMetricsRecorder、metricsTagByIndex 与布局 Stage 0 全部探针）。
         tracePLAF("live", attrs.size.height, attrs.size.width, layoutAttributes.size.width)
         return attrs
     }
