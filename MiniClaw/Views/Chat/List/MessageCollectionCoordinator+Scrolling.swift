@@ -1335,7 +1335,7 @@ extension MessageCollectionView.Coordinator {
 
     private static func stage0HarnessEnd(cv: UICollectionView) {
         let wallMs = (CFAbsoluteTimeGetCurrent() - stage0HarnessBeganAt) * 1000
-        AppLogger.shared.warning("[Stage0][harness] END wallMs=\(String(format: "%.0f", wallMs)) y=\(String(format: "%.0f", cv.contentOffset.y)) :: \(MarkdownView.stage0CumulativeLine()) :: \(MessageListLayout.frameOverlapSummary())", category: "ChatList.Watchdog")
+        AppLogger.shared.warning("[Stage0][harness] END wallMs=\(String(format: "%.0f", wallMs)) y=\(String(format: "%.0f", cv.contentOffset.y)) :: \(MarkdownView.stage0CumulativeLine()) :: \(MessageListLayout.frameOverlapSummary()) :: \(MessageListLayout.frameDivergenceSummary())", category: "ChatList.Watchdog")
         // [Stage0 可用性自检] 零工作量 ⇒ 本次运行对 Stage 1/2 的验收**没有信息量**，
         // 必须显式说出来，否则会被误读成"基线很便宜"。最常见的成因是会话过短（见 BEGIN 的告警）。
         if MarkdownView.stage0CumulativeIsEmpty() {

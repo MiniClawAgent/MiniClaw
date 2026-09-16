@@ -326,6 +326,43 @@ public final class MessageListLayout: UICollectionViewLayout {
     public override func layoutAttributesForElements(in rect: CGRect) -> [UICollectionViewLayoutAttributes]? {
         let t0 = CACurrentMediaTime()
         guard !itemAttributes.isEmpty else { return nil }
+        #if DEBUG
+        // [Stage 0 · M15] **屏上帧 vs 布局帧一致性**（只观测，1s 节流）。
+        //
+        // 为什么需要它：M13 检查的是 `prepare()` 的产物 `itemAttributes` —— 而集合视图实际使用的帧
+        // 还可能来自 **PLAF 提交路径**：`invalidationContext(forPreferredLayoutAttributes:…)` 拿的是
+        // cell 自己算出的 `preferredAttributes` **副本**，其高度**不经过 `prepare()`**。
+        // ⇒ `itemAttributes` 可以完全自洽（M13 读到 0 重叠），而**屏上真实帧互不一致**。
+        // 也就是说：重叠可能发生在 `prepare()` 之外，而 M13 结构上看不见它。
+        //
+        // 本探针在集合视图**即将取用**这些帧的时刻（本方法每次布局都被调用），把
+        // `cv.visibleCells` 的真实 frame 与 `itemAttributes` 逐项比对。两者一旦背离，
+        // 就说明"帧自洽"与"屏上不重叠"是两回事 —— 那将同时解释症状 1 与 M13=0。
+        if let cv = collectionView {
+            let dvTs = CFAbsoluteTimeGetCurrent()
+            if dvTs - Self.frameDivergenceLastLogAt >= 1.0 {
+                Self.frameDivergenceLastLogAt = dvTs
+                var diverged = 0
+                var worst: CGFloat = 0
+                var worstIdx = -1
+                for cell in cv.visibleCells {
+                    guard let ip = cv.indexPath(for: cell), ip.item < itemAttributes.count else { continue }
+                    let a = itemAttributes[ip.item].frame
+                    let d = max(abs(cell.frame.minY - a.minY), abs(cell.frame.height - a.height))
+                    if d > 1 {
+                        diverged += 1
+                        if d > worst { worst = d; worstIdx = ip.item }
+                    }
+                }
+                if diverged > 0 {
+                    Self.frameDivergenceHits &+= 1
+                    AppLogger.shared.warning("[Stage0][M15] ⚠️ 屏上帧与布局帧背离 divergedCells=\(diverged)/\(cv.visibleCells.count) 最坏=\(String(format: "%.1f", worst))pt @idx=\(worstIdx) scroll=\((cv.isDragging) ? "drag" : (cv.isDecelerating ? "decel" : "idle")) — itemAttributes 自洽但屏上不同 ⇒ 重叠可发生在 prepare() 之外", category: "ChatList.CellMetrics")
+                } else {
+                    Self.frameDivergenceClean &+= 1
+                }
+            }
+        }
+        #endif
 
         let prefetchMargin = rect.height*0.5
         let expandedRect = CGRect(
@@ -408,6 +445,17 @@ public final class MessageListLayout: UICollectionViewLayout {
         deferredHeights.removeAll()
         return aboveSum
     }
+
+    #if DEBUG
+    /// [Stage 0 · M15] 屏上帧 vs 布局帧的背离计数（见 `layoutAttributesForElements` 内说明）。
+    /// `Clean` 用于给出"抽查了 N 次、0 次背离"这种**可关闭假设**的证据。
+    private static var frameDivergenceHits = 0
+    private static var frameDivergenceClean = 0
+    private static var frameDivergenceLastLogAt: CFAbsoluteTime = 0
+    static func frameDivergenceSummary() -> String {
+        "M15屏上背离=\(frameDivergenceHits)/自洽\(frameDivergenceClean)次"
+    }
+    #endif
 
     #if DEBUG
     /// [Stage 0 · M13] 帧重叠探测计数。`checks` = 检查过的 prepare() 次数（items>1 时）。
