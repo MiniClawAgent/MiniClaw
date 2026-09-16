@@ -470,17 +470,18 @@ extension MessageCollectionView.Coordinator {
                     Self.scheduleHeightPrewarm(messages: messages, cvWidth: cv.bounds.width,
                                                force: isStreamEnd)
                 }
-                #if DEBUG
-                // [Stage 0] 程序化手势替代（见 `+Scrolling.swift` 的 LayoutHarness 注释块）。
-                // 只挂**会话进入类** caller（不挂 isStreamEnd）：流式增量快照会反复触发，
-                // 而 harness 要的是"进入会话后走一遍固定滚动序列"。
-                // 每次进程生命周期只跑一次（`stage0HarnessHasRun`）。
-                if !isStreamEnd,
-                   caller.contains("loadSession") || caller.contains("suspend-resume")
-                   || caller.contains("bind1-messages") {
-                    runStage0HarnessOnce()
-                }
-                #endif
+                // [2026-09-17 **撤销自动触发**] 此处原有对 `runStage0HarnessOnce()` 的调用，
+                // 它会在每次会话进入时**主动程序化滚动 6 步 ×3 遍**。后果是**用户一进会话就被自动
+                // 滚到别处**（用户实测反馈），属不可接受的干扰，故**删除该调用**。
+                //
+                // 结论：LayoutHarness 改为**纯 opt-in**——没有任何自动触发点；即便从调试器手动调用，
+                // 它也要求 `ScrollMetricsRecorder.shared.isEnabled` 为真（见 `+Scrolling.swift`）。
+                // 而且它本来就**替代不了人工拖动**（程序化滚动不产生 `isTracking`/`isDragging`，
+                // 拿不到 M10/M11/M12/[DeferShrink]/[SettleAnchor] 的数据），
+                // 用户已明确由自己完成全部拖动 ⇒ 自动触发没有存在价值，只有副作用。
+                //
+                // ⚠️ 数据有效性影响：此前几轮里 `[Stage0][harness]` 的指标、以及 M13/M14/M15 的样本，
+                // 有一部分是在**这个自动滚动之后**的状态取的 ⇒ 需要用"关闭 harness 的纯人工拖动"重取一遍。
             } else {
                 snapshotLayout?.suppressContentOffsetAdjustment = false
                 flushingNow = false

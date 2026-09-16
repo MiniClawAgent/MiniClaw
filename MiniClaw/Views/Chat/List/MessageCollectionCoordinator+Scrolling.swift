@@ -1267,7 +1267,17 @@ extension MessageCollectionView.Coordinator {
 
     /// 由 `applySnapshot` 的「会话进入类 caller」分支调用（与 `scheduleHeightPrewarm` 同一位置）。
     /// 每次进程生命周期只跑一次。
+    ///
+    /// ⚠️ [2026-09-17 **默认关闭 —— 必须显式开启**]
+    /// 本 harness 会**主动移动视口**（程序化滚动 6 步 ×3 遍）。我最初把它挂在会话加载上自动触发，
+    /// 后果是**用户一进会话就被自动滚到别处**（用户实测反馈），这是不可接受的干扰。
+    /// 现改为**只在项目既有的诊断哨兵打开时才跑**：`ScrollMetricsRecorder.shared.isEnabled`
+    /// （由 App 容器内 `logs/.scroll-metrics-on` 控制，默认关，与 `[PLAF]`/`[Seed]` 等诊断同一开关）。
+    /// 这样：日常使用与人工拖动验收**完全不受影响**；需要可重复的程序化取样时才显式打开。
+    /// 注意：程序化滚动**不产生** `isTracking`/`isDragging`，所以 M10/M11/M12/[DeferShrink]/[SettleAnchor]
+    /// 依然只能靠真实手指拖动才有数据 —— 开不开 harness 都替代不了人工拖动。
     func runStage0HarnessOnce() {
+        guard ScrollMetricsRecorder.shared.isEnabled else { return }
         guard !Self.stage0HarnessHasRun else { return }
         Self.stage0HarnessHasRun = true
         guard let cv = viewController?.collectionView else { return }
