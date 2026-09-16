@@ -399,13 +399,11 @@ extension MessageCollectionView.Coordinator {
                     let contentH = min(textH+10,300) // ScrollView capped at 300pt
                     let total = headerH+contentH
                     return total
-                // Tool capsules measure exactly
-                case .readImageTool: return 36
-                case .file: return 40
-                case .info:
-                    let lineCount = max(1, block.content.components(separatedBy: "\n").count)
-                    return CGFloat(20+lineCount*16)
-                default: return 36 // Tool capsules (execute, browser, etc.): no wrapper pad
+                // [Stage 1 · R7] 工具类兜底表已收口到 `AssistantBlockKind.seedFallbackHeight`
+                //（唯一定义见 RenderModels.swift）—— 此前它与 Snapshot 播种 switch 各自维护
+                // 同一张表，值相同但各自演化。等价性：`seedFallbackHeight` 的四个返回值与本处
+                // 原值逐字相同（.readImageTool→36 / .file→40 / .info→20+行数*16 / default→36）。
+                default: return block.kind.seedFallbackHeight(content: block.content)
                 }
             case .assistantFooter:
                 return 4

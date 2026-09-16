@@ -22,6 +22,31 @@ public enum AssistantBlockKind: Equatable {
     case file(url: String)
 }
 
+// MARK: - [Stage 1 · R7] 块类型 → 播种兜底高度 的**唯一来源**
+//
+// 收口动机：此前这张表在**两处**各自维护、值相同但各自演化——
+//   ① `MessageCollectionCoordinator+Heights.swift` 的 `estimateItemHeight`（.assistantBlock 分支）
+//   ② `MessageCollectionCoordinator+Snapshot.swift` 的播种 switch（`.readImageTool`/`.file`/`.info`/`default`）
+// 任何一处改了另一处漏改，就会出现"同一块在两个路径下算出不同兜底高"的两套口径。
+//
+// ⚠️ 本函数**只覆盖"播种兜底"这一语义**，不是"块的真实高度"：
+//   · `.text` / `.thinking` 有各自更精确的估算路径（见 estimateItemHeight），**不经过本表**；
+//   · `.info` 的行数由 `content` 决定，故 `content` 必须传入；其余类型忽略该参数。
+extension AssistantBlockKind {
+    /// ⚠️ 必须是**实例**方法（`switch self` 切的是枚举值）；写成 `static` 会让 `self` 变成
+    /// `AssistantBlockKind.Type` 元类型，`case .readImageTool` 等模式将无法匹配（编译错）。
+    func seedFallbackHeight(content: String) -> CGFloat {
+        switch self {
+        case .readImageTool: return 36
+        case .file: return 40
+        case .info:
+            let lineCount = max(1, content.components(separatedBy: "\n").count)
+            return CGFloat(20 + lineCount * 16)
+        default: return 36 // 其余工具胶囊（execute/browser 等）：无外层 padding
+        }
+    }
+}
+
 public struct AttachmentMeta: Identifiable,Equatable {
     public let id = UUID()
     /// Linux path, e.g. `/var/MiniClaw/attachments/uploads/photo.jpg`

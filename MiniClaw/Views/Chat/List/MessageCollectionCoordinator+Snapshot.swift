@@ -827,15 +827,15 @@ extension MessageCollectionView.Coordinator {
                 case .thinking:
                     let est = Self.estimateItemHeight(item,messages: messages,width: cvWidth)
                     layout.setEstimatedHeight(est,at: i)
-                case .readImageTool:
-                    layout.setEstimatedHeight(36,at: i)
-                case .file:
-                    layout.setEstimatedHeight(40,at: i)
-                case .info:
-                    let infoLines = max(1, block.content.components(separatedBy: "\n").count)
-                    layout.setEstimatedHeight(CGFloat(20+infoLines*16),at: i)
+                // [Stage 1 · R7] 工具类兜底表已收口到 `AssistantBlockKind.seedFallbackHeight`
+                //（唯一定义见 RenderModels.swift）—— 与 `estimateItemHeight` 共用同一张表，
+                // 此前两处各自维护同一组常量。等价性：四个返回值与原值逐字相同
+                //（.readImageTool→36 / .file→40 / .info→20+行数*16 / default→36）。
+                // 不改用 `estimateItemHeight` 是刻意的：那会为每个 item 增加一次
+                // `messages.first(where:)` + `blocks.first(where:)` 的 **O(n) 查找**，
+                // 而这里 `block` 就在手上 —— 收口不应引入新的扫描成本。
                 default:
-                    layout.setEstimatedHeight(36,at: i)
+                    layout.setEstimatedHeight(block.kind.seedFallbackHeight(content: block.content),at: i)
                 }
 
             case .wholeMessage(let msgId):
