@@ -67,6 +67,8 @@ xcodebuild build -project MiniClaw.xcodeproj -scheme MiniClaw \
 | B3 | **沙盒 workaround (`-disable-sandbox`) 只通过命令行传参**，不写进 `project.yml` | 保持 project.yml 干净可移植。⚠️ 必须作为 `OTHER_SWIFT_FLAGS`（Swift 前端开关）传入；当成顶层 xcodebuild 选项会直接报 `invalid option '-disable-sandbox'` |
 | B4 | ~~**XcodeGen 先于 xcodebuild**~~ **【已作废 2026-09-15】**：源文件增删/移动**不要**跑 `xcodegen generate`——它会直接产出编不过的工程；`project.pbxproj` 是权威，在其上直接改 | 更正依据：`.workbuddy/memory/2026-09-15.md` 记忆核对结论（原条目与工作区笔记相反） |
 | B5 | **Xcode 工程相关操作一律优先走 Xcode MCP 通道**——构建、编译诊断、运行/安装、抓日志、调试、设备交互、工程/方案/目标/目的机查询、测试、崩溃与性能；**能走 MCP 就不得**改用 `xcodebuild` / `devicectl` / 手工读工程文件替代 | MCP 与 Xcode 状态**同源**（同一个 workspace/scheme/目的机），且不受外部进程沙箱干扰——CLI 构建会因 `sandbox-exec` 与 Swift 宏插件被拒而炸出上千条假错误（实测 `SwiftUIMacros.StateMacro … malformed response`） |
+| B6 | **编译默认只做增量；只有用户明确要求时才做全量**——必须**固定复用同一个派生目录**（主线 `/tmp/miniclaw-build`）：**不得**每个步骤/每次验证/每次二分都新建 `-derivedDataPath`，**不得**删除或清理已有派生目录（清缓存须先问）。改动分散在多个提交上做对照时，也复用同一目录靠增量重编 | 2026-09-16 用户纪律。当晚反面教训（实测）：每步换新派生目录 + 每步"施工一次/复核一次"双份构建 + 目的机被系统切回模拟器未先确认，单次白等 **211s / 245s / 885s**，一整晚十几次构建里至少两次纯属浪费 |
+| B7 | **每次构建前先确认 active run destination** | 同上事故：目的机被自动切回模拟器后照旧构建，得到的是链接错误（预编译库 `libish.a … built for 'iOS'` 而目标为 `iOS-simulator`），211s 白做 |
 
 ### 2.3 Xcode MCP 通道对照表（B5 的执行细则）
 
