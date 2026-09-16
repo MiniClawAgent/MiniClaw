@@ -751,31 +751,42 @@ public final class MessageListLayout: UICollectionViewLayout {
     private static let memoLogger = AppLogger(category: "RenderCache")
     private nonisolated(unsafe) static var memoHitLogAt: [String: CFAbsoluteTime] = [:]
 
-    /// [2026-09-13] **静默版** memo 查询：语义与 `measuredHeight(forKey:width:)` 完全相同，
-    /// 但**不打日志**。用途：作为 `prepare()` 的兜底链一环 —— 那条路径每次布局都可能走到，
-    /// 用带日志的版本会把 `[MEMO] MISS` 刷成海啸（该行是无节流打印的）。
-    public func peekMeasuredHeight(forKey key: String,width: CGFloat) -> CGFloat? {
-        os_unfair_lock_lock(&Self._memoLock)
-        let entry = Self._sharedMeasuredHeights[key]
-        os_unfair_lock_unlock(&Self._memoLock)
-        guard let entry, abs(entry.width-width) < 1 else { return nil }
-        return entry.height
-    }
-
-    public func measuredHeight(forKey key: String,width: CGFloat) -> CGFloat? {
+    /// [Stage 1 · R2] 两个查询变体合一。证明见计划 §6.2.1：原 `peekMeasuredHeight` 与
+    /// `measuredHeight` 对**所有输入返回相同值**，差异仅在 `logging == true` 时打
+    /// `[MEMO] MISS`/`[MEMO] HIT` 并推进 `memoHitLogAt` 节流表。
+    ///
+    /// ⚠️ `logging == false` 分支**不写任何状态、不构造任何插值字符串**——这**不是**可有可无的
+    /// 优化：`measuredHeight` 原实现除日志外还有副作用（写 `memoHitLogAt[key]`），且它的
+    /// `\(…)` 插值在**调用点**就已付出（`RenderCache` 虽在 quietInfoCategories 里，但那只短路了
+    /// `formatLine`，省不掉插值）。而"省掉这份插值"正是 `peekMeasuredHeight` 存在的理由——
+    /// `prepare()` 的兜底链每次布局都可能走到，用带日志的版本会把 `[MEMO] MISS` 刷成海啸。
+    private func memoHeight(forKey key: String,width: CGFloat,logging: Bool) -> CGFloat? {
         os_unfair_lock_lock(&Self._memoLock)
         let entry = Self._sharedMeasuredHeights[key]
         os_unfair_lock_unlock(&Self._memoLock)
         guard let entry,abs(entry.width-width)<1 else {
-            Self.memoLogger.info("[MEMO] MISS key=\(key) w=\(String(format: "%.0f", width))")
+            if logging {
+                Self.memoLogger.info("[MEMO] MISS key=\(key) w=\(String(format: "%.0f", width))")
+            }
             return nil
         }
-        let now = CFAbsoluteTimeGetCurrent()
-        if Self.memoHitLogAt[key].map({ now-$0 >= 1.0 }) ?? true {
-            Self.memoHitLogAt[key] = now
-            Self.memoLogger.info("[MEMO] HIT key=\(key) h=\(String(format: "%.0f", entry.height))")
+        if logging {
+            let now = CFAbsoluteTimeGetCurrent()
+            if Self.memoHitLogAt[key].map({ now-$0 >= 1.0 }) ?? true {
+                Self.memoHitLogAt[key] = now
+                Self.memoLogger.info("[MEMO] HIT key=\(key) h=\(String(format: "%.0f", entry.height))")
+            }
         }
         return entry.height
+    }
+
+    /// [2026-09-13] **静默版** memo 查询（`logging: false`）。
+    public func peekMeasuredHeight(forKey key: String,width: CGFloat) -> CGFloat? {
+        memoHeight(forKey: key,width: width,logging: false)
+    }
+
+    public func measuredHeight(forKey key: String,width: CGFloat) -> CGFloat? {
+        memoHeight(forKey: key,width: width,logging: true)
     }
 
     /// Record a real height a cell just
