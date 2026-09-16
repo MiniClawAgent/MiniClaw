@@ -138,13 +138,33 @@ public final class MessageListLayout: UICollectionViewLayout {
         // 净效果：陈旧高度永久压住新内容，且 `.missing` 每轮重试、每轮失败。这正是 S15
         // 想消灭的"旧实测值永久滞留"，只是断点藏在这个闸门里。
         // 判据与 `currentEntry` **同源**：键不一致即视为无条目 ⇒ 允许覆盖。
-        if let existing = currentEntry(at: index), rank(existing.source) > rank(source) { return false }
+        if let existing = currentEntry(at: index), rank(existing.source) > rank(source) {
+            #if DEBUG
+            // [Stage 0 · M17] **静默拒绝**观测（只观测；拒绝本身是设计正确的，不予取消）。
+            // 上方注释自述：「新值**被静默拒绝**（调用方不看返回值，没有任何信号）」——
+            // 而 `setEntry` 的四个调用点里有**三个丢弃返回值**：
+            //   `:80 setEstimatedHeight` / `:84 setPrecalcHeight` / `:418 applyDeferredHeights`
+            // （只有 `:613` 检查并打 warn）。被拒时 `heightEntries` 保持旧值，而调用方以为已写入
+            // ⇒ 这正是"调用方意图"与"存储实际值"失配、且**日志完全看不见**的那一类。
+            // 本探针只把这条通道变成可观测：统计两个拒绝原因 + 1s 节流明细。
+            Self.noteSetEntryRejected(index: index, source: source, height: height,
+                                      reason: "priority", existing: existing)
+            #endif
+            return false
+        }
         // [2026-09-09 NaN 治理·单一入口闸门] 高度必须是**有限非负值**。
         // 布局循环这里做 `attrs.frame = …; y += h` 累加，一个 inf 条目就会让
         // 后续全部 y 与 collectionViewContentSize 变成 inf；下游
         // `contentSize.height - bounds.height` 得到 inf-inf = NaN，CoreGraphics
         // 便打出成片的 "invalid numeric value (NaN) passed to CoreGraphics"。
-        guard height.isFinite, height >= 0 else { return false }
+        guard height.isFinite, height >= 0 else {
+            #if DEBUG
+            // [Stage 0 · M17] 第二个拒绝原因（非有限/负高度）。同样只观测。
+            Self.noteSetEntryRejected(index: index, source: source, height: height,
+                                      reason: height.isFinite ? "negative" : "nonfinite", existing: nil)
+            #endif
+            return false
+        }
         heightEntries[index] = HeightEntry(height: height, source: source, key: contentKeyByIndex[index])
         return true
     }
@@ -567,6 +587,21 @@ public final class MessageListLayout: UICollectionViewLayout {
     }
 
     #if DEBUG
+    /// [Stage 0 · M17] `setEntry` 静默拒绝的计数与节流（见 `setEntry` 内说明）。
+    /// 只读观测状态，不参与任何判定。
+    private static var setEntryRejectedPriority = 0
+    private static var setEntryRejectedInvalid = 0
+    private static var setEntryRejectedLastLogAt: CFAbsoluteTime = 0
+    private static func noteSetEntryRejected(index: Int,source: HeightSource,height: CGFloat,
+                                            reason: String,existing: HeightEntry?) {
+        if reason == "priority" { setEntryRejectedPriority &+= 1 } else { setEntryRejectedInvalid &+= 1 }
+        let ts = CFAbsoluteTimeGetCurrent()
+        guard ts - setEntryRejectedLastLogAt >= 1.0 else { return }
+        setEntryRejectedLastLogAt = ts
+        let have = existing.map { "\($0.source.rawValue)@\(String(format: "%.1f", $0.height))" } ?? "nil"
+        AppLogger.shared.warning("[Stage0][M17] setEntry 静默拒绝 reason=\(reason) idx=\(index) want=\(source.rawValue)@\(String(format: "%.1f", height)) have=\(have) 累计priority=\(setEntryRejectedPriority) invalid=\(setEntryRejectedInvalid) — 被拒时 heightEntries 保持旧值，而三个调用点（setEstimatedHeight/setPrecalcHeight/applyDeferredHeights）丢弃返回值、以为已写入", category: "ChatList.CellMetrics")
+    }
+
     /// [Stage 0 · M16] 「提交之后 `prepare()` 有没有重跑」的判别状态（见 `invalidationContext` 与
     /// `layoutAttributesForElements` 内的说明）。**判别键是现成的 `prepareCallCount`** ——
     /// 满足 §2.9.7 立下的纪律：跨日志行建因果链必须有共同关联键，此处键 = 索引 + prepare 次数。
