@@ -383,6 +383,14 @@ public final class MessageListLayout: UICollectionViewLayout {
         return aboveSum
     }
 
+    #if DEBUG
+    /// [Stage 0 · M10] 拖动期收缩绕过闸门的计数（见 `shouldInvalidateLayout` 内的说明）。
+    /// 只读观测状态，不参与任何判定。
+    private static var gateBypassKeyStaleCount = 0
+    private static var gateBypassNoEntryCount = 0
+    private static var gateBypassLastLogAt: CFAbsoluteTime = 0
+    #endif
+
     public override func shouldInvalidateLayout(
         forPreferredLayoutAttributes preferredAttributes: UICollectionViewLayoutAttributes,
         withOriginalAttributes originalAttributes: UICollectionViewLayoutAttributes
@@ -400,6 +408,36 @@ public final class MessageListLayout: UICollectionViewLayout {
             // 判据改为「**任何已有条目**都算已缓存」：延后机制的目的就是「手势期间不改几何」，
             // 与条目来源无关；解冻后由 `applyDeferredHeights` 原子应用并做 offset 锚定。
             let hasCached = currentEntry(at: index) != nil
+            #if DEBUG
+            // [Stage 0 · M10] **收缩闸门「有效性 vs 保护性」错位探测**（只观测，不改变任何返回值）。
+            //
+            // 机制：`currentEntry(at:)` 是**有效性**判据（条目键 == 当前内容键），却被 `hasCached`
+            // 当作**保护性**判据用。而 `setContentKey(_:at:)` 只写 `contentKeyByIndex`、
+            // **不同步** `heightEntries[index].key`；它的两个调用点之一是
+            // `MessageCollectionView.swift:444`（`configureCell` 路径）。于是：
+            //   拖动 → 新 cell 进视口 / 流式块内容变化 → configureCell → setContentKey(新键)
+            //   → heightEntries[i] 仍是旧键 → currentEntry 返回 nil → hasCached=false
+            //   → 本闸门整块被跳过 → 返回 mustInvalidate → **拖动期真实收缩**（正是它要防的事）。
+            // 上方 :395-401 的注释显示该闸门曾因同类事故被加宽过一次（`.measured`-only → 任何条目），
+            // 但那次加宽**救不了 `currentEntry` 自己返回 nil 的情形** ⇒ 修正不完整。
+            //
+            // `keyStale` = 有条目但键过期（闸门本该保护却跳过）；
+            // `noEntry`  = 连条目都没有（`prepare()` 不写条目，只有 4 个 setEntry 写入口）。
+            if !hasCached, prefH < origH - 0.5 {
+                if heightEntries[index] != nil {
+                    Self.gateBypassKeyStaleCount &+= 1
+                } else {
+                    Self.gateBypassNoEntryCount &+= 1
+                }
+                let nowTs = CFAbsoluteTimeGetCurrent()
+                if nowTs - Self.gateBypassLastLogAt >= 1.0 {
+                    Self.gateBypassLastLogAt = nowTs
+                    AppLogger.shared.warning(
+                        "[Stage0][M10] 拖动期收缩绕过闸门 keyStale=\(Self.gateBypassKeyStaleCount) noEntry=\(Self.gateBypassNoEntryCount) idx=\(index) orig=\(String(format: "%.1f", origH))→pref=\(String(format: "%.1f", prefH)) delta=\(String(format: "%+.1f", prefH-origH)) key=\(contentKeyByIndex[index] ?? "nil") entryKey=\(heightEntries[index]?.key ?? "nil") — hasCached=false 致 deferSelfSizing 保护被跳过",
+                        category: "ChatList.CellMetrics")
+                }
+            }
+            #endif
             if hasCached {
                 if prefH <= origH+0.5 {
                     if abs(prefH-origH)>0.5 {
