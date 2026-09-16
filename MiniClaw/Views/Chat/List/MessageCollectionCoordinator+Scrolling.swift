@@ -1097,6 +1097,20 @@ extension MessageCollectionView.Coordinator {
 
             if scrollMode == .userBrowsing {
                 cv.contentOffset.y = savedOffset
+                #if DEBUG
+                // [Stage 0 · M12] 只观测：`scrollMode == .userBrowsing` 时上面 ①② 两处锚定
+                // （`aboveSum` + `settleAbove`）被这一行**整体丢弃**。而视口**上方**的高度变化会
+                // 1:1 平移可见内容 ⇒ 丢掉补偿就等于"松手跳一下"（用户症状 3 的签名）。
+                // ⚠️ 现有 `[SettleAnchor]` 日志（上面那行）打在**本次 revert 之前**，它报的是被补偿后的
+                // `cv.contentOffset.y` ⇒ **日志会显示"已锚定"，而真实终值是这个 `savedOffset`**
+                // ——这次丢弃此前在日志里不可见。本行把它暴露出来。
+                let discarded = aboveSum + settleAbove
+                if abs(discarded) > 0.5 {
+                    AppLogger.shared.warning(
+                        "[Stage0][M12] userBrowsing 丢弃锚定补偿 deferredΣ=\(String(format: "%+.1f", aboveSum)) pendingΣ=\(String(format: "%+.1f", settleAbove)) discarded=\(String(format: "%+.1f", discarded)) offset=\(String(format: "%.1f", savedOffset)) — 视口上方高度变化未锚回，可见内容将平移该量",
+                        category: "ChatList.Settle")
+                }
+                #endif
             }
 
             vm?.setStreamingUIUpdatesSuspended(false)
