@@ -242,16 +242,20 @@ public final class MessageListLayout: UICollectionViewLayout {
                 // [2026-09-13 实测校准] 像素级量测（3× 截图）：胶囊**高度是 36.0pt**，
                 // 正常态项间距 10.3pt、异常态 16.3pt —— 差值 6.0pt 恰好是"兜底 44 与真实 36/40 之差"。
                 // 故块类兜底取 **36**（最常见值：胶囊 36；思考头 40 仅多 4），不再用 44（每块多 8）。
-                switch key?.prefix(2) {
-                case "b:":
+                // [Stage 1 · R6] 主语由 `key?.prefix(2)`（裸字符串前缀）改为**类型化语义入口**
+                // `ContentKeyKind.of(key)`。等价性：`of` 只做 `String(key.prefix(2))` 再查 rawValue，
+                // 故 `"b:"`→.assistantBlock 等四例与原先逐字相同；而 `nil`（键缺失）与"未知前缀"
+                // 都返回 nil，与原先的 `default:` 落点**完全一致**（潜在耦合不变，见该枚举注释）。
+                switch MessageCollectionView.Coordinator.ContentKeyKind.of(key) {
+                case .assistantBlock:
                     // [2026-09-13 残留抖动（+4pt×N）] 块级里有两种高度：**思考块 40**（`b:…:e0/:e1`）
                     // 与**其他块 36**（胶囊/文件 36~40）。先前一律给 36，于是缺条目的那些思考块
                     // 拖动期是 36、条目到位后变 40 ⇒ 每块 +4，实测 `totalH 2344 → 2394`（+50），
                     // 肉眼即"停手时自动校正一下"。**判别信息就在内容键里**：只有 thinking 块带 `:eN` 后缀。
                     h = (key?.contains(":e") ?? false) ? 40 : 36
-                case "h:": h = 28     // header 是常量行
-                case "f:": h = 4      // footer 空态
-                case "w:":
+                case .assistantHeader: h = 28     // header 是常量行
+                case .assistantFooter: h = 4      // footer 空态
+                case .wholeMessage:
                     // [2026-09-13 顶部抖动根因] 用户气泡。格式 `w:<msgId>:<字数>:<附件数>`，
                     // **末段是附件数**：附件异步挂载时它 0→1 会让整个内容键变化，于是新键既无条目、
                     // 也无 memo 记忆 ⇒ 先前直接落 default 的
@@ -260,7 +264,7 @@ public final class MessageListLayout: UICollectionViewLayout {
                     // ⚠️ 解析内容键末段与 `contentKey(for:)` 的格式**成对耦合**，改格式须同步改此处。
                     let parts = key?.split(separator: ":") ?? []
                     h = (Int(parts.last ?? "0") ?? 0) > 0 ? 118 : 48
-                default:   h = estimatedItemHeight
+                case nil:   h = estimatedItemHeight
                 }
             }
             attrs.frame = CGRect(x: 0,y: y,width: width,height: h)
@@ -269,7 +273,7 @@ public final class MessageListLayout: UICollectionViewLayout {
             // Suppress the inter-cell spacing when the NEXT
             let isLast = (i+1 == itemCount)
             let nextIsFooter = !isLast
-                && (contentKeyByIndex[i+1]?.hasPrefix("f:") ?? false)
+                && MessageCollectionView.Coordinator.ContentKeyKind.of(contentKeyByIndex[i+1]) == .assistantFooter
                 && (footerHugByIndex[i+1] ?? true)
                 && !isStreamingCell(i+1)
             //
@@ -793,7 +797,7 @@ public final class MessageListLayout: UICollectionViewLayout {
     public func recordMeasuredHeight(forKey key: String,height: CGFloat,boundsWidth: CGFloat) {
         guard height >= 4,boundsWidth>1 else { return }
         // NEVER memoize footer heights. The footer's
-        guard !key.hasPrefix("f:") else { return }
+        guard MessageCollectionView.Coordinator.ContentKeyKind.of(key) != .assistantFooter else { return }
         os_unfair_lock_lock(&Self._memoLock)
         Self._sharedMeasuredHeights[key] = (height: height,width: boundsWidth)
         os_unfair_lock_unlock(&Self._memoLock)

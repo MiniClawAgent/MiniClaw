@@ -258,6 +258,33 @@ extension MessageCollectionView.Coordinator {
         }
         #endif
 
+        /// [Stage 1 · R6] **内容键的唯一语义入口**。
+        ///
+        /// 收口动机：前缀语义此前散落 3 处——构造在 `contentKey(for:)`，解析在
+        /// `MessageListLayout.prepare()` 的 `switch key?.prefix(2)` 与 `recordMeasuredHeight`
+        /// 的 `hasPrefix("f:")`。改键格式必须三处同改，漏一处就变成**静默兜底**。
+        ///
+        /// ⚠️ **不要与上面 `stableCellTag` 混淆**：那是 `#if DEBUG` 的诊断标签，用 `#` 分隔
+        /// （`w#`/`h#`/`f#`/`b#`），本枚举只认 `contentKey` 的 `:` 分隔（`w:`/`h:`/`f:`/`b:`）。
+        /// 二者前缀形态高度相似而**分隔符不同**——一旦把 tag 当键传进解析端，会静默落到
+        /// `estimatedItemHeight`(200) 兜底（2026-09-16 核对时我本人就先误读了这一处）。
+        enum ContentKeyKind: String {
+            case wholeMessage = "w:"
+            case assistantHeader = "h:"
+            case assistantFooter = "f:"
+            case assistantBlock = "b:"
+
+            /// `nil` = 键缺失**或**前缀未知。
+            ///
+            /// ⚠️ 二者目前**行为相同**：`prepare()` 对 `nil` 的兜底是 `estimatedItemHeight`(200)，
+            /// 也就是说未来新增一种前缀会被这条兜底**静默吞掉**并给 200pt。属已知潜在耦合
+            /// （计划 §6.2.1 R6），本次收口**不改变**该行为。
+            static func of(_ key: String?) -> ContentKeyKind? {
+                guard let key,key.count >= 2 else { return nil }
+                return ContentKeyKind(rawValue: String(key.prefix(2)))
+            }
+        }
+
         static func contentKey(for item: MessageListItem,messages: [RenderMessage],messageIndex: [UUID: Int]) -> String {
             func msg(_ id: UUID) -> RenderMessage? {
                 guard let i = messageIndex[id],i<messages.count else { return nil }
