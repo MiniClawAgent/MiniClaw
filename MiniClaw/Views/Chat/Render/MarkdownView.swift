@@ -1605,6 +1605,45 @@ struct MarkdownView: UIViewRepresentable {
             + " truncEnsureMs=\(String(format: "%.1f", cumTruncEnsureMs))"
     }
 
+    /// [Stage 0 · 可重复性] 单遍快照。动机：`updMs`/`allUpd`/`newTV` 取决于**这一遍恰好有哪些块
+    /// 首次渲染**，所以「1 遍 vs 1 遍」的跨版本对比是噪声（实测 Stage 1 首遍 `updMs=93.0` vs
+    /// 基线首遍 `21.4`，但两次渲染到的块不同 ⇒ 不可比）。让 harness 连跑 3 遍并给出**每遍增量**，
+    /// 把用户的一次操作变成 3 个样本，噪声才可分离。
+    struct Stage0Snapshot {
+        var newTV = 0
+        var distinctTVCum = 0
+        var allUpd = 0
+        var stfMs = 0.0
+        var updMs = 0.0
+        var truncRuns = 0
+        var truncMs = 0.0
+        var truncEnsureMs = 0.0
+    }
+
+    static func stage0Snapshot() -> Stage0Snapshot {
+        Stage0Snapshot(newTV: cumNewTextViews,
+                       distinctTVCum: cumDistinctTextViewIds.count,
+                       allUpd: cumAllUpdates,
+                       stfMs: cumStfMs,
+                       updMs: cumUpdMs,
+                       truncRuns: cumTruncRuns,
+                       truncMs: cumTruncMs,
+                       truncEnsureMs: cumTruncEnsureMs)
+    }
+
+    /// 相对某遍起点的**增量**。注意 `newTV/distinctTV/allUpd/*Ms/trunc*` 是累加量故取差；
+    /// `distinctTV` 是集合大小，取差无意义，故报**累积值**。
+    static func stage0Delta(from a: Stage0Snapshot) -> String {
+        let b = stage0Snapshot()
+        return "newTV=\(b.newTV - a.newTV) allUpd=\(b.allUpd - a.allUpd)"
+            + " distinctTV(cum)=\(b.distinctTVCum)"
+            + " stfMs=\(String(format: "%.1f", b.stfMs - a.stfMs))"
+            + " updMs=\(String(format: "%.1f", b.updMs - a.updMs))"
+            + " truncRuns=\(b.truncRuns - a.truncRuns)"
+            + " truncMs=\(String(format: "%.1f", b.truncMs - a.truncMs))"
+            + " truncEnsureMs=\(String(format: "%.1f", b.truncEnsureMs - a.truncEnsureMs))"
+    }
+
     /// 随 `[WatchdogProbe]` 窗口行一起输出。**不新增独立日志**——探针自身不能成为病灶
     /// （见 M2：`[TruncL]` 就是因为每次更新都无条件排版 + 打日志而变成成本的）。
     private static func instanceProbeSuffix() -> String {

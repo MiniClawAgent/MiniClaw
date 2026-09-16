@@ -1242,6 +1242,14 @@ extension MessageCollectionView.Coordinator {
 
     private static var stage0HarnessHasRun = false
     private static var stage0HarnessBeganAt: CFAbsoluteTime = 0
+    private static var stage0RepStart: MarkdownView.Stage0Snapshot?
+
+    /// [Stage 0 · 可重复性] 连跑 `reps` 遍并给出**每遍增量**。
+    /// 动机：`updMs`/`allUpd`/`newTV` 取决于这一遍恰好有哪些块首次渲染，所以「1 遍 vs 1 遍」的
+    /// 跨版本对比是噪声（实测 Stage 1 首遍 `updMs=93.0` vs 基线首遍 `21.4`，但两次渲染到的块不同
+    /// ⇒ 不可比）。连跑 3 遍把一次人工操作变成 3 个样本，噪声才可分离——这正是计划门禁里
+    /// 「连续 3 次」的要求。
+    private static let stage0Reps = 3
 
     /// 由 `applySnapshot` 的「会话进入类 caller」分支调用（与 `scheduleHeightPrewarm` 同一位置）。
     /// 每次进程生命周期只跑一次。
@@ -1252,7 +1260,7 @@ extension MessageCollectionView.Coordinator {
         Self.stage0HarnessBeganAt = CFAbsoluteTimeGetCurrent()
         MarkdownView.stage0ResetCumulative()
         let screens = 3
-        AppLogger.shared.warning("[Stage0][harness] BEGIN screens=\(screens) cvH=\(String(format: "%.0f", cv.bounds.height)) contentH=\(String(format: "%.0f", cv.contentSize.height)) items=\(cv.numberOfItems(inSection: 0)) — 程序化滚动替代人工手势；isDragging 分支不覆盖", category: "ChatList.Watchdog")
+        AppLogger.shared.warning("[Stage0][harness] BEGIN reps=\(Self.stage0Reps) screens=\(screens) cvH=\(String(format: "%.0f", cv.bounds.height)) contentH=\(String(format: "%.0f", cv.contentSize.height)) items=\(cv.numberOfItems(inSection: 0)) — 程序化滚动替代人工手势；isDragging 分支不覆盖", category: "ChatList.Watchdog")
         // 首步**延迟**而非在 `applySnapshot` 事务内同步执行：那里刚跑完 `cv.layoutIfNeeded()`，
         // 同步再触发一次布局有重入风险（计划 §3.1 的探针越界教训）。延迟 0.5s 让本次快照事务彻底收尾。
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
@@ -1261,19 +1269,26 @@ extension MessageCollectionView.Coordinator {
     }
 
     private static func stage0HarnessStep(cv: UICollectionView, index: Int, screens: Int) {
-        let total = screens + 3
+        let perRep = screens + 3
+        let total = perRep * stage0Reps
         if index >= total {
             stage0HarnessEnd(cv: cv)
             return
+        }
+        let rep = index / perRep
+        let s = index % perRep
+        if s == 0 {
+            stage0RepStart = MarkdownView.stage0Snapshot()
+            AppLogger.shared.warning("[Stage0][harness] REP \(rep + 1)/\(stage0Reps) BEGIN y=\(String(format: "%.0f", cv.contentOffset.y))", category: "ChatList.Watchdog")
         }
         let maxOff = max(0, cv.contentSize.height - cv.bounds.height + cv.adjustedContentInset.bottom)
         let top = -cv.adjustedContentInset.top
         let target: CGFloat
         let tag: String
-        switch index {
+        switch s {
         case 0..<screens:
-            target = min(maxOff, top + CGFloat(index + 1) * cv.bounds.height)
-            tag = "down\(index + 1)"
+            target = min(maxOff, top + CGFloat(s + 1) * cv.bounds.height)
+            tag = "down\(s + 1)"
         case screens:
             target = top
             tag = "top"
@@ -1286,7 +1301,10 @@ extension MessageCollectionView.Coordinator {
         }
         cv.setContentOffset(CGPoint(x: 0, y: target), animated: false)
         cv.layoutIfNeeded()
-        AppLogger.shared.warning("[Stage0][harness] STEP \(index + 1)/\(total) \(tag) y=\(String(format: "%.0f", cv.contentOffset.y)) maxOff=\(String(format: "%.0f", maxOff))", category: "ChatList.Watchdog")
+        AppLogger.shared.warning("[Stage0][harness] STEP \(rep + 1).\(s + 1) \(tag) y=\(String(format: "%.0f", cv.contentOffset.y)) maxOff=\(String(format: "%.0f", maxOff))", category: "ChatList.Watchdog")
+        if s == perRep - 1, let start = stage0RepStart {
+            AppLogger.shared.warning("[Stage0][harness] REP \(rep + 1)/\(stage0Reps) END :: \(MarkdownView.stage0Delta(from: start))", category: "ChatList.Watchdog")
+        }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) {
             stage0HarnessStep(cv: cv, index: index + 1, screens: screens)
         }
