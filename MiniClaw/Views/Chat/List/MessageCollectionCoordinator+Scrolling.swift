@@ -1275,6 +1275,15 @@ extension MessageCollectionView.Coordinator {
         MarkdownView.stage0ResetCumulative()
         let screens = 3
         AppLogger.shared.warning("[Stage0][harness] BEGIN reps=\(Self.stage0Reps) screens=\(screens) cvH=\(String(format: "%.0f", cv.bounds.height)) contentH=\(String(format: "%.0f", cv.contentSize.height)) items=\(cv.numberOfItems(inSection: 0)) — 程序化滚动替代人工手势；isDragging 分支不覆盖", category: "ChatList.Watchdog")
+        // [Stage0 可用性自检·2026-09-16] 2026-09-16 有一次验收白跑：用户开的是 11 项 / 2516pt
+        // 的短会话（≈2.9 屏），所有 cell 早已在屏内 ⇒ 程序化滚动**不创建也不重配任何 cell**
+        // ⇒ 三遍增量全零、全部探针零命中，但 harness 当时**沉默地**给出了零值。
+        // 会话总高不足 3 屏时不可能靠滚动制造工作，故显式告警——让无效运行立刻可见。
+        let cvH = max(cv.bounds.height, 1)
+        let screensTotal = cv.contentSize.height / cvH
+        if screensTotal < 3 {
+            AppLogger.shared.warning("[Stage0][harness] ⚠️ 会话过短（contentH=\(String(format: "%.0f", cv.contentSize.height)) / cvH=\(String(format: "%.0f", cvH)) ≈ \(String(format: "%.1f", screensTotal)) 屏，items=\(cv.numberOfItems(inSection: 0))）⇒ 滚动不会创建/重配 cell，**本次指标必然接近全零**；请改用长会话（基线参照：44 项 / 3732pt）重跑", category: "ChatList.Watchdog")
+        }
         // 首步**延迟**而非在 `applySnapshot` 事务内同步执行：那里刚跑完 `cv.layoutIfNeeded()`，
         // 同步再触发一次布局有重入风险（计划 §3.1 的探针越界教训）。延迟 0.5s 让本次快照事务彻底收尾。
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
@@ -1327,6 +1336,14 @@ extension MessageCollectionView.Coordinator {
     private static func stage0HarnessEnd(cv: UICollectionView) {
         let wallMs = (CFAbsoluteTimeGetCurrent() - stage0HarnessBeganAt) * 1000
         AppLogger.shared.warning("[Stage0][harness] END wallMs=\(String(format: "%.0f", wallMs)) y=\(String(format: "%.0f", cv.contentOffset.y)) :: \(MarkdownView.stage0CumulativeLine())", category: "ChatList.Watchdog")
+        // [Stage0 可用性自检] 零工作量 ⇒ 本次运行对 Stage 1/2 的验收**没有信息量**，
+        // 必须显式说出来，否则会被误读成"基线很便宜"。最常见的成因是会话过短（见 BEGIN 的告警）。
+        if MarkdownView.stage0CumulativeIsEmpty() {
+            AppLogger.shared.warning("[Stage0][harness] ⚠️ 本次运行【无有效数据】：整段序列没有产生任何 updateUIView / 新建 textView / [TruncL]。常见成因＝会话过短（cell 早已全在屏内）。请用长会话重跑，不要把它当作性能基线。", category: "ChatList.Watchdog")
+        }
+        // isDragging 分支不覆盖：若整段没有任何拖动期事件，则 M10/M11/M12 与 [DeferShrink]
+        // 都不会有数据 —— 那部分是**真实手势**的范围，程序化滚动替代不了。
+        AppLogger.shared.warning("[Stage0][harness] 提示：本次为程序化滚动，未覆盖 isTracking/isDragging；M10/M11/M12/[DeferShrink] 仍需**真实手指拖动**才有数据", category: "ChatList.Watchdog")
     }
 }
 #endif

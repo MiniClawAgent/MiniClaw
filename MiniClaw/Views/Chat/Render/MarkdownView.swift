@@ -1595,6 +1595,11 @@ struct MarkdownView: UIViewRepresentable {
         cumTruncEnsureMs = 0
     }
 
+    /// [Stage0 可用性自检] 整段序列是否**完全没有**产生工作 ⇒ 本次运行无信息量。
+    static func stage0CumulativeIsEmpty() -> Bool {
+        cumAllUpdates == 0 && cumNewTextViews == 0 && cumTruncRuns == 0
+    }
+
     /// harness END 调用的汇总（累积层）。
     static func stage0CumulativeLine() -> String {
         "newTV=\(cumNewTextViews) distinctTV=\(cumDistinctTextViewIds.count)"
