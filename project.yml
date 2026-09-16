@@ -31,6 +31,25 @@ settings:
       - "LOG_HANDLER_DPRINTF=1"
       - "ISH_ENABLED=1"
     # Swift compilation condition for #if ISH_ENABLED
+    #
+    # ⚠️ [2026-09-17 拆雷] `DEBUG` **必须在这里显式声明**。
+    # 历史成因：commit pbxproj 的 Debug 配置是 `"DEBUG ISH_ENABLED"`（手工加的，符合纪律 B4
+    # 「pbxproj 是权威、在其上直接改」），而本文件的 `SWIFT_ACTIVE_COMPILATION_CONDITIONS`
+    # 只列了 `ISH_ENABLED`。两者不一致的后果**不可见但致命**：
+    # 2026-09-17 做过一次只写 /tmp 的验证（`xcodegen generate --spec project.yml --project /tmp/xcodegen-probe`，
+    # 真工程未被触碰），xcodegen 2.46.0 生成出的 Debug 是
+    # `SWIFT_ACTIVE_COMPILATION_CONDITIONS = ( ISH_ENABLED, )` —— **`DEBUG` 被丢掉，且无任何预设把它加回**。
+    # 而全库有 **64 处 `#if DEBUG`**（`MessageListInfrastructure` 15 / `Scrolling` 14 / `MarkdownView` 12 /
+    # `MessageListLayout` 9 / `MessageCollectionView` 3 / `Snapshot` 3 / `Heights` 2 / `MarkdownTextView` 1 /
+    # `MarkdownAttachments` 1 / `MiniClawApp` 1 / `MiniClawTabPool` 3），含 `ScrollMetricsRecorder`、
+    # `metricsTagByIndex` 以及**全部布局诊断探针与 LayoutHarness**。
+    # ⇒ 一旦有人跑 xcodegen，这些会**静默整块消失**，且不报任何错，所有基于日志的门禁同时失效。
+    #
+    # 结构对比已确认 xcodegen 的复现是忠实的（PBXBuildFile 370/370、PBXFileReference 383/383、
+    # PBXNativeTarget 5/5、XCBuildConfiguration 12/12、5 个目标名一致）⇒ **唯一实质差异就是这个 DEBUG**。
+    #
+    # 注意：`xcodegen` 在 PATH 上的那份是坏的（`Bad CPU type in executable`），顺手敲会直接失败 ——
+    # 这纯属意外保护；可用的那份在 `/opt/homebrew/bin/xcodegen`（2.46.0）。
     SWIFT_ACTIVE_COMPILATION_CONDITIONS:
       - "ISH_ENABLED"
     # Header search paths: iSH source root, vdso/arm64 generated headers,
@@ -51,6 +70,19 @@ settings:
       - "$(SRCROOT)/../第三方源码/ish-arm64/build-arm64-ios/libfakefs.a"
       - "-lsqlite3"
       - "-lresolv"
+  # ⚠️ [2026-09-17 拆雷] 与 pbxproj 的 Debug 保持一致：Debug 需要 **DEBUG + ISH_ENABLED**。
+  # 必须放在 `base` 的**全部子键之后**（与 `base:` 同级、2 空格缩进）——插在 base 中间会让
+  # 后续 4 空格缩进的键被当成"配置名"，xcodegen 会报
+  # `The value for "HEADER_SEARCH_PATHS, OTHER_LDFLAGS" in configs must be mapping format`。
+  # 本键只影响 Debug；Release 仍只有 ISH_ENABLED。
+  # 对当前构建**零影响**（我们从不跑 xcodegen，构建读的是 pbxproj）；它唯一的作用是
+  # 万一将来有人跑了 xcodegen，`DEBUG` 不会再被吃掉（否则 64 处 #if DEBUG 静默消失，
+  # 含 ScrollMetricsRecorder、metricsTagByIndex 与全部布局诊断探针）。
+  configs:
+    Debug:
+      SWIFT_ACTIVE_COMPILATION_CONDITIONS:
+        - "DEBUG"
+        - "ISH_ENABLED"
 
 targets:
   MiniClaw:
