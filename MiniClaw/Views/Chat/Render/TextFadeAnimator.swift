@@ -274,10 +274,14 @@ final class TextFadeAnimator {
 
         if staleDropped>0 {
             // [2026-09-11 降噪] 这是**正常容错路径**（越界 word 的字符已被新内容替换、
-            // 位置上是新内容自己的颜色，无需恢复）→ info：不镜像控制台，避免流式回退时
-            // 每帧刷屏；落盘保留聚合计数供复盘（单帧已聚合，不逐条）。
+            // 位置上是新内容自己的颜色，无需恢复）→ 避免流式回退时每帧刷屏。
+            // [2026-09-16 拆分] 类别由 `FadeLeak` 改为 `FadeLeak.Noisy`：本类别整体镜像到控制台后
+            // （见 `AppLogger.consoleMirrorCategories`），只有这条会每帧刷屏，而它的**同族**
+            // `HEALED-BATCH` / `SWEEP-TRANSPARENT` / `CANCEL-SKIP` 是低频且正是"文字被压暗未还原"
+            // 的指示器——它们必须可见。故把嘈杂的这一条单独分出去，两边都保住：
+            // 本行仍落盘（聚合计数可复盘），但**不**进控制台。
             AppLogger.shared.info(
-                "[FadeLeak] STALE-DROP \(staleDropped)个 word 越界（storageLen=\(storageLen) 首个=\(staleSample)）— 内容已被替换，无需恢复", category: "FadeLeak")
+                "[FadeLeak] STALE-DROP \(staleDropped)个 word 越界（storageLen=\(storageLen) 首个=\(staleSample)）— 内容已被替换，无需恢复", category: "FadeLeak.Noisy")
         }
 
         if !completed.isEmpty {

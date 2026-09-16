@@ -148,7 +148,15 @@ final class AppLogger: @unchecked Sendable {
         // 代价:控制台行数上升,`print` 有开销 ⇒ **冻结基线与后续每一步必须在同一白名单下取数**,
         // 否则对比不成立。`RenderCache`(含 `[MEMO]`/`[RC]`)仍留在 quietInfoCategories,
         // 需要它时单独做一次针对性观测（见计划 §3.1 前提）。
-        "ChatList.CellMetrics", "MarkdownSTF"
+        "ChatList.CellMetrics", "MarkdownSTF",
+        // [2026-09-16 流式布局 · 症状 2 候选机制] `TextFadeAnimator` 靠**压低字符 alpha** 做渐显；
+        // 若压暗后未还原，字符就停在低 alpha ⇒ **文字消失**（用户症状 2「3 行消失」的
+        // **非几何**候选——注意 §2.4/§2.7 那两条几何候选只能解释"被裁"，见计划 §2.7.2）。
+        // 该族日志此前**完全不经控制台**，所以这条机制的真伪一直无法用 MCP 观测。
+        // 拆分：`FadeLeak.Noisy`（STALE-DROP，正常容错、可能每帧刷屏）**故意不在此列**，
+        // 只镜像低频的泄漏指示器——`HEALED-BATCH`/`SWEEP-TRANSPARENT`/`CANCEL-SKIP`。
+        // 其中 `SWEEP-TRANSPARENT`（"alpha<0.01 已拉满"）本身就证明**存在逃逸到不可见的字符**。
+        "FadeLeak"
     ]
 
     /// 诊断插桩静默类别（2026-09-11 降噪）：这些 category 的 info/debug
