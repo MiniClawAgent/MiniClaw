@@ -157,6 +157,12 @@ final class MarkdownTextView: UITextView,UIGestureRecognizerDelegate {
     }
     private var reentryGuardHits: Int = 0
 
+    #if DEBUG
+    /// [Stage 0 · M14] 附件视图尺寸漂移计数（见附件复用路径内说明）。只读观测状态。
+    private static var attachSizeDriftCount = 0
+    private static var attachSizeDriftLastLogAt: CFAbsoluteTime = 0
+    #endif
+
     /// Set when `rebuildAttachViews` was dropped because the view was
     ///
     /// `window != nil` guard at the top of `rebuildAttachViews` the
@@ -910,6 +916,33 @@ final class MarkdownTextView: UITextView,UIGestureRecognizerDelegate {
                         category: "Jitter")
                 }
                 view.frame = newFrame
+                #if DEBUG
+                // [Stage 0 · M14] **附件视图尺寸漂移**探测（只观测，不改 frame、不改判定）。
+                //
+                // 机制（代码事实，2026-09-17 核对）：复用路径的 `newFrame` 用
+                // `size: view.frame.size` —— **尺寸沿用旧值、只更新 origin**；而上面 `stale` 的判定里
+                // **只有 `TableAttachment` 有 `sizeMismatch` 检查**（:852-853），
+                // Image / Video / Math / CodeBlock **都没有**。⇒ 一旦 `boundingRect` 的尺寸变了
+                //（布局在 402/370 两个宽度间交替，流式期 pass 密集时尤其频繁），视图尺寸**不会**更新。
+                //
+                // 为什么这会表现为「文字重叠」：附件视图是 `textView` 的**子视图**，而
+                // `MarkdownTextView.clipsToBounds = true` **只在 textView 的外边界裁剪、不按字形裁剪**
+                // ⇒ 一个尺寸过期的图片/表格会直接画到相邻文字上。这条路径**不违反** §2.7.2 的两条结论
+                //（帧不重叠、cell 裁剪），因为它发生在 **cell 内部**。
+                //
+                // 注意现有 `[Jitter] IMG-FRAME` 日志**结构上看不见这件事**：它的 `newFrame` 也用的是
+                // `view.frame.size`，所以 `view.frame != newFrame` 实际只比较了 origin。
+                let driftW = view.frame.width - boundingRect.width
+                let driftH = view.frame.height - boundingRect.height
+                if abs(driftW) > 1 || abs(driftH) > 1 {
+                    Self.attachSizeDriftCount &+= 1
+                    let driftTs = CFAbsoluteTimeGetCurrent()
+                    if driftTs - Self.attachSizeDriftLastLogAt >= 1.0 {
+                        Self.attachSizeDriftLastLogAt = driftTs
+                        AppLogger.shared.warning("[Stage0][M14] 附件视图尺寸漂移 driftHits=\(Self.attachSizeDriftCount) kind=\(type(of: attachment)) driftW=\(String(format: "%+.1f", driftW)) driftH=\(String(format: "%+.1f", driftH)) viewW=\(String(format: "%.1f", view.frame.width)) rectW=\(String(format: "%.1f", boundingRect.width)) viewH=\(String(format: "%.1f", view.frame.height)) rectH=\(String(format: "%.1f", boundingRect.height)) tcW=\(String(format: "%.1f", self.textContainer.size.width)) — 复用路径不更新尺寸，附件可能压到相邻文字", category: "ChatList.CellMetrics")
+                    }
+                }
+                #endif
             } else if let codeBlock = attachment as? CodeBlockAttachment {
                 // Try to reuse the previous view at the same index via updateExistingAttachView.
                 if let previousView = codeBlockViewCache[codeBlock.blockIndex] {
