@@ -264,30 +264,41 @@ final class NoAnimationCollectionView: UICollectionView {
 
     #if DEBUG
     // [Stage 2 · 症状 1 · M19] 显示态重叠观测的状态（只观测，不参与任何判定）。
-    private static var m19OverlapHits = 0
-    private static var m19ContentOverHits = 0
-    private static var m19ClipOffCount = 0
+    // 计数口径 = **layout pass 数**（不是"打了几条日志"）：诊断的对象是"某个 pass 的显示态"，
+    // 而瞬时窗口只有一个 pass（≈16ms）⇒ 必须按 pass 记，否则看不出"偶发"还是"常态"。
+    private static var m19Passes = 0
+    private static var m19OverlapPasses = 0
+    private static var m19ContentOverPasses = 0
+    private static var m19ClipOffPasses = 0
     private static var m19LastLogAt: CFAbsoluteTime = 0
     /// 「全 0」读数自己的节流时间戳与计数（见函数末尾说明：沉默不是证据）。
     private static var m19CleanLogAt: CFAbsoluteTime = 0
-    private static var m19CleanSamples = 0
 
     /// [Stage 2 · 症状 1 · M19] **显示态**判据：cell 帧彼此是否相交 + 内容是否高过自己的帧
     /// + 裁剪是否真的开着（三问一次答完，见 `layoutSubviews` 内的说明）。
+    ///
+    /// ⚠️ **初版有一个结构性缺陷，此处已修**：初版把 1s 节流放在函数**入口**
+    /// （`guard now-m19LastLogAt >= 1.0 else { return }`）⇒ 它节流的是**采样**，不是**日志**。
+    /// 而症状 1 的窗口是"某一次提交与它之后那次属性应用之间"，约**一个 layout pass（≈16ms）**
+    /// ⇒ 1s 采样**结构上不可能**采到它，于是初版读数里的 `内容超高=0` 是**无信息的 0**。
+    /// 这正是本会话反复出现的同一类错误（探针必须量到那个会随现象变化的量/时刻）。
+    /// 故现结构为：**廉价的 cell×cell 相交与裁剪判定每 pass 必采**（O(n log n)，n≈可见 cell 数），
+    /// 只把**较贵**的"逐 cell 走子树取正文 view"留给要打日志的那些 pass。
     static func diagnoseDisplayedFrames(_ cv: UICollectionView) {
-        let now = CFAbsoluteTimeGetCurrent()
-        guard now-m19LastLogAt >= 1.0 else { return }
         let cells = cv.visibleCells
         guard cells.count > 1 else { return }
-        m19LastLogAt = now
+        m19Passes &+= 1
 
         // ① 逐对相邻帧相交（按 minY 排序后只需比相邻——帧若不单调，最坏值仍会被捕获）
+        //    ＋ ③ 裁剪是否真的开着（一次布尔读，同样每 pass 采）
         var worstOverlap: CGFloat = 0
         var worstPair = "—"
+        var clipOff = 0
         let sorted = cells.compactMap { c -> (UICollectionViewCell,IndexPath)? in
             guard let ip = cv.indexPath(for: c) else { return nil }
             return (c,ip)
         }.sorted { $0.0.frame.minY < $1.0.frame.minY }
+        for i in 0..<sorted.count where !sorted[i].0.contentView.clipsToBounds { clipOff += 1 }
         if sorted.count > 1 {
             for i in 1..<sorted.count {
                 let ov = sorted[i-1].0.frame.maxY - sorted[i].0.frame.minY
@@ -297,44 +308,48 @@ final class NoAnimationCollectionView: UICollectionView {
                 }
             }
         }
+        let overlapHit = worstOverlap > 0.5
+        if overlapHit { m19OverlapPasses &+= 1 }
+        if clipOff > 0 { m19ClipOffPasses &+= 1 }
 
-        // ② 内容高过自己的帧（"文字被顶出去"的直接量）+ ③ 裁剪是否真的开着
+        let now = CFAbsoluteTimeGetCurrent()
+        let cleanDue = now-m19CleanLogAt >= 5.0
+        // 只在"要打日志的那些 pass"才做较贵的子树遍历（其余 pass 仍已采到两个廉价判据）。
+        let needDetail = overlapHit || clipOff > 0 || cleanDue
         var worstOver: CGFloat = 0
         var worstOverIdx = -1
-        var clipOff = 0
         var detail: [String] = []
-        for (cell,ip) in sorted {
-            if cell.contentView.clipsToBounds { } else { clipOff += 1 }
-            guard let tv = SelfSizingCell.debugFirstMarkdownTextView(in: cell.contentView) else { continue }
-            let need = tv.contentSize.height+SelfSizingCell.assistantBlockVerticalChrome
-            let over = need-cell.bounds.height
-            if over > 1 {
-                worstOver = max(worstOver,over)
-                if over == worstOver { worstOverIdx = ip.item }
-                if detail.count < 4 {
-                    detail.append("#\(ip.item) 需\(String(format: "%.0f", need))>帧\(String(format: "%.0f", cell.bounds.height)) Δ+\(String(format: "%.0f", over)) tvOff=\(String(format: "%.0f", tv.contentOffset.y))")
+        if needDetail {
+            for (cell,ip) in sorted {
+                guard let tv = SelfSizingCell.debugFirstMarkdownTextView(in: cell.contentView) else { continue }
+                let need = tv.contentSize.height+SelfSizingCell.assistantBlockVerticalChrome
+                let over = need-cell.bounds.height
+                if over > 1 {
+                    if over > worstOver { worstOver = over; worstOverIdx = ip.item }
+                    if detail.count < 4 {
+                        detail.append("#\(ip.item) 需\(String(format: "%.0f", need))>帧\(String(format: "%.0f", cell.bounds.height)) Δ+\(String(format: "%.0f", over)) tvOff=\(String(format: "%.0f", tv.contentOffset.y))")
+                    }
                 }
             }
+            if worstOver > 1 { m19ContentOverPasses &+= 1 }
         }
-
-        if worstOverlap > 0.5 { m19OverlapHits &+= 1 }
-        if worstOver > 1 { m19ContentOverHits &+= 1 }
-        if clipOff > 0 { m19ClipOffCount &+= 1 }
 
         let phase = cv.isDragging ? "drag" : (cv.isDecelerating ? "decel" : "idle")
         let streamIdx = (cv.collectionViewLayout as? MessageListLayout)?.streamingCellIndex.map(String.init) ?? "—"
+        let acc = "累计(pass口径) 采样\(m19Passes) 重叠\(m19OverlapPasses) 超高\(m19ContentOverPasses) clipOff\(m19ClipOffPasses)"
 
         // [M19 补强] **干净的读数也必须可关闭假设**：`全 0` 时若一行不打，日志里"没有 M19"
         // 就既可能"真不重叠"、也可能"根本没采样到"（M18 首轮机踩过同一个坑，见 §10.2）。
         // 非 0 ⇒ 1s 节流打 warn；全 0 ⇒ 5s 节流打 info。两者都进白名单类别 ⇒ 真机可验收。
-        if worstOverlap <= 0.5, worstOver <= 1, clipOff == 0 {
-            guard now-m19CleanLogAt >= 5.0 else { return }
+        if !overlapHit, worstOver <= 1, clipOff == 0 {
+            guard cleanDue else { return }
             m19CleanLogAt = now
-            AppLogger.shared.info("[Stage0][M19] 显示态 cell重叠=0 内容超高=0 clipOff=0/\(cv.visibleCells.count) scroll=\(phase) streaming=\(streamIdx) 自洽采样累计=\(m19CleanSamples) — 本帧显示态无重叠/无溢出", category: "ChatList.CellMetrics")
+            AppLogger.shared.info("[Stage0][M19] 显示态 cell重叠=0 内容超高=0 clipOff=0/\(sorted.count) scroll=\(phase) streaming=\(streamIdx) \(acc) — 本 pass 显示态无重叠/无溢出", category: "ChatList.CellMetrics")
             return
         }
-        m19CleanSamples &+= 1
-        AppLogger.shared.warn("[Stage0][M19] 显示态 cell重叠=\(String(format: "%.1f", worstOverlap))pt @\(worstPair) ‖ 内容超高=\(String(format: "%.1f", worstOver))pt @idx\(worstOverIdx) ‖ clipOff=\(clipOff)/\(cv.visibleCells.count) ‖ \(detail.joined(separator: " | ")) ‖ 累计 重叠\(m19OverlapHits)次 超高\(m19ContentOverHits)次 clipOff\(m19ClipOffCount)次 scroll=\(phase) streaming=\(streamIdx) — 这是症状 1「拖动期重叠」的**直接判据**（此前 M13/M15 都没量 cell×cell）", category: "ChatList.CellMetrics")
+        guard now-m19LastLogAt >= 1.0 else { return }
+        m19LastLogAt = now
+        AppLogger.shared.warn("[Stage0][M19] 显示态 cell重叠=\(String(format: "%.1f", worstOverlap))pt @\(worstPair) ‖ 内容超高=\(String(format: "%.1f", worstOver))pt @idx\(worstOverIdx) ‖ clipOff=\(clipOff)/\(sorted.count) ‖ \(detail.joined(separator: " | ")) ‖ \(acc) scroll=\(phase) streaming=\(streamIdx) — 这是症状 1「拖动期重叠」的**直接判据**（此前 M13/M15 都没量 cell×cell）", category: "ChatList.CellMetrics")
     }
     #endif
 
