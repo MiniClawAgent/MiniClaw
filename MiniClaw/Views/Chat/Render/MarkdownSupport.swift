@@ -458,6 +458,7 @@ final class MarkdownNSRenderer: @unchecked Sendable {
 
     func applyFontSizeChange(_ size: CGFloat) {
         theme = MarkdownTheme(baseFontSize: size)
+        blockMemo.removeAll()   // [Stage 4 · 块级 memo] 主题随字号变 ⇒ 整表失效
     }
     private var bodyLineSpacing: CGFloat { theme.baseFontSize*0.25 }
     /// miniClawChat list item: .em(0.25) top margin
@@ -497,24 +498,139 @@ final class MarkdownNSRenderer: @unchecked Sendable {
         }
     }
 
+    // ── [2026-09-17 · Stage 4] 块级 memo ────────────────────────────────────────
+    /// 依据（真机实测）：单次 render 里「逐块渲染」占 84%，而流式期每来一个 delta 就把整条消息的
+    /// 全部块重渲一遍。顶层块渲染是「内容 → 产物」的**纯函数**（上下文恒为 `listDepth=0, quoteDepth=0`），故可 memo。
+    ///
+    /// 三条边界（构造性判据，不靠约定）：
+    /// 1. **只缓存产物中不含 `.attachment` 的块** —— 附件实例带 `messageId/blockIndex/needsViewRebuild`
+    ///    等可变身份，跨次复用正是本文件 1256–1270 行注释记录过的坑。以「产物里有没有附件」为判据，
+    ///    天然排除表格/代码块/公式/图片；也因此**不会扰动** `codeBlockIndex`/`tableIndex`。
+    /// 2. **命中要求 `blockId` 一致** —— `MarkdownView` 渲染前会设置 `renderer.blockId`。不一致即视为
+    ///    未命中并**覆盖**，故不会返回错内容，也不会让表无限增长。
+    /// 3. **字号/主题变化 ⇒ 整表失效**（见 `applyFontSizeChange`）。
+    private struct BlockMemoEntry {
+        let rendered: RenderedBlock
+        let blockId: UUID?
+    }
+    private var blockMemo: [BlockNode: BlockMemoEntry] = [:]
+    #if DEBUG
+    private var memoHit = 0
+    private var memoMissNew = 0
+    private var memoMissBlockId = 0
+    private var memoStored = 0
+    private var memoHasAttachment = 0
+    private var aggN = 0
+    private var aggTotalMs = 0.0
+    private var aggBlockMs = 0.0
+    private var aggMergeMs = 0.0
+    private var aggWorstMs = 0.0
+    private var aggLastLogAt: CFAbsoluteTime = 0
+    #endif
+
+    private static func ms(_ v: Double) -> String { String(format: "%.1f", v) }
+
     func render(blocks: [BlockNode]) -> NSAttributedString {
         codeBlockIndex = 0
         tableIndex = 0
         let t0 = CFAbsoluteTimeGetCurrent()
         let tableCountBefore = tableAttachmentCache.count
 
-        let result = renderBlockSeq(blocks,listDepth: 0,quoteDepth: 0,tightSpacing: false).attributed
-        let elapsed = (CFAbsoluteTimeGetCurrent()-t0)*1000
+        // 与 `renderBlockSeq(blocks,listDepth:0,quoteDepth:0,tightSpacing:false)` **等价展开**
+        // （该函数体就是下面这两句）：逐块渲染走 memo，并把「逐块」与「合并」分开计时。
+        let renderedBlocks = blocks.map { renderTopLevelBlock($0) }
+        let t1 = CFAbsoluteTimeGetCurrent()
+        let result = mergeRenderedBlocksNow(renderedBlocks,tightSpacing: false).attributed
+        let t2 = CFAbsoluteTimeGetCurrent()
+        let elapsed = (t2-t0)*1000
+        let blockMs = (t1-t0)*1000
+        let mergeMs = (t2-t1)*1000
+
+        #if DEBUG
+        logAggregateIfDue(elapsed: elapsed,blockMs: blockMs,mergeMs: mergeMs)
+        #endif
 
         if elapsed >= 20 || tableIndex>0 {
             let level = elapsed >= 100 ? "🔥" : ""
-            // Include messageId + rendererPtr so
             let mid = messageId?.uuidString.prefix(8) ?? "?"
             let rId = String(ObjectIdentifier(self).hashValue&0xFFFFFF,radix: 16)
-            Self.rendererLogger.info("[RND]\(level) mid=\(mid) rnd=\(rId) blocks=\(blocks.count) tables=\(tableIndex) codeBlocks=\(codeBlockIndex) attrLen=\(result.length) \(String(format: "%.1f", elapsed))ms tableCache=\(tableCountBefore)→\(tableAttachmentCache.count)")
+            let msg = "[RND]\(level) mid=\(mid) rnd=\(rId) blocks=\(blocks.count) tables=\(tableIndex) codeBlocks=\(codeBlockIndex) attrLen=\(result.length) \(Self.ms(elapsed))ms 拆分[逐块=\(Self.ms(blockMs))ms 合并=\(Self.ms(mergeMs))ms] tableCache=\(tableCountBefore)→\(tableAttachmentCache.count)"
+            #if DEBUG
+            // category `MarkdownRenderer` 在 `AppLogger.quietInfoCategories` 里 ⇒ 原 `info` 级既不落盘也不打印
+            // （实测当天日志 `[RND]` 0 条）。慢样本（≥20ms）改走 `warn` 以确保落盘；量很小。
+            if elapsed >= 20 { Self.rendererLogger.warn(msg) } else { Self.rendererLogger.info(msg) }
+            #else
+            Self.rendererLogger.info(msg)
+            #endif
         }
         return result
     }
+
+    /// 顶层块的 memo 化渲染：命中即复用；未命中则渲染，且仅在产物**不含附件**时入表。
+    private func renderTopLevelBlock(_ block: BlockNode) -> RenderedBlock {
+        if let e = blockMemo[block] {
+            if e.blockId == blockId {
+                #if DEBUG
+                memoHit += 1
+                #endif
+                return e.rendered
+            }
+            #if DEBUG
+            memoMissBlockId += 1
+            #endif
+        } else {
+            #if DEBUG
+            memoMissNew += 1
+            #endif
+        }
+        let rendered = renderBlock(block,listDepth: 0,quoteDepth: 0)
+        if Self.containsAttachment(rendered.attributed) {
+            #if DEBUG
+            memoHasAttachment += 1
+            #endif
+        } else {
+            blockMemo[block] = BlockMemoEntry(rendered: rendered,blockId: blockId)
+            #if DEBUG
+            memoStored += 1
+            #endif
+        }
+        return rendered
+    }
+
+    /// memo 的**唯一**排除判据：产物里是否含 `NSTextAttachment`。
+    private static func containsAttachment(_ s: NSAttributedString) -> Bool {
+        guard s.length > 0 else { return false }
+        var found = false
+        s.enumerateAttribute(.attachment,in: NSRange(location: 0,length: s.length),options: []) { v,_,stop in
+            if v != nil { found = true; stop.pointee = true }
+        }
+        return found
+    }
+
+    #if DEBUG
+    /// [Stage 4] **本渲染器**的累计成本 + memo 归因，5s 节流打 `warn`。
+    /// 为什么必须要它：`[M7]` 只覆盖 `renderMarkdownBlocks`（throwaway renderer）那一路，
+    /// 而真正跑流式的是**复用渲染器**这一路 —— 它的会话累计成本此前**无处可见**。
+    private func logAggregateIfDue(elapsed: Double,blockMs: Double,mergeMs: Double) {
+        aggN += 1
+        aggTotalMs += elapsed
+        aggBlockMs += blockMs
+        aggMergeMs += mergeMs
+        if elapsed > aggWorstMs { aggWorstMs = elapsed }
+        let now = CFAbsoluteTimeGetCurrent()
+        // [降噪 2026-09-17] 首次调用只初始化时间戳：**一次性（throwaway）渲染器占多数**，
+        // 若每条都打，探针自己就成了新的噪声源（实测 40 行/40 秒，占新会话日志 27%）。
+        if aggLastLogAt == 0 { aggLastLogAt = now }
+        guard aggN > 1 else { return }              // 只报"被复用"的渲染器 —— 那才是流式路径
+        guard now-aggLastLogAt >= 5.0 else { return }
+        aggLastLogAt = now
+        let rId = String(ObjectIdentifier(self).hashValue&0xFFFFFF,radix: 16)
+        let mid = messageId?.uuidString.prefix(8) ?? "?"
+        let total = memoHit+memoMissNew+memoMissBlockId
+        let pct = total > 0 ? Double(memoHit)/Double(total)*100 : 0
+        Self.rendererLogger.warn("[RNDΣ] rnd=\(rId) mid=\(mid) n=\(aggN) 合计=\(Self.ms(aggTotalMs))ms 逐块=\(Self.ms(aggBlockMs))ms 合并=\(Self.ms(aggMergeMs))ms worst=\(Self.ms(aggWorstMs))ms ‖ memo hit=\(memoHit) miss新=\(memoMissNew) miss换id=\(memoMissBlockId) 含附件=\(memoHasAttachment) 命中率=\(Self.ms(pct))% 表=\(blockMemo.count)")
+    }
+    #endif
 
     fileprivate static let rendererLogger = AppLogger(category: "MarkdownRenderer")
 
@@ -1279,18 +1395,64 @@ final class MarkdownNSRenderer: @unchecked Sendable {
 /// （复用路径的成本特征不同，混在一起会互相掩盖）。
 @MainActor
 enum BridgeRenderProbe {
+    // [2026-09-17 细化] 原探针只记「总耗时」，回答不了「2.1s 花在构造还是渲染、是否随内容增大」。
+    // 现拆成 ctor / render 两段，并按**产物长度**分档。日志只加两类，避免把日志量推得更高：
+    //   ① 5s 节流的周期行（含分档直方图 + 最慢 5 个样本）
+    //   ② **单次 >200ms 的慢样本**立即打点（首 40 条 + 每次刷新最坏值）
     private static var count = 0
-    private static var totalMs = 0.0
-    private static var worstMs = 0.0
+    private static var totalCtorMs = 0.0
+    private static var totalRenderMs = 0.0
+    private static var worstCtorMs = 0.0
+    private static var worstRenderMs = 0.0
+    private static var worstTotalMs = 0.0
     private static var lastLogAt: CFAbsoluteTime = 0
-    static func note(ms: Double) {
+    private static var slowLogged = 0
+
+    /// 产物长度分档上界；最后一档表示「大于最后一档」。
+    private static let bucketEdges = [256, 1024, 4096, 16384]
+    private static var bucketN = [Int](repeating: 0, count: 5)
+    private static var bucketMs = [Double](repeating: 0, count: 5)
+
+    /// 只保留最慢的 5 个样本 —— 本探针要的是**定位最坏单次**，不是流水账。
+    private static var slow: [(len: Int, blk: Int, ctor: Double, render: Double, total: Double)] = []
+
+    private static func fmt(_ v: Double) -> String { String(format: "%.1f", v) }
+
+    private static func bucketIndex(_ len: Int) -> Int {
+        for (i, e) in bucketEdges.enumerated() where len <= e { return i }
+        return bucketEdges.count
+    }
+
+    static func note(ctorMs: Double, renderMs: Double, blocks: Int, length: Int) {
         count &+= 1
-        totalMs += ms
-        if ms > worstMs { worstMs = ms }
+        totalCtorMs += ctorMs
+        totalRenderMs += renderMs
+        if ctorMs > worstCtorMs { worstCtorMs = ctorMs }
+        if renderMs > worstRenderMs { worstRenderMs = renderMs }
+        let total = ctorMs + renderMs
+        let isNewWorst = total > worstTotalMs
+        if isNewWorst { worstTotalMs = total }
+        let bi = bucketIndex(length)
+        bucketN[bi] += 1
+        bucketMs[bi] += total
+
+        if total > 200, slowLogged < 40 || isNewWorst {
+            slowLogged += 1
+            slow.append((length, blocks, ctorMs, renderMs, total))
+            slow.sort { $0.total > $1.total }
+            if slow.count > 5 { slow.removeLast() }
+            AppLogger.shared.warn("[Stage0][M7b] 慢样本 ctor=\(fmt(ctorMs))ms render=\(fmt(renderMs))ms total=\(fmt(total))ms len=\(length) blk=\(blocks)", category: "MarkdownSTF")
+        }
+
         let now = CFAbsoluteTimeGetCurrent()
         guard now-lastLogAt >= 5.0 else { return }
         lastLogAt = now
-        AppLogger.shared.warn("[Stage0][M7] 同步 render（Stage 4·S4.5 准入判据）n=\(count) total=\(String(format: "%.1f", totalMs))ms avg=\(String(format: "%.1f", totalMs/Double(max(count,1))))ms worst=\(String(format: "%.1f", worstMs))ms — 每次调用都 new 一个 MarkdownNSRenderer", category: "MarkdownSTF")
+        let hist = (0..<bucketN.count).map { i -> String in
+            let label = i < bucketEdges.count ? "≤\(bucketEdges[i])" : ">\(bucketEdges[bucketEdges.count-1])"
+            return "\(label):n=\(bucketN[i])/\(fmt(bucketMs[i]))ms"
+        }.joined(separator: " ")
+        let slowDesc = slow.isEmpty ? "无" : slow.map { "len=\($0.len),blk=\($0.blk),ctor=\(fmt($0.ctor)),render=\(fmt($0.render))" }.joined(separator: " | ")
+        AppLogger.shared.warn("[Stage0][M7] 同步 render（Stage 4·S4.5 准入判据）n=\(count) total=\(fmt(totalCtorMs+totalRenderMs))ms avg=\(fmt((totalCtorMs+totalRenderMs)/Double(max(count,1))))ms worst=\(fmt(worstTotalMs))ms ‖ 拆分 ctor累计=\(fmt(totalCtorMs))ms worst=\(fmt(worstCtorMs))ms ｜ render累计=\(fmt(totalRenderMs))ms worst=\(fmt(worstRenderMs))ms ‖ 按产物长度 \(hist) ‖ 最慢5[\(slowDesc)] — 每次调用都 new 一个 MarkdownNSRenderer", category: "MarkdownSTF")
     }
 }
 #endif
@@ -1298,10 +1460,15 @@ enum BridgeRenderProbe {
 @MainActor
 func renderMarkdownBlocks(_ blocks: [BlockNode]) -> NSAttributedString {
     #if DEBUG
-    let _m7t = CFAbsoluteTimeGetCurrent()
-    defer { BridgeRenderProbe.note(ms: (CFAbsoluteTimeGetCurrent()-_m7t)*1000) }
-    #endif
+    let t0 = CFAbsoluteTimeGetCurrent()
+    let renderer = MarkdownNSRenderer(baseFontSize: FontSettings.shared.scaledMessage(16.5))
+    let t1 = CFAbsoluteTimeGetCurrent()
+    let out = renderer.render(blocks: blocks)
+    BridgeRenderProbe.note(ctorMs: (t1-t0)*1000, renderMs: (CFAbsoluteTimeGetCurrent()-t1)*1000, blocks: blocks.count, length: out.length)
+    return out
+    #else
     return MarkdownNSRenderer(baseFontSize: FontSettings.shared.scaledMessage(16.5)).render(blocks: blocks)
+    #endif
 }
 
 /// [2026-09-13 重构·内容指纹统一] 全库唯一的「内容是否变了」指纹。
