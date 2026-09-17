@@ -843,7 +843,7 @@ extension MessageCollectionView.Coordinator {
                 // `messages.first(where:)` + `blocks.first(where:)` 的 **O(n) 查找**，
                 // 而这里 `block` 就在手上 —— 收口不应引入新的扫描成本。
                 default:
-                    layout.setEstimatedHeight(block.kind.seedFallbackHeight(content: block.content),provenance: "est.seedFallbackHeight",at: i)
+                    layout.setEstimatedHeight(block.kind.seedFallbackHeight(content: block.content),provenance: "est.seedFallbackHeight#\(String(describing: block.kind).prefix(14))",at: i)
                 }
 
             case .wholeMessage(let msgId):
