@@ -406,6 +406,14 @@ public final class MessageListLayout: UICollectionViewLayout {
                     AppLogger.shared.warning("[Stage0][M15] ⚠️ 屏上帧与布局帧背离 divergedCells=\(diverged)/\(cv.visibleCells.count) 最坏=\(String(format: "%.1f", worst))pt @idx=\(worstIdx) scroll=\((cv.isDragging) ? "drag" : (cv.isDecelerating ? "decel" : "idle")) :: M16 最近一次提交 idx=\(Self.lastCommitIdx) delta=\(String(format: "%.1f", Self.lastCommitDelta)) preparesThen=\(Self.lastCommitPrepareCount) preparesNow=\(Self.prepareCallCount) ⇒ \(ranPrepare ? "提交后【已】重跑 prepare（背离另有原因）" : "提交后【未】重跑 prepare ⇒ itemAttributes 未跟上") :: M18 应用滞后=\(lag) 真分叉=\(fork)（分叉>0 才是 S2.12 的准入证据）", category: "ChatList.CellMetrics")
                 } else {
                     Self.frameDivergenceClean &+= 1
+                    // [Stage 0 · M18] **干净的读数也必须可关闭假设**。原先 `diverged==0` 时一行不打，
+                    // 于是"日志里没有 M15"既可能是「真分叉=0」，也可能是「根本没采样到」，两者不可区分——
+                    // 首轮机（2026-09-17 10:15）正是这种沉默：全窗口 0 条 M15，无法据此撤回 S2.12。
+                    // 故每 5s 至少打一条 0 读数明细，使 `真分叉=0` 成为**正面证据**。
+                    if dvTs - Self.frameDivergenceCleanLogAt >= 5.0 {
+                        Self.frameDivergenceCleanLogAt = dvTs
+                        AppLogger.shared.info("[Stage0][M18] 屏上帧与布局帧**一致** diverged=0/\(cv.visibleCells.count) scroll=\((cv.isDragging) ? "drag" : (cv.isDecelerating ? "decel" : "idle")) 自洽采样累计=\(Self.frameDivergenceClean) :: M18 应用滞后=0 真分叉=0", category: "ChatList.CellMetrics")
+                    }
                 }
             }
         }
@@ -505,6 +513,8 @@ public final class MessageListLayout: UICollectionViewLayout {
     private static var frameDivergenceHits = 0
     private static var frameDivergenceClean = 0
     private static var frameDivergenceLastLogAt: CFAbsoluteTime = 0
+    /// [Stage 0 · M18] 「一致」读数自身的节流时间戳（见 `diverged == 0` 分支内说明）。
+    private static var frameDivergenceCleanLogAt: CFAbsoluteTime = 0
     /// [Stage 0 · M18] **上一轮 `layoutAttributesForElements` 实际返回过的帧**（见 M18 内说明）。
     /// 这是判别"应用时序 vs 真分叉"的唯一判据键：集合视图只能应用我们**给过**的帧。
     private static var lastEmittedFrames: [Int: CGRect] = [:]
