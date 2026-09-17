@@ -471,6 +471,13 @@ struct MarkdownView: UIViewRepresentable {
     //   attrStringMemo 零散缓存已删除，不再维护多套。）
 
     func makeUIView(context: Context) -> MarkdownTextView {
+        #if DEBUG
+        // [Stage 2 · A1 收口·第三轮 补窗] SwiftUI 的**布局相**同样属于 view update 事务；
+        // 上轮机排除了 7 个嫌疑点后，这里是最可能的剩余落点（`onRendered` 就在本函数内触发）。
+        SwiftUIUpdatePhase.enter()
+        defer { SwiftUIUpdatePhase.exit() }
+        #endif
+
         let textView = MarkdownTextView()
         textView.delegate = context.coordinator
         textView.setContentHuggingPriority(.required,for: .vertical)
@@ -1267,6 +1274,13 @@ struct MarkdownView: UIViewRepresentable {
 
     @available(iOS 16.0,*)
     func sizeThatFits(_ proposal: ProposedViewSize,uiView: MarkdownTextView,context: Context) -> CGSize? {
+        #if DEBUG
+        // [Stage 2 · A1 收口·第三轮 补窗] SwiftUI 的**布局相**同样属于 view update 事务；
+        // 上轮机排除了 7 个嫌疑点后，这里是最可能的剩余落点（`onRendered` 就在本函数内触发）。
+        SwiftUIUpdatePhase.enter()
+        defer { SwiftUIUpdatePhase.exit() }
+        #endif
+
         // [2026-09-12 测量宽度同源修复] SwiftUI 会在**不同的 pass** 里以不同宽度询问本视图：
         // ① 布局 pass：cell 宽 402（边界宽）；② 内容 pass：370（= 402 − 2×16 块内边距）；
         // ③ **理想尺寸 pass：宽度未指定**（`.fixedSize(vertical: true)` 会拿这次答案当高度钉死），

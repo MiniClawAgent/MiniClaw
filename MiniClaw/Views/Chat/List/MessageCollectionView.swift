@@ -1028,6 +1028,13 @@ public struct MessageCollectionView: UIViewControllerRepresentable {
     }
 
     public func makeUIViewController(context: Context) -> MessageListViewController {
+        #if DEBUG
+        // [Stage 2 · A1 收口·第三轮 补窗] SwiftUI 的**布局相**同样属于 view update 事务；
+        // 上轮机排除了 7 个嫌疑点后，这里是最可能的剩余落点（`onRendered` 就在本函数内触发）。
+        SwiftUIUpdatePhase.enter()
+        defer { SwiftUIUpdatePhase.exit() }
+        #endif
+
         // 统一渲染缓存的内存告警监听（进程内一次，幂等）。
         MarkdownRenderCache.installMemoryWarningObserver()
         let vc = MessageListViewController()
