@@ -365,6 +365,22 @@ public final class MessageListLayout: UICollectionViewLayout {
     private static var seedViolations: [String: (n: Int,worstPref: CGFloat,seeds: Set<Int>,src: String)] = [:]
     private static var seedViolationLastLogAt: CFAbsoluteTime = 0
     private static var seedViolationTotal = 0
+    /// [第三刀前置] 固定形状行的成型构成对照（只观测）。
+    private static var fixedRowSamples: [String: (orig: CGFloat,pref: CGFloat,producer: String)] = [:]
+    private static var fixedRowLastLogAt: CFAbsoluteTime = 0
+    static func noteFixedRowBreakdown(kind: String,orig: CGFloat,pref: CGFloat,producer: String) {
+        fixedRowSamples[kind] = (orig,pref,producer)
+        let now = CFAbsoluteTimeGetCurrent()
+        guard now-fixedRowLastLogAt >= 5.0 else { return }
+        fixedRowLastLogAt = now
+        let captionH = UIFont.preferredFont(forTextStyle: .caption1).lineHeight
+        let bodyH = UIFont.preferredFont(forTextStyle: .body).lineHeight
+        let captionScaled = FontSettings.shared.scaledMessage(captionH)
+        let body = fixedRowSamples.sorted { $0.key < $1.key }.map { k,v in
+            "\(k) 播种\(String(format: "%.1f", v.orig)) / PLAF成型\(String(format: "%.1f", v.pref)) src=\(v.producer)"
+        }.joined(separator: " | ")
+        AppLogger.shared.warn("[Stage0][M24] 固定形状行成型对照 ‖ caption行高=\(String(format: "%.2f", captionH)) 缩放后=\(String(format: "%.2f", captionScaled)) caption+2=\(String(format: "%.2f", captionScaled+2)) body行高=\(String(format: "%.2f", bodyH)) ‖ \(body) — 用来判「推导式该由哪几项构成」，避免把 16.3 写成新的字面量", category: "ChatList.CellMetrics")
+    }
     /// [判据修正 2] `pref ≈ 0`（PLAF 返回 0 高度）的计数：与"播种偏高""测量偏矮"是**三个**缺陷。
     private static var zeroPrefTotal = 0
     private static var zeroPrefByProducer: [String: Int] = [:]
@@ -621,6 +637,19 @@ public final class MessageListLayout: UICollectionViewLayout {
         let origH = originalAttributes.size.height
 
         #if DEBUG
+        // [治本·第三刀前置 2026-09-17] **固定形状行（header `h:` / footer `f:`）的成型构成对照**。
+        //
+        // 为什么必须先测：M21 的首名是 `种子[18,28]→真值16.3`（footer 给 18 / header 给 28）。
+        // "把 18/28 改成 16" 就是 S5 反例库 #1 那条补丁；正确做法是**从视图自己用的度量推导**。
+        // 但推导式里"哪几项真实参与了成型"尚未判清：`Text("replying").font(.caption)` +
+        // `.padding(.top,2)` 的算术给 ≈18，而实测真值是 16.3 ⇒ **推出来的值仍高于真值**。
+        // 到底是 caption 的实际行高不同、还是 padding 未计入、抑或成型另有来源 —— 需要三条并排才判得清。
+        // 本探针把三者放在同一行：实测成型高 / caption 行高 / caption+2 推算值（外加种子，便于对照）。
+        if let key = contentKeyByIndex[index],key.hasPrefix("h:") || key.hasPrefix("f:"),
+           let e = heightEntries[index],e.source != .measured,origH > 1 {
+            Self.noteFixedRowBreakdown(kind: key.hasPrefix("h:") ? "h(header)" : "f(footer)",
+                                       orig: origH,pref: prefH,producer: e.provenance ?? e.source.rawValue)
+        }
         // [治本·步1 2026-09-17] **不变式「播种 ≤ 真值」的违约观测**（只观测）。
         //
         // 为什么需要它：流式期空白的机制是「帧偏高 ∧ 收缩被延后」。而"偏高"有两种可能：
