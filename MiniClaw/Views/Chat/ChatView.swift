@@ -1274,9 +1274,31 @@ struct ChatView: View {
             chatBridge.onResume = { resumeGeneration() }
             chatBridge.onStop = { stopGeneration() }
         }
-        .onChange(of: session.messages.count) { _ in chatBridge.refresh() }
-        .onChange(of: session.messages.last?.content.count ?? 0) { _ in chatBridge.refresh() }
-        .onChange(of: session.messages.last?.isStreaming ?? false) { _ in chatBridge.refresh(force: true) }
+        // [Stage 2 · A1 收口 2026-09-17] **三处 `.onChange` 一律推到下一 runloop 再刷新。**
+        //
+        // 事实：`.onChange` 的闭包在 **SwiftUI view update 事务内**执行（本仓已有同源结论，
+        // 见 `AssistantBlockView.onChange(of: isStreaming)` 的注释），而 `chatBridge.refresh()`
+        // 会写 `vm.isProcessing` / `vm.canResume`（`@Published`）并在末尾发布
+        // `vm.messages`（`@Published` 大数组）⇒ 运行期 fault：
+        //   `[SwiftUI] Publishing changes from within view updates is not allowed,
+        //    this will cause undefined behavior.`
+        // 真机实证：单次会话窗口内 5 条 fault，时间点全部落在「新消息入列 / 流式起止」，
+        // 与 `session.messages.count` / `…last?.isStreaming` 的翻转一一对应。
+        // A1（`cachedMarkdown/cachedAttributedString` 去 `@Published`）只切断了渲染回写这一路，
+        // 本条是同一 fault 的**第二条通路**，也是残留 fault 的来源。
+        //
+        // 为什么推一帧是安全的：列表数据本就经 `refresh()` 异步重建（通知路径早已写成
+        // `DispatchQueue.main.async { self.refresh(force: true) }`），一个 runloop hop 仍在
+        // 同一帧内完成；语义、顺序（count → content → isStreaming）均不变。
+        .onChange(of: session.messages.count) { _ in
+            DispatchQueue.main.async { chatBridge.refresh() }
+        }
+        .onChange(of: session.messages.last?.content.count ?? 0) { _ in
+            DispatchQueue.main.async { chatBridge.refresh() }
+        }
+        .onChange(of: session.messages.last?.isStreaming ?? false) { _ in
+            DispatchQueue.main.async { chatBridge.refresh(force: true) }
+        }
     }
     // MARK: - 子代理悬浮头像（输入框上方）
 
