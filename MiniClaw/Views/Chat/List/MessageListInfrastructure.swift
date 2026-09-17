@@ -681,6 +681,28 @@ class SelfSizingCell: UICollectionViewCell {
 
     func applyContentConfiguration(_ config: any UIContentConfiguration) {
         contentConfiguration = config
+        // [Stage 2 · 症状 1 · M19 实证 2026-09-17] **重新钉住裁剪**：`contentView.clipsToBounds`
+        // 由上面这行赋值**还原成 false**（UIKit 在装入 `UIHostingConfiguration` 的自带内容视图时
+        // 会重置它），于是 `init` 里那两次 `contentView.clipsToBounds = true`（`:584`/`:588`）
+        // **在第一次配置时就被覆盖**，此后一直是 false。
+        //
+        // 真机实证（M19，launch session `7a1fa8b000`）：
+        //   `[Stage0][M19] 显示态 cell重叠=0.0pt ‖ 内容超高=0.0pt ‖ **clipOff=16/16**`
+        // —— 可见 cell **全部**处于"不裁剪"状态。这直接推翻了 §2.7.2 拿来当**证明**用的那条假设：
+        // 「`contentView.clipsToBounds = true` ⇒ 内容不可能溢出 cell ⇒ 几何路径整条关闭」。
+        // 该证明的前提不成立 ⇒ 内容**可以**画出 cell 之外。
+        //
+        // 与残留的 `cellShort=1`（S2.13 v2 后仍有 5 条，单块差 20pt = 内容比帧高）合起来，
+        // 就是症状 1「文字盖住上方工具指示器」的完整机制：
+        //   ① 某次提交后，cell 的**内容**高过它的**帧**（那 20pt）；
+        //   ② 裁剪没生效 ⇒ 这 20pt **画到 cell 之外**；
+        //   ③ 全仓未设 `zIndex` ⇒ 后 index 的 cell 画在上层 ⇒ 正文块（index 更大）
+        //      盖住它上方的工具胶囊。
+        // 恢复裁剪后，①仍会发生（那是高度收敛问题，S2.13 的残留），但②不会 —— 溢出不再可见。
+        //
+        // 只裁 `contentView`（不裁 cell 本身）：需要 bleed 的阴影/圆角仍可在 cell 内、
+        // contentView 外绘制，视觉风险最小。
+        contentView.clipsToBounds = true
         cfgGen &+= 1
         lastCalcH = nil
         lastCalcW = nil
