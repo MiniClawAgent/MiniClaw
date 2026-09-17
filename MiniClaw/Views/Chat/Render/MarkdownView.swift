@@ -1038,12 +1038,19 @@ struct MarkdownView: UIViewRepresentable {
                 guard let cell = cellRef else { return false }
                 return textView.frame.maxY > cell.contentView.bounds.height + 0.5
             }()
-            let bad = storageBehind || cellTooShort || clippedNow || (tailCut && !streamSnap)
+            // [Stage 2 · 症状 2 · 假阳修正 2026-09-17 11:38] **只在"挂进 cell"（即真的会上屏）的
+            // 正文视图上判定。** 真机实证两条 `⚠BAD` 的 `cellH=-1.0`（向上找不到 `SelfSizingCell`）
+            // 且 `clipped=n/a`、`bad_?` ⇒ 它们是**离屏测量实例**（`coord.measureTextView` / 正在回收的
+            // 视图）。四个构成项里 `cellTooShort` 与 `clippedNow` 本来就带 cell 前置条件，
+            // **只有 `tailCut && !streamSnap` 没有** ⇒ 它在离屏实例上照样成立，于是报出"被裁"。
+            // 而离屏实例不上屏，"被裁"对它没有意义。⇒ `bad` 与 M20 的计数都要求 `attached`。
+            let attached = (cellRef != nil)
+            let bad = attached && (storageBehind || cellTooShort || clippedNow || (tailCut && !streamSnap))
             #if DEBUG
             // [Stage 2 · 症状 2 · M20] **按 `path=` 归因**（见 `noteM20` 内说明）。
             // 放在 `guard forceLog || bad` **之前** ⇒ 分母 = 每一次探针求值（诚实口径），
-            // 而不是"打了几条日志"。
-            Self.noteM20(path: pathSnap,streaming: streamSnap,
+            // 而不是"打了几条日志"。`attached=false` 的求值**不计入**（见上）。
+            Self.noteM20(path: pathSnap,streaming: streamSnap,attached: attached,
                          scroll: (cellRef?.superview as? UICollectionView).map {
                              $0.isDragging ? "drag" : ($0.isDecelerating ? "decel" : "idle")
                          } ?? "?",
@@ -1717,9 +1724,13 @@ struct MarkdownView: UIViewRepresentable {
     private static var m20ByPath: [String: [String: Int]] = [:]
     private static var m20Total = 0
     private static var m20LastLogAt: CFAbsoluteTime = 0
-    static func noteM20(path: String,streaming: Bool,scroll: String,
+    static func noteM20(path: String,streaming: Bool,attached: Bool,
+                        scroll: String,
                         cellTooShort: Bool,storageBehind: Bool,clippedNow: Bool,
                         tailCut: Bool,bad: Bool) {
+        // [假阳修正 2026-09-17] 离屏测量实例（`cellH=-1`，没挂进任何 cell）**不计入**：
+        // 它不上屏，`tailCut` 对它没有意义（真机实证两条 `⚠BAD` 都是这个形状）。
+        guard attached else { return }
         m20Total &+= 1
         var d = m20ByPath[path] ?? [:]
         d["n",default: 0] &+= 1
