@@ -35,6 +35,29 @@ public enum AssistantBlockKind: Equatable {
 extension AssistantBlockKind {
     /// ⚠️ 必须是**实例**方法（`switch self` 切的是枚举值）；写成 `static` 会让 `self` 变成
     /// `AssistantBlockKind.Type` 元类型，`case .readImageTool` 等模式将无法匹配（编译错）。
+    /// [治本 2026-09-17] **`.info` 到底会渲染几行 —— 唯一来源。**
+    ///
+    /// 病根（M21 两轮机）：`.info` 的播种按**原始内容的行数**外推（`20 + n*16`），
+    /// 而视图渲染时**只显示 `⚠️` 开头的行**（超过 9 行则折叠为 4+1+4）⇒
+    /// 8 行内容可能只渲染 1 行 ⇒ 播种 148 而真值 20.3。**与胶囊同一种病：
+    /// 按"原始内容的形状"猜"渲染后的高度"。**
+    /// 提取为一处定义后：**视图与播种读同一个函数** ⇒ 不可能漂移；
+    /// 且返回值只依赖"过滤规则 + 上限"，不依赖内容长度。
+    static func infoDisplayedLines(_ content: String) -> [String] {
+        let allLines = content.components(separatedBy: "\n").filter { !$0.isEmpty }
+        let reasonLines = allLines.filter { $0.hasPrefix("⚠️") }
+        if reasonLines.count <= 9 { return reasonLines }
+        return Array(reasonLines.prefix(4))
+            + [String(localized: "⋯ \(reasonLines.count - 8) more")]
+            + Array(reasonLines.suffix(4))
+    }
+
+    /// `.info` 渲染时**不显示**的那一行（开关/切换说明）—— 同样是一处定义。
+    static func infoSwitchedLine(_ content: String) -> String? {
+        content.components(separatedBy: "\n")
+            .first { !$0.isEmpty && !$0.hasPrefix("⚠️") }
+    }
+
     /// [治本 2026-09-17] **渲染高度由视图作者写死的那些类型，在此声明它的高度（唯一来源）。**
     ///
     /// 为什么必须有这个声明：真机 M21 两轮机证据显示，这类"固定高度"的块被**文本测量**的生产者
@@ -64,8 +87,13 @@ extension AssistantBlockKind {
         case .readImageTool: return 36
         case .file: return 40
         case .info:
-            let lineCount = max(1, content.components(separatedBy: "\n").count)
-            return CGFloat(20 + lineCount * 16)
+            // [治本 2026-09-17] 由**渲染后的行数**推出：`infoDisplayedLines` 与视图同源。
+            // 度量取自视图自身的定义：`.padding(.vertical,7)`（上下各 7）+ 行文本
+            // `font(.system(size: 10/11))` 的行高（取 11 → 约 13.5）+ VStack `spacing: 3`。
+            // 只算**会被渲染**的行 ⇒ 与内容长度脱钩（旧式 `20 + n*16` 的病根就是按原始行数外推）。
+            let lines = max(1, Self.infoDisplayedLines(content).count)
+            let lineH = UIFont.systemFont(ofSize: 11).lineHeight   // 与视图 `font(size: 11)` 同源
+            return CGFloat(14) + CGFloat(lines) * lineH + CGFloat(max(0, lines - 1)) * 3
         default: return 36 // 其余工具胶囊（execute/browser 等）：无外层 padding
         }
     }

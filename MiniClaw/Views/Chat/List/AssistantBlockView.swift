@@ -627,13 +627,11 @@ struct AssistantBlockView: View {
                             commandStartTime: commandStartTime,onStop: onStop,
                             toolSnapshots: toolSnapshots,snapshotBridge: snapshotBridge,detailBlock: $detailBlock)
         case .info:
-            let allLines = block.content.components(separatedBy: "\n").filter { !$0.isEmpty }
-            let reasonLinesList = allLines.filter { $0.hasPrefix("⚠️") }
-            let switchedLine = allLines.first { !$0.hasPrefix("⚠️") && !$0.isEmpty }
-            let displayReasons: [String] = {
-                if reasonLinesList.count <= 9 { return reasonLinesList }
-                return Array(reasonLinesList.prefix(4))+[String(localized: "⋯ \(reasonLinesList.count - 8) more")]+Array(reasonLinesList.suffix(4))
-            }()
+            // [治本 2026-09-17] **原处有一份"哪些行会被渲染"的私有实现**，而播种侧另有一份
+            // "按原始行数外推"的猜测 —— 两者必然漂移（真机：播种 148 / 真值 20.3）。
+            // 现统一读 `AssistantBlockKind` 上的唯一实现：视图怎么显示，播种就怎么算。
+            let displayReasons = AssistantBlockKind.infoDisplayedLines(block.content)
+            let switchedLine = AssistantBlockKind.infoSwitchedLine(block.content)
             VStack(alignment: .leading,spacing: 3) {
                 ForEach(Array(displayReasons.enumerated()),id: \.offset) { _,line in
                     Text(line)
