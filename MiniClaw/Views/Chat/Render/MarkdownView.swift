@@ -935,7 +935,13 @@ struct MarkdownView: UIViewRepresentable {
             let sameAsStorage = attributed.length == textView.textStorage.length
                 && attributed.string == textView.textStorage.string
             if !sameAsStorage {
+                #if DEBUG
+                let _m5t = CFAbsoluteTimeGetCurrent()
+                #endif
                 textView.attributedText = attributed
+                #if DEBUG
+                Self.noteM5(site: "onScreen.attributedText", ms: (CFAbsoluteTimeGetCurrent()-_m5t)*1000)
+                #endif
             }
         }
         // [Diag 修正 2026-09-14] 赋值后**同步**读一次存储长度。此前探针是在异步块里读
@@ -1494,7 +1500,13 @@ struct MarkdownView: UIViewRepresentable {
                     // 单次 1.2s），测量只需要 TextKit 排版：直接驱动 textStorage +
                     // 手动设 textContainer 宽（widthTracksTextView=false 的离屏 mtv）。
                     mtv.textContainer.size = CGSize(width: width,height: .greatestFiniteMagnitude)
+                    #if DEBUG
+                    let _m5t = CFAbsoluteTimeGetCurrent()
+                    #endif
                     mtv.textStorage.setAttributedString(pending)
+                    #if DEBUG
+                    Self.noteM5(site: "measure.setAttributedString", ms: (CFAbsoluteTimeGetCurrent()-_m5t)*1000)
+                    #endif
                     h = ceil(mtv.sizeThatFits(CGSize(width: width,height: .greatestFiniteMagnitude)).height)
                     if !measuredFromStaleSnapshot {
                         MarkdownRenderCache.shared.store(height: h, key: renderCacheKey, width: widthKey, grade: .engine)  // S3.1：离屏 mtv 实测
@@ -1529,7 +1541,13 @@ struct MarkdownView: UIViewRepresentable {
                 measuringTextView = mtv
                 return floored(cachedH)
             }
+            #if DEBUG
+            let _m5t = CFAbsoluteTimeGetCurrent()
+            #endif
             mtv.attributedText = pending
+            #if DEBUG
+            Self.noteM5(site: "measure.attributedText(pending)", ms: (CFAbsoluteTimeGetCurrent()-_m5t)*1000)
+            #endif
             measuringTextView = mtv
         } else {
             measuringTextView = uiView
@@ -1557,7 +1575,13 @@ struct MarkdownView: UIViewRepresentable {
                         h = cachedH
                     } else if (finalizedCommitted || !isStreaming),liveStorage.length <= 8000,
                        let mtv = coord.measureTextView as? MarkdownTextView {
+                        #if DEBUG
+                        let _m5t = CFAbsoluteTimeGetCurrent()
+                        #endif
                         mtv.attributedText = liveStorage
+                        #if DEBUG
+                        Self.noteM5(site: "measure.attributedText(liveStorage)", ms: (CFAbsoluteTimeGetCurrent()-_m5t)*1000)
+                        #endif
                         h = ceil(mtv.sizeThatFits(CGSize(width: width,height: .greatestFiniteMagnitude)).height)
                         MarkdownRenderCache.shared.store(height: h, key: renderCacheKey, width: widthKey, grade: .engine)  // S3.1：离屏 mtv 实测，与屏上同源
                     } else {
@@ -1708,6 +1732,31 @@ struct MarkdownView: UIViewRepresentable {
     private static var truncProbeRuns: Int = 0
     private static var truncProbeMs: Double = 0
     private static var truncEnsureLayoutMs: Double = 0
+
+    // [Stage 4 · 准入度量 M5] **赋值次数与单次耗时分离**（计划 §3.1 M5）。
+    //
+    // 为什么补它：Stage 4 是**准入制**（要求"该项成本 ≥100ms/会话 或 ≥10% 累计"），
+    // 而它的两个候选（S4.3 glyph 区间收窄、S4.4 共享测量栈）都以
+    // 「`attributedText` 全量赋值 + TextKit 整篇重排」的成本为输入 —— 这个量**此前从未被度量**
+    // （计划 §3.1 把 M5 列为"待测项"，但从未实现）⇒ Stage 4 因此一直没有准入判据。
+    // 本探针按**站点**分离计数与耗时：`onScreen`（屏上正文视图）/ `measure`（离屏测量栈）。
+    private static var m5Count: [String: Int] = [:]
+    private static var m5Ms: [String: Double] = [:]
+    private static var m5LastLogAt: CFAbsoluteTime = 0
+    @discardableResult
+    static func noteM5(site: String,ms: Double) -> Double {
+        m5Count[site,default: 0] &+= 1
+        m5Ms[site,default: 0] += ms
+        let now = CFAbsoluteTimeGetCurrent()
+        if now-m5LastLogAt >= 5.0 {
+            m5LastLogAt = now
+            let body = m5Count.keys.sorted().map { k in
+                "\(k){n=\(m5Count[k] ?? 0) ms=\(String(format: "%.1f", m5Ms[k] ?? 0)) avg=\(String(format: "%.1f", (m5Ms[k] ?? 0)/Double(max(m5Count[k] ?? 1,1))))}"
+            }.joined(separator: " ‖ ")
+            AppLogger.shared.warn("[Stage0][M5] 赋值成本（Stage 4 准入判据） \(body)", category: "MarkdownSTF")
+        }
+        return ms
+    }
 
     // [Stage 2 · 症状 2 · M20] `[TruncL]` 的**按 `path=` 分组**归因（只观测）。
     //

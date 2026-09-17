@@ -1268,9 +1268,40 @@ final class MarkdownNSRenderer: @unchecked Sendable {
 //   是常见情形，不是罕见路径。
 //   收益侧也不成立：表格 MISS 的实际开销（`computeLayout`）已由进程级
 //   `TableAttachment.sharedLayoutCache` 承担，重建 TableAttachment 实例本身很廉价。
+#if DEBUG
+/// [Stage 4 · 准入度量 M7] **全量 render 的频次与耗时**（计划 §3.1 M7）。
+///
+/// 为什么补它：Stage 4 的候选 **S4.5「Bridge 同步渲染复用 renderer」**要求
+/// 「该项成本 ≥100ms/会话 或 ≥10% 累计」，而这个量此前**从未被度量**（M7 是计划里的"待测项"）。
+/// 本探针只统计本函数 —— 它**每次调用都 new 一个 `MarkdownNSRenderer`**（注释自述：
+/// `mid=?` 即 throwaway renderer），正是 S4.5 要消除的那个开销。
+/// 5s 节流打 `warn`（不受控制台白名单限制）。**不统计 `MarkdownView.rendererCache` 那一路**
+/// （复用路径的成本特征不同，混在一起会互相掩盖）。
+@MainActor
+enum BridgeRenderProbe {
+    private static var count = 0
+    private static var totalMs = 0.0
+    private static var worstMs = 0.0
+    private static var lastLogAt: CFAbsoluteTime = 0
+    static func note(ms: Double) {
+        count &+= 1
+        totalMs += ms
+        if ms > worstMs { worstMs = ms }
+        let now = CFAbsoluteTimeGetCurrent()
+        guard now-lastLogAt >= 5.0 else { return }
+        lastLogAt = now
+        AppLogger.shared.warn("[Stage0][M7] 同步 render（Stage 4·S4.5 准入判据）n=\(count) total=\(String(format: "%.1f", totalMs))ms avg=\(String(format: "%.1f", totalMs/Double(max(count,1))))ms worst=\(String(format: "%.1f", worstMs))ms — 每次调用都 new 一个 MarkdownNSRenderer", category: "MarkdownSTF")
+    }
+}
+#endif
+
 @MainActor
 func renderMarkdownBlocks(_ blocks: [BlockNode]) -> NSAttributedString {
-    MarkdownNSRenderer(baseFontSize: FontSettings.shared.scaledMessage(16.5)).render(blocks: blocks)
+    #if DEBUG
+    let _m7t = CFAbsoluteTimeGetCurrent()
+    defer { BridgeRenderProbe.note(ms: (CFAbsoluteTimeGetCurrent()-_m7t)*1000) }
+    #endif
+    return MarkdownNSRenderer(baseFontSize: FontSettings.shared.scaledMessage(16.5)).render(blocks: blocks)
 }
 
 /// [2026-09-13 重构·内容指纹统一] 全库唯一的「内容是否变了」指纹。
