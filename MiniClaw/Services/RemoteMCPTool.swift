@@ -4,7 +4,7 @@ import Foundation
 actor MCPToolDiscoveryCache {
     static let shared = MCPToolDiscoveryCache()
 
-    private struct Entry: Sendable {
+    private struct Entry: Codable, Sendable {
         let definitions: [MCPRemoteToolDefinition]
         let fetchedAt: Date
     }
@@ -21,12 +21,56 @@ actor MCPToolDiscoveryCache {
 
     private struct DiscoveryTimeout: Error {}
 
+    // ── [2026-09-17 治本·缺口③] 表落盘 ─────────────────────────────────────────
+    /// 为什么：表此前**只在内存** ⇒ App 重启后第一轮必须重新冷拉；那一轮若某台服务器慢
+    /// （`discoverTimeout = 3s`）或不可达，它的工具就会缺席 ⇒ 本轮 tools schema 变 ⇒
+    /// 上下文缓存从 tools 段整段失效，且模型突然少了一批本来会用的工具。
+    /// 处置：每次成功拉表都原子写盘；启动后首次查询时用盘上的表**先把内存表补上**，
+    /// 再由既有的 stale-while-revalidate 在后台校正 —— 即"表跨启动延续"。
+    private var disk: [String: Entry] = [:]
+    private var diskLoaded = false
+
+    private static var diskURL: URL {
+        FileSystemManager.shared.configDir.appendingPathComponent("mcp_tool_cache.json")
+    }
+
+    private func loadDiskIfNeeded() {
+        guard !diskLoaded else { return }
+        diskLoaded = true
+        guard let data = try? Data(contentsOf: Self.diskURL),
+              let decoded = try? JSONDecoder().decode([String: Entry].self, from: data) else { return }
+        disk = decoded
+        AppLogger.shared.info("[MCP-发现] 磁盘缓存载入 \(decoded.count) 台服务器")
+    }
+
+    private func saveDisk() {
+        guard let data = try? JSONEncoder().encode(disk) else { return }
+        try? data.write(to: Self.diskURL, options: .atomic)
+    }
+
+    /// 成功拉表后的**唯一**写入点：内存 + 磁盘 + 清失败标记。
+    private func store(_ entry: Entry, for id: UUID) {
+        entries[id] = entry
+        disk[id.uuidString] = entry
+        saveDisk()
+        failures[id] = nil
+    }
+
+    /// 内存里没有时，用盘上的旧表补上（跨启动延续）；随后由 stale 路径在后台校正。
+    private func seedFromDiskIfNeeded(_ id: UUID) {
+        guard entries[id] == nil, let e = disk[id.uuidString] else { return }
+        entries[id] = e
+        AppLogger.shared.info("[MCP-发现] 从磁盘恢复旧表, \(e.definitions.count) 个工具")
+    }
+
     func definitions(
         for server: MCPServerConfig,
         bearerToken: String?,
         forceRefresh: Bool = false
     ) async throws -> [MCPRemoteToolDefinition] {
         if !forceRefresh {
+            loadDiskIfNeeded()
+            seedFromDiskIfNeeded(server.id)
             if let entry = entries[server.id] {
                 let age = Date().timeIntervalSince(entry.fetchedAt)
                 if age < lifetime {
@@ -43,8 +87,7 @@ actor MCPToolDiscoveryCache {
                 Task {
                     do {
                         let fresh = try await self.discoverWithTimeout(server: server, bearerToken: token)
-                        self.entries[sid] = Entry(definitions: fresh, fetchedAt: Date())
-                        self.failures[sid] = nil
+                        self.store(Entry(definitions: fresh, fetchedAt: Date()), for: sid)
                         AppLogger.shared.info("[MCP-发现] \(name): 后台刷新完成, \(fresh.count) 个工具")
                     } catch {
                         self.failures[sid] = Date()
@@ -73,8 +116,7 @@ actor MCPToolDiscoveryCache {
         }
         AppLogger.shared.info("[MCP-发现] \(server.name): listTools 开始 (forceRefresh=\(forceRefresh))")
         let definitions = try await discoverWithTimeout(server: server, bearerToken: bearerToken)
-        entries[server.id] = Entry(definitions: definitions, fetchedAt: Date())
-        failures[server.id] = nil
+        store(Entry(definitions: definitions, fetchedAt: Date()), for: server.id)
         return definitions
     }
 
@@ -109,10 +151,14 @@ actor MCPToolDiscoveryCache {
 
     func invalidate(serverId: UUID) {
         entries[serverId] = nil
+        disk[serverId.uuidString] = nil
+        saveDisk()
     }
 
     func invalidateAll() {
         entries.removeAll()
+        disk.removeAll()
+        saveDisk()
     }
 }
 
@@ -164,10 +210,35 @@ struct RemoteMCPTool: AgentTool, @unchecked Sendable {
 
     private static func providerSafeName(server: MCPServerConfig, toolName: String) -> String {
         let serverName = sanitize(server.name, maxLength: 10)
-        let serverID = server.id.uuidString.replacingOccurrences(of: "-", with: "").lowercased().prefix(8)
+        // [2026-09-17 治本·缺口④] 这里原先用 `server.id`（配置**实例** UUID）—— 后果是真机实测到的：
+        // 把服务器**删掉再加回来**（参数一字不改）会换 UUID ⇒ 8 个工具**全部改名** ⇒
+        // 工具段按名字排序后整块变化 ⇒ `[Cache指纹] tools=` 从 `22b836aa` 变 `e4be6796`，
+        // 而工具数(8)与 token 数(15248)**一模一样** ⇒ 纯粹的无谓失效，整段上下文缓存作废。
+        // 改为**由"定义"派生**：只取用户可见、且重建配置时不变的四项（名称/URL/命令/参数）。
+        let key = serverDefinitionKey(server)
         let tool = sanitize(toolName, maxLength: 22)
-        let hash = stableHash("\(server.id.uuidString):\(toolName)")
-        return "mcp__\(serverName)_\(serverID)__\(tool)_\(hash)"
+        let hash = stableHash("\(key):\(toolName)")
+        return "mcp__\(serverName)_\(key.prefix(8))__\(tool)_\(hash)"
+    }
+
+    /// 服务器**定义**的稳定键（8 位十六进制 FNV-1a）。
+    ///
+    /// 为什么不用 `server.id`：那是配置实例身份，**重建配置就会变**，而工具名一旦变，模型侧
+    /// 工具段的排序位置与字节就全变 ⇒ 上下文缓存从 tools 段整段失效（真机实测：内容完全相同、
+    /// token 数完全相同，仅因换 UUID 就换哈希）。
+    /// 为什么不用 `lastStatus`/`lastError`/`lastCheckedAt` 等字段：它们**易变**，会让名字随运行状态抖动。
+    /// 分隔符是必要的：否则 `"ab"+"c"` 与 `"a"+"bc"` 会撞成同一个键。
+    private static func serverDefinitionKey(_ server: MCPServerConfig) -> String {
+        var h: UInt32 = 2_166_136_261
+        for part in [server.name, server.endpointURL, server.command, server.args] {
+            for byte in part.utf8 {
+                h ^= UInt32(byte)
+                h &*= 16_777_619
+            }
+            h ^= 0x1F
+            h &*= 16_777_619
+        }
+        return String(format: "%08x", h)
     }
 
     private static func sanitize(_ value: String, maxLength: Int) -> String {
