@@ -713,11 +713,24 @@ class SelfSizingCell: UICollectionViewCell {
         if let cached = lastCalcH,
            let cachedW = lastCalcW,
            abs(layoutAttributes.size.width-cachedW)<1 {
-            let copy = layoutAttributes.copy() as! UICollectionViewLayoutAttributes
-            copy.size.width = cachedW
-            _ = commitHeight(cached, into: copy)
-            tracePLAF("dedup", cached, cachedW, layoutAttributes.size.width)
-            return copy
+            // [Stage 2 · S2.13] **内容增长绕过去重**：如果正文视图的 contentSize 已超过缓存高度
+            //（即内容在流式期间增长了），去重返回的 `cached` 必然是旧值 ⇒ cell 停在旧短值
+            // ⇒ 内容被裁（[TruncL] ⚠BAD cellShort=1，实测滞后可达 946pt）。此时不走去重，
+            // 让下方 live 分支重新测量。
+            // 对已静止的 cell（contentSize 没变）零影响——仍走去重，不增加成本。
+            let contentExceedsCache: Bool = {
+                guard let tv = firstMarkdownTextView(in: contentView) else { return false }
+                let needed = tv.contentSize.height + Self.assistantBlockVerticalChrome
+                return needed > cached + 1
+            }()
+            if !contentExceedsCache {
+                let copy = layoutAttributes.copy() as! UICollectionViewLayoutAttributes
+                copy.size.width = cachedW
+                _ = commitHeight(cached, into: copy)
+                tracePLAF("dedup", cached, cachedW, layoutAttributes.size.width)
+                return copy
+            }
+            tracePLAF("dedup-bypass(content-grew)", cached, cachedW, layoutAttributes.size.width)
         }
 
         //
