@@ -1406,10 +1406,13 @@ final class MarkdownTextView: UITextView,UIGestureRecognizerDelegate {
                 // （`cell` 在 guard 的 else 里不在作用域，故上面用 `probeCell` 兜住取值。）
                 firstMeasureSkipCount &+= 1
                 // `warning` ⇒ 立即落盘，免疫攒批滞留（见 `sharedCellSizeLogger` 处说明）。
+                #if DEBUG
                 // [降噪 2026-09-17] 热路径探针统一由 ScrollMetricsRecorder 哨兵开关控制（默认关、2h 过期、内容写 off 可手动关）；实测单日约 1300 行
+                // ⚠️ 必须同样用 `#if DEBUG` 包住：`ScrollMetricsRecorder` 自身声明在 `#if DEBUG` 里。
                 if ScrollMetricsRecorder.shared.isEnabled {
                     cellSizeLogger.warning("[CellSize] FIRST-MEASURE SKIP #\(firstMeasureSkipCount) cellH=\(String(format: "%.1f", probeCell?.bounds.height ?? -1)) newH=\(String(format: "%.1f", newHeight)) measureW=\(String(format: "%.1f", measureWidth)) storage=\(textStorage.length) isDeferred=\(isDeferred ? 1 : 0) scroll=\(scrollPhaseTagForProbe()) — 首测且就近，本函数在此 return，不改几何")
                 }
+                #endif
                 return
             }
             // [2026-09-12 说明] 此处曾临时加过「写回 memo + 统一缓存」以求收敛。真凶

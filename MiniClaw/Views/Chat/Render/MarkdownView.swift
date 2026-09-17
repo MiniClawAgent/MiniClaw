@@ -1002,7 +1002,13 @@ struct MarkdownView: UIViewRepresentable {
         let pathSnap = fastPathTaken ? "fast" : "full"
         let blkSnap = blockId?.uuidString.prefix(8) ?? "?"
         // 降频：非流式（含"流刚刚结束"那一帧）必打；流式期只在滚动哨兵开启时打。
+        #if DEBUG
+        // ⚠️ `ScrollMetricsRecorder` 声明在 `#if DEBUG` 里 ⇒ 这一腿必须同样 gate，
+        // 否则 **Release 编译直接失败**（2026-09-17 由用户在 Xcode 的 Release 构建暴露）。
         let forceLog = !isStreaming || streamJustEnded || ScrollMetricsRecorder.shared.isEnabled
+        #else
+        let forceLog = !isStreaming || streamJustEnded
+        #endif
         DispatchQueue.main.async { [weak textView] in
             guard let textView else { return }
             #if DEBUG
