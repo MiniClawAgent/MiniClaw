@@ -205,10 +205,13 @@ extension MessageCollectionView.Coordinator {
             let measured: CGFloat
             if AssistantBlock.hasRichSyntaxOrAttachment(text,rendered: attr) {
                 measured = ceil(Self.measureAttributedStringHeight(attr,width: usableTextWidth))
+                // [Stage 3 · S3.1] TextKit 精测 ⇒ 与屏上渲染同源一族，记 `.engine`
+                MarkdownRenderCache.shared.store(height: measured, key: renderKey, width: Int(usableTextWidth), grade: .engine)
             } else {
                 measured = ceil(MarkdownView.ctFramesetterHeight(for: attr, width: usableTextWidth)) + 8
+                // [Stage 3 · S3.1] CT 快路径 ⇒ 记 `.ct`（低一等级，不得覆盖同源实测）
+                MarkdownRenderCache.shared.store(height: measured, key: renderKey, width: Int(usableTextWidth), grade: .ct)
             }
-            MarkdownRenderCache.shared.store(height: measured, key: renderKey, width: Int(usableTextWidth))
             // bubble 垂直 padding (10*2) + 附件块 + 1pt 安全余量。
             // 原 CJK +7 补偿已删：那是补偿 UILabel 与 SwiftUI Text 的行盒差异，
             // 现在测量与渲染同走 TextKit，不再需要。

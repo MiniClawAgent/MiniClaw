@@ -581,9 +581,11 @@ extension MessageCollectionView.Coordinator {
                             MarkdownRenderCache.shared.store(attributed: r.attr, key: r.key)
                         }
                         for (w, h) in r.heights {
-                            // [2026-09-12 裁尾修复] **只补不覆盖**：本栈与渲染引擎不同源
-                            //（实测同内容同宽度矮 12.3pt），覆盖会毒化屏上测量 → 裁尾。
-                            MarkdownRenderCache.shared.storeHeightIfAbsent(height: h, key: r.key, width: w)
+                            // [Stage 3 · S3.1] **只补不覆盖**的语义不再靠特例方法，
+                            // 而由「`.prewarm` 是最低等级」构造性保证（见 `HeightGrade`）。
+                            // 本栈与渲染引擎不同源（实测同内容同宽度矮 12.3pt），覆盖会毒化
+                            // 屏上测量 → 裁尾。
+                            MarkdownRenderCache.shared.store(height: h, key: r.key, width: w, grade: .prewarm)
                         }
                     }
                 }
@@ -810,7 +812,7 @@ extension MessageCollectionView.Coordinator {
                                 // 非附件块：本路径输入（cachedAttributedString）与渲染路径
                                 // 完全相同（`pending = pre`），故回写安全、口径同源。
                                 MarkdownRenderCache.shared.store(
-                                    height: height, key: uKey, width: Int(textWidth))
+                                    height: height, key: uKey, width: Int(textWidth), grade: .ct)  // S3.1：ctFramesetterHeight + 8
                             }
                         }
                         layout.setPrecalcHeight(height+SelfSizingCell.assistantBlockVerticalChrome,at: i)

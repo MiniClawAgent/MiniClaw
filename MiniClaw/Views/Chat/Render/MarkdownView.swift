@@ -23,6 +23,30 @@ import Combine
 final class MarkdownRenderCache {
     static let shared = MarkdownRenderCache()
 
+    /// [Stage 3 · S3.1] **高度写入的"来源等级"**。同一条 `(key,width)` 的高度可能由三条栈算出，
+    /// 而它们**并不同源、也不同值**（真机实测：同内容同宽度下预热栈比渲染引擎栈矮 12.3pt）。
+    /// 在 S3.1 之前，唯一的防线是 `storeHeightIfAbsent`（只对预热这一条路做了"只补不覆盖"），
+    /// 于是 `.ct` 后备栈仍可覆盖 `.engine` 真值 —— 2026-09-12 的裁尾事故正是这个形状
+    ///（`[STF] EXIT src=attach-unified-cache h=1699.0` 后尾行被裁）。
+    /// 本枚举把这条防线收口为**唯一入口的一条规则**：`rank(new) < rank(existing)` 即拒绝。
+    ///
+    /// | 来源 | 栈 | 为什么这个等级 |
+    /// |---|---|---|
+    /// | `.engine` | `MarkdownTextView.sizeThatFits`（离屏/在屏同一 TextKit 栈） | **唯一与屏上同源**的值，宿主就是拿它写 textView 的 frame |
+    /// | `.ct` | `CTFramesetter` + `textContainerInset` | 另一套排版引擎；只作流式/超长块的后备（高度是瞬态，流终会由 engine settle） |
+    /// | `.prewarm` | 后台裸 `NSLayoutManager` + `NSTextContainer` | 与渲染引擎不同源，实测矮 12.3pt；职责只是"补齐缺失" |
+    enum HeightGrade: Int, Comparable {
+        case prewarm = 0
+        case ct = 1
+        case engine = 2
+        static func < (l: HeightGrade,r: HeightGrade) -> Bool { l.rawValue < r.rawValue }
+    }
+
+    private struct HeightReading {
+        var height: CGFloat
+        var grade: HeightGrade
+    }
+
     private struct Entry {
         // [2026-09-09 根源修复] nil = 该条目只有高度（height-only，prewarm/种子/
         // PLAF 先写高度的正常路径）。此前用**空 NSAttributedString 占位**，而
@@ -31,7 +55,9 @@ final class MarkdownRenderCache {
         // 回写块缓存 → 渲染层 prebuilt 再命中空 → 空白死锁（漏消息的直接根源）。
         // 「无」必须表达为 nil，不能是空串。
         let attributed: NSAttributedString?
-        var heights: [Int: CGFloat] = [:]
+        /// [Stage 3 · S3.1] 值从裸 `CGFloat` 变为 `HeightReading`（高度 + 来源等级），
+        /// 使"拒绝低等级覆盖"成为唯一写入入口里的一条规则，而不是散在各调用点的特例。
+        var heights: [Int: HeightReading] = [:]
         // [Stage 1 · §6.3.1 A13] 此处原有 `let insertedAt: CFAbsoluteTime`，仅在两处被**初始化**、
         // 全库零读取（LRU 由独立的 `order` + `touch()` 承担，它并非 LRU 时间戳）⇒ 已删除。
     }
@@ -77,7 +103,7 @@ final class MarkdownRenderCache {
     }
 
     func cachedHeight(for key: String, width: Int) -> CGFloat? {
-        guard let h = entries[key]?.heights[width] else {
+        guard let h = entries[key]?.heights[width]?.height else {
             Self.cacheLogger.info("[RC] MISS-H key=\(key) w=\(width)")
             return nil
         }
@@ -85,21 +111,18 @@ final class MarkdownRenderCache {
         return h
     }
 
-    /// [2026-09-12 裁尾修复·只补不覆盖] 仅当该 (key,width) **还没有**高度时才写入。
-    ///
-    /// 供**后台高度预热**（`scheduleHeightPrewarm`）使用。预热为了不阻塞主线程，用的是
-    /// 私有「裸 `NSLayoutManager` + `NSTextContainer`」栈，实测与渲染引擎
-    /// （`MarkdownTextView`）在同一内容、同一宽度下**矮 12.3pt**（1699 vs 1712）。
-    /// 一旦它覆盖掉播种/自测量写下的同源值，屏上 `sizeThatFits` 就会读回矮值
-    /// → cell 提交矮 12.3pt → 尾部半行被裁；且该值经 `recordMeasuredHeight` 污染布局
-    /// memo → 播种短路后永久复现（真机实证：`[STF] EXIT src=attach-unified-cache h=1699.0`
-    /// 出现后裁尾才发生，`FIRST-MEASURE CORRECTION cellH=1703.0 newH=1711.3`）。
-    /// 预热的职责是「补齐缺失」而非「覆盖既有」，故语义必须是**只补不覆盖**：
-    /// 既保留同源真值，又仍能为尚未测量的块（含 402 边界宽桶）预填。
-    func storeHeightIfAbsent(height: CGFloat, key: String, width: Int) {
-        if let existing = entries[key], existing.heights[width] != nil { return }
-        store(height: height, key: key, width: width)
+    /// [Stage 3 · S3.1] 读回该 `(key,width)` 的高度**来源等级**（只读；`nil` = 无条目）。
+    /// 供诊断与"我这条低等级值该不该写"的判断使用。
+    func heightGrade(for key: String, width: Int) -> HeightGrade? {
+        entries[key]?.heights[width]?.grade
     }
+
+    // [Stage 3 · S3.1 收口] 此处原有 `storeHeightIfAbsent(height:key:width:)`：
+    /// 它是"只补不覆盖"的**特例实现**，只保护了预热这一条路，`.ct` 后备栈仍可覆盖 `.engine` 真值。
+    /// S3.1 把这条防线收口进 `store(height:key:width:grade:)` 的单一规则
+    ///（`rank(new) < rank(existing)` ⇒ 拒绝），故本方法已无存在理由 —— 已删除，
+    /// 其唯一调用点改为 `store(height:key:width:grade: .prewarm)`。
+    /// （决策不静默丢失：预热"只补不覆盖"的语义由 `.prewarm` 是最低等级**构造性保证**。）
 
     /// 命中后把 key 移到队尾（真 LRU）。旧实现命中不刷新 order → 退化为 FIFO：
     /// 386-item 会话里活跃块会被"先入"的冷块挤掉，测量反复 MISS。
@@ -127,20 +150,44 @@ final class MarkdownRenderCache {
     ///（表格/代码块/公式，按设计不缓存 attributed）永远没有 entry，高度
     /// 100% 存不进去，等于这次"缓存合并"对含附件的块完全没生效。
     /// 改为 height-only entry：无 attributed 时建一个占位条目专存高度。
-    func store(height: CGFloat, key: String, width: Int) {
+    ///
+    /// [Stage 3 · S3.1] **这是高度写入的唯一入口，且带来源等级闸门**：
+    /// `rank(new) < rank(existing)` ⇒ 拒绝（保留既有更高等级的值）并打一条 `REJECT-LOW`。
+    /// 契约：
+    /// - `.engine`（同源实测）**永远可写** ⇒ 任何被低等级值占住的桶都能被真值纠正（不会锁死）；
+    /// - `.ct` 不能覆盖 `.engine` ⇒ 消灭 2026-09-12 裁尾事故的形状；
+    /// - `.prewarm` 是最低等级 ⇒ 自然等价于旧的"只补不覆盖"，无需特例方法。
+    /// - 同等级可写：同一引擎、同一内容、同一宽度 ⇒ 值相同；允许重写可避免"首测错误被永久锁死"。
+    @discardableResult
+    func store(height: CGFloat, key: String, width: Int, grade: HeightGrade) -> Bool {
+        if let existing = entries[key]?.heights[width], grade < existing.grade {
+            // [Stage 3 · S3.1] 拒绝的**可观测性**分两级：
+            //   · `.prewarm` 被拒 = 旧 `storeHeightIfAbsent` 的"只补不覆盖"，**预期且高频**
+            //   （每次会话预热都会对已播种的桶整批被拒）⇒ 只落文件日志，不镜像控制台；
+            //   · 其余被拒 = **S3.1 新行为**（`REJECT-LOW` 首次真正拦下异源矮值）⇒ 用 `warn`
+            //     打点（`warn` 不受 `consoleMirrorCategories` 白名单限制，真机可直接验收）。
+            if grade != .prewarm {
+                AppLogger.shared.warn("[RC] REJECT-LOW key=\(key) w=\(width) 拒绝\(grade)→既有\(existing.grade) h=\(String(format: "%.0f", height))（保留 h=\(String(format: "%.0f", existing.height))）— 异源低等级值不再覆盖同源真值", category: "RenderCache")
+            } else {
+                Self.cacheLogger.info("[RC] REJECT-LOW key=\(key) w=\(width) 拒绝\(grade)→既有\(existing.grade) h=\(String(format: "%.0f", height))（保留 h=\(String(format: "%.0f", existing.height))）")
+            }
+            return false
+        }
+        let reading = HeightReading(height: height, grade: grade)
         if var entry = entries[key] {
-            entry.heights[width] = height
+            entry.heights[width] = reading
             entries[key] = entry
         } else {
             var entry = Entry(attributed: nil) // height-only：无富文本，只有高度
-            entry.heights[width] = height
+            entry.heights[width] = reading
             entries[key] = entry
             order.append(key)
             while order.count > limit {
                 entries.removeValue(forKey: order.removeFirst())
             }
         }
-        Self.cacheLogger.info("[RC] STORE-H key=\(key) w=\(width) h=\(String(format: "%.0f", height))")
+        Self.cacheLogger.info("[RC] STORE-H key=\(key) w=\(width) h=\(String(format: "%.0f", height)) src=\(grade)")
+        return true
     }
 
     /// 内存告警时整体清空（2026-09-08）：1024 条 NSAttributedString 常驻，
@@ -1367,14 +1414,14 @@ struct MarkdownView: UIViewRepresentable {
                     mtv.textStorage.setAttributedString(pending)
                     h = ceil(mtv.sizeThatFits(CGSize(width: width,height: .greatestFiniteMagnitude)).height)
                     if !measuredFromStaleSnapshot {
-                        MarkdownRenderCache.shared.store(height: h, key: renderCacheKey, width: widthKey)
+                        MarkdownRenderCache.shared.store(height: h, key: renderCacheKey, width: widthKey, grade: .engine)  // S3.1：离屏 mtv 实测
                     }
                 } else {
                     let textHeight = Self.ctFramesetterHeight(for: pending,width: width)
                     let inset = uiView.textContainerInset.top+uiView.textContainerInset.bottom
                     h = textHeight+inset
                     if !measuredFromStaleSnapshot {
-                        MarkdownRenderCache.shared.store(height: h, key: renderCacheKey, width: widthKey)
+                        MarkdownRenderCache.shared.store(height: h, key: renderCacheKey, width: widthKey, grade: .ct)  // S3.1：CT 后备栈
                     }
                 }
                 if !measuredFromStaleSnapshot {
@@ -1429,12 +1476,12 @@ struct MarkdownView: UIViewRepresentable {
                        let mtv = coord.measureTextView as? MarkdownTextView {
                         mtv.attributedText = liveStorage
                         h = ceil(mtv.sizeThatFits(CGSize(width: width,height: .greatestFiniteMagnitude)).height)
-                        MarkdownRenderCache.shared.store(height: h, key: renderCacheKey, width: widthKey)
+                        MarkdownRenderCache.shared.store(height: h, key: renderCacheKey, width: widthKey, grade: .engine)  // S3.1：离屏 mtv 实测，与屏上同源
                     } else {
                         let textHeight = Self.ctFramesetterHeight(for: liveStorage,width: width)
                         let inset = uiView.textContainerInset.top+uiView.textContainerInset.bottom
                         h = textHeight+inset
-                        MarkdownRenderCache.shared.store(height: h, key: renderCacheKey, width: widthKey)
+                        MarkdownRenderCache.shared.store(height: h, key: renderCacheKey, width: widthKey, grade: .ct)  // S3.1：CT 后备栈
                     }
                     coord.cachedSizes[widthKey] = h
                     if coord.cachedSizes.count>12,let firstKey = coord.cachedSizes.keys.first {
@@ -1515,7 +1562,7 @@ struct MarkdownView: UIViewRepresentable {
 
         // [T-perf 2026-09-08 缓存合并] 附件块高度回写统一缓存（渲染分支已
         // store(attributed) → entry 存在 → 本写入生效；流式期 entry 不存在 → no-op）。
-        MarkdownRenderCache.shared.store(height: size.height, key: renderCacheKey, width: widthKey)
+        MarkdownRenderCache.shared.store(height: size.height, key: renderCacheKey, width: widthKey, grade: .engine)  // S3.1：measuringTextView 实测
 
         return floored(size.height)
     }
