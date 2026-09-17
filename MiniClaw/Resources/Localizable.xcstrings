@@ -3276,25 +3276,25 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Allow AI to write health data"
+            "value" : "Allow AI to write health data (HealthKit)"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "AI によるヘルスデータ書き込みを許可"
+            "value" : "AI によるヘルスデータ書き込みを許可（HealthKit）"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "AI 건강 데이터 기록 허용"
+            "value" : "AI 건강 데이터 기록 허용(HealthKit)"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "允许 AI 写入健康数据"
+            "value" : "允许 AI 写入健康数据（HealthKit）"
           }
         }
       }
@@ -23025,25 +23025,25 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Health Data"
+            "value" : "Health Data (HealthKit)"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ヘルスデータ"
+            "value" : "ヘルスデータ（HealthKit）"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "건강 데이터"
+            "value" : "건강 데이터(HealthKit)"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "健康数据"
+            "value" : "健康数据（HealthKit）"
           }
         }
       }
@@ -23605,25 +23605,25 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Health permission"
+            "value" : "Health Data Permission (HealthKit)"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ヘルスケア権限"
+            "value" : "ヘルスケア権限（HealthKit）"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "건강 권한"
+            "value" : "건강 권한(HealthKit)"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "健康权限"
+            "value" : "健康数据权限（HealthKit）"
           }
         }
       }
