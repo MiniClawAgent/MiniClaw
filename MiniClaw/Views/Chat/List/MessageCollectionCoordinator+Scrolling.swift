@@ -838,7 +838,10 @@ extension MessageCollectionView.Coordinator {
             // [Decel] Fires the instant the finger lifts and UIKit has
             decelTargetOffset = targetContentOffset.pointee.y
             #if DEBUG
-            AppLogger.shared.info("[Decel][willEndDragging] vy=\(String(format: "%.0f", velocity.y))pt/s offset=\(String(format: "%.0f", scrollView.contentOffset.y)) → target=\(String(format: "%.0f", decelTargetOffset)) projDist=\(String(format: "%.0f", decelTargetOffset - scrollView.contentOffset.y)) cs=\(String(format: "%.0f", scrollView.contentSize.height))", category: "ChatList.Decel")
+            // [降噪 2026-09-17] 热路径探针统一由 ScrollMetricsRecorder 哨兵开关控制（默认关、2h 过期、内容写 off 可手动关）
+            if ScrollMetricsRecorder.shared.isEnabled {
+                AppLogger.shared.info("[Decel][willEndDragging] vy=\(String(format: "%.0f", velocity.y))pt/s offset=\(String(format: "%.0f", scrollView.contentOffset.y)) → target=\(String(format: "%.0f", decelTargetOffset)) projDist=\(String(format: "%.0f", decelTargetOffset - scrollView.contentOffset.y)) cs=\(String(format: "%.0f", scrollView.contentSize.height))", category: "ChatList.Decel")
+            }
             #endif
         }
 
@@ -859,7 +862,10 @@ extension MessageCollectionView.Coordinator {
             decelSlowFrameCount = 0
             #if DEBUG
             let visibleN = viewController?.collectionView?.visibleCells.count ?? -1
-            AppLogger.shared.info("[Decel][BEGIN] offset=\(String(format: "%.0f", decelStartOffset)) target=\(String(format: "%.0f", decelTargetOffset)) decelDist=\(String(format: "%.0f", decelTargetOffset - decelStartOffset)) visibleCells=\(visibleN) deferSelfSizing=\((viewController?.messageListLayout?.deferSelfSizing ?? false) ? 1 : 0)", category: "ChatList.Decel")
+            // [降噪 2026-09-17] 热路径探针统一由 ScrollMetricsRecorder 哨兵开关控制（默认关、2h 过期、内容写 off 可手动关）
+            if ScrollMetricsRecorder.shared.isEnabled {
+                AppLogger.shared.info("[Decel][BEGIN] offset=\(String(format: "%.0f", decelStartOffset)) target=\(String(format: "%.0f", decelTargetOffset)) decelDist=\(String(format: "%.0f", decelTargetOffset - decelStartOffset)) visibleCells=\(visibleN) deferSelfSizing=\((viewController?.messageListLayout?.deferSelfSizing ?? false) ? 1 : 0)", category: "ChatList.Decel")
+            }
             startDecelDisplayLink()
             #endif
         }

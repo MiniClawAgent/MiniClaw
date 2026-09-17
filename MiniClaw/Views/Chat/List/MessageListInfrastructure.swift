@@ -793,7 +793,10 @@ class SelfSizingCell: UICollectionViewCell {
         let full = contentKey ?? "nil"
         // key 放宽到 90 字符：`b:<mid>:<bid>:<n>` 全长 > 76，截断到 20 就看不到内容长度 `n`，
         // 而「内容在两版之间来回」正是抖动的一种根因 —— 必须能看到 n。
-        Self.sizingLogger.info("[PLAF] branch=\(branch) h=\(String(format: "%.1f", h)) w=\(String(format: "%.1f", w))\(r)\(Self.scrollPhaseTag(from: self)) key=\(String(full.prefix(90)))")
+        // [降噪 2026-09-17] 热路径探针统一由 ScrollMetricsRecorder 哨兵开关控制（默认关、2h 过期、内容写 off 可手动关）；实测 [PLAF]+[PLAF-SET] 单日 3373 行/14%
+        if ScrollMetricsRecorder.shared.isEnabled {
+            Self.sizingLogger.info("[PLAF] branch=\(branch) h=\(String(format: "%.1f", h)) w=\(String(format: "%.1f", w))\(r)\(Self.scrollPhaseTag(from: self)) key=\(String(full.prefix(90)))")
+        }
         // [抖动专报 2026-09-12 修正版] **按内容键变化重置**（旧版挂在 applyContentConfiguration，
         // 而滑动时每个 pass 都重新配置 cell ⇒ 每次清零 ⇒ 永远没有「上一次」可比 ⇒ 0 条）。
         // 不再限制在 drag/decel：真机实证该抖动在 `scroll=idle off=0` 时同样发生。
@@ -863,7 +866,10 @@ class SelfSizingCell: UICollectionViewCell {
         #endif
         let idxTag = (superview as? UICollectionView)?.indexPath(for: self).map { " idx=\($0.item)" } ?? ""
         let keyTag = contentKey.map { "\($0.prefix(14))…\($0.suffix(8))" } ?? "nil"
-        Self.sizingLogger.info("[PLAF-SET] src=\(src) h=\(String(format: "%.1f", h)) w=\(String(format: "%.1f", w))\(Self.scrollPhaseTag(from: self))\(idxTag) key=\(keyTag)")
+        // [降噪 2026-09-17] 热路径探针统一由 ScrollMetricsRecorder 哨兵开关控制（默认关、2h 过期、内容写 off 可手动关）
+        if ScrollMetricsRecorder.shared.isEnabled {
+            Self.sizingLogger.info("[PLAF-SET] src=\(src) h=\(String(format: "%.1f", h)) w=\(String(format: "%.1f", w))\(Self.scrollPhaseTag(from: self))\(idxTag) key=\(keyTag)")
+        }
     }
 
 

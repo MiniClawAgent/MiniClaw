@@ -1975,7 +1975,10 @@ struct MarkdownView: UIViewRepresentable {
             // 太松：流式期 `truncProbeRuns >= 2` **每个 runloop hop 都成立** ⇒ 真机单轮 **2974 行
             // （占日志 48%）**。那两个"活动量"腿当初是为了在健康基线上也能看到数（Stage 0 基线表），
             // 而基线已冻结进计划 ⇒ 现在只保留"这一 hop 真的花了钱"这一条腿。
-            if total >= 8 || stfWindowTotalMs >= 4 || updWindowTotalMs >= 4 {
+            // [降噪 2026-09-17] 8ms 门槛等于没有门槛：这几个量是**窗口累计值**，只在
+            // `[Stage0][metrics]` 那一行（≥1s 节流）才清零 ⇒ 同一秒内的后续 hop 必然过线，
+            // 真机实测单日 5,467 行 / 1.43MB（占日志 24%）。改为"这一秒真的贵"才打点。
+            if total >= 60 || stfWindowTotalMs >= 30 || updWindowTotalMs >= 30 {
                 watchdogProbe.info("[WatchdogProbe][hop] cumulative=\(String(format: "%.0f", total))ms stf=\(String(format: "%.0f", stfWindowTotalMs)) upd=\(String(format: "%.0f", updWindowTotalMs)) stfCalls=\(stfWindowCallCount) updCalls=\(updWindowCallCount) distinctMsgs=\(distinctMsgIds.count) \(instanceProbeSuffix())")
             }
             // [Stage 0 · 通道修正] M1/M2 汇总必须走 **warn**。
