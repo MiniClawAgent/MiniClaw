@@ -338,6 +338,7 @@ final class NoAnimationCollectionView: UICollectionView {
                 }
             }
             if snap.engineTextValid,snap.engineTextHeight > 1,
+               snap.committedTextHeight > 1,
                snap.engineTextHeight-snap.committedTextHeight > 1 {
                 dShapePasses &+= 1
                 if snap.engineTextHeight-snap.committedTextHeight > dWorst {
@@ -923,6 +924,14 @@ class SelfSizingCell: UICollectionViewCell {
     ///   · `engineTextHeight`（引擎实测文本高）对 `committedTextHeight`（已提交给 cell 的文本高）
     ///     ⇒ **D 型**（引擎认为正文更高，而 cell 只提交了更少）。
     /// 两个比较都是常数代价 ⇒ 可以**每 pass 采**，不必再节流到日志节奏。
+    ///
+    /// ⚠️ **D 型必须要求 `committedTextHeight > 1`**（首次上机 2026-09-17 11:38 的假阳教训）：
+    /// 未提交过的 cell（首测、`[CellSize] FIRST-MEASURE SKIP`）其 `committedTextHeight == 0`，
+    /// 于是 `engineTextHeight − 0` 必然是一个很大的正数 ⇒ 假阳。真机对照两行同 idx 同数值：
+    ///   `[CellSize] FIRST-MEASURE SKIP #2 cellH=355.3 newH=351.3 idx=15`
+    ///   `[Stage0][M19] … D引擎高=1个 最坏+351.3pt @idx15`
+    /// 而 `351.3 = 355.3 − 4(chrome)` ⇒ **两者本来就一致**，纯属缺省值被当成缺陷。
+    /// 教训与 M18/M19 同族：**探针不能在"未初始化/未发生"的状态上判定**。
     var debugSizingSnapshot: (lastCalcH: CGFloat?,engineTextValid: Bool,
                               engineTextHeight: CGFloat,committedTextHeight: CGFloat) {
         (lastCalcH,engineTextValid,engineTextHeight,committedTextHeight)
