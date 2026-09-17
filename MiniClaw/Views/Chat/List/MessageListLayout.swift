@@ -341,6 +341,30 @@ public final class MessageListLayout: UICollectionViewLayout {
             AppLogger.shared.debug("[prepare] #\(Self.prepareCallCount) \(String(format: "%.1f", elapsed))ms items=\(itemCount) totalH=\(String(format: "%.0f", totalHeight)) cacheHits=\(self.heightEntries.count)", category: "ChatList.Stall")
         }
     }
+    #if DEBUG
+    /// [治本·步1] 不变式「播种 ≤ 真值」的违约聚合（只观测）。
+    /// key = 种子值（四舍五入到整数），value = (次数, 最坏 pref, 一条 src 样本)。
+    private static var seedViolations: [Int: (n: Int,worstPref: CGFloat,src: String)] = [:]
+    private static var seedViolationLastLogAt: CFAbsoluteTime = 0
+    private static var seedViolationTotal = 0
+    static func noteSeedViolation(seed: CGFloat,pref: CGFloat,src: String) {
+        let k = Int(seed.rounded())
+        var v = seedViolations[k] ?? (0,pref,src)
+        v.n &+= 1
+        if pref < v.worstPref { v.worstPref = pref }
+        v.src = src
+        seedViolations[k] = v
+        seedViolationTotal &+= 1
+        let now = CFAbsoluteTimeGetCurrent()
+        guard now-seedViolationLastLogAt >= 5.0 else { return }
+        seedViolationLastLogAt = now
+        let body = seedViolations.sorted { $0.value.n > $1.value.n }.prefix(8).map { k,v in
+            "种子\(k)→最坏真值\(String(format: "%.1f", v.worstPref))(n=\(v.n) src=\(v.src))"
+        }.joined(separator: " | ")
+        AppLogger.shared.warn("[Stage0][M21] ⚠️ 播种高于真值的违约：共\(seedViolationTotal)次 ‖ \(body) — 若某族的「真值」低于该视图声明的高度，则问题在测量侧而非播种侧", category: "ChatList.CellMetrics")
+    }
+    #endif
+
     private static var prepareCallCount: Int = 0
 
     public override func layoutAttributesForElements(in rect: CGRect) -> [UICollectionViewLayoutAttributes]? {
@@ -549,6 +573,26 @@ public final class MessageListLayout: UICollectionViewLayout {
         let index = preferredAttributes.indexPath.item
         let prefH = preferredAttributes.size.height
         let origH = originalAttributes.size.height
+
+        #if DEBUG
+        // [治本·步1 2026-09-17] **不变式「播种 ≤ 真值」的违约观测**（只观测）。
+        //
+        // 为什么需要它：流式期空白的机制是「帧偏高 ∧ 收缩被延后」。而"偏高"有两种可能：
+        //   ① **播种偏高**（帧来自错误的估算）⇒ 该改播种；
+        //   ② **测量偏矮**（`pref` 本身不对）⇒ 改播种就是错的方向，越改越糟。
+        // 二者在旧日志里**无法区分**（`[DeferShrink]` 只有 orig/pref）。所以先把它们分开：
+        // 按**种子值**（= `origH`，每个 kind 的种子值不同 ⇒ 可反推族）聚合，并同时记录
+        // `pref`，从而一眼看出"是种子大了"还是"测量小了"。
+        //
+        // ⚠️ 已发生的教训：我一开始判定"胶囊播种 36 偏高、真值 26"，
+        // 而 `ToolCapsuleView` 里写的是 `.frame(height: 36)` ⇒ **36 才是权威值，26 是测量偏矮**。
+        // 若照原方案把种子改成 26，就是主动把种子压到视图声明高度之下（S5 反例库 #1 的补丁）。
+        // 这枚探针就是为了让"谁对"先有数据、再动手。
+        if let e = heightEntries[index],e.source != .measured,origH > 1,
+           prefH < origH-0.5 {
+            Self.noteSeedViolation(seed: origH,pref: prefH,src: e.source.rawValue)
+        }
+        #endif
 
         if deferSelfSizing {
             // [2026-09-12 抖动根因·闸门语义修正] 原先只把 `source == .measured` 视为「已缓存」，
