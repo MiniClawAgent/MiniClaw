@@ -93,8 +93,11 @@ struct ChatMessageRow: View {
         case .compactDivider:
             compactDivider
         case .systemInfo:
+            // [Stage 1 · §6.3 A10] 原调用传 `compact: false` 字面量，而 `compact` 在
+            // `systemDivider` 内只被用于一处三元 `compact ? 16 : 6` ⇒ 恒取 6 ⇒ 该参数是**残留参数**
+            //（需要 16 的形态由独立的 `compactDivider` 承担，见 `:101`）。参数已删除。
             systemDivider(icon: message.isCompactLoading ? nil : (message.systemIcon ?? "info.circle"),
-                             loading: message.isCompactLoading,compact: false)
+                             loading: message.isCompactLoading)
         }
     }
 
@@ -139,7 +142,7 @@ struct ChatMessageRow: View {
         }
     }
 
-    private func systemDivider(icon: String?,loading: Bool,compact: Bool) -> some View {
+    private func systemDivider(icon: String?,loading: Bool) -> some View {
         HStack(spacing: 10) {
             VStack { Divider() }
             HStack(spacing: 5) {
@@ -163,7 +166,7 @@ struct ChatMessageRow: View {
             VStack { Divider() }
         }
         .padding(.horizontal,24)
-        .padding(.vertical,compact ? 16 : 6)
+        .padding(.vertical,6)  // [Stage 1 · A10] 原为 `compact ? 16 : 6`，而 compact 恒 false
     }
 
     private var userDisplayStr: String {

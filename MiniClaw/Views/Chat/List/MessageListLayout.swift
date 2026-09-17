@@ -668,7 +668,9 @@ public final class MessageListLayout: UICollectionViewLayout {
         let newH = preferredAttributes.size.height
         let delta = newH-oldH
 
-        let estimateSrc = heightEntries[index].map { $0.source.rawValue + "!" } ?? "def"
+        // [Stage 1 · §6.3 A16] 原 `let estimateSrc = …` 声明在此处（**#if DEBUG 之外**），
+        // 而它唯一的消费者是下方 `#if DEBUG` 里的 `ScrollMetricsRecorder.record(src:)`
+        // ⇒ Release 构建里它是一次**纯浪费**的字典查表 + 字符串拼接。已随其消费者移入 `#if DEBUG`。
         #if DEBUG
         // [Stage 0 · M16] 记录"这次提交"的时刻（用 `prepareCallCount` 当时间戳）。
         // 与 M15 的背离检测配对，用来判定：**提交之后 `prepare()` 到底有没有重跑**。
@@ -717,6 +719,8 @@ public final class MessageListLayout: UICollectionViewLayout {
             #if DEBUG
             let phase = cv.isDecelerating ? "decel" : (cv.isTracking ? "drag" : "idle")
             // Record EVERY correction (no threshold)
+            // [Stage 1 · A16] `estimateSrc` 只服务本行 ⇒ 声明也放在本 `#if DEBUG` 内。
+            let estimateSrc = heightEntries[index].map { $0.source.rawValue + "!" } ?? "def"
             ScrollMetricsRecorder.shared.record(
                 kind: "inv", idx: index, a: oldH, b: newH,
                 key: contentKeyByIndex[index] ?? "",

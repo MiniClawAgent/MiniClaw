@@ -656,13 +656,12 @@ class SelfSizingCell: UICollectionViewCell {
     /// `lastCalcH` 是在哪个宽度下测得的。**去重判据只看宽度**：宽度变了就必须重测。
     private var lastCalcW: CGFloat?
 
-    /// CACurrentMediaTime() of the last successful self-measure。**仅诊断用**。
-    ///
-    /// [2026-09-12] 它原先还参与「50ms 内复用缓存」的判据（`measureDedupWindow`），该判据已删除：
-    /// 宽度匹配的缓存不会因「旧」而失效，时间窗只制造额外的 view-graph 重入（FB13213926 崩溃窗口）。
-    /// 字段照旧在 seed/smooth/live 三处写入、在 applyContentConfiguration / clearCachedHeight /
-    /// prepareForReuse 三处清空，供日志与断点判断「最后一次真实测量是什么时候」。
-    private var lastMeasureMedia: CFTimeInterval?
+    // [Stage 1 · §6.3 A24 删除 2026-09-17] 此处原有 `private var lastMeasureMedia: CFTimeInterval?`
+    // 及其 7 行注释。删除依据：**全库零读**（删除前 `git grep -n lastMeasureMedia -- MiniClaw/`
+    // 只剩 1 处声明 + 3 处写入 + 3 处清空，**没有任何读取点**）。
+    // 它自称"仅诊断用 / 供日志与断点判断最后一次真实测量"—— 但**没有任何 logger 读它**，
+    // 那条注释**不成立**（与 §6.2.2「注释谎报代码性质」同类）。
+    // 若将来真需要它，应连同"谁来读、读到后判什么"一起进，而不是先把字段留在热路径上写。
 
     /// markdown 块在 cell 内的**固定垂直装饰**（不含文本本身）：`AssistantBlockView` 的
     /// `.padding(.vertical, 2)` × 2 = 4pt，与 `seedHeight` 的 `setPrecalcHeight(height+4)`、
@@ -744,7 +743,6 @@ class SelfSizingCell: UICollectionViewCell {
         cfgGen &+= 1
         lastCalcH = nil
         lastCalcW = nil
-        lastMeasureMedia = nil
         // Drop any prior seed — content just
         seedH = nil
         seedW = nil
@@ -948,7 +946,8 @@ class SelfSizingCell: UICollectionViewCell {
         // （异步图片/重排/字体变化）三处都无条件把 `lastCalcH` 置 nil，无遗漏。
         // 所以时间窗买不到任何正确性，只在**已静止的界面**上买来更多
         // `super.preferredLayoutAttributesFitting` 重入 —— 而那条路径正是 FB13213926
-        // 崩溃窗口（本项目亦多次命中）。`lastMeasureMedia` 保留为诊断字段（照旧写、照旧清）。
+        // 崩溃窗口（本项目亦多次命中）。（[Stage 1 · A24] 原句尾的"`lastMeasureMedia` 保留为
+        // 诊断字段（照旧写、照旧清）"已作废 —— 该字段**全库零读**，已删除。）
         if let cached = lastCalcH,
            let cachedW = lastCalcW,
            abs(layoutAttributes.size.width-cachedW)<1 {
@@ -1058,7 +1057,6 @@ class SelfSizingCell: UICollectionViewCell {
             }
             lastCalcH = seededH
             lastCalcW = layoutAttributes.size.width
-            lastMeasureMedia = CACurrentMediaTime()
             traceSet("seed→lastCalc", seededH, layoutAttributes.size.width)
             let copy = layoutAttributes.copy() as! UICollectionViewLayoutAttributes
             _ = commitHeight(seededH, into: copy)
@@ -1137,7 +1135,6 @@ class SelfSizingCell: UICollectionViewCell {
                     return attrs
                 }
                 lastCalcH = measured
-                lastMeasureMedia = CACurrentMediaTime()
                 traceSet("smooth→lastCalc(lastCalcW未更新)", measured, -1)
             } else {
                 _ = commitHeight(cached, into: attrs)
@@ -1262,7 +1259,6 @@ class SelfSizingCell: UICollectionViewCell {
         if fittingSize.height >= 4 {
             lastCalcH = flooredFit
             lastCalcW = layoutAttributes.size.width
-            lastMeasureMedia = CACurrentMediaTime()
             traceSet("live→lastCalc req=\(String(format: "%.1f", layoutAttributes.size.width)) actual=W", flooredFit, fittingSize.width)
             // Memoize the real height under the
             if let key = contentKey,
@@ -1296,14 +1292,12 @@ class SelfSizingCell: UICollectionViewCell {
     func clearCachedHeight() {
         lastCalcH = nil
         lastCalcW = nil
-        lastMeasureMedia = nil
     }
 
     override func prepareForReuse() {
         super.prepareForReuse()
         lastCalcH = nil
         lastCalcW = nil
-        lastMeasureMedia = nil
         // [Single height source] 复用即作废权威值 —— 绝不让上一个内容的提交高被当成新内容的高度
         //（历史事故形状：跨 cell 累积 495pt）。正文侧另有指纹校验兜底，这里是第一道。
         commitsTextHeightAsCellContent = false
