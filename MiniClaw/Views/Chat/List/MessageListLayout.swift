@@ -366,10 +366,15 @@ public final class MessageListLayout: UICollectionViewLayout {
     private static var seedViolationLastLogAt: CFAbsoluteTime = 0
     private static var seedViolationTotal = 0
     /// [第三刀前置] 固定形状行的成型构成对照（只观测）。
-    private static var fixedRowSamples: [String: (orig: CGFloat,pref: CGFloat,producer: String)] = [:]
+    private static var fixedRowSamples: [String: (orig: CGFloat,pref: CGFloat,entryH: CGFloat,producer: String)] = [:]
     private static var fixedRowLastLogAt: CFAbsoluteTime = 0
-    static func noteFixedRowBreakdown(kind: String,orig: CGFloat,pref: CGFloat,producer: String) {
-        fixedRowSamples[kind] = (orig,pref,producer)
+    /// [2026-09-17] 追加 `entryH` = **条目里实际写入的值**。动机：M24 首轮机显示 footer
+    /// `播种18.0 / PLAF成型16.3`，而 `estimateItemHeight` 的 `.assistantFooter` 分支**返回的是 4**
+    /// ⇒ 帧（`origH`）与条目（`e.height`）**不是同一个来源**。不打出 `entryH` 就无法判断
+    /// "18 是谁写的"，也就无法确定该改哪一行（否则又是一次按标签改错地方）。
+    static func noteFixedRowBreakdown(kind: String,orig: CGFloat,pref: CGFloat,
+                                      entryH: CGFloat,producer: String) {
+        fixedRowSamples[kind] = (orig,pref,entryH,producer)
         let now = CFAbsoluteTimeGetCurrent()
         guard now-fixedRowLastLogAt >= 5.0 else { return }
         fixedRowLastLogAt = now
@@ -377,7 +382,7 @@ public final class MessageListLayout: UICollectionViewLayout {
         let bodyH = UIFont.preferredFont(forTextStyle: .body).lineHeight
         let captionScaled = FontSettings.shared.scaledMessage(captionH)
         let body = fixedRowSamples.sorted { $0.key < $1.key }.map { k,v in
-            "\(k) 播种\(String(format: "%.1f", v.orig)) / PLAF成型\(String(format: "%.1f", v.pref)) src=\(v.producer)"
+            "\(k) 帧\(String(format: "%.1f", v.orig)) / 条目\(String(format: "%.1f", v.entryH)) / PLAF成型\(String(format: "%.1f", v.pref)) src=\(v.producer)"
         }.joined(separator: " | ")
         AppLogger.shared.warn("[Stage0][M24] 固定形状行成型对照 ‖ caption行高=\(String(format: "%.2f", captionH)) 缩放后=\(String(format: "%.2f", captionScaled)) caption+2=\(String(format: "%.2f", captionScaled+2)) body行高=\(String(format: "%.2f", bodyH)) ‖ \(body) — 用来判「推导式该由哪几项构成」，避免把 16.3 写成新的字面量", category: "ChatList.CellMetrics")
     }
@@ -410,7 +415,7 @@ public final class MessageListLayout: UICollectionViewLayout {
             .map { "\($0.key) 最坏低\(String(format: "%.1f", $0.value))pt" }.joined(separator: " | ")
         AppLogger.shared.warn("[Stage0][M22] ⚠️ **测量低于类型声明高度**（会裁切固定高度视图）：共\(authoredUnderTotal)次 ‖ \(body) — 与「播种偏高」是两个缺陷，分开记账", category: "ChatList.CellMetrics")
     }
-    static func noteSeedViolation(seed: CGFloat,pref: CGFloat,producer: String) {
+    static func noteSeedViolation(seed: CGFloat,entryH: CGFloat,pref: CGFloat,producer: String) {
         var v = seedViolations[producer] ?? (0,pref,[],producer)
         v.n &+= 1
         if pref < v.worstPref { v.worstPref = pref }
@@ -421,7 +426,7 @@ public final class MessageListLayout: UICollectionViewLayout {
         guard now-seedViolationLastLogAt >= 5.0 else { return }
         seedViolationLastLogAt = now
         let body = seedViolations.sorted { $0.value.n > $1.value.n }.prefix(8).map { k,v in
-            "\(k) 种子\(v.seeds.sorted())→最坏真值\(String(format: "%.1f", v.worstPref)) n=\(v.n)"
+            "\(k) 帧种子\(v.seeds.sorted())→最坏真值\(String(format: "%.1f", v.worstPref)) n=\(v.n)"
         }.joined(separator: " | ")
         AppLogger.shared.warn("[Stage0][M21] ⚠️ 播种高于真值的违约：共\(seedViolationTotal)次（**按生产者**） ‖ \(body)", category: "ChatList.CellMetrics")
     }
@@ -648,7 +653,8 @@ public final class MessageListLayout: UICollectionViewLayout {
         if let key = contentKeyByIndex[index],key.hasPrefix("h:") || key.hasPrefix("f:"),
            let e = heightEntries[index],e.source != .measured,origH > 1 {
             Self.noteFixedRowBreakdown(kind: key.hasPrefix("h:") ? "h(header)" : "f(footer)",
-                                       orig: origH,pref: prefH,producer: e.provenance ?? e.source.rawValue)
+                                       orig: origH,pref: prefH,entryH: e.height,
+                                       producer: e.provenance ?? e.source.rawValue)
         }
         // [治本·步1 2026-09-17] **不变式「播种 ≤ 真值」的违约观测**（只观测）。
         //
@@ -677,7 +683,7 @@ public final class MessageListLayout: UICollectionViewLayout {
                 // 是**另一个缺陷**，必须单列，不能混进"播种偏高"的账里（否则读数是假的）。
                 Self.noteAuthoredUnderMeasurement(producer: producer,declared: origH,measured: prefH)
             } else {
-                Self.noteSeedViolation(seed: origH,pref: prefH,producer: producer)
+                Self.noteSeedViolation(seed: origH,entryH: e.height,pref: prefH,producer: producer)
             }
         }
         #endif
