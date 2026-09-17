@@ -268,6 +268,9 @@ final class NoAnimationCollectionView: UICollectionView {
     private static var m19ContentOverHits = 0
     private static var m19ClipOffCount = 0
     private static var m19LastLogAt: CFAbsoluteTime = 0
+    /// 「全 0」读数自己的节流时间戳与计数（见函数末尾说明：沉默不是证据）。
+    private static var m19CleanLogAt: CFAbsoluteTime = 0
+    private static var m19CleanSamples = 0
 
     /// [Stage 2 · 症状 1 · M19] **显示态**判据：cell 帧彼此是否相交 + 内容是否高过自己的帧
     /// + 裁剪是否真的开着（三问一次答完，见 `layoutSubviews` 内的说明）。
@@ -318,9 +321,20 @@ final class NoAnimationCollectionView: UICollectionView {
         if worstOver > 1 { m19ContentOverHits &+= 1 }
         if clipOff > 0 { m19ClipOffCount &+= 1 }
 
-        guard worstOverlap > 0.5 || worstOver > 1 || clipOff > 0 else { return }
         let phase = cv.isDragging ? "drag" : (cv.isDecelerating ? "decel" : "idle")
-        AppLogger.shared.warn("[Stage0][M19] 显示态 cell重叠=\(String(format: "%.1f", worstOverlap))pt @\(worstPair) ‖ 内容超高=\(String(format: "%.1f", worstOver))pt @idx\(worstOverIdx) ‖ clipOff=\(clipOff)/\(cv.visibleCells.count) ‖ \(detail.joined(separator: " | ")) ‖ 累计 重叠\(m19OverlapHits)次 超高\(m19ContentOverHits)次 clipOff\(m19ClipOffCount)次 scroll=\(phase) streaming=\((cv.collectionViewLayout as? MessageListLayout)?.streamingCellIndex.map(String.init) ?? "—") — 这是症状 1「拖动期重叠」的**直接判据**（此前 M13/M15 都没量 cell×cell）", category: "ChatList.CellMetrics")
+        let streamIdx = (cv.collectionViewLayout as? MessageListLayout)?.streamingCellIndex.map(String.init) ?? "—"
+
+        // [M19 补强] **干净的读数也必须可关闭假设**：`全 0` 时若一行不打，日志里"没有 M19"
+        // 就既可能"真不重叠"、也可能"根本没采样到"（M18 首轮机踩过同一个坑，见 §10.2）。
+        // 非 0 ⇒ 1s 节流打 warn；全 0 ⇒ 5s 节流打 info。两者都进白名单类别 ⇒ 真机可验收。
+        if worstOverlap <= 0.5, worstOver <= 1, clipOff == 0 {
+            guard now-m19CleanLogAt >= 5.0 else { return }
+            m19CleanLogAt = now
+            AppLogger.shared.info("[Stage0][M19] 显示态 cell重叠=0 内容超高=0 clipOff=0/\(cv.visibleCells.count) scroll=\(phase) streaming=\(streamIdx) 自洽采样累计=\(m19CleanSamples) — 本帧显示态无重叠/无溢出", category: "ChatList.CellMetrics")
+            return
+        }
+        m19CleanSamples &+= 1
+        AppLogger.shared.warn("[Stage0][M19] 显示态 cell重叠=\(String(format: "%.1f", worstOverlap))pt @\(worstPair) ‖ 内容超高=\(String(format: "%.1f", worstOver))pt @idx\(worstOverIdx) ‖ clipOff=\(clipOff)/\(cv.visibleCells.count) ‖ \(detail.joined(separator: " | ")) ‖ 累计 重叠\(m19OverlapHits)次 超高\(m19ContentOverHits)次 clipOff\(m19ClipOffCount)次 scroll=\(phase) streaming=\(streamIdx) — 这是症状 1「拖动期重叠」的**直接判据**（此前 M13/M15 都没量 cell×cell）", category: "ChatList.CellMetrics")
     }
     #endif
 
