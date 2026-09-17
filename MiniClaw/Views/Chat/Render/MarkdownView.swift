@@ -58,12 +58,27 @@ final class MarkdownRenderCache {
         /// [Stage 3 · S3.1] 值从裸 `CGFloat` 变为 `HeightReading`（高度 + 来源等级），
         /// 使"拒绝低等级覆盖"成为唯一写入入口里的一条规则，而不是散在各调用点的特例。
         var heights: [Int: HeightReading] = [:]
+        /// [Stage 3 · S3.2] **LRU 时间戳**（单调递增，越大越新）。
+        ///
+        /// 取代原先的并行数组 `order: [String]`：那是同一事实（"谁最久没被用"）的**第二份存储**，
+        /// 需要 4 处同步维护，且 `touch()` 退化为 `firstIndex` + `remove` + `append` 三个 **O(n)**
+        /// 操作 —— 而 `touch()` 在**每一次缓存命中**时都调用（`logHit` 内，limit=1024）。
+        /// 改为时间戳后：`touch` 退化为一次字典写入（O(1)），淘汰只在**超限插入**时发生
+        ///（罕见），代价是一次 O(n) 求最小值。语义完全等价：LRU 顺序 == 时间戳顺序，
+        /// 因此**淘汰序列逐项相同**，命中集合不变。
+        var lruStamp: UInt64 = 0
         // [Stage 1 · §6.3.1 A13] 此处原有 `let insertedAt: CFAbsoluteTime`，仅在两处被**初始化**、
         // 全库零读取（LRU 由独立的 `order` + `touch()` 承担，它并非 LRU 时间戳）⇒ 已删除。
     }
 
     private var entries: [String: Entry] = [:]
-    private var order: [String] = []
+    // [Stage 3 · S3.2] 此处原有并行数组 `order: [String]`：与 `entries` 同生共死的**第二份存储**
+    //（`order.count == entries.count` 恒成立），却要在 `store(attributed:)` / `store(height:)` /
+    // `touch()` / `removeAll()` 四处手工同步 —— 一旦漏同步就是"缓存条目与淘汰顺序不一致"这类
+    // 难查的错。LRU 现在由 `Entry.lruStamp` 单点承担 ⇒ 该数组已删除（决策：淘汰顺序改由
+    // `evictIfNeeded()` 按时间戳求最小，与旧 `order.first` **逐项等价**）。
+    /// 单调递增的 LRU 时钟（只在 `touch`/插入时自增）。
+    private var lruClock: UInt64 = 0
     // [T-perf 2026-09-08] 48 → 256：386-item 会话有数百个块，48 条 LRU 把活跃块
     // 反复淘汰 → 测量永远 MISS → 反复 1.2s 全量排版（真机 SLOW MEASURE 1196ms）。
     // 无附件块的 attributed 较小（纯文本+样式），256 条 ≈ 数 MB 内存，可接受。
@@ -104,12 +119,45 @@ final class MarkdownRenderCache {
 
     func cachedHeight(for key: String, width: Int) -> CGFloat? {
         guard let h = entries[key]?.heights[width]?.height else {
+            #if DEBUG
+            Self.noteM6(width: width, hit: false)
+            #endif
             Self.cacheLogger.info("[RC] MISS-H key=\(key) w=\(width)")
             return nil
         }
+        #if DEBUG
+        Self.noteM6(width: width, hit: true)
+        #endif
         logHit("H",key: key)
         return h
     }
+
+    #if DEBUG
+    // [Stage 0 · M6] **`HIT-H w=` 直方图**（只观测）。
+    //
+    // 为什么需要它：Stage 3 的准入前提写的就是"M6 直方图已到手，否则无法证明改了命中集合是变好
+    // 还是变坏"。而原计划的 M6 **从未实现** —— 只有逐条 `[RC] HIT-H key=…`（不带宽度聚合、
+    // 且 `RenderCache` 不在控制台白名单里），既看不到"哪个宽度桶在被反复命中"，也看不到
+    // "有多少桶是**没有查询者**的废桶"。S3.3（借用值转正 + `keys.first` 淘汰）与 S3.4（预热宽度
+    // 收窄）都必须先有这张直方图才能动，否则又是"看起来该优化"。
+    //
+    // 口径：按**宽度**聚合 `cachedHeight` 的命中/未命中次数，5s 节流打一条 `warn`
+    //（`warn` 不受 `consoleMirrorCategories` 白名单限制 ⇒ 真机可直接验收）。
+    private static var m6Hit: [Int: Int] = [:]
+    private static var m6Miss: [Int: Int] = [:]
+    private static var m6LastLogAt: CFAbsoluteTime = 0
+    private static func noteM6(width: Int,hit: Bool) {
+        if hit { m6Hit[width,default: 0] &+= 1 } else { m6Miss[width,default: 0] &+= 1 }
+        let now = CFAbsoluteTimeGetCurrent()
+        guard now-m6LastLogAt >= 5.0 else { return }
+        m6LastLogAt = now
+        func fmt(_ d: [Int: Int]) -> String {
+            d.sorted { $0.value > $1.value }.prefix(6)
+                .map { "w\($0.key)=\($0.value)" }.joined(separator: " ")
+        }
+        AppLogger.shared.warn("[Stage0][M6] HIT-H \(fmt(m6Hit)) ‖ MISS-H \(fmt(m6Miss))", category: "RenderCache")
+    }
+    #endif
 
     /// [Stage 3 · S3.1] 读回该 `(key,width)` 的高度**来源等级**（只读；`nil` = 无条目）。
     /// 供诊断与"我这条低等级值该不该写"的判断使用。
@@ -124,24 +172,33 @@ final class MarkdownRenderCache {
     /// 其唯一调用点改为 `store(height:key:width:grade: .prewarm)`。
     /// （决策不静默丢失：预热"只补不覆盖"的语义由 `.prewarm` 是最低等级**构造性保证**。）
 
-    /// 命中后把 key 移到队尾（真 LRU）。旧实现命中不刷新 order → 退化为 FIFO：
+    /// 命中后刷新 LRU 时间戳（真 LRU）。旧实现命中不刷新 order → 退化为 FIFO：
     /// 386-item 会话里活跃块会被"先入"的冷块挤掉，测量反复 MISS。
+    /// [Stage 3 · S3.2] 从 `firstIndex`+`remove`+`append`（三个 O(n)）改为一次 O(1) 字典写入。
     private func touch(_ key: String) {
-        guard let idx = order.firstIndex(of: key), idx != order.count - 1 else { return }
-        order.remove(at: idx)
-        order.append(key)
+        guard entries[key] != nil else { return }
+        lruClock &+= 1
+        entries[key]?.lruStamp = lruClock
+    }
+
+    /// [Stage 3 · S3.2] 淘汰到 `limit` 以内：取**时间戳最小者**（= 最久未被使用）。
+    /// 与旧实现 `order.removeFirst()` **逐项等价** —— 旧 `order` 的队首正是 LRU 序的最旧者，
+    /// 而 `order.count == entries.count` 恒成立，故 `while entries.count > limit` 与
+    /// `while order.count > limit` 的迭代次数、被淘汰的 key 序列完全相同。
+    private func evictIfNeeded() {
+        while entries.count > limit {
+            guard let victim = entries.min(by: { $0.value.lruStamp < $1.value.lruStamp })?.key else { break }
+            entries.removeValue(forKey: victim)
+        }
     }
 
     func store(attributed: NSAttributedString, key: String) {
         // [2026-09-09 根源修复] 空渲染结果不入库（空 att 会被消费方当有效结果，
         // 曾致 height-only 空串占位连锁出「漏消息」死锁）。
         guard attributed.length > 0, entries[key] == nil else { return }
-        entries[key] = Entry(attributed: attributed)
-        order.append(key)
-        while order.count > limit {
-            let evict = order.removeFirst()
-            entries.removeValue(forKey: evict)
-        }
+        lruClock &+= 1
+        entries[key] = Entry(attributed: attributed, lruStamp: lruClock)
+        evictIfNeeded()
         Self.cacheLogger.info("[RC] STORE-ATT key=\(key) len=\(attributed.length)")
     }
 
@@ -178,13 +235,12 @@ final class MarkdownRenderCache {
             entry.heights[width] = reading
             entries[key] = entry
         } else {
-            var entry = Entry(attributed: nil) // height-only：无富文本，只有高度
+            // height-only：无富文本，只有高度
+            lruClock &+= 1
+            var entry = Entry(attributed: nil, lruStamp: lruClock)
             entry.heights[width] = reading
             entries[key] = entry
-            order.append(key)
-            while order.count > limit {
-                entries.removeValue(forKey: order.removeFirst())
-            }
+            evictIfNeeded()
         }
         Self.cacheLogger.info("[RC] STORE-H key=\(key) w=\(width) h=\(String(format: "%.0f", height)) src=\(grade)")
         return true
@@ -194,7 +250,9 @@ final class MarkdownRenderCache {
     /// 收到系统内存警告时主动释放，避免被 jetsam 直接杀进程。
     func removeAll() {
         entries.removeAll(keepingCapacity: false)
-        order.removeAll(keepingCapacity: false)
+        // [Stage 3 · S3.2] 并行数组 `order` 已删除 ⇒ 此处不再需要同步清理
+        //（旧实现的"两处存储必须一起清"正是它该消失的理由之一）。
+        lruClock = 0
         hitLogAt.removeAll()
     }
 
@@ -1253,6 +1311,9 @@ struct MarkdownView: UIViewRepresentable {
         if bindingFingerprint == coord.cachedSizeFingerprint,
            let cachedHeight = coord.cachedSizes[widthKey] {
             coord.sizeThatFitsCacheHitCount &+= 1
+            #if DEBUG
+            Self.noteCachedSizes(kind: "exact",width: widthKey)
+            #endif
             if callIdx%50 == 0 {
             }
             return floored(cachedHeight)
@@ -1278,9 +1339,15 @@ struct MarkdownView: UIViewRepresentable {
             }
             if let nearestHeight {
                 coord.sizeThatFitsCacheHitCount &+= 1
+                #if DEBUG
+                Self.noteCachedSizes(kind: "borrow",width: widthKey)
+                #endif
                 coord.cachedSizes[widthKey] = nearestHeight
                 if coord.cachedSizes.count>4,let firstKey = coord.cachedSizes.keys.first {
                     coord.cachedSizes.removeValue(forKey: firstKey)
+                    #if DEBUG
+                    Self.noteCachedSizes(kind: "evict",width: firstKey,remaining: Array(coord.cachedSizes.keys))
+                    #endif
                 }
                 return floored(nearestHeight)
             }
@@ -1486,6 +1553,9 @@ struct MarkdownView: UIViewRepresentable {
                     coord.cachedSizes[widthKey] = h
                     if coord.cachedSizes.count>12,let firstKey = coord.cachedSizes.keys.first {
                         coord.cachedSizes.removeValue(forKey: firstKey)
+                        #if DEBUG
+                        Self.noteCachedSizes(kind: "evict",width: firstKey,remaining: Array(coord.cachedSizes.keys))
+                        #endif
                     }
                     coord.cachedSizeFingerprint = bindingFingerprint
                     let renderW = uiView.bounds.width
@@ -1535,6 +1605,9 @@ struct MarkdownView: UIViewRepresentable {
         if coord.cachedSizes.count>12 {
             if let firstKey = coord.cachedSizes.keys.first {
                 coord.cachedSizes.removeValue(forKey: firstKey)
+                #if DEBUG
+                Self.noteCachedSizes(kind: "evict",width: firstKey,remaining: Array(coord.cachedSizes.keys))
+                #endif
             }
         }
 
@@ -1582,6 +1655,26 @@ struct MarkdownView: UIViewRepresentable {
     private static var observerInstalled = false
     private static let windowAlarmThresholdMs: Double = 2000
     private static var alarmAlreadyFiredThisHop = false
+
+    // [Stage 0 · M6b] `coord.cachedSizes`（每 Coordinator 的"±2pt 借用 / 精确宽度"桶）的
+    // **查询与淘汰观测**（只观测）。动机与 M6 同源：S3.3 要判"借用值转正 + `keys.first` 淘汰"
+    // 该不该改，必须先看到①三个分支各被走到多少次、②被淘汰的是哪个宽度桶、③现存桶里有多少是
+    // **没有查询者**的废桶（例如 `Int(cvWidth)`=402 与 `contentWidth`=370 之外的杂桶）。
+    // 5s 节流打一条 `warn`（不受控制台白名单限制）。
+    private static var m6bCounts: [String: [Int: Int]] = [:]
+    private static var m6bLastLogAt: CFAbsoluteTime = 0
+    static func noteCachedSizes(kind: String,width: Int,remaining: [Int] = []) {
+        m6bCounts[kind,default: [:]][width,default: 0] &+= 1
+        let now = CFAbsoluteTimeGetCurrent()
+        guard now-m6bLastLogAt >= 5.0 else { return }
+        m6bLastLogAt = now
+        func fmt(_ kind: String) -> String {
+            (m6bCounts[kind] ?? [:]).sorted { $0.value > $1.value }.prefix(6)
+                .map { "w\($0.key)=\($0.value)" }.joined(separator: " ")
+        }
+        let alive = remaining.isEmpty ? "—" : remaining.sorted().map(String.init).joined(separator: ",")
+        AppLogger.shared.warn("[Stage0][M6b] cachedSizes 精确命中[\(fmt("exact"))] 借用±2[\(fmt("borrow"))] 淘汰[\(fmt("evict"))] 现存桶=\(alive)", category: "RenderCache")
+    }
 
     // MARK: - [Stage 0] 实例归因（M1）与探针成本（M2）
     //
