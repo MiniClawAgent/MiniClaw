@@ -107,10 +107,10 @@ struct AboutView: View {
                 }
             }
 
-            Section(String(localized: "open_source_components")) {
-                Text(String(localized: "swiftsoup_html_parsing_n_highlightr_code_highlighting_n_markdownui_markdown_rendering"))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+            Section(String(localized: "acknowledgements")) {
+                NavigationLink(String(localized: "acknowledgements")) {
+                    DocumentView(filename: "鸣谢.md", title: String(localized: "acknowledgements"))
+                }
             }
         }
         .scrollContentBackground(.hidden)

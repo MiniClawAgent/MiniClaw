@@ -340,6 +340,7 @@
 		E6E9A1D051EFC9C00CDA97D8743E88B0 /* MemoryConsolidator.swift in Sources */ = {isa = PBXBuildFile; fileRef = C80091A028DB9E375C20C63688606843 /* MemoryConsolidator.swift */; };
 		E95921DE95B8E2EDD36DB97D918A5690 /* EquatableContextMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = 347407897B8CD20CC53EB20FE74A6141 /* EquatableContextMenu.swift */; };
 		EA0A3B6498EA15228CB18C1A3D63477A /* ResponsesModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A49827911C52565BC78EE4F78DD00EA0 /* ResponsesModels.swift */; };
+		EB58F0E8305C2CD0008DF8C1 /* 鸣谢.md in Resources */ = {isa = PBXBuildFile; fileRef = EB58F0E7305C2CD0008DF8C1 /* 鸣谢.md */; };
 		EB6987B5D4F96426B67166CAFA9221B2 /* utf8.c in Sources */ = {isa = PBXBuildFile; fileRef = D95B2865CAB7D1785473216DE83E3AE9 /* utf8.c */; };
 		EB70C3259A7870DD51596A25C57B59D1 /* ToolCallCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA6E45359D383E487F49413BA2D10CC0 /* ToolCallCardView.swift */; };
 		EC64F49110B940D1A27E5C3671B5C5CE /* footnotes.c in Sources */ = {isa = PBXBuildFile; fileRef = D53F06A5CB4C8287CB98B739F8066B83 /* footnotes.c */; };
@@ -802,6 +803,7 @@
 		EA0032E73661286B4405321FFC1FDC3C /* SkillManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkillManager.swift; sourceTree = "<group>"; };
 		EA40CC1388F6FF28B9C295A1121ACC0A /* Syncable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Syncable.swift; sourceTree = "<group>"; };
 		EA91705FFD79378F4690030D702769F5 /* ShareExtension.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = ShareExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		EB58F0E7305C2CD0008DF8C1 /* 鸣谢.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "鸣谢.md"; sourceTree = "<group>"; };
 		ED3D1E7412ACE2CC16656D6820D9977C /* AgentTask.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentTask.swift; sourceTree = "<group>"; };
 		EEEEA0567F3E2281EF1D9DA6A8461747 /* OAuthKeychainStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OAuthKeychainStorage.swift; sourceTree = "<group>"; };
 		EF0B9C431715CD8FD9D37FAB2B54D26A /* ChatMemoryModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatMemoryModels.swift; sourceTree = "<group>"; };
@@ -1355,6 +1357,7 @@
 				6D3CB996001168F6BF88870B4D021B5D /* 关于MiniClaw.md */,
 				16142978646F1EAA382427EC5D2A0913 /* 用户使用协议.md */,
 				35251459BCF4180292EA1EA08A8AC961 /* 用户隐私政策.md */,
+				EB58F0E7305C2CD0008DF8C1 /* 鸣谢.md */,
 			);
 			name = AboutDocs;
 			path = MiniClaw/Resources/AboutDocs;
@@ -1784,6 +1787,7 @@
 				B5A8FA7F503F213B5928011CAD598DC0 /* 关于MiniClaw.md in Resources */,
 				5B4CD5C0666F323F2AB75AC1AB724846 /* 用户使用协议.md in Resources */,
 				0FF49465308C9E3A2BD44603AE17666F /* 用户隐私政策.md in Resources */,
+				EB58F0E8305C2CD0008DF8C1 /* 鸣谢.md in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

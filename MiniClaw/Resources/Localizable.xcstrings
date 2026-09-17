@@ -39317,31 +39317,31 @@
         }
       }
     },
-    "open_source_components" : {
+    "acknowledgements" : {
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Open-source components"
+            "value" : "Acknowledgments"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "オープンソースコンポーネント"
+            "value" : "謝辞"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "오픈소스 구성요소"
+            "value" : "감사의 글"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "开源组件"
+            "value" : "鸣谢"
           }
         }
       }
@@ -57061,64 +57061,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "支持"
-          }
-        }
-      }
-    },
-    "swiftsoup_html_parsing_highlightr_code_highlighting_markdownui_markdown_rendering" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "• SwiftSoup – HTML parsing\n• Highlightr – code highlighting\n• MarkdownUI – Markdown rendering"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "• SwiftSoup – HTML 解析\n• Highlightr – コードハイライト\n• MarkdownUI – Markdown レンダリング"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "• SwiftSoup – HTML 파싱\n• Highlightr – 코드 하이라이트\n• MarkdownUI – Markdown 렌더링"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "• SwiftSoup - HTML 解析\n• Highlightr - 代码高亮\n• MarkdownUI - Markdown 渲染"
-          }
-        }
-      }
-    },
-    "swiftsoup_html_parsing_n_highlightr_code_highlighting_n_markdownui_markdown_rendering" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "• SwiftSoup - HTML parsing\n• Highlightr - code highlighting\n• MarkdownUI - Markdown rendering"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "• SwiftSoup - HTML 解析\n• Highlightr - コードハイライト\n• MarkdownUI - Markdown レンダリング"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "• SwiftSoup - HTML 파싱\n• Highlightr - 코드 하이라이트\n• MarkdownUI - Markdown 렌더링"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "• SwiftSoup - HTML 解析\n• Highlightr - 代码高亮\n• MarkdownUI - Markdown 渲染"
           }
         }
       }
