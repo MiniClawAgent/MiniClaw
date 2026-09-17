@@ -365,6 +365,25 @@ public final class MessageListLayout: UICollectionViewLayout {
                 var diverged = 0
                 var worst: CGFloat = 0
                 var worstIdx = -1
+                // [Stage 0 · M18] **判别 M15 的背离是「应用时序」还是「真分叉」**（只观测）。
+                //
+                // 动机（本会话第 11 次自纠）：M15 埋在本方法里，而本方法是**产出属性**的时刻 ——
+                // 集合视图**尚未**把本轮返回的属性应用到 cell 上。因此只要本轮几何变过，
+                // `cell.frame` 必然还是上一轮的 ⇒ M15 读到的"背离"结构上必然非零，
+                // 与"帧模型到底有没有分叉"无关。真机日志的形状正是如此：
+                //   `M15 最坏=24.0pt @idx=25 :: M16 最近一次提交 idx=25 delta=24.0`
+                // 背离值**逐位等于刚刚提交的 delta**；而 `.measured` 提交**不可能被 `setEntry` 拒绝**
+                //（`rank(.measured)==3` 已最高，闸门条件 `rank(existing)>rank(source)` 恒假）
+                // ⇒ `heightEntries` 必已是新值 ⇒ 若 `prepare()` 已重跑，`itemAttributes` 也是新值
+                // ⇒ 与 `cell.frame` 之差只可能是"本轮还没应用"，不是存储与模型的分叉。
+                //
+                // 判别键 = **上一轮本方法实际返回过的 frame**（`lastEmittedFrames`）：
+                //   · `cell.frame ≈ lastEmitted` ⇒ 集合视图**如实采用**了我们给它的帧
+                //     ⇒ 与 `itemAttributes` 的差 = 本轮尚未应用 ⇒ `lag`（非分叉）；
+                //   · 两者都不等 ⇒ 屏上帧既不等于旧模型、也不等于新模型 ⇒ `fork`（真分叉）。
+                // 只有 `fork > 0` 才构成 S2.12 的准入证据。
+                var lag = 0
+                var fork = 0
                 for cell in cv.visibleCells {
                     guard let ip = cv.indexPath(for: cell), ip.item < itemAttributes.count else { continue }
                     let a = itemAttributes[ip.item].frame
@@ -372,13 +391,19 @@ public final class MessageListLayout: UICollectionViewLayout {
                     if d > 1 {
                         diverged += 1
                         if d > worst { worst = d; worstIdx = ip.item }
+                        if let prev = Self.lastEmittedFrames[ip.item] {
+                            let dp = max(abs(cell.frame.minY-prev.minY), abs(cell.frame.height-prev.height))
+                            if dp <= 1 { lag += 1 } else { fork += 1 }
+                        } else {
+                            fork += 1
+                        }
                     }
                 }
                 if diverged > 0 {
                     Self.frameDivergenceHits &+= 1
                     // [Stage 0 · M16] 判别"提交之后 prepare() 有没有重跑"（见 invalidationContext 内说明）。
                     let ranPrepare = Self.prepareCallCount != Self.lastCommitPrepareCount
-                    AppLogger.shared.warning("[Stage0][M15] ⚠️ 屏上帧与布局帧背离 divergedCells=\(diverged)/\(cv.visibleCells.count) 最坏=\(String(format: "%.1f", worst))pt @idx=\(worstIdx) scroll=\((cv.isDragging) ? "drag" : (cv.isDecelerating ? "decel" : "idle")) :: M16 最近一次提交 idx=\(Self.lastCommitIdx) delta=\(String(format: "%.1f", Self.lastCommitDelta)) preparesThen=\(Self.lastCommitPrepareCount) preparesNow=\(Self.prepareCallCount) ⇒ \(ranPrepare ? "提交后【已】重跑 prepare（背离另有原因）" : "提交后【未】重跑 prepare ⇒ itemAttributes 未跟上")", category: "ChatList.CellMetrics")
+                    AppLogger.shared.warning("[Stage0][M15] ⚠️ 屏上帧与布局帧背离 divergedCells=\(diverged)/\(cv.visibleCells.count) 最坏=\(String(format: "%.1f", worst))pt @idx=\(worstIdx) scroll=\((cv.isDragging) ? "drag" : (cv.isDecelerating ? "decel" : "idle")) :: M16 最近一次提交 idx=\(Self.lastCommitIdx) delta=\(String(format: "%.1f", Self.lastCommitDelta)) preparesThen=\(Self.lastCommitPrepareCount) preparesNow=\(Self.prepareCallCount) ⇒ \(ranPrepare ? "提交后【已】重跑 prepare（背离另有原因）" : "提交后【未】重跑 prepare ⇒ itemAttributes 未跟上") :: M18 应用滞后=\(lag) 真分叉=\(fork)（分叉>0 才是 S2.12 的准入证据）", category: "ChatList.CellMetrics")
                 } else {
                     Self.frameDivergenceClean &+= 1
                 }
@@ -400,6 +425,12 @@ public final class MessageListLayout: UICollectionViewLayout {
             if attrs.frame.minY>expandedRect.maxY { break }
             result.append(attrs)
         }
+
+        #if DEBUG
+        // [Stage 0 · M18] 记录**本轮实际返回给集合视图的帧**（下一轮据此判别
+        // "应用滞后 vs 真分叉"）。只读观测：不改返回值、不改几何。
+        for attrs in result { Self.lastEmittedFrames[attrs.indexPath.item] = attrs.frame }
+        #endif
 
         return result
     }
@@ -474,6 +505,9 @@ public final class MessageListLayout: UICollectionViewLayout {
     private static var frameDivergenceHits = 0
     private static var frameDivergenceClean = 0
     private static var frameDivergenceLastLogAt: CFAbsoluteTime = 0
+    /// [Stage 0 · M18] **上一轮 `layoutAttributesForElements` 实际返回过的帧**（见 M18 内说明）。
+    /// 这是判别"应用时序 vs 真分叉"的唯一判据键：集合视图只能应用我们**给过**的帧。
+    private static var lastEmittedFrames: [Int: CGRect] = [:]
     static func frameDivergenceSummary() -> String {
         "M15屏上背离=\(frameDivergenceHits)/自洽\(frameDivergenceClean)次"
     }
