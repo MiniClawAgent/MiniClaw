@@ -27,11 +27,6 @@ actor MCPToolDiscoveryCache {
         forceRefresh: Bool = false
     ) async throws -> [MCPRemoteToolDefinition] {
         if !forceRefresh {
-            // 失败负缓存：近期失败的服务器快速跳过（不可达服务器每次连接都要等超时）
-            if let failedAt = failures[server.id],
-               Date().timeIntervalSince(failedAt) < failureTTL {
-                throw DiscoveryTimeout()
-            }
             if let entry = entries[server.id] {
                 let age = Date().timeIntervalSince(entry.fetchedAt)
                 if age < lifetime {
@@ -57,6 +52,23 @@ actor MCPToolDiscoveryCache {
                     }
                 }
                 return entry.definitions
+            }
+            // [2026-09-17 治本·顺序] **先查表、后查失败名单**（原顺序相反）。
+            //
+            // 原实现把失败检查放在 `entries` 之前：一台服务器刚失败过（含 >3s 发现超时），
+            // 即使表里有完整的旧工具表，这一轮也会 `throw DiscoveryTimeout()` ⇒ 调用方丢掉它的
+            // **全部工具** ⇒ 本轮 tools schema 变 ⇒ 上下文缓存从 tools 段整段失效，
+            // 且模型突然少了一批本来会用的工具。这与本缓存存在的意义（固定工具表伴随生命周期）直接冲突。
+            //
+            // 语义修正：**失败只决定"要不要后台刷新"，不决定"工具在不在"**。
+            // 有表就用表；真不可达时调用会在执行阶段以明确错误返回，而不是让工具凭空消失。
+            // 失败名单只在"从来没有成功拉过表"时决定是否跳过。
+            // 注意：本检查位于 `if !forceRefresh` 之内 —— `forceRefresh: true` 必须能绕过它，
+            // 否则「手动强刷」会被失败负缓存挡住，逃生口失效。
+            if let failedAt = failures[server.id],
+               Date().timeIntervalSince(failedAt) < failureTTL {
+                AppLogger.shared.info("[MCP-发现] \(server.name): 无可用旧表且近期失败过，本轮跳过发现")
+                throw DiscoveryTimeout()
             }
         }
         AppLogger.shared.info("[MCP-发现] \(server.name): listTools 开始 (forceRefresh=\(forceRefresh))")
