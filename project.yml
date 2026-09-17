@@ -11,7 +11,7 @@ settings:
     # 2026-08-31:版本号唯一真相源。此前主 App / Widget / ShareExtension 各自硬编码
     # 8 / 5 / 1，扩展与宿主不一致会在上传校验阶段直接报错。三份 Info.plist 现统一
     # 填 $(CURRENT_PROJECT_VERSION) / $(MARKETING_VERSION)，发版只改这里。
-    CURRENT_PROJECT_VERSION: "9"
+    CURRENT_PROJECT_VERSION: "10"
     MARKETING_VERSION: "1.0"
     SWIFT_VERSION: "6.0"
     SWIFT_OBJC_BRIDGING_HEADER: "MiniClaw/MiniClaw-Bridging-Header.h"
