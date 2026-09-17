@@ -365,6 +365,20 @@ public final class MessageListLayout: UICollectionViewLayout {
     private static var seedViolations: [String: (n: Int,worstPref: CGFloat,seeds: Set<Int>,src: String)] = [:]
     private static var seedViolationLastLogAt: CFAbsoluteTime = 0
     private static var seedViolationTotal = 0
+    /// [判据修正 2] `pref ≈ 0`（PLAF 返回 0 高度）的计数：与"播种偏高""测量偏矮"是**三个**缺陷。
+    private static var zeroPrefTotal = 0
+    private static var zeroPrefByProducer: [String: Int] = [:]
+    private static var zeroPrefLastLogAt: CFAbsoluteTime = 0
+    static func noteZeroPreferredHeight(producer: String,orig: CGFloat) {
+        zeroPrefTotal &+= 1
+        zeroPrefByProducer[producer,default: 0] &+= 1
+        let now = CFAbsoluteTimeGetCurrent()
+        guard now-zeroPrefLastLogAt >= 5.0 else { return }
+        zeroPrefLastLogAt = now
+        let body = zeroPrefByProducer.sorted { $0.value > $1.value }.prefix(6)
+            .map { "\($0.key) n=\($0.value)" }.joined(separator: " | ")
+        AppLogger.shared.warn("[Stage0][M23] ⚠️ PLAF 返回 0 高度（会先塌成 0 再长回）：共\(zeroPrefTotal)次 ‖ \(body) — 与「播种偏高」「测量偏矮」分开记账", category: "ChatList.CellMetrics")
+    }
     /// [判据修正] "声明了固定高度的类型被测量压低"的计数（与"播种偏高"是**两个**缺陷）。
     private static var authoredUnderTotal = 0
     private static var authoredUnderWorst: [String: CGFloat] = [:]
@@ -623,7 +637,12 @@ public final class MessageListLayout: UICollectionViewLayout {
         if let e = heightEntries[index],e.source != .measured,origH > 1,
            prefH < origH-0.5 {
             let producer = e.provenance ?? "unknown(\(e.source.rawValue))"
-            if producer.hasPrefix("authored#") {
+            if prefH <= 1 {
+                // [判据修正 2026-09-17 第二次] `pref ≈ 0` = **PLAF 返回了 0 高度**，那是**另一个缺陷**
+                //（cell 尚未承载内容就被问成型高度，或成型测量真的返回 0），不是"播种偏高"。
+                // 首轮机它占了 32/43 = 74% 的账面，把真 offender 挤到了看不见 —— 故必须单列。
+                Self.noteZeroPreferredHeight(producer: producer,orig: origH)
+            } else if producer.hasPrefix("authored#") {
                 // [判据修正 2026-09-17] 对"高度由视图声明"的类型，`pref` **不是真值** ——
                 // 真值就是声明值本身。此时 `pref < orig` 反映的是**测量偏矮**（会把胶囊裁掉），
                 // 是**另一个缺陷**，必须单列，不能混进"播种偏高"的账里（否则读数是假的）。
