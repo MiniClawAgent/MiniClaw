@@ -183,33 +183,25 @@ public final class AssistantBlock: Identifiable,ObservableObject {
     @Published public var kind: AssistantBlockKind
     @Published public var content: String
 
-    /// NOT @Published: as a published property every
-    public var contentUpdateSeq: Int = 0
+    // [Stage 1 · §6.3 A2/A3 链式删除] 此处原有两个成员：
+    //   · `public var contentUpdateSeq: Int = 0` —— 全库**零读者**（唯一的写点原本就在下方被删的函数里）；
+    //   · `public func appendThinkingDelta(_:)` —— 全库**零调用者**（`git grep -n appendThinkingDelta -- '*.swift' .`
+    //     仅命中定义处）。
+    // ⚠️ **顺带查出的既存事实（不是本次删除造成的，删除前就已成立）**：`appendThinkingDelta` 是
+    // `thinkingContentBuffer` 的**唯一写者**。它零调用 ⇒ `thinkingContentBuffer` **恒为空**
+    // ⇒ `flushThinkingBuffer()` 的守卫 `thinkingContentBuffer.count > content.count` 恒假
+    // ⇒ 该函数目前是**保证 no-op**（`AssistantBlockView.swift:286-287` 里那次读取同样恒为 0）。
+    // 也就是说"思考增量缓冲→节流 flush"这条机制在当前代码里**已经是死的**（正文实际由 Bridge 直写
+    // `content`）。此处只删"已证零引用"的两项；`thinkingContentBuffer` / `flushThinkingBuffer`
+    // 仍有读取点，属**功能形态**的删除 ⇒ 留待裁决，不擅自扩大范围。
 
     public var thinkingContentBuffer: String = ""
 
-    public func appendThinkingDelta(_ delta: String) {
-        thinkingContentBuffer += delta
-        contentUpdateSeq += 1
-    }
-
-    // Adaptive flush throttle for streaming thinking
-    // <1K → 0.3s (short content: responsiveness first, current behavior)
-    // 1-3K → 0.6s
-    // ≥3K → 1.0s (cap: long content is about overall motion, not word
-    // tracking, but 1.0s keeps the tail visibly alive)
-    public static let thinkingFlushTiers: [(maxLength: Int,interval: TimeInterval)] = [
-        (1_000,0.3),
-        (3_000,0.6),
-        (Int.max,1.0),
-    ]
-
-    public static func thinkingFlushInterval(forLength length: Int) -> TimeInterval {
-        for tier in thinkingFlushTiers where length<tier.maxLength {
-            return tier.interval
-        }
-        return thinkingFlushTiers[thinkingFlushTiers.count-1].interval
-    }
+    // [Stage 1 · §6.3 A3 链式删除] 此处原有 `thinkingFlushTiers`（4 档阈值表，10 行）与
+    // `thinkingFlushInterval(forLength:)`。二者**互相成链且全库零调用**：
+    // `git grep -n thinkingFlushInterval -- '*.swift' .` 只命中定义处，而 `thinkingFlushTiers`
+    // 的唯一读者就是该函数 ⇒ 一并删除（表中记录的"档位决策"已由 `flushThinkingBuffer` 的
+    // 恒 no-op 事实取代，见上）。
 
     public func flushThinkingBuffer() {
         guard kind == .thinking,thinkingContentBuffer.count>content.count else { return }
