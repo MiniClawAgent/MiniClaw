@@ -225,8 +225,16 @@ public final class AssistantBlock: Identifiable,ObservableObject {
     public var toolStartTime: Date?
     /// True when this tool block was force-finalized
     @Published public var wasBackgroundSuspended: Bool = false
-    @Published public var cachedMarkdown: MarkdownContent?
-    @Published public var cachedAttributedString: NSAttributedString?
+    /// [Stage 2 · A1] **不再 @Published**：这两个属性是**纯缓存**（渲染结果回写/预渲染），
+    /// 写入不应触发 `objectWillChange` → `body` 重算。作为 `@Published` 时，
+    /// `onRendered` 回调（`MarkdownView.sizeThatFits` 内）每次写入都会引发 4 处
+    /// `@ObservedObject` 的 `body` 重算 → 4 个新的 `MarkdownView` → 4 次 `updateUIView`
+    /// → 构成"布局↔渲染"反馈环（实测 `Publishing changes from within view updates` fault）。
+    /// 消费方全部通过**直接属性读**获取值（`AssistantBlockView:686-687`、`Snapshot:519/:753`、
+    /// `Heights:366` 等），不依赖 `@Published` 触发。
+    /// 同类先例：`contentUpdateSeq`（`:161`）与 `cachedAttrFingerprint`（`:211`）同为非 `@Published`。
+    public var cachedMarkdown: MarkdownContent?
+    public var cachedAttributedString: NSAttributedString?
     /// [2026-09-09 截短锁死修复] 上面缓存对应的内容指纹（写入时
     /// `ContentFingerprint.of(content)`，非 @Published——纯内部簿记，不驱动 UI）。
     /// 采用方（MarkdownView prebuilt
