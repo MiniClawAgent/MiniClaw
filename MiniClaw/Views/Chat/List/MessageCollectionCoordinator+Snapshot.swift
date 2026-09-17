@@ -711,7 +711,12 @@ extension MessageCollectionView.Coordinator {
                 if errored || canResumeFlag {
                     footerEstimate = 48
                 } else if isActive || (footerMsg?.footerShowsQuietStatusRow ?? false) {
-                    footerEstimate = 18
+                    // [治本 2026-09-17] 原为字面量 `18`。真机 M24 实测该行成型 = **16.3**，
+                    // 而 `caption 行高(14.32) + .padding(.top,2) = 16.32` ⇒ **完全吻合**
+                    //（视图定义：`Text("replying").font(.caption)` + `.padding(.top,2)`）。
+                    // ⇒ 改为由**视图同源度量**推导（字面量 18 比真值高 1.7pt ⇒ 空白）。
+                    footerEstimate = FontSettings.shared.scaledMessage(
+                        UIFont.preferredFont(forTextStyle: .caption1).lineHeight) + 2
                 }
             }
 
