@@ -806,6 +806,12 @@ extension MessageCollectionView.Coordinator {
                                 // 而屏上 TextKit 需要 1379）。故本分支**不回写**：权威值由渲染
                                 // 路径按新渲染串实测后写回（`sizeThatFits` 的 mtv/尾部路径），
                                 // 口径与渲染同源。下方非附件分支的输入与渲染一致，仍照常回写。
+                            } else if let authored = block.kind.authoredHeight {
+                                // [治本 2026-09-17] **声明了固定高度的类型，禁止走文本测量**。
+                                // 真机证据：`precalc.ct 种子2764 → 真值20.3` —— CT 量的是块里的
+                                // **文字**，而该类型渲染的是固定 36pt 的胶囊 ⇒ 帧被写成 2764pt，
+                                // 屏上就是那片空白。类型自己声明高度后，这条链对它**整条不适用**。
+                                height = authored - SelfSizingCell.assistantBlockVerticalChrome
                             } else {
                                 height = MarkdownView.ctFramesetterHeight(for: attrStr,width: textWidth) + 8
                                 // 回写统一缓存（下次进入/预填充命中，不再重复计算）。
@@ -843,7 +849,9 @@ extension MessageCollectionView.Coordinator {
                 // `messages.first(where:)` + `blocks.first(where:)` 的 **O(n) 查找**，
                 // 而这里 `block` 就在手上 —— 收口不应引入新的扫描成本。
                 default:
-                    layout.setEstimatedHeight(block.kind.seedFallbackHeight(content: block.content),provenance: "est.seedFallbackHeight#\(String(describing: block.kind).prefix(14))",at: i)
+                    layout.setEstimatedHeight(block.kind.seedFallbackHeight(content: block.content),provenance: block.kind.authoredHeight != nil
+                                        ? "authored#\(String(describing: block.kind).prefix(14))"
+                                        : "est.seedFallbackHeight#\(String(describing: block.kind).prefix(14))",at: i)
                 }
 
             case .wholeMessage(let msgId):

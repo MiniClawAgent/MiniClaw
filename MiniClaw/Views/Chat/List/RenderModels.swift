@@ -35,7 +35,31 @@ public enum AssistantBlockKind: Equatable {
 extension AssistantBlockKind {
     /// ⚠️ 必须是**实例**方法（`switch self` 切的是枚举值）；写成 `static` 会让 `self` 变成
     /// `AssistantBlockKind.Type` 元类型，`case .readImageTool` 等模式将无法匹配（编译错）。
+    /// [治本 2026-09-17] **渲染高度由视图作者写死的那些类型，在此声明它的高度（唯一来源）。**
+    ///
+    /// 为什么必须有这个声明：真机 M21 两轮机证据显示，这类"固定高度"的块被**文本测量**的生产者
+    /// 喂过高度 —— 而文本测量量的是**内容文字**，不是胶囊的固定高度。后果两个方向都出：
+    ///   · 量成 `2764`（真值 20.3）⇒ **屏上大片空白**（用户截图的形状；同族还有 205/181/120/109/86）；
+    ///   · 量成 `20.3`（声明值 36）⇒ 胶囊被**裁切** 16pt。
+    /// ⇒ 类型自己声明高度后：**播种值 = 声明值 = 渲染值**（同一个常量），既不可能偏高（无空白），
+    /// 也不该被文本测量压低（测量只能"加"不能"减"）。
+    ///
+    /// 取值依据：`ToolCapsuleView` 的 body 里写着 `.frame(height: 36)`（`AssistantBlockView.swift:147`）
+    /// —— 也就是**视图自己的定义**，不是估计值。`nil` = 该类型的高度随内容变化（正文/思考/info 等），
+    /// 必须走测量。
+    var authoredHeight: CGFloat? {
+        switch self {
+        case .shellTool, .fileReadTool, .fileWriteTool, .fileEditTool,
+             .browserTool, .readImageTool, .memoryTool, .subagentTool:
+            return 36   // = ToolCapsuleView 的 .frame(height: 36)
+        default:
+            return nil
+        }
+    }
+
     func seedFallbackHeight(content: String) -> CGFloat {
+        // [治本] 声明了固定高度的类型：**播种直接取声明值**，不再猜（这样播种不可能偏高）。
+        if let authored = authoredHeight { return authored }
         switch self {
         case .readImageTool: return 36
         case .file: return 40

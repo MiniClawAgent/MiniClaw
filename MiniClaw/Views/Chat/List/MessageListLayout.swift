@@ -365,6 +365,21 @@ public final class MessageListLayout: UICollectionViewLayout {
     private static var seedViolations: [String: (n: Int,worstPref: CGFloat,seeds: Set<Int>,src: String)] = [:]
     private static var seedViolationLastLogAt: CFAbsoluteTime = 0
     private static var seedViolationTotal = 0
+    /// [判据修正] "声明了固定高度的类型被测量压低"的计数（与"播种偏高"是**两个**缺陷）。
+    private static var authoredUnderTotal = 0
+    private static var authoredUnderWorst: [String: CGFloat] = [:]
+    private static var authoredUnderLastLogAt: CFAbsoluteTime = 0
+    static func noteAuthoredUnderMeasurement(producer: String,declared: CGFloat,measured: CGFloat) {
+        authoredUnderTotal &+= 1
+        let gap = declared-measured
+        if gap > (authoredUnderWorst[producer] ?? 0) { authoredUnderWorst[producer] = gap }
+        let now = CFAbsoluteTimeGetCurrent()
+        guard now-authoredUnderLastLogAt >= 5.0 else { return }
+        authoredUnderLastLogAt = now
+        let body = authoredUnderWorst.sorted { $0.value > $1.value }.prefix(6)
+            .map { "\($0.key) 最坏低\(String(format: "%.1f", $0.value))pt" }.joined(separator: " | ")
+        AppLogger.shared.warn("[Stage0][M22] ⚠️ **测量低于类型声明高度**（会裁切固定高度视图）：共\(authoredUnderTotal)次 ‖ \(body) — 与「播种偏高」是两个缺陷，分开记账", category: "ChatList.CellMetrics")
+    }
     static func noteSeedViolation(seed: CGFloat,pref: CGFloat,producer: String) {
         var v = seedViolations[producer] ?? (0,pref,[],producer)
         v.n &+= 1
@@ -607,8 +622,15 @@ public final class MessageListLayout: UICollectionViewLayout {
         // 这枚探针就是为了让"谁对"先有数据、再动手。
         if let e = heightEntries[index],e.source != .measured,origH > 1,
            prefH < origH-0.5 {
-            Self.noteSeedViolation(seed: origH,pref: prefH,
-                                   producer: e.provenance ?? "unknown(\(e.source.rawValue))")
+            let producer = e.provenance ?? "unknown(\(e.source.rawValue))"
+            if producer.hasPrefix("authored#") {
+                // [判据修正 2026-09-17] 对"高度由视图声明"的类型，`pref` **不是真值** ——
+                // 真值就是声明值本身。此时 `pref < orig` 反映的是**测量偏矮**（会把胶囊裁掉），
+                // 是**另一个缺陷**，必须单列，不能混进"播种偏高"的账里（否则读数是假的）。
+                Self.noteAuthoredUnderMeasurement(producer: producer,declared: origH,measured: prefH)
+            } else {
+                Self.noteSeedViolation(seed: origH,pref: prefH,producer: producer)
+            }
         }
         #endif
 
