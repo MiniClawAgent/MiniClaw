@@ -77,7 +77,13 @@ public final class MessageListLayout: UICollectionViewLayout {
     }
 
     public func setEstimatedHeight(_ height: CGFloat,at index: Int) {
-        setEntry(height, source: .estimated, at: index)
+        // [Stage 2 · S2.13 第 1 刀] 被拒时**给调用方一个信号**（不再静默丢弃返回值）。
+        // 播种方（Snapshot/configureCell）被拒时以为"已写入"，后续 `prepare()` 读到的
+        // 却是旧值 ⇒ "cell 停在旧短值"与"est/pref 差距"的成因之一。
+        // M17 探针已证明被拒确实发生（`reason=priority want=.estimated@236 have=.measured@318`）。
+        if !setEntry(height, source: .estimated, at: index) {
+            AppLogger.shared.warning("[S2.13] setEstimatedHeight 被拒 idx=\(index) want=\(String(format: "%.1f", height)) — 调用方不应假设已写入", category: "ChatList.CellMetrics")
+        }
     }
 
     public func setPrecalcHeight(_ height: CGFloat,at index: Int) {
@@ -138,19 +144,30 @@ public final class MessageListLayout: UICollectionViewLayout {
         // 净效果：陈旧高度永久压住新内容，且 `.missing` 每轮重试、每轮失败。这正是 S15
         // 想消灭的"旧实测值永久滞留"，只是断点藏在这个闸门里。
         // 判据与 `currentEntry` **同源**：键不一致即视为无条目 ⇒ 允许覆盖。
-        if let existing = currentEntry(at: index), rank(existing.source) > rank(source) {
-            #if DEBUG
-            // [Stage 0 · M17] **静默拒绝**观测（只观测；拒绝本身是设计正确的，不予取消）。
-            // 上方注释自述：「新值**被静默拒绝**（调用方不看返回值，没有任何信号）」——
-            // 而 `setEntry` 的四个调用点里有**三个丢弃返回值**：
-            //   `:80 setEstimatedHeight` / `:84 setPrecalcHeight` / `:418 applyDeferredHeights`
-            // （只有 `:613` 检查并打 warn）。被拒时 `heightEntries` 保持旧值，而调用方以为已写入
-            // ⇒ 这正是"调用方意图"与"存储实际值"失配、且**日志完全看不见**的那一类。
-            // 本探针只把这条通道变成可观测：统计两个拒绝原因 + 1s 节流明细。
-            Self.noteSetEntryRejected(index: index, source: source, height: height,
-                                      reason: "priority", existing: existing)
-            #endif
-            return false
+        // [Stage 2 · S2.13 第 2 刀] **流式 cell（key=nil）的旧 .measured 不应压住新内容的估算**：
+        // 流式 cell 的 `contentKey` 被刻意置 nil（configureCell 显式置 nil），其旧 `.measured`
+        // 属于**上一版内容**（流式内容的旧高度），不应按"更高等级"阻止新内容的 `.estimated` 写入。
+        // 判据：`source == .estimated && contentKeyByIndex[index] == nil && existing.source == .measured`
+        // ⇒ 放行覆盖（跳过优先级闸门），让新内容的估算能落地。
+        // M17 实测：`reason=priority want=.estimated@236.0 have=.measured@318.0 idx=28` 即此形态。
+        let keyIsNil = contentKeyByIndex[index] == nil
+        if let existing = currentEntry(at: index) {
+            let streamingOverride = source == .estimated && keyIsNil && existing.source == .measured
+            if rank(existing.source) > rank(source), !streamingOverride {
+                #if DEBUG
+                // [Stage 0 · M17] **静默拒绝**观测（只观测；拒绝本身是设计正确的，不予取消）。
+                // 上方注释自述：「新值**被静默拒绝**（调用方不看返回值，没有任何信号）」——
+                // 而 `setEntry` 的四个调用点里有**三个丢弃返回值**：
+                //   `:80 setEstimatedHeight` / `:84 setPrecalcHeight` / `:418 applyDeferredHeights`
+                // （只有 `:613` 检查并打 warn）。被拒时 `heightEntries` 保持旧值，而调用方以为已写入
+                // ⇒ 这正是"调用方意图"与"存储实际值"失配、且**日志完全看不见**的那一类。
+                // 本探针只把这条通道变成可观测：统计两个拒绝原因 + 1s 节流明细。
+                // [Stage 2 · S2.13] `streamingOverride` 为 true 时不再走此路径（见上方说明）。
+                Self.noteSetEntryRejected(index: index, source: source, height: height,
+                                          reason: "priority", existing: existing)
+                #endif
+                return false
+            }
         }
         // [2026-09-09 NaN 治理·单一入口闸门] 高度必须是**有限非负值**。
         // 布局循环这里做 `attrs.frame = …; y += h` 累加，一个 inf 条目就会让
