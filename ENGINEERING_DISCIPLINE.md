@@ -237,3 +237,21 @@ xcodebuild build -project MiniClaw.xcodeproj -scheme MiniClaw \
 7. **不要**在没编译通过的情况下告诉用户"修好了"
 8. **不要**用"把常数/阈值改准"的方式修 bug —— 那是补丁。先问"这个事实为什么会有两份定义/为什么会被猜"，
    消除重复与猜测本身；**无法用不变式或单一来源表达"修好了"的方案，视为无效调整**（S5 / 反例 #1）
+
+---
+
+## 纪律增补（2026-09-17）：引用 `#if DEBUG` 里的符号必须同样 gate，**并验 Release**
+
+**事故**：给日志降噪时，把几处探针打点包进 `if ScrollMetricsRecorder.shared.isEnabled { … }`，
+但 `ScrollMetricsRecorder` **自身声明在 `#if DEBUG` 里** ⇒ **Release 编译失败**
+（用户在 Xcode 里构建 Release 时暴露：`Cannot find 'ScrollMetricsRecorder' in scope`）。
+
+**我为什么没发现**：我的构建**全部走 MCP**，而 MCP 的 `RunProject`/`BuildProject`
+只驱动 **scheme 当前配置（Debug）**，**无法切 Release** ⇒ 这类错误在我的验证通道里**天然隐形**。
+
+**纪律**：
+1. 改动**任何**与被 `#if DEBUG` 包裹的符号相关的代码后，**必须**确认 **Release 也能编译**；
+2. MCP 无法表达时（如切 Release）：**要么**请用户在 Xcode 里验，**要么**跑一次
+   `xcodebuild -configuration Release` —— 但那属**全量编译，必须先征得同意**；
+3. 用**穷举校验**代替抽样：把所有引用某符号的地方**逐条**判断是否在 `#if DEBUG` 内。
+   本次就是既有代码里**还有一处**（`MarkdownView:1005`）同样未 gate —— 只检查自己改的几行会漏掉它。
