@@ -270,6 +270,9 @@ final class NoAnimationCollectionView: UICollectionView {
     private static var m19OverlapPasses = 0
     private static var m19ContentOverPasses = 0
     private static var m19ClipOffPasses = 0
+    /// [M19v2] A/D 两型"内容与帧不匹配"的 pass 计数（每 pass 采，见函数内说明）。
+    private static var m19AShapePasses = 0
+    private static var m19DShapePasses = 0
     private static var m19LastLogAt: CFAbsoluteTime = 0
     /// 「全 0」读数自己的节流时间戳与计数（见函数末尾说明：沉默不是证据）。
     private static var m19CleanLogAt: CFAbsoluteTime = 0
@@ -312,10 +315,44 @@ final class NoAnimationCollectionView: UICollectionView {
         if overlapHit { m19OverlapPasses &+= 1 }
         if clipOff > 0 { m19ClipOffPasses &+= 1 }
 
+        // [M19v2 2026-09-17] **A/D 两型"内容与帧不匹配"每 pass 必采**（O(1)/cell，纯 cell 本地状态）。
+        // 初版把"内容高过帧"的判定放在"要打日志的 pass"里 ⇒ 与它自己的采样节流是同一个毛病
+        //（瞬时窗口≈一个 layout pass，仍会漏）。改用 cell 上本来就有的量后，可以每 pass 采：
+        //   · **A 型**：`lastCalcH`（cell 自测需要的高度）> `cell.bounds.height` ⇒ 帧比需要更矮；
+        //   · **D 型**：`engineTextHeight`（引擎实测文本高）> `committedTextHeight`（已提交的文本高）
+        //     ⇒ 引擎认为正文更高，而 cell 只提交了更少（frame 跟不上）。
+        var shortWorst: CGFloat = 0
+        var shortIdx = -1
+        var aShapePasses = 0
+        var dShapePasses = 0
+        var dWorst: CGFloat = 0
+        var dIdx = -1
+        for (cell,ip) in sorted {
+            guard let c = cell as? SelfSizingCell else { continue }
+            let snap = c.debugSizingSnapshot
+            if let need = snap.lastCalcH,need-cell.bounds.height > 1 {
+                aShapePasses &+= 1
+                if need-cell.bounds.height > shortWorst {
+                    shortWorst = need-cell.bounds.height
+                    shortIdx = ip.item
+                }
+            }
+            if snap.engineTextValid,snap.engineTextHeight > 1,
+               snap.engineTextHeight-snap.committedTextHeight > 1 {
+                dShapePasses &+= 1
+                if snap.engineTextHeight-snap.committedTextHeight > dWorst {
+                    dWorst = snap.engineTextHeight-snap.committedTextHeight
+                    dIdx = ip.item
+                }
+            }
+        }
+        if aShapePasses > 0 { m19AShapePasses &+= 1 }
+        if dShapePasses > 0 { m19DShapePasses &+= 1 }
+
         let now = CFAbsoluteTimeGetCurrent()
         let cleanDue = now-m19CleanLogAt >= 5.0
-        // 只在"要打日志的那些 pass"才做较贵的子树遍历（其余 pass 仍已采到两个廉价判据）。
-        let needDetail = overlapHit || clipOff > 0 || cleanDue
+        // 只在"要打日志的那些 pass"才做较贵的子树遍历（其余 pass 已采到全部廉价判据）。
+        let needDetail = overlapHit || clipOff > 0 || aShapePasses > 0 || dShapePasses > 0 || cleanDue
         var worstOver: CGFloat = 0
         var worstOverIdx = -1
         var detail: [String] = []
@@ -336,20 +373,20 @@ final class NoAnimationCollectionView: UICollectionView {
 
         let phase = cv.isDragging ? "drag" : (cv.isDecelerating ? "decel" : "idle")
         let streamIdx = (cv.collectionViewLayout as? MessageListLayout)?.streamingCellIndex.map(String.init) ?? "—"
-        let acc = "累计(pass口径) 采样\(m19Passes) 重叠\(m19OverlapPasses) 超高\(m19ContentOverPasses) clipOff\(m19ClipOffPasses)"
+        let acc = "累计(pass口径) 采样\(m19Passes) 重叠\(m19OverlapPasses) A帧短\(m19AShapePasses) D引擎高\(m19DShapePasses) 超高\(m19ContentOverPasses) clipOff\(m19ClipOffPasses)"
 
         // [M19 补强] **干净的读数也必须可关闭假设**：`全 0` 时若一行不打，日志里"没有 M19"
         // 就既可能"真不重叠"、也可能"根本没采样到"（M18 首轮机踩过同一个坑，见 §10.2）。
         // 非 0 ⇒ 1s 节流打 warn；全 0 ⇒ 5s 节流打 info。两者都进白名单类别 ⇒ 真机可验收。
-        if !overlapHit, worstOver <= 1, clipOff == 0 {
+        if !overlapHit, worstOver <= 1, clipOff == 0, aShapePasses == 0, dShapePasses == 0 {
             guard cleanDue else { return }
             m19CleanLogAt = now
-            AppLogger.shared.info("[Stage0][M19] 显示态 cell重叠=0 内容超高=0 clipOff=0/\(sorted.count) scroll=\(phase) streaming=\(streamIdx) \(acc) — 本 pass 显示态无重叠/无溢出", category: "ChatList.CellMetrics")
+            AppLogger.shared.info("[Stage0][M19] 显示态 cell重叠=0 内容超高=0 clipOff=0/\(sorted.count) A帧短=0 D引擎高=0 scroll=\(phase) streaming=\(streamIdx) \(acc) — 本 pass 显示态无重叠/无溢出", category: "ChatList.CellMetrics")
             return
         }
         guard now-m19LastLogAt >= 1.0 else { return }
         m19LastLogAt = now
-        AppLogger.shared.warn("[Stage0][M19] 显示态 cell重叠=\(String(format: "%.1f", worstOverlap))pt @\(worstPair) ‖ 内容超高=\(String(format: "%.1f", worstOver))pt @idx\(worstOverIdx) ‖ clipOff=\(clipOff)/\(sorted.count) ‖ \(detail.joined(separator: " | ")) ‖ \(acc) scroll=\(phase) streaming=\(streamIdx) — 这是症状 1「拖动期重叠」的**直接判据**（此前 M13/M15 都没量 cell×cell）", category: "ChatList.CellMetrics")
+        AppLogger.shared.warn("[Stage0][M19] 显示态 cell重叠=\(String(format: "%.1f", worstOverlap))pt @\(worstPair) ‖ 内容超高=\(String(format: "%.1f", worstOver))pt @idx\(worstOverIdx) ‖ clipOff=\(clipOff)/\(sorted.count) ‖ A帧短=\(aShapePasses)个 最坏+\(String(format: "%.1f", shortWorst))pt @idx\(shortIdx) ‖ D引擎高=\(dShapePasses)个 最坏+\(String(format: "%.1f", dWorst))pt @idx\(dIdx) ‖ \(detail.joined(separator: " | ")) ‖ \(acc) scroll=\(phase) streaming=\(streamIdx) — 症状 1/2 的**直接判据**", category: "ChatList.CellMetrics")
     }
     #endif
 
@@ -875,6 +912,20 @@ class SelfSizingCell: UICollectionViewCell {
             queue.append(contentsOf: v.subviews)
         }
         return nil
+    }
+
+    /// [Stage 2 · 症状 2 · M19v2] **每 pass 可用的 O(1) 自 sizing 快照**（只读）。
+    ///
+    /// 为什么要它：M19 初版判"内容高过帧"要走一遍子树找正文视图（较贵），所以只在打日志的 pass 算
+    /// ⇒ 瞬时窗口（≈一个 layout pass）仍然漏判。而"细胞自己认为需要多高"这件事**cell 上本来就有**：
+    ///   · `lastCalcH`（`preferredLayoutAttributesFitting` 算出的 cell 高）对 `cell.bounds.height`
+    ///     ⇒ **A 型**（cell 的帧比它自己测出的需要更矮）；
+    ///   · `engineTextHeight`（引擎实测文本高）对 `committedTextHeight`（已提交给 cell 的文本高）
+    ///     ⇒ **D 型**（引擎认为正文更高，而 cell 只提交了更少）。
+    /// 两个比较都是常数代价 ⇒ 可以**每 pass 采**，不必再节流到日志节奏。
+    var debugSizingSnapshot: (lastCalcH: CGFloat?,engineTextValid: Bool,
+                              engineTextHeight: CGFloat,committedTextHeight: CGFloat) {
+        (lastCalcH,engineTextValid,engineTextHeight,committedTextHeight)
     }
     #endif
 

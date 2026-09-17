@@ -1040,6 +1040,15 @@ struct MarkdownView: UIViewRepresentable {
             }()
             let bad = storageBehind || cellTooShort || clippedNow || (tailCut && !streamSnap)
             #if DEBUG
+            // [Stage 2 · 症状 2 · M20] **按 `path=` 归因**（见 `noteM20` 内说明）。
+            // 放在 `guard forceLog || bad` **之前** ⇒ 分母 = 每一次探针求值（诚实口径），
+            // 而不是"打了几条日志"。
+            Self.noteM20(path: pathSnap,streaming: streamSnap,
+                         scroll: (cellRef?.superview as? UICollectionView).map {
+                             $0.isDragging ? "drag" : ($0.isDecelerating ? "decel" : "idle")
+                         } ?? "?",
+                         cellTooShort: cellTooShort,storageBehind: storageBehind,
+                         clippedNow: clippedNow,tailCut: tailCut,bad: bad)
             // 到这里为止的成本是**每次都会付出**的（在下面 `guard forceLog || bad` 之前），
             // 所以它才是探针的真实代价。
             Self.noteTruncProbe(probeMs: (CFAbsoluteTimeGetCurrent()-truncProbeStart)*1000,
@@ -1692,6 +1701,46 @@ struct MarkdownView: UIViewRepresentable {
     private static var truncProbeRuns: Int = 0
     private static var truncProbeMs: Double = 0
     private static var truncEnsureLayoutMs: Double = 0
+
+    // [Stage 2 · 症状 2 · M20] `[TruncL]` 的**按 `path=` 分组**归因（只观测）。
+    //
+    // 动机：症状 2 的残留有**多种方向不同**的形状，而它们此前**混在同一串 `[TruncL]` 里**
+    // （那行只在 `bad || forceLog` 时打），于是"还剩多少、分别在哪条路径"谁也说不清。
+    // `bad` 的构成本身就是形状清单（`MarkdownView.swift` 内 `let bad = …`）：
+    //   · **A `cellTooShort`**：`cellH < tvContentH` ⇒ cell 的帧比内容短 ⇒ 末行被 cell 裁掉；
+    //   · **C `storageBehind`**：`storageLen != attrLen` ⇒ 正文视图里挂的是旧内容；
+    //   · **D `clippedNow`**：`textView.frame.maxY > contentView.bounds.height` ⇒ 正文视图的 frame
+    //     超出 cell 内容区（与 A 方向相反：这次是**正文视图的 frame 太大**）；
+    //   · **E `tailCut && !streaming`**：终态帧仍 `visEnd < total`（流式期内的 `tailCut` 是**设计内**的
+    //     "晚一帧"，单列一支以便区分）。
+    // 计数放在 `guard forceLog || bad` **之前** ⇒ 分母 = 每次探针求值（诚实口径）。
+    private static var m20ByPath: [String: [String: Int]] = [:]
+    private static var m20Total = 0
+    private static var m20LastLogAt: CFAbsoluteTime = 0
+    static func noteM20(path: String,streaming: Bool,scroll: String,
+                        cellTooShort: Bool,storageBehind: Bool,clippedNow: Bool,
+                        tailCut: Bool,bad: Bool) {
+        m20Total &+= 1
+        var d = m20ByPath[path] ?? [:]
+        d["n",default: 0] &+= 1
+        if bad { d["BAD",default: 0] &+= 1 }
+        if cellTooShort { d["A_cellShort",default: 0] &+= 1 }
+        if storageBehind { d["C_storageBehind",default: 0] &+= 1 }
+        if clippedNow { d["D_clipped",default: 0] &+= 1 }
+        if tailCut { d[streaming ? "E_tailCut_流式(设计内)" : "E_tailCut_终态(病灶)",default: 0] &+= 1 }
+        if bad { d["bad_\(scroll)",default: 0] &+= 1 }
+        m20ByPath[path] = d
+        let now = CFAbsoluteTimeGetCurrent()
+        guard now-m20LastLogAt >= 5.0 else { return }
+        m20LastLogAt = now
+        guard m20Total > 0 else { return }
+        let body = m20ByPath.keys.sorted().map { p -> String in
+            let counts = (m20ByPath[p] ?? [:]).sorted { $0.key < $1.key }
+                .map { "\($0.key)=\($0.value)" }.joined(separator: " ")
+            return "\(p){\(counts)}"
+        }.joined(separator: " ‖ ")
+        AppLogger.shared.warn("[Stage0][M20] TruncL 按 path 归因 探针求值=\(m20Total) \(body)", category: "RenderProbe")
+    }
     /// `[Stage0][metrics]` 的 1s 节流时间戳（与 hop 重置解耦，见 `installWindowObserverIfNeeded`）。
     private static var stage0LastEmitAt: CFTimeInterval = 0
 
