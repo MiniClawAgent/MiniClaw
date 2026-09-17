@@ -357,7 +357,20 @@ extension MessageCollectionView.Coordinator {
                 case .assistant: return 200
                 }
             case .assistantHeader:
-                return 28
+                // [治本 2026-09-17] **由视图自身的度量推出，不再用字面量 28。**
+                // 视图定义（`BridgedAssistantHeader`，`MessageCollectionView.swift:8-25`）：
+                //   `HStack(spacing:6) { Text("✨").font(.system(size:18))
+                //                        Text(name).font(.body.weight(.semibold)) }`
+                //   `.padding(.top,4).padding(.bottom,0)`（其余 frame 只设宽度/对齐，不贡献高度）
+                // ⇒ 高 = `max(✨行高, body行高) + 4`。
+                // 真机 M24 实测成型 **25.7**，而字面量给的是 **28**（偏高 2.3pt ⇒ 空白）。
+                // 推导值 25.5 略低于实测 ⇒ 落在**安全侧**（不变式 `播种 ≤ 真值` 仍成立）；
+                // 即使将来字体/内边距改动，推导式会**跟着变**，而字面量不会。
+                let emojiH = FontSettings.shared.scaledMessage(
+                    UIFont.systemFont(ofSize: 18).lineHeight)      // 与 `.font(.system(size:18))` 同源
+                let bodyH = FontSettings.shared.scaledMessage(
+                    UIFont.preferredFont(forTextStyle: .body).lineHeight)  // 与 `.font(.body…)` 同源
+                return max(emojiH, bodyH) + 4                       // 与 `.padding(.top,4)` 同源
             case .assistantBlock(let msgId,let blockId):
                 guard let msg = messages.first(where: { $0.id == msgId }),
                       let block = msg.blocks.first(where: { $0.id == blockId }) else { return 44 }
