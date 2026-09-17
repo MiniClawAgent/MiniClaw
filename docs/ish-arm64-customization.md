@@ -107,3 +107,42 @@ Swift 宏沙箱问题需 `-disable-sandbox`，仅本地验证用，勿写进 pro
 - [ ] `nm libish.a | grep "T _fakefs_bind_mount"` 与 `T _fakefs_set_path_reverse_hook` 有输出
 - [ ] patch 已应用（`grep sessionFsContext app/ISHShellExecutor.h` 有输出）
 - [ ] device build BUILD SUCCEEDED
+
+## 六、2026-09-17：去除第三方产品名残留（第二轮）
+
+**起因**：复查时发现 App 二进制里仍带 `Library/MinisChat` 与裸 `minis` 两个字符串，
+链自 `libish.a`（不是 MiniClaw 自己的源码——那里已由 2026-09-13 那轮清理干净）。
+
+**定位**：全在 iSH 的 **debug 打印过滤条件**里（不影响功能）：
+
+| 文件 | 内容 | 处置 |
+|---|---|---|
+| `fs/fake.c:1032` | `if (strstr(entry_path,"minis") \|\| strstr(entry_path,"Library/MinisChat")) fprintf(stderr, "fakefs_readdir: …")` | **整段删除**（debug 打印） |
+| `fs/real.c:421,426` | 同型：`if (strstr(buf,"minis")) fprintf(stderr, "realfs_getpath: …")` | **两条删除** |
+
+**同轮做的注释/示例中性化**（这些不进二进制，但同属"源码里的第三方产品名"）：
+`fs/fake.c`（3 处）、`fs/real.c`（1 处）、`fs/fake.h`（1 处）、
+`kernel/native_offload.c`（2 处）、`kernel/exec.c`（1 处）、
+`tests/regress/{run.sh,README.md,regress_cp.sh}`（4 处示例路径）——
+其中 `/var/minis` 改为本项目实际使用的 `/var/MiniClaw`（`ShellTool` 侧的路径铁律一致）。
+
+**⚠️ 刻意保留（不是遗漏）**：`README.md` / `README_arm64.md` / `README_arm64_zh.md` 里
+对上游 **OpenMinis** 的署名（GPLv3 fork 的身份与出处）。
+**删掉上游署名不会降低"被指抄袭"的风险，反而更高**：本 iSH 是 GPLv3 作品，
+许可证要求保留版权与许可声明；而"防指抄袭"最有效的做法是**准确署名**
+（MiniClaw 的「鸣谢」页已把 iSH 列为依赖并写明 GPLv3）。
+
+**重建与验证**：
+
+```sh
+cd 第三方源码/ish-arm64
+ninja -C build-arm64-ios libish.a libish_emu.a libfakefs.a   # 约 4 秒
+```
+
+- 只重建 `libish.a`（我的改动只在 `fs/fake.c`、`fs/real.c`，均编入它）；
+  `libfakefs.a` 由 `fs_fake-db/migrate/rebuild.c` 组成，**不含** `fs/fake.c` ⇒ ninja 报 "no work to do" 是正确的。
+- ⚠️ 注意：整目录 `ninja -C build-arm64-ios` 会在 **`tools/fakefsify`** 上失败
+  （把 Homebrew 的 **macOS** 版 `libarchive.a` 往 iOS 目标里链）——这是**构建 rootfs 镜像用的宿主工具**，
+  与本 App 链接无关，属环境问题。故上面只构建三个静态库目标。
+- 验证：三个库 `strings | grep -ci minis` 均为 **0**；重建 App 后
+  `grep -ril openminis/MinisChat MiniClaw.app` = **0 个文件**。
