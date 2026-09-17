@@ -283,8 +283,14 @@ struct ThinkingBlockView: View {
                 Text("deep_thinking")
                     .font(.system(size: 13,weight: .semibold))
                     .foregroundStyle(ChatColors.primaryText)
-                if block.content.count>0 || block.thinkingContentBuffer.count>0 {
-                    let charCnt = max(block.content.count,block.thinkingContentBuffer.count)
+                // [Stage 1 · §6.3 A2/A3 收口 2026-09-17] 此处原为
+                // `block.content.count > 0 || block.thinkingContentBuffer.count > 0`，
+                // 且 `charCnt = max(block.content.count, block.thinkingContentBuffer.count)`。
+                // `thinkingContentBuffer` 已删除：它唯一的写者是 `appendThinkingDelta`，
+                // 而后者全仓零调用 ⇒ 缓冲**恒为空** ⇒ 那个析取项与 `max` 的第二项**恒为 0**、
+                // 从不改变结果。改为直读正文长度（等价，且不再误导后来者以为该机制在工作）。
+                if block.content.count>0 {
+                    let charCnt = block.content.count
                     Text(charCnt>1000 ? "\(charCnt / 1000)K" : "\(charCnt)")
                         .font(.system(size: 11,weight: .medium,design: .monospaced))
                         .foregroundStyle(ChatColors.tertiaryText)
@@ -304,9 +310,10 @@ struct ThinkingBlockView: View {
             .onTapGesture {
                 AppLogger.shared.info("[Collapse] tap block=\(block.id.uuidString.prefix(8)) wasExpanded=\(expandedBinding.wrappedValue) streaming=\(isStreaming) contentLen=\(block.content.count)", category: "ChatList.Collapse")
                 block.thinkingUserToggled = true
-                if !expandedBinding.wrappedValue {
-                    block.flushThinkingBuffer()
-                }
+                // [Stage 1 · §6.3 A2/A3 收口 2026-09-17] 此处原有
+                // `if !expandedBinding.wrappedValue { block.flushThinkingBuffer() }`。
+                // 该调用**恒为 no-op**（缓冲恒空，见上方说明），且已随缓冲一并删除 ——
+                // 展开/收起本来就只由 `expandedBinding` 驱动，不需要"先把缓冲刷进 content"这一步。
                 expandedBinding.wrappedValue.toggle()
             }
 

@@ -195,7 +195,15 @@ public final class AssistantBlock: Identifiable,ObservableObject {
     // `content`）。此处只删"已证零引用"的两项；`thinkingContentBuffer` / `flushThinkingBuffer`
     // 仍有读取点，属**功能形态**的删除 ⇒ 留待裁决，不擅自扩大范围。
 
-    public var thinkingContentBuffer: String = ""
+    // [Stage 1 · §6.3 A2/A3 收口 2026-09-17] 此处原有 `thinkingContentBuffer: String` 与
+    // `flushThinkingBuffer()`，**本次已删除（用户裁决）**。删除依据（两层证明）：
+    //   ① 缓冲的**唯一写者**是 `appendThinkingDelta`，而它全仓零调用（`git grep` 仅命中定义处）
+    //      ⇒ 缓冲恒为空 ⇒ `flushThinkingBuffer()` 的守卫 `count > content.count` 恒假 ⇒ **保证 no-op**；
+    //   ② 不可能有仓外调用者：`AssistantBlock` **只在 app target 定义**（本文件），
+    //      `MiniClawKit` 内无同名类型、也无同名成员。
+    // 决策不静默丢弃：这条"思考增量缓冲 → 节流 flush"机制在当前代码里**已被 Bridge 直写 `content` 取代**
+    //（见 `MiniClawChatBridge` 的 `existing.content = content`）。若将来要恢复节流写入，
+    // 应作为**独立重构**连同度量一起做，而不是把 no-op 的旧壳留在树里冒充"机制在工作"。
 
     // [Stage 1 · §6.3 A3 链式删除] 此处原有 `thinkingFlushTiers`（4 档阈值表，10 行）与
     // `thinkingFlushInterval(forLength:)`。二者**互相成链且全库零调用**：
@@ -203,10 +211,6 @@ public final class AssistantBlock: Identifiable,ObservableObject {
     // 的唯一读者就是该函数 ⇒ 一并删除（表中记录的"档位决策"已由 `flushThinkingBuffer` 的
     // 恒 no-op 事实取代，见上）。
 
-    public func flushThinkingBuffer() {
-        guard kind == .thinking,thinkingContentBuffer.count>content.count else { return }
-        content = thinkingContentBuffer
-    }
     @Published public var toolStatus: ToolBlockStatus?
     /// 工具开始执行的时刻（运行中状态行的实时计时用；恢复路径取事件时间戳）。
     @Published public var commandStartedAt: Date?
