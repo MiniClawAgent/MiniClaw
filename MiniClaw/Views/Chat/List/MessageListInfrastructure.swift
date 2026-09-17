@@ -262,6 +262,68 @@ public final class MessageListViewController: UIViewController {
 final class NoAnimationCollectionView: UICollectionView {
     var isApplyingSnapshot = false
 
+    #if DEBUG
+    // [Stage 2 · 症状 1 · M19] 显示态重叠观测的状态（只观测，不参与任何判定）。
+    private static var m19OverlapHits = 0
+    private static var m19ContentOverHits = 0
+    private static var m19ClipOffCount = 0
+    private static var m19LastLogAt: CFAbsoluteTime = 0
+
+    /// [Stage 2 · 症状 1 · M19] **显示态**判据：cell 帧彼此是否相交 + 内容是否高过自己的帧
+    /// + 裁剪是否真的开着（三问一次答完，见 `layoutSubviews` 内的说明）。
+    static func diagnoseDisplayedFrames(_ cv: UICollectionView) {
+        let now = CFAbsoluteTimeGetCurrent()
+        guard now-m19LastLogAt >= 1.0 else { return }
+        let cells = cv.visibleCells
+        guard cells.count > 1 else { return }
+        m19LastLogAt = now
+
+        // ① 逐对相邻帧相交（按 minY 排序后只需比相邻——帧若不单调，最坏值仍会被捕获）
+        var worstOverlap: CGFloat = 0
+        var worstPair = "—"
+        let sorted = cells.compactMap { c -> (UICollectionViewCell,IndexPath)? in
+            guard let ip = cv.indexPath(for: c) else { return nil }
+            return (c,ip)
+        }.sorted { $0.0.frame.minY < $1.0.frame.minY }
+        if sorted.count > 1 {
+            for i in 1..<sorted.count {
+                let ov = sorted[i-1].0.frame.maxY - sorted[i].0.frame.minY
+                if ov > worstOverlap {
+                    worstOverlap = ov
+                    worstPair = "#\(sorted[i-1].1.item)(maxY=\(String(format: "%.0f", sorted[i-1].0.frame.maxY)))×#\(sorted[i].1.item)(minY=\(String(format: "%.0f", sorted[i].0.frame.minY)))"
+                }
+            }
+        }
+
+        // ② 内容高过自己的帧（"文字被顶出去"的直接量）+ ③ 裁剪是否真的开着
+        var worstOver: CGFloat = 0
+        var worstOverIdx = -1
+        var clipOff = 0
+        var detail: [String] = []
+        for (cell,ip) in sorted {
+            if cell.contentView.clipsToBounds { } else { clipOff += 1 }
+            guard let tv = SelfSizingCell.debugFirstMarkdownTextView(in: cell.contentView) else { continue }
+            let need = tv.contentSize.height+SelfSizingCell.assistantBlockVerticalChrome
+            let over = need-cell.bounds.height
+            if over > 1 {
+                worstOver = max(worstOver,over)
+                if over == worstOver { worstOverIdx = ip.item }
+                if detail.count < 4 {
+                    detail.append("#\(ip.item) 需\(String(format: "%.0f", need))>帧\(String(format: "%.0f", cell.bounds.height)) Δ+\(String(format: "%.0f", over)) tvOff=\(String(format: "%.0f", tv.contentOffset.y))")
+                }
+            }
+        }
+
+        if worstOverlap > 0.5 { m19OverlapHits &+= 1 }
+        if worstOver > 1 { m19ContentOverHits &+= 1 }
+        if clipOff > 0 { m19ClipOffCount &+= 1 }
+
+        guard worstOverlap > 0.5 || worstOver > 1 || clipOff > 0 else { return }
+        let phase = cv.isDragging ? "drag" : (cv.isDecelerating ? "decel" : "idle")
+        AppLogger.shared.warn("[Stage0][M19] 显示态 cell重叠=\(String(format: "%.1f", worstOverlap))pt @\(worstPair) ‖ 内容超高=\(String(format: "%.1f", worstOver))pt @idx\(worstOverIdx) ‖ clipOff=\(clipOff)/\(cv.visibleCells.count) ‖ \(detail.joined(separator: " | ")) ‖ 累计 重叠\(m19OverlapHits)次 超高\(m19ContentOverHits)次 clipOff\(m19ClipOffCount)次 scroll=\(phase) streaming=\((cv.collectionViewLayout as? MessageListLayout)?.streamingCellIndex.map(String.init) ?? "—") — 这是症状 1「拖动期重叠」的**直接判据**（此前 M13/M15 都没量 cell×cell）", category: "ChatList.CellMetrics")
+    }
+    #endif
+
     // [2026-09-13 死代码清理] 原处有 `var streamingGrowAnimationEnabled = true`：
     // 全库仅「此处声明 + 下方读取」两处，**无任何写入点** ⇒ 恒真、永不可配 —— 是死开关。
     // 读取点已按"恒真"内联（该分支本意即"只在流式期走 grow 动画"）。
@@ -310,6 +372,26 @@ final class NoAnimationCollectionView: UICollectionView {
             lastBounds = newSize
         }
         let t0 = CFAbsoluteTimeGetCurrent()
+        #endif
+
+        #if DEBUG
+        // [Stage 2 · 症状 1 · M19] **屏上 cell 帧彼此之间的重叠**（只观测）。
+        //
+        // 为什么此前三枚探针都没看见"重叠"：
+        //   · M13 量的是 `itemAttributes`（`prepare()` 的产物）—— 那里恒自洽（单调 `y += h`），
+        //     所以它读到 0 重叠**结构上不能证明屏上不重叠**；
+        //   · M15 量的是 cell 帧 **vs** `itemAttributes` —— M18 已证明它读到的是
+        //     "本轮属性尚未应用"（`真分叉=0`），与"两帧相交"无关；
+        //   · **从来没有探针量过 cell 帧 × cell 帧**。而"重叠"的字面定义就是两帧相交。
+        //
+        // 挂载点：本函数**所有出口**（`defer`）—— 即 `super.layoutSubviews()` 已把本轮属性
+        // 应用到 cell 之后的**显示态**。这是第 11 条纪律（探针必须埋在该量被消费之后）的正解：
+        // 不再在"产出属性"的时刻测，而是在"应用完成"之后测。
+        //
+        // 同时验证 §2.7.2 被当作**证明**用的那条假设：「`contentView.clipsToBounds = true`
+        // ⇒ 内容不可能溢出 cell ⇒ 几何路径整条关闭」。若实测 `clip=0`，则该证明塌掉，
+        // 而"文字盖住上方工具指示器"就有了直接的几何解释。
+        defer { Self.diagnoseDisplayedFrames(self) }
         #endif
 
         // Animate ONLY while a message is actively
@@ -727,6 +809,23 @@ class SelfSizingCell: UICollectionViewCell {
         }
         return nil
     }
+
+    #if DEBUG
+    /// [Stage 2 · 症状 1 · M19] 供**集合视图**在"属性已应用之后"取该 cell 的正文视图（只读）。
+    /// 上面那个 `firstMarkdownTextView` 是 private 实例方法，集合视图拿不到；
+    /// 这里给一个同实现的外部入口，避免为探针去放宽生产方法可见性或复制一份遍历逻辑。
+    static func debugFirstMarkdownTextView(in root: UIView) -> MarkdownTextView? {
+        var queue: [UIView] = [root]
+        var head = 0
+        while head < queue.count {
+            let v = queue[head]
+            head += 1
+            if let tv = v as? MarkdownTextView { return tv }
+            queue.append(contentsOf: v.subviews)
+        }
+        return nil
+    }
+    #endif
 
     override func preferredLayoutAttributesFitting(
         _ layoutAttributes: UICollectionViewLayoutAttributes
