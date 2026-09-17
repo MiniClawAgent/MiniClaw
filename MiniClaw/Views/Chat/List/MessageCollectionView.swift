@@ -483,7 +483,7 @@ extension MessageCollectionView {
                 let est = Self.estimateItemHeight(item,messages: messages,
                                                   width: viewController?.collectionView.bounds.width ?? 390,
                                                   allowRenderBubble: false)
-                layout.setEstimatedHeight(est,at: indexPath.item)
+                layout.setEstimatedHeight(est,provenance: "est.estimateItemHeight(滚动路径)",at: indexPath.item)
             }
         }
 

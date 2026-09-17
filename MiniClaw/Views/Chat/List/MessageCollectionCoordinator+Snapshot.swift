@@ -627,7 +627,7 @@ extension MessageCollectionView.Coordinator {
                         // IMG_4663 实锤）。MISS 时不动条目：流式中活 cell 的高度由
                         // 自 sizing 管线维护，比任何粗估都准。
                         layout.invalidateHeight(at: j, memo: .indexOnly)
-                        layout.setPrecalcHeight(uH+4,at: j)
+                        layout.setPrecalcHeight(uH+4,provenance: "precalc.unifiedCache",at: j)
                         AppLogger.shared.info(
                             "[Reseed] HIT blk=\(b2.uuidString.prefix(8)) h=\(Int(uH)) idx=\(j)",
                             category: "ChatList.Heights")
@@ -659,7 +659,7 @@ extension MessageCollectionView.Coordinator {
                     if let uH = MarkdownRenderCache.shared.cachedHeight(for: uKey, width: Int(textWidth)) {
                         // [2026-09-11 修正] 同 reseedTextBlock：MISS 不 purge（保留实测高）。
                         layout.invalidateHeight(at: j, memo: .indexOnly)
-                        layout.setPrecalcHeight(uH+4,at: j)
+                        layout.setPrecalcHeight(uH+4,provenance: "precalc.unifiedCache",at: j)
                         AppLogger.shared.info(
                             "[Reseed] TAIL-HIT blk=\(bid.uuidString.prefix(8)) h=\(Int(uH)) idx=\(j)",
                             category: "ChatList.Heights")
@@ -722,20 +722,20 @@ extension MessageCollectionView.Coordinator {
             guard !layout.hasMeasuredHeight(at: i) else { return }
 
             if let memo = layout.measuredHeight(forKey: contentKey,width: cvWidth) {
-                layout.setPrecalcHeight(memo,at: i)
+                layout.setPrecalcHeight(memo,provenance: "precalc.memo",at: i)
                 return
             }
 
             switch item {
             case .assistantHeader:
                 // Header is always a fixed "sparkles MiniClaw" label row (measured: 28pt)
-                layout.setEstimatedHeight(28,at: i)
+                layout.setEstimatedHeight(28,provenance: "est.literal28",at: i)
 
             case .assistantFooter:
                 // Prominent banners (error/resume) measure
                 // ~44-56pt; quiet status row / replying indicator
                 // ~18pt; empty footer ~0-4pt.
-                layout.setEstimatedHeight(footerEstimate,at: i)
+                layout.setEstimatedHeight(footerEstimate,provenance: "est.footer",at: i)
 
             case .assistantBlock(let msgId,let blockId):
                 // [2026-09-13 P3·失败必须显式] 原先这两处是**静默 `return`**：查不到消息、或消息里
@@ -750,14 +750,14 @@ extension MessageCollectionView.Coordinator {
                 // 故仍可能给出该块类型的真实量级；彻底查不到时退 44pts 保守值。最坏也比"无条目 ⇒ 类型常量"好。
                 guard let msgIdx = messageIndex[msgId],msgIdx<messages.count else {
                     let est = Self.estimateItemHeight(item,messages: messages,width: cvWidth)
-                    layout.setEstimatedHeight(est,at: i)
+                    layout.setEstimatedHeight(est,provenance: "est.estimateItemHeight",at: i)
                     AppLogger.shared.info("[Seed] messageIndex 无 \(msgId.uuidString.prefix(8)) → 兜底估高 \(Int(est))pt idx=\(i) reseed=\(isReseed ? 1 : 0)（原为静默留空 ⇒ 该格位无高度条目，prepare 退到块间通用常量）", category: "ChatList.Heights")
                     return
                 }
                 let msg = messages[msgIdx]
                 guard let block = msg.blocks.first(where: { $0.id == blockId }) else {
                     let est = Self.estimateItemHeight(item,messages: messages,width: cvWidth)
-                    layout.setEstimatedHeight(est,at: i)
+                    layout.setEstimatedHeight(est,provenance: "est.estimateItemHeight",at: i)
                     AppLogger.shared.info("[Seed] 消息 \(msgId.uuidString.prefix(8)) 无块 \(blockId.uuidString.prefix(8)) → 兜底估高 \(Int(est))pt idx=\(i) reseed=\(isReseed ? 1 : 0)", category: "ChatList.Heights")
                     return
                 }
@@ -815,7 +815,7 @@ extension MessageCollectionView.Coordinator {
                                     height: height, key: uKey, width: Int(textWidth), grade: .ct)  // S3.1：ctFramesetterHeight + 8
                             }
                         }
-                        layout.setPrecalcHeight(height+SelfSizingCell.assistantBlockVerticalChrome,at: i)
+                        layout.setPrecalcHeight(height+SelfSizingCell.assistantBlockVerticalChrome,provenance: "precalc.ct",at: i)
                         #if DEBUG
                         if !isReseed,ScrollMetricsRecorder.shared.isEnabled {
                             let c = block.content
@@ -827,14 +827,14 @@ extension MessageCollectionView.Coordinator {
                         }
                         #endif
                     } else if block.content.isEmpty {
-                        layout.setEstimatedHeight(0,at: i)
+                        layout.setEstimatedHeight(0,provenance: "est.literal0",at: i)
                     } else {
                         let est = Self.estimateItemHeight(item,messages: messages,width: cvWidth)
-                        layout.setEstimatedHeight(est,at: i)
+                        layout.setEstimatedHeight(est,provenance: "est.estimateItemHeight",at: i)
                     }
                 case .thinking:
                     let est = Self.estimateItemHeight(item,messages: messages,width: cvWidth)
-                    layout.setEstimatedHeight(est,at: i)
+                    layout.setEstimatedHeight(est,provenance: "est.estimateItemHeight",at: i)
                 // [Stage 1 · R7] 工具类兜底表已收口到 `AssistantBlockKind.seedFallbackHeight`
                 //（唯一定义见 RenderModels.swift）—— 与 `estimateItemHeight` 共用同一张表，
                 // 此前两处各自维护同一组常量。等价性：四个返回值与原值逐字相同
@@ -843,7 +843,7 @@ extension MessageCollectionView.Coordinator {
                 // `messages.first(where:)` + `blocks.first(where:)` 的 **O(n) 查找**，
                 // 而这里 `block` 就在手上 —— 收口不应引入新的扫描成本。
                 default:
-                    layout.setEstimatedHeight(block.kind.seedFallbackHeight(content: block.content),at: i)
+                    layout.setEstimatedHeight(block.kind.seedFallbackHeight(content: block.content),provenance: "est.seedFallbackHeight",at: i)
                 }
 
             case .wholeMessage(let msgId):
@@ -856,7 +856,7 @@ extension MessageCollectionView.Coordinator {
                     let h = Self.measureUserBubbleHeight(for: msg,cvWidth: effWidth,
                                                          allowRender: false)
                     if let h {
-                        layout.setPrecalcHeight(h,at: i)
+                        layout.setPrecalcHeight(h,provenance: "precalc.userBubble",at: i)
                         #if DEBUG
                         if !isReseed,ScrollMetricsRecorder.shared.isEnabled {
                             let c = msg.content
@@ -870,11 +870,11 @@ extension MessageCollectionView.Coordinator {
                         #endif
                     } else {
                         layout.setEstimatedHeight(
-                            Self.estimateItemHeight(item,messages: messages,width: cvWidth),at: i)
+                            Self.estimateItemHeight(item,messages: messages,width: cvWidth),provenance: "est.estimateItemHeight",at: i)
                     }
                 } else {
                     let est = Self.estimateItemHeight(item,messages: messages,width: cvWidth)
-                    layout.setEstimatedHeight(est,at: i)
+                    layout.setEstimatedHeight(est,provenance: "est.estimateItemHeight",at: i)
                 }
             }
         }

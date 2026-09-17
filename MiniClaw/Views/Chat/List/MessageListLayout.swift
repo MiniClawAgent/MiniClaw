@@ -61,7 +61,20 @@ public final class MessageListLayout: UICollectionViewLayout {
     /// 再走后续 guard**，故陈旧条目记录的旧键与当前键**必然不等** ⇒ 可可靠 demote。
     /// `key == nil` = 写入时尚无内容键（极早期播种）⇒ 保守起见仍信任它，不 demote。
     /// 默认 `nil`：先让字段中性落地（编译通过、行为不变），再在 `setEntry` 里接上捕获。
-    struct HeightEntry { var height: CGFloat; var source: HeightSource; var key: String? = nil }
+    /// [治本·步1 2026-09-17] `provenance` = **这条高度的生产者身份**。
+    ///
+    /// 为什么必须加：真机 M21 实测 `src=estimated` 的"种子值"出现了 `18/28/30/42/71`
+    /// —— 而 `seedFallbackHeight` 只能产出 `36/40/20+n*16` ⇒ **同一个 `src` 标签下藏着多个生产者**，
+    /// 于是"违约该归因给谁"根本无法回答，任何修复都只能靠猜。
+    /// 该字段只**记录身份**，不参与 rank 闸门与任何判定 ⇒ 零行为变更。
+    struct HeightEntry {
+        var height: CGFloat
+        var source: HeightSource
+        var key: String? = nil
+        /// 生产者（例：`est.literal28` / `est.footer` / `est.perKind` / `precalc.memo`）。
+        /// `nil` = 未知来源（旧路径），诊断时回落到 `source.rawValue`。
+        var provenance: String? = nil
+    }
     private var heightEntries: [Int: HeightEntry] = [:]
 
     /// 该 index 的**有效**条目：当"条目记录的内容键"与"当前内容键"**已知不一致**时返回 nil，
@@ -76,12 +89,14 @@ public final class MessageListLayout: UICollectionViewLayout {
         return stored == cur ? e : nil
     }
 
-    public func setEstimatedHeight(_ height: CGFloat,at index: Int) {
-        setEntry(height, source: .estimated, at: index)
+    /// [治本·步1] `provenance` 标明**谁产出了这个估算值**（7 个调用点各不同）。
+    /// 默认 `nil` 表示"未知生产者"，诊断时回落 `source`。
+    public func setEstimatedHeight(_ height: CGFloat,provenance: String? = nil,at index: Int) {
+        setEntry(height, source: .estimated, provenance: provenance, at: index)
     }
 
-    public func setPrecalcHeight(_ height: CGFloat,at index: Int) {
-        setEntry(height, source: .precalc, at: index)
+    public func setPrecalcHeight(_ height: CGFloat,provenance: String? = nil,at index: Int) {
+        setEntry(height, source: .precalc, provenance: provenance, at: index)
     }
 
     public var deferSelfSizing: Bool = false
@@ -126,7 +141,8 @@ public final class MessageListLayout: UICollectionViewLayout {
     /// 的 -40 负高度正是从 `invalidationContext` 这条旁路进去的。收敛后闸门只有一处，
     /// 新增写入点无法再漏掉校验。
     @discardableResult
-    private func setEntry(_ height: CGFloat, source: HeightSource, at index: Int) -> Bool {
+    private func setEntry(_ height: CGFloat, source: HeightSource,
+                          provenance: String? = nil, at index: Int) -> Bool {
         let rank: (HeightSource) -> Int = { $0 == .measured ? 3 : $0 == .precalc ? 2 : 1 }
         // [2026-09-13 S15 闭环·闸门必须按"当期"条目判] 原先比的是**裸条目**
         // `heightEntries[index]`。于是内容已变的陈旧 `.measured`（其 `key` 与
@@ -165,7 +181,7 @@ public final class MessageListLayout: UICollectionViewLayout {
             #endif
             return false
         }
-        heightEntries[index] = HeightEntry(height: height, source: source, key: contentKeyByIndex[index])
+        heightEntries[index] = HeightEntry(height: height, source: source, key: contentKeyByIndex[index], provenance: provenance)
         return true
     }
 
@@ -344,24 +360,25 @@ public final class MessageListLayout: UICollectionViewLayout {
     #if DEBUG
     /// [治本·步1] 不变式「播种 ≤ 真值」的违约聚合（只观测）。
     /// key = 种子值（四舍五入到整数），value = (次数, 最坏 pref, 一条 src 样本)。
-    private static var seedViolations: [Int: (n: Int,worstPref: CGFloat,src: String)] = [:]
+    /// **按生产者聚合**（不是按种子值）：这样"改哪一份实现"才有答案。
+    /// 值 = (次数, 最坏真值, 该生产者产出的种子值集合, 来源标签)。
+    private static var seedViolations: [String: (n: Int,worstPref: CGFloat,seeds: Set<Int>,src: String)] = [:]
     private static var seedViolationLastLogAt: CFAbsoluteTime = 0
     private static var seedViolationTotal = 0
-    static func noteSeedViolation(seed: CGFloat,pref: CGFloat,src: String) {
-        let k = Int(seed.rounded())
-        var v = seedViolations[k] ?? (0,pref,src)
+    static func noteSeedViolation(seed: CGFloat,pref: CGFloat,producer: String) {
+        var v = seedViolations[producer] ?? (0,pref,[],producer)
         v.n &+= 1
         if pref < v.worstPref { v.worstPref = pref }
-        v.src = src
-        seedViolations[k] = v
+        v.seeds.insert(Int(seed.rounded()))
+        seedViolations[producer] = v
         seedViolationTotal &+= 1
         let now = CFAbsoluteTimeGetCurrent()
         guard now-seedViolationLastLogAt >= 5.0 else { return }
         seedViolationLastLogAt = now
         let body = seedViolations.sorted { $0.value.n > $1.value.n }.prefix(8).map { k,v in
-            "种子\(k)→最坏真值\(String(format: "%.1f", v.worstPref))(n=\(v.n) src=\(v.src))"
+            "\(k) 种子\(v.seeds.sorted())→最坏真值\(String(format: "%.1f", v.worstPref)) n=\(v.n)"
         }.joined(separator: " | ")
-        AppLogger.shared.warn("[Stage0][M21] ⚠️ 播种高于真值的违约：共\(seedViolationTotal)次 ‖ \(body) — 若某族的「真值」低于该视图声明的高度，则问题在测量侧而非播种侧", category: "ChatList.CellMetrics")
+        AppLogger.shared.warn("[Stage0][M21] ⚠️ 播种高于真值的违约：共\(seedViolationTotal)次（**按生产者**） ‖ \(body)", category: "ChatList.CellMetrics")
     }
     #endif
 
@@ -590,7 +607,8 @@ public final class MessageListLayout: UICollectionViewLayout {
         // 这枚探针就是为了让"谁对"先有数据、再动手。
         if let e = heightEntries[index],e.source != .measured,origH > 1,
            prefH < origH-0.5 {
-            Self.noteSeedViolation(seed: origH,pref: prefH,src: e.source.rawValue)
+            Self.noteSeedViolation(seed: origH,pref: prefH,
+                                   producer: e.provenance ?? "unknown(\(e.source.rawValue))")
         }
         #endif
 
