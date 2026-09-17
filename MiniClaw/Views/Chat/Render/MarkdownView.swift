@@ -1767,7 +1767,12 @@ struct MarkdownView: UIViewRepresentable {
             let body = m5Count.keys.sorted().map { k in
                 "\(k){n=\(m5Count[k] ?? 0) ms=\(String(format: "%.1f", m5Ms[k] ?? 0)) avg=\(String(format: "%.1f", (m5Ms[k] ?? 0)/Double(max(m5Count[k] ?? 1,1))))}"
             }.joined(separator: " ‖ ")
-            AppLogger.shared.warn("[Stage0][M5] 赋值成本（Stage 4 准入判据） \(body)", category: "MarkdownSTF")
+            // [2026-09-17 补占比腿] 原行只有绝对量 ⇒ Stage 4 的"占比 ≥10%"那条腿**无法判定**
+            // （首轮机因此只能判"绝对量 79ms < 100ms"）。带上**会话累计 `updMs`** 后，
+            // 占比 = (本行 ms 合计) / cumUpdMs 即可当场算，两条腿一次判完。
+            let m5Total = m5Ms.values.reduce(0,+)
+            let share = cumUpdMs > 1 ? m5Total/cumUpdMs*100 : -1
+            AppLogger.shared.warn("[Stage0][M5] 赋值成本（Stage 4 准入判据） \(body) ‖ 会话累计 updMs=\(String(format: "%.1f", cumUpdMs)) 赋值占比=\(share < 0 ? "n/a" : String(format: "%.1f", share)+"%")", category: "MarkdownSTF")
         }
         return ms
     }

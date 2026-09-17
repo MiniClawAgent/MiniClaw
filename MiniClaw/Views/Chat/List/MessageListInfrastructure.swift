@@ -273,6 +273,9 @@ final class NoAnimationCollectionView: UICollectionView {
     /// [M19v2] A/D 两型"内容与帧不匹配"的 pass 计数（每 pass 采，见函数内说明）。
     private static var m19AShapePasses = 0
     private static var m19DShapePasses = 0
+    /// [2026-09-17] A 型按"流式 cell / 终态 cell"分开的**总命中次数**（不是 pass 数）。
+    private static var m19AStreamingTotal = 0
+    private static var m19ATerminalTotal = 0
     private static var m19LastLogAt: CFAbsoluteTime = 0
     /// 「全 0」读数自己的节流时间戳与计数（见函数末尾说明：沉默不是证据）。
     private static var m19CleanLogAt: CFAbsoluteTime = 0
@@ -325,6 +328,8 @@ final class NoAnimationCollectionView: UICollectionView {
         var shortIdx = -1
         var aShapePasses = 0
         var dShapePasses = 0
+        var aStreaming = 0
+        var aTerminal = 0
         var dWorst: CGFloat = 0
         var dIdx = -1
         for (cell,ip) in sorted {
@@ -332,6 +337,15 @@ final class NoAnimationCollectionView: UICollectionView {
             let snap = c.debugSizingSnapshot
             if let need = snap.lastCalcH,need-cell.bounds.height > 1 {
                 aShapePasses &+= 1
+                // [2026-09-17 拆分] A 型必须**按"该 cell 是不是流式 cell"分开计**：
+                // 首轮机 A帧短=299/3726(8%) 但 D引擎高=0，两者是同一现象（引擎测量领先于提交）的
+                // 两侧；而流式期"引擎领先"是**设计内**的（下一帧由 PLAF 提交），非流式期才是缺陷。
+                // 不拆开就永远只是"推断"，拆开即成为结论。
+                if (cv.collectionViewLayout as? MessageListLayout)?.isStreamingCell(ip.item) == true {
+                    aStreaming &+= 1
+                } else {
+                    aTerminal &+= 1
+                }
                 if need-cell.bounds.height > shortWorst {
                     shortWorst = need-cell.bounds.height
                     shortIdx = ip.item
@@ -348,6 +362,8 @@ final class NoAnimationCollectionView: UICollectionView {
             }
         }
         if aShapePasses > 0 { m19AShapePasses &+= 1 }
+        m19AStreamingTotal &+= aStreaming
+        m19ATerminalTotal &+= aTerminal
         if dShapePasses > 0 { m19DShapePasses &+= 1 }
 
         let now = CFAbsoluteTimeGetCurrent()
@@ -374,7 +390,7 @@ final class NoAnimationCollectionView: UICollectionView {
 
         let phase = cv.isDragging ? "drag" : (cv.isDecelerating ? "decel" : "idle")
         let streamIdx = (cv.collectionViewLayout as? MessageListLayout)?.streamingCellIndex.map(String.init) ?? "—"
-        let acc = "累计(pass口径) 采样\(m19Passes) 重叠\(m19OverlapPasses) A帧短\(m19AShapePasses) D引擎高\(m19DShapePasses) 超高\(m19ContentOverPasses) clipOff\(m19ClipOffPasses)"
+        let acc = "累计(pass口径) 采样\(m19Passes) 重叠\(m19OverlapPasses) A帧短\(m19AShapePasses) D引擎高\(m19DShapePasses) 超高\(m19ContentOverPasses) clipOff\(m19ClipOffPasses) ‖ A型拆分 流式\(m19AStreamingTotal) 终态\(m19ATerminalTotal)"
 
         // [M19 补强] **干净的读数也必须可关闭假设**：`全 0` 时若一行不打，日志里"没有 M19"
         // 就既可能"真不重叠"、也可能"根本没采样到"（M18 首轮机踩过同一个坑，见 §10.2）。
