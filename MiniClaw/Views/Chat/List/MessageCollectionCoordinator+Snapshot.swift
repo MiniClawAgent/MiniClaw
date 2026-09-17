@@ -728,8 +728,15 @@ extension MessageCollectionView.Coordinator {
 
             switch item {
             case .assistantHeader:
-                // Header is always a fixed "sparkles MiniClaw" label row (measured: 28pt)
-                layout.setEstimatedHeight(28,provenance: "est.literal28",at: i)
+                // [治本·每行唯一生产者 2026-09-17] 此处原为裸字面量 `28`（`est.literal28`），
+                // 而**滚动路径的 `estimateItemHeight` 也写这一行**（现在推导出 25.5）——
+                // 两个生产者写同一行 ⇒ 条目与帧各取一个。真机 M24 实证：
+                //   `h(header) 帧28.0 / 条目25.5 / PLAF成型25.7`
+                // ⇒ **帧停在 28**、条目已是 25.5，而**后写的那个不会刷新帧** ⇒ 屏上留 2.3pt 空白。
+                // 收口：header 只由 `estimateItemHeight` 这一个生产者产出（其 25.5 由视图度量推导）。
+                layout.setEstimatedHeight(
+                    Self.estimateItemHeight(item,messages: messages,width: cvWidth),
+                    provenance: "est.estimateItemHeight",at: i)
 
             case .assistantFooter:
                 // Prominent banners (error/resume) measure
