@@ -57,6 +57,35 @@ final class CellStateBridge: ObservableObject {
     var onShowCompactSummary: ((String) -> Void)?
 }
 
+#if DEBUG
+/// [Stage 2 · A1 收口·第三轮] **「SwiftUI view update 事务是否在栈上」的深度计数**（只用于定位）。
+///
+/// 背景：`[SwiftUI] Publishing changes from within view updates is not allowed…` 这条 fault
+/// 在 A1 去 `@Published`（`0188b71`）+ `.onChange` 推帧（`c4bd8a5`）之后**仍未归零**
+/// （真机 2026-09-17 10:18:03 连打 2 条，间隔 2.6ms）。SwiftUI 只报"发生了"、**不报是谁**，
+/// 故必须自建定位手段，否则只能靠猜（本轮已因此绕了一圈）。
+///
+/// 手段：在可控的 representable 更新入口（`MessageCollectionView.updateUIViewController`、
+/// `MarkdownView.updateUIView`、两处高风险 `.onChange`）内自增/自减本计数；
+/// 在各 `@Published` 写点上调用 `reportIfInUpdate("<site>")` ⇒ **命中即指名**是哪个属性
+/// 在更新事务内发布。计数不参与任何判定；`reportIfInUpdate` 每站点 1s 节流，开销可忽略。
+@MainActor
+enum SwiftUIUpdatePhase {
+    private static var depth = 0
+    private static var lastLogAt: [String: CFAbsoluteTime] = [:]
+    static var isInUpdate: Bool { depth > 0 }
+    static func enter() { depth &+= 1 }
+    static func exit() { depth = depth > 0 ? depth-1 : 0 }
+    static func reportIfInUpdate(_ site: String) {
+        guard depth > 0 else { return }
+        let now = CFAbsoluteTimeGetCurrent()
+        if let t = lastLogAt[site],now-t < 1.0 { return }
+        lastLogAt[site] = now
+        AppLogger.shared.warning("[Stage2][A1] ⚠️ @Published 写点命中 SwiftUI view update 事务 site=\(site) depth=\(depth) — 这就是 fault 的来源", category: "ChatList.CellMetrics")
+    }
+}
+#endif
+
 /// 顶栏总高（状态栏 + 导航栏）的**稳定常量**。
 ///
 /// 用途：顶部磨砂（第三版）要求列表**穿过顶栏**（内容才能滑到栏下、系统才会换栏背景），

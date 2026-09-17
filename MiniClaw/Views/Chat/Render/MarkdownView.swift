@@ -388,6 +388,12 @@ struct MarkdownView: UIViewRepresentable {
     }
 
     func updateUIView(_ textView: MarkdownTextView,context: Context) {
+        #if DEBUG
+        // [Stage 2 · A1 收口·第三轮] 本函数同样在 SwiftUI **update 事务内**被调用；
+        // 窗内的 `@Published` 写会指名报点（见 `SwiftUIUpdatePhase` 说明）。
+        SwiftUIUpdatePhase.enter()
+        defer { SwiftUIUpdatePhase.exit() }
+        #endif
         // [PerfTrace 2026-09-08] 渲染路径计时（此前只给测量侧打点，渲染侧是空白）
         let updateStart = CFAbsoluteTimeGetCurrent()
         #if DEBUG

@@ -525,6 +525,12 @@ extension MessageCollectionView {
             let isLast = message.id == messages.last?.id
             let isActive = isLast && vm.isProcessing
 
+            #if DEBUG
+            // [Stage 2 · A1 收口·第三轮] 本函数一次写 ~10 个 `CellStateBridge` 的 `@Published`，
+            // 而它由 `cellForItemAt`/`configureCell` 驱动 —— 若某次 cell 配置发生在
+            // `updateUIViewController` 的更新事务内（新 cell 进视口），这 10 个写就会连打 fault。
+            SwiftUIUpdatePhase.reportIfInUpdate("updateBridge(\(bridge.isActiveMessage ? "active" : "idle"))")
+            #endif
             bridge.isActiveMessage = isActive
             bridge.commandStartTime = vm.commandStartTime
             bridge.onStop = isActive ? { [weak self] in self?.onStop?() } : nil
@@ -1035,6 +1041,12 @@ public struct MessageCollectionView: UIViewControllerRepresentable {
 
     public func updateUIViewController(_ vc: MessageListViewController,context: Context) {
         let coord = context.coordinator
+        #if DEBUG
+        // [Stage 2 · A1 收口·第三轮] 本函数是 SwiftUI **update 事务内**被调用的（representable 语义），
+        // 故在此开一个"更新事务在栈上"的标记窗；窗内任何 `@Published` 写都会指名报点。
+        SwiftUIUpdatePhase.enter()
+        defer { SwiftUIUpdatePhase.exit() }
+        #endif
         // [2026-09-13 键盘「被错误抬高」· 时序修复] **必须先写 `lastInputFocused`，再算留白**。
         // 该值被 `updateUIVC` 里两处读取：① `bottomPadVal` 的键盘门控（键盘展开不再计入被代替的 34）；
         // ② base 变化后的「重新贴底」条件。而它原先在本函数**更后方**（约 1070 行）才赋值

@@ -363,6 +363,12 @@ public final class MessageListModel: ObservableObject {
     }
 
     public func setStreamingUIUpdatesSuspended(_ suspended: Bool) {
+        #if DEBUG
+        // [Stage 2 · A1 收口·第三轮] 本函数有四个调用点（拖动挂起 / settle 恢复 / 快照恢复），
+        // 全部落在滚动回调里；若某次是被 `updateUIViewController` 的补偿链同步带到的，
+        // 这里会指名（见 `SwiftUIUpdatePhase` 说明）。
+        SwiftUIUpdatePhase.reportIfInUpdate("vm.streamingUIUpdatesSuspended=\(suspended)")
+        #endif
         streamingUIUpdatesSuspended = suspended
         if !suspended {
             onStreamingUIUpdatesResumed?()

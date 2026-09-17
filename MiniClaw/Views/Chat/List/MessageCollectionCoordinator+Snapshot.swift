@@ -452,6 +452,12 @@ extension MessageCollectionView.Coordinator {
                 if let vm = self.vm {
                     let nbFlag = isNearBottom()
                     if vm.isNearBottom != nbFlag {
+                        #if DEBUG
+                        // [Stage 2 · A1 收口·第三轮] 本处是 `applySnapshot` 内的**独立**写点
+                        //（不走 `syncScrollFlags`），且 `applySnapshot` 可经
+                        // `updateUIViewController` → `rebindViewModelIfNeeded` 落在更新事务内。
+                        SwiftUIUpdatePhase.reportIfInUpdate("applySnapshot.isNearBottom")
+                        #endif
                         vm.isNearBottom = nbFlag
                     }
                 }

@@ -1137,12 +1137,24 @@ struct ChatView: View {
             ChatView.persistBarHeight(h, forKey: "chat.floatingBarHeight")
         }
         .onChange(of: session.modelName) { _ in
+            #if DEBUG
+            // [Stage 2 · A1 收口·第三轮] `.onChange` 闭包在 view update 事务内执行（本仓既有结论）；
+            // 窗内若发生 `@Published` 写，`SwiftUIUpdatePhase` 会指名报点。
+            SwiftUIUpdatePhase.enter()
+            defer { SwiftUIUpdatePhase.exit() }
+            #endif
             // 切换模型 = 换了上下文窗口与压缩阈值，圆环必须按新窗口重算。
             syncContextSnapshot(force: true)
         }
         // iOS16:onChange 单参数版本。用 @State 缓存上一个 isResponding 值,
         // 检测「回复刚结束」(true→false) 翻转。
         .onChange(of: isResponding) { nowResponding in
+            #if DEBUG
+            // [Stage 2 · A1 收口·第三轮] 同上：本闭包在更新事务内，`processNextPendingMessage()`
+            // 一路会写 appState/runtime 的 `@Published` ⇒ 必须能看到它是否命中。
+            SwiftUIUpdatePhase.enter()
+            defer { SwiftUIUpdatePhase.exit() }
+            #endif
             let wasResponding = lastResponding
             lastResponding = nowResponding
             // 当前回复刚结束（true → false）→ 立即处理队列中最早排队的消息

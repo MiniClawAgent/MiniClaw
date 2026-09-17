@@ -272,6 +272,12 @@ final class MiniClawChatBridge: ObservableObject {
         lastFingerprint = fp
         lastRefreshAt = now
 
+        #if DEBUG
+        // [Stage 2 · A1 收口·第三轮] `vm.messages` 是本仓最大的 `@Published` 载荷。
+        // 三个 `.onChange` 触发点已推帧（`c4bd8a5`），若仍有**别的**同步调用点把它
+        // 压进更新事务，这里会指名（见 `SwiftUIUpdatePhase` 说明）。
+        SwiftUIUpdatePhase.reportIfInUpdate("refresh.vm.messages")
+        #endif
         vm.messages = messages
         vm.isLoadingSession = false
 

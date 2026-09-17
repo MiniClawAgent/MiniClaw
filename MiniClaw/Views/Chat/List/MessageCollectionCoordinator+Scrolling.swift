@@ -317,10 +317,21 @@ extension MessageCollectionView.Coordinator {
             let nbFlag = isNearBottom()
             if vm.isNearBottom != nbFlag {
                 AppLogger.shared.info("[Scroll][syncScrollFlags] isNearBottom \(vm.isNearBottom)→\(nbFlag) \(Self.nbDump(viewController?.collectionView))", category: "ChatList.Scroll")
+                #if DEBUG
+                // [Stage 2 · A1 收口·第三轮] 本函数会被 `updateUIViewController` →
+                // `applySubViewportCompensation` → `scrollToBottomNow` 这条**更新事务内**的链调到；
+                // 命中即指名（见 `SwiftUIUpdatePhase` 说明）。
+                SwiftUIUpdatePhase.reportIfInUpdate("syncScrollFlags.isNearBottom")
+                #endif
                 vm.isNearBottom = nbFlag
             }
             let atTop = isAtContentTop()
-            if vm.isAtFirstTurn != atTop { vm.isAtFirstTurn = atTop }
+            if vm.isAtFirstTurn != atTop {
+                #if DEBUG
+                SwiftUIUpdatePhase.reportIfInUpdate("syncScrollFlags.isAtFirstTurn")
+                #endif
+                vm.isAtFirstTurn = atTop
+            }
         }
 
         /// Locate the UITextView descendant
