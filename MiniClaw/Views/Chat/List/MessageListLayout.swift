@@ -1231,7 +1231,11 @@ final class ScrollMetricsRecorder: @unchecked Sendable {
     /// 不需要为它加任何界面；哨兵不存在时录制保持关闭，热路径只剩 `guard isEnabled`
     /// 一次 Bool 读（与改动前一致，故不影响性能与现有行为）。
     /// 哨兵最长有效期（秒）。见 `refreshFromSentinel` 的「可关闭化」说明。
-    static let sentinelTTL: TimeInterval = 72 * 3600
+    /// [降噪 2026-09-17] **72h → 2h**：真机实测这个开关被遗留了 25 小时（`age=25h` < 72h ⇒
+    /// 一直"合法地"开着），期间 `[PLAF]`/`[PLAF-SET]` 按 cell×pass 打点，单轮 1864 行（占日志 30%）。
+    /// 72h 的调试开关**等于没有过期机制**。诊断窗按"一次会话"计，2h 足够；要更久就重新放一次哨兵
+    /// （`copy to` 会刷新 mtime，语义即"再续 2 小时"）。
+    static let sentinelTTL: TimeInterval = 2 * 3600
 
     /// [2026-09-14 可关闭化] 实测发现 **`devicectl` 没有删除文件的能力**（只有 `copy to` / `copy from`）
     /// —— 于是"存在即开启"的判据意味着**一旦放上去就关不掉**，只能靠重装 App。
@@ -1266,10 +1270,16 @@ final class ScrollMetricsRecorder: @unchecked Sendable {
         // 于是「文件没找到」与「函数没被调用」两种情况都表现为**没有任何日志**，无法区分 ——
         // 这正是上次导出拿不到数据却查不出原因的地方。这里把 on / isEnabled / 判定理由 /
         // 解析出的路径全部打出，一眼可对照文件到底该放哪。
-        AppLogger.shared.info(
-            "[ScrollMetrics] 哨兵 on=\(on ? 1 : 0) isEnabled=\(isEnabled ? 1 : 0) why=\(why) root=\(FileSystemManager.shared.miniClawRoot.path)",
-            category: "ChatList.CellMetrics")
-        if on != isEnabled { setEnabled(on) }
+        // [降噪修正 2026-09-17] 原先本行在 `setEnabled` **之前**打印 ⇒ 真机出现
+        // `哨兵 on=1 isEnabled=0` 这种自相矛盾的行（读的是**赋值前**的旧值）。
+        // 改为先应用再打印，且**只在状态真的变化时**才打（本行不需要每次调用都留证据：
+        // `ensureEnabledChecked` 保证每进程只跑一次，而"没跑"与"没找到"已由本行的存在本身区分）。
+        if on != isEnabled {
+            setEnabled(on)
+            AppLogger.shared.info(
+                "[ScrollMetrics] 哨兵 on=\(on ? 1 : 0) → isEnabled=\(isEnabled ? 1 : 0) why=\(why) root=\(FileSystemManager.shared.miniClawRoot.path)",
+                category: "ChatList.CellMetrics")
+        }
     }
 }
 

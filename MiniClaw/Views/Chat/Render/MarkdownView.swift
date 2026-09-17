@@ -1966,7 +1966,11 @@ struct MarkdownView: UIViewRepresentable {
             let total = stfWindowTotalMs+updWindowTotalMs
             // [Stage 0 修正] 原条件只有 `total >= 500`，于是**恰好在健康的基线上什么都看不到**
             // —— 而基线正是要冻结的那张表。改为「耗时高 **或** 实例/探针活动达到量级」即输出。
-            if total >= 500 || allUpdateUIViewCount >= 10 || truncProbeRuns >= 2 {
+            // [降噪 2026-09-17] 原条件 `total >= 500 || allUpdateUIViewCount >= 10 || truncProbeRuns >= 2`
+            // 太松：流式期 `truncProbeRuns >= 2` **每个 runloop hop 都成立** ⇒ 真机单轮 **2974 行
+            // （占日志 48%）**。那两个"活动量"腿当初是为了在健康基线上也能看到数（Stage 0 基线表），
+            // 而基线已冻结进计划 ⇒ 现在只保留"这一 hop 真的花了钱"这一条腿。
+            if total >= 8 || stfWindowTotalMs >= 4 || updWindowTotalMs >= 4 {
                 watchdogProbe.info("[WatchdogProbe][hop] cumulative=\(String(format: "%.0f", total))ms stf=\(String(format: "%.0f", stfWindowTotalMs)) upd=\(String(format: "%.0f", updWindowTotalMs)) stfCalls=\(stfWindowCallCount) updCalls=\(updWindowCallCount) distinctMsgs=\(distinctMsgIds.count) \(instanceProbeSuffix())")
             }
             // [Stage 0 · 通道修正] M1/M2 汇总必须走 **warn**。
