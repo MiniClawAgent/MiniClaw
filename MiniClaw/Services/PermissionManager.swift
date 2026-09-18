@@ -202,6 +202,9 @@ final class PermissionManager: @unchecked Sendable {
     /// 使右侧徽标显示真实授权情况（而非永远停留在「未授权」）。
     @MainActor
     func refreshStatuses() {
+        // HomeKit 的真实状态只在管理器实例已存在时才有意义：为查状态而创建 HMHomeManager
+        // 会触发系统授权询问，而「打开设置页」不是请求家庭数据的意图。未创建时保持原值（= 尚未询问）。
+        let homeKitKnown = HomeKitAuthorization.currentIfKnown
         writePermission { p in
             p.location          = Self.locationStatus()
             p.calendar          = Self.ekStatus(.event)
@@ -210,8 +213,40 @@ final class PermissionManager: @unchecked Sendable {
             p.microphone        = Self.micStatus()
             p.speechRecognition = Self.speechStatus()
             p.healthKit         = Self.healthStatus()
-            // homeKit 无系统查询 API；pasteboard 视为始终可用（由视图单独处理），两者保持原值。
+            if let homeKitKnown, homeKitKnown == .authorized || homeKitKnown == .restricted {
+                // 只在系统给出**确定结论**（授权 / 受限）时回写。
+                // 系统无法表达"已拒绝"——枚举只有 Determined/Restricted/Authorized，用户拒绝后仍报 notDetermined，
+                // 无条件回写会把我们自行判定的「已拒绝」冲掉（见 resolveHomeKitAskIfNeeded）。
+                p.homeKit = homeKitKnown
+            }
+            // pasteboard 视为始终可用（由视图单独处理），保持原值。
         }
+    }
+
+    // MARK: - HomeKit 询问的结算
+
+    /// HomeKit 授权询问是否已发起、尚未结算（内存态，不持久化）。
+    /// 系统对"用户拒绝"**不给任何回调**（实测），只能靠「我们问过 + App 回到 active 后仍非授权」推断为拒绝。
+    private var homeKitAskPending = false
+
+    /// 发起 HomeKit 系统授权询问并登记"待结算"。**不等待回答** ——
+    /// 用户拒绝时系统无回调，等待会让界面永久转圈（见 `HomeKitAuthorization.beginPrompt`）。
+    @MainActor
+    func beginHomeKitAsk() {
+        HomeKitAuthorization.beginPrompt()
+        homeKitAskPending = true
+    }
+
+    /// App 回到 active 时调用：若之前发起过 HomeKit 询问，读真实状态并结算。
+    /// 授权 → 已授权；受限 → 受限；**仍非授权 → 已拒绝**（我们问过了，答案不是"允许"）。
+    /// 结算结果会持久化，于是下次点击该行可直接跳系统设置（系统拒绝后不会再弹窗）。
+    @MainActor
+    func resolveHomeKitAskIfNeeded() {
+        guard homeKitAskPending else { return }
+        guard let state = HomeKitAuthorization.currentIfKnown else { return }
+        homeKitAskPending = false
+        let settled: PermissionState = (state == .authorized || state == .restricted) ? state : .denied
+        writePermission { $0.homeKit = settled }
     }
 
     private static func locationStatus() -> PermissionState {
@@ -263,9 +298,18 @@ final class PermissionManager: @unchecked Sendable {
     /// 故此处不再查询系统，只返回本 App 记录的「是否已请求过」：
     /// `.authorized` = 已向用户弹过授权页（不代表用户同意读取），
     /// `.notDetermined` = 从未请求。实际能否读到数据由查询时的返回结果决定。
+    /// 健康数据（**读**）授权状态。
+    ///
+    /// iOS **不公开读授权的结论**：对只读类型 `authorizationStatus(for:)` 一旦询问过就恒返回
+    /// `.sharingDenied`（无论允许还是拒绝），这是 Apple 防"用授权状态反推健康状况"的侧信道设计。
+    /// 因此这里只能区分两态，绝不去猜结论：
+    /// - **从未询问**（全部返回 `.notDetermined`）→ `.notDetermined`，界面显示「未授权」并可点击申请；
+    /// - **已询问**（出现 `.sharingDenied`）→ `.unknown`，界面**不显示**状态徽标。
     private static func healthStatus() -> PermissionState {
         guard HKHealthStore.isHealthDataAvailable() else { return .restricted }
-        return SettingsStore.shared.settings.permissions.healthKit
+        let store = HKHealthStore()
+        let asked = AppleHealthKitTool.readableTypes.contains { store.authorizationStatus(for: $0) != .notDetermined }
+        return asked ? .unknown : .notDetermined
     }
 
     // MARK: - 系统权限：申请（弹系统对话框）
@@ -284,7 +328,11 @@ final class PermissionManager: @unchecked Sendable {
         case "microphone":           state = await requestMic()
         case "speech":               state = await requestSpeech()
         case "localNetwork":         state = SettingsStore.shared.settings.permissions.localNetwork // 无系统查询 API，返回配置域持久化状态
-        case "homeKit":              state = .notDetermined // HomeKit 无独立授权弹窗，由调用方跳设置
+        case "homeKit":
+            // 触发系统询问并登记待结算；**不在此等待回答**（用户拒绝时系统无回调，等待=永久转圈）。
+            // 返回当前已持久化的状态，调用方据它决定"已被拒绝就跳系统设置"。
+            beginHomeKitAsk()
+            state = SettingsStore.shared.settings.permissions.homeKit
         default:                     state = .notDetermined
         }
         writePermission { p in
@@ -311,8 +359,17 @@ final class PermissionManager: @unchecked Sendable {
         guard HKHealthStore.isHealthDataAvailable() else { return .restricted }
         // 与工具内部共用 HealthKitAuthGate：iOS 同一时刻只接受一个授权请求。
         let completed = await HealthKitAuthGate.shared.request(read: AppleHealthKitTool.readableTypes, share: [])
-        // completed 仅表示授权流程正常结束，不代表用户已授权（读授权不可探测）。
-        return completed ? .authorized : .denied
+        // ⚠️ **不能把 `completed` 当成"已授权"**：它只表示授权流程正常结束，
+        // 用户点「不允许」时同样是 true。旧代码 `completed ? .authorized : .denied` 正是
+        // 「明明拒绝、却显示已授权」的根因（唐唐 2026-09-18 报告）。
+        //
+        // 而 HealthKit 的**读授权在 iOS 上不可探测**：系统对只读类型 `authorizationStatus(for:)`
+        // 恒返回 `.sharingDenied`，以防"用授权状态反推用户健康状况"的侧信道。
+        // 因此本 App **无法得知**读授权究竟给没给 —— 只能如实返回"未知"，绝不臆断已授权。
+        // 流程结束 = 用户**已被询问**。但"给没给"系统不告诉我们（读授权不可探测），
+        // 故返回 `.unknown` 让界面**不显示**状态 —— 既不虚报"已授权"，也不误报"未授权"。
+        // 旧代码 `completed ? .authorized : .denied` 正是「明明拒绝、却显示已授权」的根因。
+        return completed ? .unknown : .denied
     }
 
     private func requestEK(_ type: EKEntityType) async -> PermissionState {

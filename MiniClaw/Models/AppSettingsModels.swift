@@ -33,10 +33,19 @@ struct DefaultSettings: Codable, Equatable {
     var defaultAgentName: String = "MiniClaw"
     var defaultLanguage: String = "auto"
     var confirmBeforeToolCall: Bool = false
+    /// 允许 AI 读取健康数据（apple-healthkit 的 summary / query / range_report / workouts / characteristic）。
+    /// 默认关闭：健康数据属敏感个人数据，需用户显式开启，或由 AI 在会话内经授权弹窗征得同意（仅本会话有效）。
+    var healthReadEnabled: Bool = false
     /// 允许 AI 写入 / 删除健康数据（apple-healthkit 的 write 与 delete）。
     /// 默认关闭：写入会直接改动用户的健康记录，属高副作用，需要用户显式表达意图。
     /// 删除虽受 HealthKit 限制「只能删本 App 写入的样本」，仍由同一开关守卫。
     var healthWriteEnabled: Bool = false
+    /// 允许 AI 读取家庭配件与场景（apple-homekit 的 list / search / get / scenes）。
+    /// 默认关闭：家庭构成属私人信息（谁住在哪、有什么设备），同属敏感数据。
+    var homeReadEnabled: Bool = false
+    /// 允许 AI 控制家庭配件（apple-homekit 的 set / trigger）。
+    /// 默认关闭：会真实改变家中设备状态（开锁、开灯、调温），副作用直接作用于物理世界。
+    var homeControlEnabled: Bool = false
     /// AI 安装插件（miniclaw_plugin 的 install）前是否需要用户确认。
     /// 默认开启：AI 安装插件 = 改变自身能力集，弹窗过一道人审；关闭则直接安装。
     var aiPluginInstallRequiresConfirmation: Bool = true
@@ -55,7 +64,10 @@ struct DefaultSettings: Codable, Equatable {
         defaultAgentName = try c.decodeIfPresent(String.self, forKey: .defaultAgentName) ?? "MiniClaw"
         defaultLanguage = try c.decodeIfPresent(String.self, forKey: .defaultLanguage) ?? "auto"
         confirmBeforeToolCall = try c.decodeIfPresent(Bool.self, forKey: .confirmBeforeToolCall) ?? false
+        healthReadEnabled = try c.decodeIfPresent(Bool.self, forKey: .healthReadEnabled) ?? false
         healthWriteEnabled = try c.decodeIfPresent(Bool.self, forKey: .healthWriteEnabled) ?? false
+        homeReadEnabled = try c.decodeIfPresent(Bool.self, forKey: .homeReadEnabled) ?? false
+        homeControlEnabled = try c.decodeIfPresent(Bool.self, forKey: .homeControlEnabled) ?? false
         aiPluginInstallRequiresConfirmation = try c.decodeIfPresent(Bool.self, forKey: .aiPluginInstallRequiresConfirmation) ?? true
     }
 }

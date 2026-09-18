@@ -42,7 +42,11 @@ Scene #17 的目标是 **辅助把 MiniClaw 送审上架**，而非继续堆功�
 - ✅ `NSHealthShareUsageDescription` / `NSHealthUpdateUsageDescription` → **已落地，退出本风险项**。`Tools/HealthKitTools.swift` + `PermissionManager` 构成完整读写链路（读 24 项 / 写 8 项白名单），见 `f2f19e3`。
 - ⚠️ `NSPhotoLibraryUsageDescription` → **仅有授权链路，无实际读写**。`requestPhotos()` 会真发 `PHPhotoLibrary.requestAuthorization`，但全库无 `UIImagePickerController` / `PHPickerViewController`。
 - ⚠️ `NSRemindersUsageDescription`（及 `NSCalendarsUsageDescription`）→ **仅有授权链路，无实际增删改**。`requestEK()` 会真发 `requestFullAccessToReminders`，但全库无 `EKEvent` / `EKReminder`。
-- ❌ `NSHomeKitUsageDescription` → 无 `HMHomeManager` 引用，入口保持隐藏。
+- ✅ **2026-09-18 拒审复核（本次结论，替代原 ❌ 判定）**：
+  - **2.5.1（HealthKit）**：功能真实（`HealthKitTools.swift` 读 24 / 写 8），但界面**只标识了写入路径**（通用页那个总闸），**读取路径一字未提** ⇒ Apple 判「未清晰标识 HealthKit 功能」。整改：新增「设置 → 权限与后台 → **控制**」区，把健康数据（HealthKit）的**读取+写入**功能说明、授权入口与写入总闸集中一处；隐私政策补「系统数据与设备能力」。
+  - **2.1（HomeKit）——原判「无 `HMHomeManager` 引用」已过期**：`Tools/HomeKitTools.swift` 已是完整实现（`HMHomeManager` / `HMAccessory` / 场景），`ToolPluginManager` 亦已注册 `apple-homekit`，但 UI 入口自 2026-08-31 起一直**处于注释隐藏状态** ⇒ Apple 只能问「你用了什么 HomeKit 自动化功能」。整改：**取消隐藏**，「家庭配件（HomeKit）」入口与功能说明并入上述「控制」区。
+  - 结构决策（唐唐）：分类标题「**后台**」更名「**控制**」，健康数据从「通用」迁入该区 —— 同类开关集中一处，不再散落多个设置页。
+  - 附带：`NSAppleMusicUsageDescription` 仍为零引用；Apple 本次未点名，按唐唐指示暂不动。
 - ❌ `NSBluetoothAlwaysUsageDescription` / `NFCReaderUsageDescription` / `NSAppleMusicUsageDescription` → 无 `CBCentralManager` / `NFCNDEFReaderSession` / `MPMediaLibrary` 引用。
 
 **判定（对照 App Store Review Guidelines）**：

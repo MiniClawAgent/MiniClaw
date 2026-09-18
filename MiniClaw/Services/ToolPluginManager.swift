@@ -188,7 +188,8 @@ final class ToolPluginManager {
         "miniclaw_config": { _ in ConfigTool() },
         "miniclaw-model-use": { _ in MiniClawModelUseTool() },
         // 2026-08-31 新增：健康与定位。二者都是 iOS 原生能力，无法用 shell 后端表达。
-        "apple-healthkit": { _ in AppleHealthKitTool() },
+        // 2026-09-18：健康/家庭都要吃会话 id —— 能力授权弹窗按会话记账（见 ensureCapability）。
+        "apple-healthkit": { AppleHealthKitTool(currentSessionID: $0) },
         "apple-location": { _ in AppleLocationTool() },
         // 2026-08-31 新增：日历 / 提醒 / 相册 / HomeKit。
         // 这四个原本是「有 schema、有 i18n、execute 却返回 not_implemented」的占位工具，
@@ -196,7 +197,7 @@ final class ToolPluginManager {
         "apple-calendar": { _ in AppleCalendarTool() },
         "apple-reminders": { _ in AppleRemindersTool() },
         "apple-photos": { ApplePhotosTool(currentSessionID: $0) },
-        "apple-homekit": { _ in AppleHomeKitTool() },
+        "apple-homekit": { AppleHomeKitTool(currentSessionID: $0) },
         // 2026-09-01 新增：通讯录 / 地图 / 媒体播放 / 语音识别。
         "apple-contacts": { _ in AppleContactsTool() },
         "apple-maps": { _ in AppleMapsTool() },

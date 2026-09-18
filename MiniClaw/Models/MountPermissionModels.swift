@@ -44,6 +44,13 @@ enum PermissionState: String, Codable {
     case authorized = "已授权"
     case denied = "已拒绝"
     case restricted = "受限"
+    /// 系统**不公开**该权限的结论 —— 目前只有 HealthKit **读**授权属此：
+    /// iOS 对只读类型的 `authorizationStatus(for:)` 在询问过之后**恒返回 `.sharingDenied`**
+    /// （无论用户允许还是拒绝），以阻止"用授权状态反推用户健康状况"的侧信道。
+    ///
+    /// 语义 =「**已询问，但给没给系统不告诉我们**」。
+    /// 因此本状态**不显示任何状态徽标**：既不虚报"已授权"，也不误报"未授权"。
+    case unknown = "未知"
 
     /// 显示标签(英文 key,经 String(localized:) 查表);rawValue 保持中文以兼容 Codable 持久化。
     var label: String {
@@ -52,6 +59,7 @@ enum PermissionState: String, Codable {
         case .authorized: "permission_authorized"
         case .denied: "permission_denied"
         case .restricted: "permission_restricted"
+        case .unknown: "permission_unknown"
         }
     }
 }

@@ -26,6 +26,37 @@ private struct HomeKitOutcome: Sendable {
     let text: String
 }
 
+// MARK: - HomeKit 授权状态接入（供权限页展示与申请）
+
+/// HomeKit 授权状态接入。
+///
+/// **事实纠正（2026-09-18）**：本文件与 `PermissionManager` 原注释都写「HomeKit 无系统查询 API」——**这是错的**。
+/// `HMHomeManager.authorizationStatus` 是 iOS 13 起的公开只读查询属性，配 `didUpdateAuthorizationStatus:` 委托
+/// （见 SDK `HomeKit.framework/Headers/HMHomeManager.h:53`）。正因那句错注释，`permissions.homeKit` 被永远
+/// 钉在 `.notDetermined`，徽标与真实授权状态无关。
+///
+/// **但读取它必须先有 `HMHomeManager` 实例，而创建实例会让系统弹出 HomeKit 授权询问**。故这里严格分两种场景：
+/// - **被动展示**（进入设置页）：只在实例**已存在**时读取，绝不为了查状态而创建 —— 「打开设置页」不是请求家庭数据的意图；
+/// - **用户主动请求**（点「家庭配件」行）：才创建实例、触发真实的系统询问，再读真实状态。
+@MainActor
+enum HomeKitAuthorization {
+    /// 已知的真实状态；从未创建过管理器时返回 nil，表示"尚未询问"（由视图自行决定如何呈现）。
+    static var currentIfKnown: PermissionState? {
+        guard HomeKitHub.hasBeenInstantiated else { return nil }
+        return HomeKitHub.shared.authorizationState
+    }
+
+    /// 用户主动请求家庭数据：确保管理器存在 —— 这一步会**触发系统授权询问**。
+    ///
+    /// **不在此等待系统回答。** 实测（2026-09-18）用户点「不允许」时系统**不给任何回调**，
+    /// 旧实现 `await waitUntilReady()` 会永久挂起，界面表现为一直转圈。
+    /// 改为「触发询问后立即返回」，由调用方在 **App 回到 active** 时再读真实状态并结算
+    /// （见 `PermissionManager.resolveHomeKitAskIfNeeded()`）。
+    static func beginPrompt() {
+        _ = HomeKitHub.shared   // 访问即创建实例（lazy），从而触发系统询问
+    }
+}
+
 // MARK: - HMHomeManager 宿主
 
 /// HomeKit 管理器宿主。
@@ -43,13 +74,28 @@ private struct HomeKitOutcome: Sendable {
 private final class HomeKitHub: NSObject, HMHomeManagerDelegate {
     static let shared = HomeKitHub()
 
+    /// 实例是否已创建。**读本标志不会创建实例**（`shared` 是 lazy 的）——
+    /// 这是"只为查授权状态就绝不创建管理器"的前提：创建 `HMHomeManager` 会触发系统授权询问。
+    private static var instantiated = false
+    static var hasBeenInstantiated: Bool { instantiated }
+
     private let manager = HMHomeManager()
     private var isReady = false
     private var waiters: [CheckedContinuation<Void, Never>] = []
 
     private override init() {
         super.init()
+        HomeKitHub.instantiated = true
         manager.delegate = self
+    }
+
+    /// 系统报告的 HomeKit 授权状态（`HMHomeManager.authorizationStatus`，iOS 13+）。
+    /// 用 `contains` 而非 `==`：该类型是 `NS_OPTIONS`，组合值下等值判断会漏。
+    var authorizationState: PermissionState {
+        let s = manager.authorizationStatus
+        if s.contains(.authorized) { return .authorized }
+        if s.contains(.restricted) { return .restricted }
+        return .notDetermined
     }
 
     /// 等到家庭数据首次加载完成；已就绪则立即返回。
@@ -60,13 +106,23 @@ private final class HomeKitHub: NSObject, HMHomeManagerDelegate {
 
     // delegate 是 ObjC 协议，回调可能来自任意线程；标记 nonisolated 后跳回主线程改状态。
     nonisolated func homeManagerDidUpdateHomes(_ manager: HMHomeManager) {
-        Task { @MainActor in
-            let hub = HomeKitHub.shared
-            hub.isReady = true
-            let pending = hub.waiters
-            hub.waiters = []
-            for waiter in pending { waiter.resume() }
-        }
+        Task { @MainActor in HomeKitHub.shared.markReadyAndResumeWaiters() }
+    }
+
+    /// 授权状态变化同样是"已就绪"的定论。
+    /// **实测纠正（2026-09-18，唐唐报告）**：上文原注释称「未授予 HomeKit 权限时 `didUpdateHomes`
+    /// 同样会触发（只是 homes 为空）」——**不成立**。用户点「不允许」时该回调可能永不触发，
+    /// 仅靠它会让所有等待者**永久挂起**（界面表现为一直转圈）。故这里一并唤醒。
+    nonisolated func homeManager(_ manager: HMHomeManager,
+                                 didUpdate status: HMHomeManagerAuthorizationStatus) {
+        Task { @MainActor in HomeKitHub.shared.markReadyAndResumeWaiters() }
+    }
+
+    private func markReadyAndResumeWaiters() {
+        isReady = true
+        let pending = waiters
+        waiters = []
+        for waiter in pending { waiter.resume() }
     }
 
     // MARK: 对外能力（入参与返回均为 Sendable）
@@ -397,6 +453,13 @@ private enum HomeKitNames {
 /// - **不增删改自动化规则**：`trigger` 只执行已有场景，不碰 Home 的自动化配置。
 struct AppleHomeKitTool: AgentTool {
     let name = "apple-homekit"
+    /// 发起调用的会话：能力授权请求需按会话记账（见 `ToolConfirmationBridge.ensureCapability`）。
+    let currentSessionID: UUID?
+
+    init(currentSessionID: UUID? = nil) {
+        self.currentSessionID = currentSessionID
+    }
+
     /// 会真实改变家中设备状态，重试前必须经用户确认。
     let resumePolicy: ResumePolicy = .requiresUserConfirmation
 
@@ -432,6 +495,21 @@ struct AppleHomeKitTool: AgentTool {
     func execute(_ parameters: [String: Any]) async throws -> ToolResult {
         guard let action = parameters["action"] as? String else {
             throw ToolError.invalidParameters(String(localized: "err_missing_action"))
+        }
+        // ── 能力守卫（单一入口：`ToolConfirmationBridge.ensureCapability`）──
+        // 读取类动作需 homeRead、控制类动作需 homeControl：设置里持久开启，或本会话内经授权弹窗同意。
+        // 未授权时弹一次授权窗（仅真实用户会话会弹）；拒绝则回报失败给模型。
+        switch action {
+        case "list", "search", "get", "scenes":
+            guard await ToolConfirmationBridge.shared.ensureCapability(.homeRead, sessionID: currentSessionID) else {
+                return ToolResult(success: false, text: AICapability.homeRead.unauthorizedMessage)
+            }
+        case "set", "trigger":
+            guard await ToolConfirmationBridge.shared.ensureCapability(.homeControl, sessionID: currentSessionID) else {
+                return ToolResult(success: false, text: AICapability.homeControl.unauthorizedMessage)
+            }
+        default:
+            break
         }
         switch action {
         case "list":    return await listAction(parameters)

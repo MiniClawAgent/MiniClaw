@@ -54,11 +54,17 @@ struct ContentView: View {
                         .ignoresSafeArea()
                         .onTapGesture { /* 点击遮罩不关闭，避免引擎 continuation 悬挂 */ }
                     VStack(spacing: 14) {
-                        Text(String(localized: "tool_call_confirmation"))
+                        // 能力授权请求用能力自己的标题；工具调用/插件安装沿用原「工具调用确认」。
+                        Text(item.capability?.requestTitle ?? String(localized: "tool_call_confirmation"))
                             .font(.headline)
                         Group {
-                            let actionLine = String(localized: "about_to_call_tool") + item.toolName + "」\n" + String(localized: "operation_label") + item.summary
-                            Text(actionLine)
+                            if item.capability != nil {
+                                // 能力请求：正文即能力的用途说明（summary 在构造时已填为该说明）。
+                                Text(item.summary)
+                            } else {
+                                let actionLine = String(localized: "about_to_call_tool") + item.toolName + "」\n" + String(localized: "operation_label") + item.summary
+                                Text(actionLine)
+                            }
                         }
                             .font(.subheadline)
                             .multilineTextAlignment(.center)
@@ -69,9 +75,10 @@ struct ContentView: View {
                         } label: {
                             Text(String(localized: "allow_once")).frame(maxWidth: .infinity)
                         }
+                        // 「允许本次会话」按待确认项的性质记账：能力请求 → 只授权该能力；
+                        // 工具调用/插件安装 → 该会话后续工具调用免确认（见 approveForSession）。
                         Button {
-                            confirmBridge.approveSession(sessionID: item.sessionID)
-                            confirmBridge.resolve(itemID: item.id, approved: true)
+                            confirmBridge.approveForSession(itemID: item.id)
                         } label: {
                             Text(String(localized: "allow_this_session")).frame(maxWidth: .infinity)
                         }

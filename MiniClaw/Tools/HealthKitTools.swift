@@ -128,6 +128,13 @@ actor HealthKitAuthGate {
 /// - 写：写入类型的授权**可以**探测（`.sharingAuthorized`），据此决定是否弹窗。
 struct AppleHealthKitTool: AgentTool {
     let name = "apple-healthkit"
+    /// 发起调用的会话：能力授权请求需按会话记账（见 `ToolConfirmationBridge.ensureCapability`）。
+    let currentSessionID: UUID?
+
+    init(currentSessionID: UUID? = nil) {
+        self.currentSessionID = currentSessionID
+    }
+
     /// 写入类操作具有设备外副作用（会改动用户健康记录），恢复时必须经用户确认。
     let resumePolicy: ResumePolicy = .requiresUserConfirmation
 
@@ -199,6 +206,22 @@ struct AppleHealthKitTool: AgentTool {
             return failure(String(localized: "health_unavailable"))
         }
         let action = (parameters["action"] as? String)?.lowercased() ?? ""
+        // ── 能力守卫（单一入口：`ToolConfirmationBridge.ensureCapability`）──
+        // 读类动作需 healthRead、写/删需 healthWrite：设置里持久开启，或本会话内用户经授权弹窗同意。
+        // 未授权时弹一次授权窗（仅真实用户会话会弹）；拒绝则回报失败给模型。
+        // `types` 只列举类型目录、不含用户数据，不做守卫。
+        switch action {
+        case "summary", "query", "range_report", "workouts", "characteristic":
+            guard await ToolConfirmationBridge.shared.ensureCapability(.healthRead, sessionID: currentSessionID) else {
+                return failure(AICapability.healthRead.unauthorizedMessage)
+            }
+        case "write", "delete":
+            guard await ToolConfirmationBridge.shared.ensureCapability(.healthWrite, sessionID: currentSessionID) else {
+                return failure(AICapability.healthWrite.unauthorizedMessage)
+            }
+        default:
+            break
+        }
         switch action {
         case "types":         return typesAction()
         case "summary":       return await summaryAction()
@@ -445,7 +468,6 @@ struct AppleHealthKitTool: AgentTool {
     // MARK: action - write
 
     private func writeAction(_ parameters: [String: Any]) async -> ToolResult {
-        guard healthWriteEnabled() else { return failure(String(localized: "health_write_disabled")) }
         guard let key = parameters["metric"] as? String, let def = HealthMetrics.byKey[key] else {
             return failure(String(format: String(localized: "health_type_unsupported"),
                                   HealthMetrics.writableKeys.joined(separator: ", ")))
@@ -504,7 +526,6 @@ struct AppleHealthKitTool: AgentTool {
     /// 删除本 App 写入的样本。HealthKit 天然限制「App 只能删除自己创建的样本」，
     /// 因此该操作无法越权删除设备或其他 App 记录的数据。
     private func deleteAction(_ parameters: [String: Any]) async -> ToolResult {
-        guard healthWriteEnabled() else { return failure(String(localized: "health_write_disabled")) }
         guard let key = parameters["metric"] as? String, let def = HealthMetrics.byKey[key], def.writable else {
             return failure(String(format: String(localized: "health_type_unsupported"),
                                   HealthMetrics.writableKeys.joined(separator: ", ")))
@@ -704,11 +725,6 @@ struct AppleHealthKitTool: AgentTool {
 
     private func failure(_ text: String) -> ToolResult {
         ToolResult(success: false, text: text)
-    }
-
-    /// 写入总开关（设置 → 通用）。关闭时 write / delete 一律拒绝。
-    private func healthWriteEnabled() -> Bool {
-        SettingsStore.shared.settings.defaults.healthWriteEnabled
     }
 
     private func resolveRange(_ parameters: [String: Any]) -> (start: Date, end: Date, error: String?) {

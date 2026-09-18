@@ -18,15 +18,12 @@ struct PermissionsSettingsView: View {
     /// 定位授权状态（2026-08-07 自后台页移入；供 apple-location 取当前位置使用）。
     @State private var locationState: PermissionState = .notDetermined
 
-    /// 权限清单（仅展示用户指定的项；健康仅保留「健康数据」，位置已移至「后台」页定位行）。
-    /// 2026-08-31：健康数据已恢复展示——AppleHealthKitTool 真实现已接入（读 24 项 / 写 8 项白名单），
-    /// 此处点击即一次性申请全量读类型授权（写入授权由「设置 → 通用 → 允许 AI 写入健康数据」按需申请）。
-    /// 家庭配件（AppleHomeKitTool）仍是占位空壳，入口继续保持隐藏。
+    /// 权限清单：系统授权状态类项目。健康数据与家庭配件**不在此列** ——
+    /// 二者连同各自的功能说明与写入总闸集中在「控制」区（见 body），
+    /// 避免同一能力的入口散落在多处设置页。
     private let permissionItems: [(key: String, label: String)] = [
-        ("healthData", String(localized: "health_data")),
         ("calendar",  String(localized: "calendar")),
         ("photos",    String(localized: "images")),
-        // ("homeKit",   String(localized: "home_accessories")),   // 待 HomeKit 工具接入后恢复
         ("pasteboard",String(localized: "clipboard")),
         ("reminders", String(localized: "reminders")),
         ("microphone",String(localized: "microphone")),
@@ -39,14 +36,22 @@ struct PermissionsSettingsView: View {
 
     var body: some View {
         Form {
+            // 「控制」区：**只放二级入口**，所有开关都收进各自的二级页
+            // （2026-09-18 唐唐要求：控制项严格进二级菜单，不在本页散落开关）。
             Section {
                 NavigationLink(String(localized: "background")) {
                     BackgroundSettingsView()
                 }
+                NavigationLink(String(localized: "health_capability_title")) {
+                    HealthCapabilitySettingsView()
+                }
+                NavigationLink(String(localized: "home_capability_title")) {
+                    HomeCapabilitySettingsView()
+                }
             } header: {
-                Text(String(localized: "background"))
+                Text(String(localized: "control"))
             } footer: {
-                Text(String(localized: "permissions_background_section_footer"))
+                Text(String(localized: "control_section_footer"))
             }
 
             Section {
@@ -255,10 +260,8 @@ struct PermissionsSettingsView: View {
 
     private func state(for key: String) -> PermissionState {
         switch key {
-        case "health", "healthData": return permissions.healthKit
         case "calendar":            return permissions.calendar
         case "photos":              return permissions.photoLibrary
-        case "homeKit":             return permissions.homeKit
         case "pasteboard":          return .authorized  // 始终可用
         case "reminders":           return permissions.reminders
         case "microphone":          return permissions.microphone
@@ -284,15 +287,20 @@ struct PermissionsSettingsView: View {
 struct PermissionBadgeView: View {
     let state: PermissionState
 
+    // `.unknown`（系统不公开结论 —— 目前只有 HealthKit 读授权）**不渲染任何徽标**：
+    // 既不虚报"已授权"，也不误报"未授权"（2026-09-18 唐唐要求）。
+    @ViewBuilder
     var body: some View {
-        Text(String(localized: String.LocalizationValue(state.label)))
-            .font(.caption)
-            .fontWeight(.medium)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 3)
-            .background(Self.badgeColor(state).opacity(0.15))
-            .foregroundStyle(Self.badgeColor(state))
-            .clipShape(Capsule())
+        if state != .unknown {
+            Text(String(localized: String.LocalizationValue(state.label)))
+                .font(.caption)
+                .fontWeight(.medium)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 3)
+                .background(Self.badgeColor(state).opacity(0.15))
+                .foregroundStyle(Self.badgeColor(state))
+                .clipShape(Capsule())
+        }
     }
 
     static func badgeColor(_ state: PermissionState) -> Color {
@@ -301,6 +309,169 @@ struct PermissionBadgeView: View {
         case .denied:        return .red
         case .restricted:    return .orange
         case .notDetermined: return .gray
+        case .unknown:       return .clear   // 不显示徽标；仅为 switch 穷尽
+        }
+    }
+}
+
+// MARK: - 控制 · 能力开关与系统授权行（健康/家庭二级页共用，单一来源）
+
+/// 能力总闸开关：绑定 `defaults` 域的某个 Bool。
+/// 四个能力开关共用同一读写口径 —— 避免同一套 get/set 写四遍后各自漂移。
+struct CapabilityToggleRow: View {
+    let title: String
+    let keyPath: WritableKeyPath<DefaultSettings, Bool>
+    @ObservedObject private var store = SettingsStore.shared
+
+    var body: some View {
+        Toggle(title, isOn: Binding(
+            get: { store.settings.defaults[keyPath: keyPath] },
+            set: { newValue in
+                var d = store.settings.defaults
+                d[keyPath: keyPath] = newValue
+                store.set(d, domain: .defaults, summary: title)
+            }
+        ))
+    }
+}
+
+/// 能力的系统授权状态行：整行可点申请系统授权，右侧显示授权徽标。
+/// 与权限页用同一枚 `PermissionBadgeView`，样式一致。
+struct CapabilityAuthorizationRow: View {
+    let permissionKey: String
+    let title: String
+    @ObservedObject private var store = SettingsStore.shared
+    @State private var busy = false
+
+    var body: some View {
+        Button {
+            guard !busy else { return }
+            // 已拒绝 / 受限：系统**不会再弹授权窗** → 直接跳 App 的系统设置，让用户自行重新授权。
+            // `.unknown`（已询问过、但系统不公开结论，如 HealthKit 读授权）再请求同样没用 → 一并跳设置。
+            if state == .denied || state == .restricted || state == .unknown {
+                openAppSettings()
+                return
+            }
+            busy = true
+            Task { @MainActor in
+                let result = await PermissionManager.shared.requestPermission(permissionKey)
+                busy = false
+                // 只有「已拒绝 / 受限」才跳系统设置 —— 这两类系统不会再弹窗，必须让用户自己去开。
+                // 不能因为"非授权"就跳：首次点击（尚未询问）会被立刻弹出到系统设置；
+                // HomeKit 更把答案交给 App 回到 active 后结算（见 resolveHomeKitAskIfNeeded）。
+                if result == .denied || result == .restricted {
+                    openAppSettings()
+                }
+            }
+        } label: {
+            HStack {
+                Text(title)
+                Spacer(minLength: 8)
+                if busy { ProgressView().scaleEffect(0.7) }
+                PermissionBadgeView(state: state)
+            }
+        }
+        .buttonStyle(.plain)
+        .disabled(busy)
+    }
+
+    private func openAppSettings() {
+        if let url = URL(string: UIApplication.openSettingsURLString) {
+            UIApplication.shared.open(url)
+        }
+    }
+
+    private var state: PermissionState {
+        switch permissionKey {
+        case "health", "healthData": return store.settings.permissions.healthKit
+        case "homeKit":              return store.settings.permissions.homeKit
+        default:                     return .notDetermined
+        }
+    }
+}
+
+// MARK: - 控制 · 健康（HealthKit）二级页
+
+/// 健康能力二级页：系统授权状态 + 「允许 AI 读取」/「允许 AI 写入」两个总闸。
+/// 控制页只放入口，开关一律收在本页（2026-09-18 结构要求：控制项严格进二级菜单）。
+struct HealthCapabilitySettingsView: View {
+    var body: some View {
+        Form {
+            Section {
+                CapabilityAuthorizationRow(permissionKey: "healthData",
+                                          title: String(localized: "health_data_section"))
+            } footer: {
+                Text(String(localized: "health_data_capability_detail"))
+            }
+
+            Section {
+                CapabilityToggleRow(title: String(localized: "allow_health_read"),
+                                    keyPath: \DefaultSettings.healthReadEnabled)
+            } footer: {
+                Text(String(localized: "allow_health_read_footer"))
+            }
+
+            Section {
+                CapabilityToggleRow(title: String(localized: "allow_health_write"),
+                                    keyPath: \DefaultSettings.healthWriteEnabled)
+            } footer: {
+                Text(String(localized: "allow_health_write_footer"))
+            }
+        }
+        .scrollContentBackground(.hidden)
+        .background(ThemeBackground(slot: .settings))
+        .navigationTitle(String(localized: "health_capability_title"))
+        .navigationBarTitleDisplayMode(.inline)
+        .task { await MainActor.run { PermissionManager.shared.refreshStatuses() } }
+        // 用 didBecomeActive（而非 willEnterForeground）：从系统授权弹窗或系统设置返回时**只触发前者**，
+        // 否则用户在设置里改完回来，徽标不会刷新。
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+            PermissionManager.shared.refreshStatuses()
+        }
+    }
+}
+
+// MARK: - 控制 · 家庭（HomeKit）二级页
+
+/// 家庭能力二级页：系统授权状态 + 「允许 AI 读取」/「允许 AI 控制」两个总闸。
+struct HomeCapabilitySettingsView: View {
+    var body: some View {
+        Form {
+            Section {
+                CapabilityAuthorizationRow(permissionKey: "homeKit",
+                                          title: String(localized: "home_accessories"))
+            } footer: {
+                Text(String(localized: "home_accessories_capability_detail"))
+            }
+
+            Section {
+                CapabilityToggleRow(title: String(localized: "allow_home_read"),
+                                    keyPath: \DefaultSettings.homeReadEnabled)
+            } footer: {
+                Text(String(localized: "allow_home_read_footer"))
+            }
+
+            Section {
+                CapabilityToggleRow(title: String(localized: "allow_home_control"),
+                                    keyPath: \DefaultSettings.homeControlEnabled)
+            } footer: {
+                Text(String(localized: "allow_home_control_footer"))
+            }
+        }
+        .scrollContentBackground(.hidden)
+        .background(ThemeBackground(slot: .settings))
+        .navigationTitle(String(localized: "home_capability_title"))
+        .navigationBarTitleDisplayMode(.inline)
+        // 只读**已缓存**的授权状态，**绝不在此创建 HMHomeManager** ——
+        // 创建它会触发系统授权询问，而"打开页面"不是用户请求家庭数据的意图。
+        // 真正的授权请求只发生在用户**点击「家庭配件」行**时。
+        .task { await MainActor.run { PermissionManager.shared.refreshStatuses() } }
+        // 用 didBecomeActive（而非 willEnterForeground）：从系统授权弹窗或系统设置返回时**只触发前者**。
+        // 这里还要结算"刚发起过 HomeKit 询问但尚未落状态"的那一笔 ——
+        // 系统对"用户拒绝"不给任何回调，只能在此推断（见 resolveHomeKitAskIfNeeded）。
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+            PermissionManager.shared.resolveHomeKitAskIfNeeded()
+            PermissionManager.shared.refreshStatuses()
         }
     }
 }

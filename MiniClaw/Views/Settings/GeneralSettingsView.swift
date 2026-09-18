@@ -20,17 +20,8 @@ struct GeneralSettingsView: View {
                      + "\n" + String(localized: "ai_plugin_install_requires_confirmation_footer"))
             }
 
-            // 健康写入总闸：write / delete 执行前检查（apple-healthkit）。
-            // 独立于 confirmBeforeToolCall —— 后者只控制「调用前要不要问」，
-            // 这个开关决定「这条能力存不存在」。
-            Section {
-                Toggle(String(localized: "allow_health_write"), isOn: $defaults.healthWriteEnabled)
-            } header: {
-                Text(String(localized: "health_data_section"))
-            } footer: {
-                Text(String(localized: "allow_health_write_footer"))
-            }
-
+            // 健康数据（含写入总闸）已迁至「设置 → 权限与后台 → 控制」，
+            // 与家庭配件及各自的功能说明集中一处 —— 不在通用页重复出现。
             Section {
                 Toggle(String(localized: "show_thinking_process"), isOn: $chat.showThinking)
                 Toggle(String(localized: "enter_to_send_off_newline"), isOn: $chat.enterToSend)

@@ -22990,35 +22990,6 @@
         }
       }
     },
-    "health_data" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Health Data"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ヘルスデータ"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "건강 데이터"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "健康数据"
-          }
-        }
-      }
-    },
     "health_data_section" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -24005,35 +23976,6 @@
         }
       }
     },
-    "health_write_disabled" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Writing health data is disabled. Ask the user to enable it in Settings - General - Allow AI to write health data."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ヘルスデータへの書き込みは無効です。「設定 → 一般 → AI によるヘルスデータ書き込みを許可」を有効にするよう案内してください。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "건강 데이터 기록이 꺼져 있습니다. 설정 → 일반 → AI 건강 데이터 기록 허용 에서 켜도록 안내하세요."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "健康数据写入已关闭。请让用户在「设置 → 通用 → 允许 AI 写入健康数据」中开启。"
-          }
-        }
-      }
-    },
     "health_write_done" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -24330,25 +24272,25 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Home Accessories"
+            "value" : "Home Accessories (HomeKit)"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ホームアクセサリ"
+            "value" : "ホームアクセサリ（HomeKit）"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "홈 액세서리"
+            "value" : "홈 액세서리(HomeKit)"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "家庭配件"
+            "value" : "家庭配件（HomeKit）"
           }
         }
       }
@@ -44334,35 +44276,6 @@
         }
       }
     },
-    "permissions_background_section_footer" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Background running, Live Activities (Dynamic Island), notifications and picture-in-picture settings."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "バックグラウンド実行、ライブアクティビティ（Dynamic Island）、通知とピクチャインピクチャの設定。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "백그라운드 실행, 라이브 액티비티(다이내믹 아일랜드), 알림 및 PIP 설정."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "后台运行、实时活动（灵动岛）、通知与画中画设置。"
-          }
-        }
-      }
-    },
     "phone_label" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -63804,6 +63717,644 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "；"
+          }
+        }
+      }
+    },
+    "control" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Control"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "コントロール"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "제어"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "控制"
+          }
+        }
+      }
+    },
+    "control_section_footer" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "System data and device capabilities the AI can access. Each takes effect only after you grant it in System Settings, is used only for conversations you start, and is never uploaded."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI がアクセスできるシステムデータとデバイス機能です。いずれもシステム設定で許可した場合のみ有効となり、あなたが開始した会話にのみ使用され、アップロードされることはありません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI가 접근할 수 있는 시스템 데이터와 기기 기능입니다. 모두 시스템 설정에서 허용한 경우에만 적용되며, 사용자가 시작한 대화에만 사용되고 업로드되지 않습니다."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI 可访问的系统数据与设备能力。均需你在系统设置中授权后生效，且只用于你发起的对话，不会上传。"
+          }
+        }
+      }
+    },
+    "health_data_capability_detail" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The AI can read health data such as steps, heart rate, sleep and blood pressure to answer your questions; writing is controlled by the switch below."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI は歩数・心拍数・睡眠・血圧などの健康データを読み取り、ご質問に回答します。書き込みは下のスイッチで制御されます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI는 걸음 수, 심박수, 수면, 혈압 등 건강 데이터를 읽어 질문에 답합니다. 쓰기는 아래 스위치로 제어됩니다."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI 可读取步数、心率、睡眠、血压等健康数据来回答你的提问；写入由下方开关控制。"
+          }
+        }
+      }
+    },
+    "home_accessories_capability_detail" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The AI can read the accessories and scenes paired in your home, and perform the controls you ask for (for example turning on a light, adjusting a thermostat, or running a scene)."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI は自宅にペアリング済みのアクセサリとシーンを読み取り、ご依頼に応じて操作（照明の点灯、温度調整、シーンの実行など）を行います。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI는 집에 페어링된 액세서리와 장면을 읽고, 요청한 제어(조명 켜기, 온도 조절, 장면 실행 등)를 수행합니다."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI 可读取你家中已配对的配件与场景，并按你的要求执行控制（如开灯、调温、运行场景）。"
+          }
+        }
+      }
+    },
+    "health_capability_title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Health (HealthKit)"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ヘルスケア（HealthKit）"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "건강(HealthKit)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "健康（HealthKit）"
+          }
+        }
+      }
+    },
+    "home_capability_title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Home (HomeKit)"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ホーム（HomeKit）"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "홈(HomeKit)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "家庭（HomeKit）"
+          }
+        }
+      }
+    },
+    "allow_health_read" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Allow AI to read health data (HealthKit)"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI に健康データの読み取りを許可（HealthKit）"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI의 건강 데이터 읽기 허용(HealthKit)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "允许 AI 读取健康数据（HealthKit）"
+          }
+        }
+      }
+    },
+    "allow_health_read_footer" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Off by default. When enabled, the AI can read data such as steps, heart rate and sleep to answer your questions. When off, every read asks for your approval first, and the approval lasts only for that session."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "既定ではオフです。オンにすると、AI は歩数・心拍数・睡眠などのデータを読み取り、ご質問に回答できます。オフの場合は読み取りのたびに承認を求められ、その承認はその会話内でのみ有効です。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "기본적으로 꺼져 있습니다. 켜면 AI가 걸음 수, 심박수, 수면 등의 데이터를 읽어 질문에 답할 수 있습니다. 꺼져 있으면 읽을 때마다 승인을 요청하며, 승인은 해당 대화에서만 유효합니다."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "默认关闭。开启后，AI 可读取步数、心率、睡眠等数据来回答你的提问；关闭时，AI 每次读取都会先弹出授权请求，只有你同意才能读（仅该次会话有效）。"
+          }
+        }
+      }
+    },
+    "allow_home_read" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Allow AI to read home accessories (HomeKit)"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI にホームアクセサリの読み取りを許可（HomeKit）"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI의 홈 액세서리 읽기 허용(HomeKit)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "允许 AI 读取家庭配件（HomeKit）"
+          }
+        }
+      }
+    },
+    "allow_home_read_footer" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Off by default. When enabled, the AI can read the accessories and scenes paired in your home. When off, every read asks for your approval first (valid for that session only)."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "既定ではオフです。オンにすると、AI は自宅にペアリング済みのアクセサリとシーンを読み取れます。オフの場合は読み取りのたびに承認を求められます（その会話内でのみ有効）。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "기본적으로 꺼져 있습니다. 켜면 AI가 집에 페어링된 액세서리와 장면을 읽을 수 있습니다. 꺼져 있으면 읽을 때마다 승인을 요청합니다(해당 대화에서만 유효)."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "默认关闭。开启后，AI 可读取你家中已配对的配件与场景；关闭时，AI 每次读取都会先弹出授权请求（仅该次会话有效）。"
+          }
+        }
+      }
+    },
+    "allow_home_control" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Allow AI to control home accessories (HomeKit)"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI にホームアクセサリの操作を許可（HomeKit）"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI의 홈 액세서리 제어 허용(HomeKit)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "允许 AI 控制家庭配件（HomeKit）"
+          }
+        }
+      }
+    },
+    "allow_home_control_footer" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Off by default. When enabled, the AI can change the state of your home devices as you ask (lights, thermostats, scenes). When off, every control asks for your approval first (valid for that session only)."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "既定ではオフです。オンにすると、AI はご依頼に応じて家のデバイス状態を変更できます（照明・温度・シーン）。オフの場合は操作のたびに承認を求められます（その会話内でのみ有効）。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "기본적으로 꺼져 있습니다. 켜면 AI가 요청한 대로 집 안 기기 상태를 변경할 수 있습니다(조명, 온도, 장면). 꺼져 있으면 제어할 때마다 승인을 요청합니다(해당 대화에서만 유효)."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "默认关闭。开启后，AI 可按你的要求改变家中设备状态（开灯、调温、运行场景）；关闭时，AI 每次控制都会先弹出授权请求（仅该次会话有效）。"
+          }
+        }
+      }
+    },
+    "capability_request_health_read_title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MiniClaw requests to read health data"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MiniClaw が健康データの読み取りを要求しています"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MiniClaw가 건강 데이터 읽기를 요청합니다"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MiniClaw 请求读取健康数据"
+          }
+        }
+      }
+    },
+    "capability_request_health_read_message" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The AI wants to read your health data (steps, heart rate, sleep and similar) to answer your question. This approval applies to the current session only."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI はご質問に回答するため、健康データ（歩数・心拍数・睡眠など）を読み取ろうとしています。この承認は現在の会話にのみ有効です。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI가 질문에 답하기 위해 건강 데이터(걸음 수, 심박수, 수면 등)를 읽으려 합니다. 이 승인은 현재 대화에만 적용됩니다."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI 想读取你的健康数据（步数、心率、睡眠等）来回答你的提问。本次同意仅对当前会话有效。"
+          }
+        }
+      }
+    },
+    "capability_request_health_write_title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MiniClaw requests to write health data"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MiniClaw が健康データの書き込みを要求しています"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MiniClaw가 건강 데이터 쓰기를 요청합니다"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MiniClaw 请求写入健康数据"
+          }
+        }
+      }
+    },
+    "capability_request_health_write_message" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The AI wants to add records you asked for to the Health app. This approval applies to the current session only."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI はご依頼の記録を「ヘルスケア」App に書き込もうとしています。この承認は現在の会話にのみ有効です。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI가 요청한 기록을 '건강' 앱에 추가하려 합니다. 이 승인은 현재 대화에만 적용됩니다."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI 想向「健康」App 写入你要求的记录。本次同意仅对当前会话有效。"
+          }
+        }
+      }
+    },
+    "capability_request_home_read_title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MiniClaw requests to read home accessories"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MiniClaw がホームアクセサリの読み取りを要求しています"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MiniClaw가 홈 액세서리 읽기를 요청합니다"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MiniClaw 请求读取家庭配件"
+          }
+        }
+      }
+    },
+    "capability_request_home_read_message" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The AI wants to read the accessories and scenes paired in your home. This approval applies to the current session only."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI は自宅にペアリング済みのアクセサリとシーンを読み取ろうとしています。この承認は現在の会話にのみ有効です。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI가 집에 페어링된 액세서리와 장면을 읽으려 합니다. 이 승인은 현재 대화에만 적용됩니다."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI 想读取你家中已配对的配件与场景。本次同意仅对当前会话有效。"
+          }
+        }
+      }
+    },
+    "capability_request_home_control_title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MiniClaw requests to control home accessories"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MiniClaw がホームアクセサリの操作を要求しています"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MiniClaw가 홈 액세서리 제어를 요청합니다"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MiniClaw 请求控制家庭配件"
+          }
+        }
+      }
+    },
+    "capability_request_home_control_message" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The AI wants to change the state of devices in your home (lights, thermostats, scenes). This approval applies to the current session only."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI は家のデバイス状態を変更しようとしています（照明・温度・シーン）。この承認は現在の会話にのみ有効です。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI가 집 안 기기 상태를 변경하려 합니다(조명, 온도, 장면). 이 승인은 현재 대화에만 적용됩니다."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI 想改变你家中设备的状态（开灯、调温、运行场景）。本次同意仅对当前会话有效。"
+          }
+        }
+      }
+    },
+    "capability_not_authorized" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not authorized: %@. Enable it in Settings → Permissions & Background → Control, or ask again so an authorization prompt can appear."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未承認：%@。「設定 → 権限とバックグラウンド → コントロール」で有効にするか、もう一度依頼すると承認ダイアログが表示されます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "승인되지 않음: %@. '설정 → 권한 및 백그라운드 → 제어'에서 켜거나, 다시 요청하면 승인 창이 표시됩니다."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未获授权：%@。请在「设置 → 权限与后台 → 控制」中开启，或让我再次发起请求以便弹出授权窗口。"
+          }
+        }
+      }
+    },
+    "permission_unknown" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unknown"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "不明"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "알 수 없음"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未知"
           }
         }
       }
