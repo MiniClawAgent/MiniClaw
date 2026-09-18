@@ -1,7 +1,7 @@
 # MiniClaw 工程纪律（Engineering Discipline）
 
 > 基于公开工程实践 + 2026-08-03 五轮崩溃修复循环的实战教训。
-> 最后更新：2026-08-04
+> 最后更新：2026-09-18（派生目录定案为持久路径 `~/.miniclaw-build`；对齐 S2/B4/§2.1/§6.1 的过期 xcodegen 与派生目录口径）
 
 ---
 
@@ -25,7 +25,7 @@ MiniClaw/
 ├── MiniClawWidget/            # Widget 扩展
 ├── ShareExtension/            # 分享扩展
 ├── 第三方源码/                 # 第三方代码（仅源码，不提交二进制）
-├── project.yml                # XcodeGen 项目定义（唯一 source of truth）
+├── project.yml                # XcodeGen 定义（⚠️ 已与入库 pbxproj 漂移；**禁止**跑 xcodegen，见 S2/B4）
 └── MiniClaw.entitlements      # 权限声明（**高敏感，改动须审查**）
 ```
 
@@ -34,7 +34,7 @@ MiniClaw/
 | # | 纪律 | 来源 |
 |---|------|------|
 | S1 | **第三方代码只放 `第三方源码/`**，禁止在主代码目录放 vendored 二进制或副本 | 第三方源码隔离惯例 |
-| S2 | **`project.yml` 是项目定义的唯一来源**，手动修改 `.xcodeproj/pbxproj` 会被 `xcodegen generate` 覆盖 | 项目既有实践 |
+| S2 | **入库的 `project.pbxproj` 是项目定义的权威**；`project.yml` 已与其漂移，**禁止跑 `xcodegen generate`**（见 B4）。增删/移动源文件用 Python 直改 pbxproj（格式见团队记忆 §0），删文件用 `XcodeRM` | 2026-09-15 更正（原「project.yml 是唯一来源」已作废） |
 | S3 | **entitlements 文件是最高敏感配置**——CloudKit / iCloud / Push 等能力的增删必须关联模型适配方案，不可单独改 | 2026-08-03 崩溃教训 |
 | S4 | **第三方源码严格只放 `第三方源码/`**——禁止在主代码目录放 vendored 二进制、副本或框架；用 project.yml 相对路径引用（`$(SRCROOT)/../第三方源码/...`），项目自己的桥接包装收敛在显式桥接层 | 2026-08-04 用户纪律 |
 | S5 | **一切 bug 修复必须从源头解决，禁止补丁/兼容/特例分支治标**——判定：Q1 追问过上游机制？Q2 同类问题在别处不再犯？Q3 减少而非新增特例分支？Q4 符合架构分层？防御性编程（针对外部不可控因素的明确架构边界）不算补丁 | 2026-08-04 用户纪律 |
@@ -49,13 +49,18 @@ MiniClaw/
 
 ```bash
 # CLI 回退路径（仅在 Xcode MCP 不可用时使用；首选见 B5）
-# 完整构建（产物不进项目）
+# 完整构建（产物进 ~/.miniclaw-build，不进项目）。固定复用同一派生目录 —— B2 / B6。
+# 模块缓存必须一并重定向，否则沙箱下报：
+#   unable to write module session file at .../ModuleCache.noindex/...: Operation not permitted
 cd /Users/neartop/MiniClowDevelopment/MiniClaw && \
+CLANG_MODULE_CACHE_PATH=/Users/neartop/.miniclaw-build/modulecache \
+SWIFT_MODULECACHE_PATH=/Users/neartop/.miniclaw-build/modulecache \
+MODULE_CACHE_DIR=/Users/neartop/.miniclaw-build/modulecache \
 xcodebuild build -project MiniClaw.xcodeproj -scheme MiniClaw \
   -destination 'generic/platform=iOS' -configuration Debug \
   CODE_SIGNING_ALLOWED=NO \
-  OTHER_SWIFT_FLAGS="-disable-sandbox" \
-  -derivedDataPath /tmp/miniclaw-build
+  OTHER_SWIFT_FLAGS="-Xfrontend -disable-sandbox" \
+  -derivedDataPath /Users/neartop/.miniclaw-build
 ```
 
 ### 2.2 构建规则
@@ -63,12 +68,30 @@ xcodebuild build -project MiniClaw.xcodeproj -scheme MiniClaw \
 | # | 纪律 | 说明 |
 |---|------|------|
 | B1 | **每次代码修改后必须执行完整构建并确认 BUILD SUCCEEDED**，方可向用户汇报 | 防止"改了但没编译就交付" |
-| B2 | **构建产物必须放在 `-derivedDataPath /tmp/miniclaw-build`**，绝不放进项目目录 | 避免污染 git / Xcode 索引 |
+| B2 | **构建产物必须放在 `-derivedDataPath /Users/neartop/.miniclaw-build`**（持久），绝不放进项目目录 | 避免污染 git / Xcode 索引 |
 | B3 | **沙盒 workaround (`-disable-sandbox`) 只通过命令行传参**，不写进 `project.yml` | 保持 project.yml 干净可移植。⚠️ 必须作为 `OTHER_SWIFT_FLAGS`（Swift 前端开关）传入；当成顶层 xcodebuild 选项会直接报 `invalid option '-disable-sandbox'` |
 | B4 | ~~**XcodeGen 先于 xcodebuild**~~ **【已作废 2026-09-15】**：源文件增删/移动**不要**跑 `xcodegen generate`——它会直接产出编不过的工程；`project.pbxproj` 是权威，在其上直接改 | 更正依据：`.workbuddy/memory/2026-09-15.md` 记忆核对结论（原条目与工作区笔记相反） |
 | B5 | **Xcode 工程相关操作一律优先走 Xcode MCP 通道**——构建、编译诊断、运行/安装、抓日志、调试、设备交互、工程/方案/目标/目的机查询、测试、崩溃与性能；**能走 MCP 就不得**改用 `xcodebuild` / `devicectl` / 手工读工程文件替代 | MCP 与 Xcode 状态**同源**（同一个 workspace/scheme/目的机），且不受外部进程沙箱干扰——CLI 构建会因 `sandbox-exec` 与 Swift 宏插件被拒而炸出上千条假错误（实测 `SwiftUIMacros.StateMacro … malformed response`） |
-| B6 | **编译默认只做增量；只有用户明确要求时才做全量**——必须**固定复用同一个派生目录**（主线 `/tmp/miniclaw-build`）：**不得**每个步骤/每次验证/每次二分都新建 `-derivedDataPath`，**不得**删除或清理已有派生目录（清缓存须先问）。改动分散在多个提交上做对照时，也复用同一目录靠增量重编 | 2026-09-16 用户纪律。当晚反面教训（实测）：每步换新派生目录 + 每步"施工一次/复核一次"双份构建 + 目的机被系统切回模拟器未先确认，单次白等 **211s / 245s / 885s**，一整晚十几次构建里至少两次纯属浪费 |
+| B6 | **编译默认只做增量；只有用户明确要求时才做全量**——必须**固定复用同一个派生目录**（主线 `/Users/neartop/.miniclaw-build`，**持久**）：**不得**每个步骤/每次验证/每次二分都新建 `-derivedDataPath`，**不得**删除或清理已有派生目录（清缓存须先问）。改动分散在多个提交上做对照时，也复用同一目录靠增量重编 | 2026-09-16 用户纪律。当晚反面教训（实测）：每步换新派生目录 + 每步"施工一次/复核一次"双份构建 + 目的机被系统切回模拟器未先确认，单次白等 **211s / 245s / 885s**，一整晚十几次构建里至少两次纯属浪费 |
 | B7 | **每次构建前先确认 active run destination** | 同上事故：目的机被自动切回模拟器后照旧构建，得到的是链接错误（预编译库 `libish.a … built for 'iOS'` 而目标为 `iOS-simulator`），211s 白做 |
+
+**派生目录定案（2026-09-18，唐唐批准）**
+
+**派生目录 = `/Users/neartop/.miniclaw-build`（持久）。**
+
+记录 —— 为什么改：
+
+- B6 的核心承诺是「**固定复用同一个派生目录**」，靠增量避免白等。原主线 `/tmp/miniclaw-build` 与这个承诺
+  **自相冲突**：macOS 会定期清理 `/tmp`，**重启必然清空** ⇒ 每次重启后首建都是冷构建，恰好落在 B6 要避免的情形里。
+- 选持久路径而非工作区内：编译产物一律不进工程树（§1 / B2），也**不进 DSH 工作区**，避免被工程检索与 git 视作内容。
+- 目录内容：派生数据根 + `modulecache/`（模块缓存三变量全部指向 `<派生目录>/modulecache`）。
+- ⚠️ 自本日起**第一次构建为冷构建**（目录新建），此后一律增量；**不得**清空或删除该目录（清缓存须先问）。
+
+历史沿革：`/tmp/miniclaw-build`（B2/B6 原文）→ 本次改为 `~/.miniclaw-build`；更早的
+`$WS/.xcode-sym` + `-alltargets` + `SYMROOT`/`OBJROOT` 是**另一套机制**，与 `-derivedDataPath` **互斥**
+（报 `The flag -scheme, -testProductsPath, or -xctestrun is required when specifying -derivedDataPath`）。
+
+走 CLI 时**一律以 §2.1 那条命令为唯一版本**，不要再各写一套。
 
 ### 2.3 Xcode MCP 通道对照表（B5 的执行细则）
 
@@ -193,8 +216,10 @@ xcodebuild build -project MiniClaw.xcodeproj -scheme MiniClaw \
 
 每次代码修改完成、向用户汇报前，逐项确认：
 
-- [ ] `xcodegen generate && xcodebuild build` → **BUILD SUCCEEDED**
-- [ ] 构建产物在 `/tmp/miniclaw-build`（不在项目内）
+- [ ] 构建验证 → **BUILD SUCCEEDED**（**优先走 Xcode MCP `BuildProject`**，见 B5；CLI 回退命令只此一份，见 §2.1）
+- [ ] 构建是**增量**、且**复用了同一派生目录**（B6）；未清缓存、未换目录
+- [ ] ⚠️ **没有**跑 `xcodegen generate`（已作废，见 B4）
+- [ ] 构建产物在 `/Users/neartop/.miniclaw-build`（不在项目内）
 - [ ] 无新增 warning（既有 warning 可忽略，但需知晓）
 - [ ] 若涉及持久化：save/fetch 路径都是 `do/catch` + 日志，无裸 `try?`
 - [ ] 若涉及 UI 列表：reload 方向正确（内存优先）
