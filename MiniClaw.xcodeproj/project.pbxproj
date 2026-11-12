@@ -261,6 +261,7 @@
 		B63E78C46273EFE61BA374FE459FF0A6 /* SoulSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CA34BF636ECA7C8A7BFA22BEB198801 /* SoulSettingsView.swift */; };
 		B71B8436956722834B3901A8ADA7B754 /* SubAgentProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5C76925A1A0B68200AF6C42668341A5 /* SubAgentProfile.swift */; };
 		B721D45324B2BB9C5E42BA01DE6710F9 /* ShellTool.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1350D447826FC1E83ECC09A5429EFD3 /* ShellTool.swift */; };
+		6661FDECD9C54C38C43557ECA135C120 /* WebSearchTool.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34FCC85D67508D4BAA8F47EABDD3F3CE /* WebSearchTool.swift */; };
 		B73692FA66CA220DC12C6DA1F13D3EE3 /* MiniClawBrowserJS.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8E4FBC088BB400113423465D83949CB /* MiniClawBrowserJS.swift */; };
 		B737F7444DD7B9A5E4146F279F196AEC /* MetricKitCollector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 669E97D64A74F2BEE378FA70B74E1FA8 /* MetricKitCollector.swift */; };
 		B74565AAC3922DBA5E16AEB9285FA310 /* GeminiModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = C84EEE4831F59E6151BB01DE63195770 /* GeminiModels.swift */; };
@@ -785,6 +786,7 @@
 		E06CE5757AC8D3BA6ED5226D17EE3A78 /* MessageCollectionCoordinator+Snapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MessageCollectionCoordinator+Snapshot.swift"; sourceTree = "<group>"; };
 		E09F588F8948F6D2B0CEBE3118964A4F /* BashismDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BashismDetector.swift; sourceTree = "<group>"; };
 		E1350D447826FC1E83ECC09A5429EFD3 /* ShellTool.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShellTool.swift; sourceTree = "<group>"; };
+		34FCC85D67508D4BAA8F47EABDD3F3CE /* WebSearchTool.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebSearchTool.swift; sourceTree = "<group>"; };
 		E291B2CB611B2AAE084713291E8985E8 /* SyncHydrators.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncHydrators.swift; sourceTree = "<group>"; };
 		E2E2167C1237BBC879EF7AE4E914A38B /* SessionFileRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionFileRouter.swift; sourceTree = "<group>"; };
 		E2F7731B092F54B5EEF1B39677F35156 /* AgentError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentError.swift; sourceTree = "<group>"; };
@@ -893,6 +895,7 @@
 				B600BA1435CA10967DBFE41CD2C529DF /* RemoteHostTool.swift */,
 				AE0A5CDE0A328180E6155E0C8D9AF22C /* SessionsTool.swift */,
 				E1350D447826FC1E83ECC09A5429EFD3 /* ShellTool.swift */,
+				34FCC85D67508D4BAA8F47EABDD3F3CE /* WebSearchTool.swift */,
 				A095DD6B9F5B953F4090FF8C8B502F54 /* SkillLoadTool.swift */,
 				35E09F3F0E5577323A0D81DC81F78CE7 /* SpeechTools.swift */,
 			);
@@ -2105,6 +2108,7 @@
 				4E18EB48CE44E401FF6C40369861FD73 /* SharedInboxCoordinator.swift in Sources */,
 				CFFE52BC4F177CEEF0A478DF40257EB2 /* ShellRuntimeSupport.swift in Sources */,
 				B721D45324B2BB9C5E42BA01DE6710F9 /* ShellTool.swift in Sources */,
+				6661FDECD9C54C38C43557ECA135C120 /* WebSearchTool.swift in Sources */,
 				105B2D7B9A0E40C6070226E567D3D64A /* SkillLoadTool.swift in Sources */,
 				9F892EF6EFCE56F931824FE9CEF50E45 /* SkillManager.swift in Sources */,
 				DDF1DFCD1B24EDF5E747D5F5AC9AD62C /* SkillModels.swift in Sources */,

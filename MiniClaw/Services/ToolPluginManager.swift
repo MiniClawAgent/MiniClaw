@@ -213,6 +213,8 @@ final class ToolPluginManager {
         "apple-vision": { VisionAnalyzeTool(currentSessionID: $0) },
         // 2026-09-07 新增：远程主机控制（iSH SSH 通道；setup 引导 / connect 锁定参数 / exec 执行）。
         "remote-host": { _ in RemoteHostTool() },
+        // 2026-11-12 新增：DeepSeek 联网搜索（Search API，复用 DeepSeek 服务商 Key）。
+        "web_search": { _ in WebSearchTool() },
     ]
 
     /// 已启用插件的全部工具实例（shell 与 builtin 后端统一产出；非法项跳过并日志）。

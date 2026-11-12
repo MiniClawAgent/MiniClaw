@@ -1,6 +1,383 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "web_search_tool_desc" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search the web and get ranked results (title, URL, snippet, summary, optional page content). Use it for recent information and fact-checking. Powered by DeepSeek Search."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ウェブを検索し、順位付けされた結果（タイトル、URL、スニペット、要約、任意で本文）を返します。最新情報の調査や事実確認に使います。DeepSeek 検索サービスを使用します。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "웹을 검색해 순위가 매겨진 결과(제목, URL, 스니펫, 요약, 선택적 본문)를 반환합니다. 최신 정보 조회와 사실 확인에 사용합니다. DeepSeek 검색 서비스를 사용합니다."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "联网搜索网页并返回排序结果（标题、链接、摘要、可选正文）。适合查询最新信息与事实核对。由 DeepSeek 搜索服务提供。"
+          }
+        }
+      }
+    },
+    "web_search_param_query" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search query (1–128 characters). Supports site:, lang:, after:, before:, \"exact phrase\", and -exclude operators."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "検索語（1～128 文字）。site:、lang:、after:、before:、\"完全一致フレーズ\"、-除外 などの演算子に対応します。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "검색어(1~128자). site:, lang:, after:, before:, \"정확한 구문\", -제외 연산자를 지원합니다."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "搜索词（1–128 字符）。支持 site:、lang:、after:、before:、\"精确短语\"、-排除 等语法。"
+          }
+        }
+      }
+    },
+    "web_search_param_count" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Number of results, 1–50 (default 10)."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "結果件数（1～50、既定 10）。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "결과 수(1~50, 기본 10)."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "返回条数，1–50（默认 10）。"
+          }
+        }
+      }
+    },
+    "web_search_param_need_content" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Set true to include each page's body in the result (increases output size)."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "true にすると各結果にページ本文を含めます（出力が大きくなります）。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "true로 설정하면 각 결과에 페이지 본문을 포함합니다(출력이 커집니다)."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "设为 true 时在结果中包含网页正文（会显著增大输出）。"
+          }
+        }
+      }
+    },
+    "web_search_param_ori_question" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The user's original question that triggered this search, to improve intent understanding (optional)."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この検索のきっかけとなったユーザーの元の質問（意図理解の補助、任意）。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 검색을 유발한 사용자의 원래 질문(의도 이해 보조, 선택 사항)."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "触发本次搜索的用户原始问题，帮助理解搜索意图（可选）。"
+          }
+        }
+      }
+    },
+    "web_search_query_required" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Missing required parameter: query."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "必須パラメータ query がありません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "필수 매개변수 query가 없습니다."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "缺少必填参数：query。"
+          }
+        }
+      }
+    },
+    "web_search_no_provider" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Web search is not configured. Add a DeepSeek provider with an API key in Settings → Providers first."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ウェブ検索が未設定です。先に「設定 → プロバイダー」で DeepSeek を追加し、API キーを入力してください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "웹 검색이 설정되지 않았습니다. 먼저 '설정 → 공급자'에서 DeepSeek를 추가하고 API 키를 입력하세요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "联网搜索未配置。请先在「设置 → 服务商」添加 DeepSeek 并填入 API Key。"
+          }
+        }
+      }
+    },
+    "web_search_network_error" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Web search request failed: %@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ウェブ検索リクエストに失敗しました：%@"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "웹 검색 요청에 실패했습니다: %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "联网搜索请求失败：%@"
+          }
+        }
+      }
+    },
+    "web_search_http_error" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Web search service returned an error (HTTP %d): %@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "検索サービスがエラーを返しました（HTTP %d）：%@"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "검색 서비스가 오류를 반환했습니다(HTTP %d): %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "搜索服务返回错误（HTTP %d）：%@"
+          }
+        }
+      }
+    },
+    "web_search_bad_response" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The web search service returned an unreadable response."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "検索サービスから解読できない応答が返されました。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "검색 서비스가 해석할 수 없는 응답을 반환했습니다."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "搜索服务返回了无法解析的响应。"
+          }
+        }
+      }
+    },
+    "web_search_no_results" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No web results found."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "該当するウェブ結果が見つかりませんでした。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "관련 웹 결과를 찾지 못했습니다."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "没有找到相关网页。"
+          }
+        }
+      }
+    },
+    "web_search_results_header" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%d results for \"%@\":"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%d 件の結果（query: %@）："
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%d개 결과(query: %@):"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%d 条结果（query: %@）："
+          }
+        }
+      }
+    },
+    "web_search_content_truncated" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "…(content truncated)"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "…（本文は省略）"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "…(본문 생략됨)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "……（正文已截断）"
+          }
+        }
+      }
+    },
     " · %@" : {
 
     },
