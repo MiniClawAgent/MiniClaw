@@ -3,7 +3,7 @@
 > **唯一**的开放问题清单。修完一条把状态改成 `已关闭` 并补证据，不新增第二份清单。
 > 证据优先写「文件:行号」，报告类证据写归档文件名。
 > 详细机制与实测数据见 `流畅度优化报告-20260919.md`（下称「9-19 报告」，条目编号 A/B 系列沿用该报告）。
-> 上次核对：2026-11-12（HEAD `8befa71`）。
+> 上次核对：2026-11-12（代码基线 HEAD `250bad0`；文档提交不改变代码行为）。
 
 严重度口径：**P0** = 挂死 / 只能杀 App / 确定性崩溃；**P1** = 明确卡顿、崩溃窗口或数据完整性风险；**P2** = 有条件的性能/一致性/资源问题；**P3** = 卫生、文档、待实测。
 
@@ -11,12 +11,12 @@
 
 ## 1 P0（正确性，最优先）
 
-| ID | 问题 | 证据 | 状态 |
-|---|---|---|---|
-| I-01 | **子代理预热闸门 `enter()` 永不返回**：leader 在 2.5s 内失败/被停时，等待者挂在不可取消的 `CheckedContinuation` 上；`withTaskGroup` 退出前隐式 await 所有子任务 ⇒ 该分支永久阻塞 ⇒ `dispatch_subagent` 不返回，主循环卡死、停止键无效 | `Services/SubAgent/SubagentWarmupGate.swift:44-49,70-72`（已亲核） | 开放 |
-| I-02 | **工具超时竞速被不可取消 continuation 击穿**：超时分支先返回但 `cancelAll()` 只置取消位，挂死的工具任务仍被 group 隐式等待 ⇒ `executeTool` 不返回；真实受害者 `HomeKitHub.waitUntilReady()`。同族：Location/HealthKit/Maps/Speech | `Services/AgentLoopEngine.swift:2234-2254`（已亲核）、`Tools/HomeKitTools.swift:102-105` | 开放 |
+**当前无开放 P0。** 最近关闭两项（证据见 §4）：
 
-> 两项同根：仓内已有两份正确的 resume-once 原语（`SnapshotBox`、`OnceBox<T>`），但没有统一的「可取消超时 + 恰好一次 resume」机制。治本方案见 9-19 报告 §3.3 C1。
+- **I-01** 子代理预热闸门 `enter()` 永久阻塞（`dispatch_subagent` 挂死、只能杀 App）
+- **I-02** 工具超时竞速导致 `executeTool` 永不返回
+
+> 同族残余已降级为 P2：部分工具内部仍有不可取消的 continuation（I-38），但引擎不再被它拖死。
 
 ---
 
@@ -25,7 +25,6 @@
 | ID | 问题 | 证据 | 状态 |
 |---|---|---|---|
 | I-03 | **检查点写在工具执行之前**：落盘内容可含 `assistant(tool_calls)` 而无对应 `tool` 回复；此时被杀，冷恢复会把非法序列发给端点，400 在重试策略里是 fatal | `Services/AgentLoopEngine.swift:1113-1135`（已亲核落盘点早于 `executeToolsConcurrently`） | 开放 |
-| I-04 | **`executionTimeout` 覆盖机制失效**：可选链把「工具显式返回 nil = 不限时」与「工具未注册」压成同一个 nil，`?? 120` 后再也分不开 ⇒ `dispatch_subagent` 的 nil、`shell_execute` 的 900s 均不可达 | `Services/ToolProtocol.swift:228-230`、`Tools/CloseSubagentTool.swift:19`、`Tools/ShellTool.swift:45`（已亲核） | 开放 |
 | I-05 | `activeRequestTask` 无锁：主线程 `cancel()/pause()` 与 run Task 并发读写，流式中点停止有崩溃窗口 | `Services/AgentLoopEngine.swift:29,397-398,418-419,798` | 开放 |
 | I-06 | `BackgroundTaskCoordinator`：`waitIfSuspended()` 单槽 continuation 无条件覆盖；token 无引用计数 ⇒ 多会话并行时一方 resume 丢失、`end()` 误结束他人后台任务 | `Services/Background/BackgroundTaskCoordinator.swift:70-80,104-137` | 开放 |
 | I-07 | 停止路径主线程双重 `queue.sync` + SQLite 写：长会话点「停止」可卡一帧到数百 ms | `Services/AgentLoopEngine.swift:396` → `AgentTask.swift:114-118` → `Storage/SQLiteStore.swift:588` | 开放 |
@@ -53,7 +52,6 @@
 | I-22 | MCP 发现缓存 `invalidate(serverId:)` 只清 entries/disk，不清 `failures` ⇒ 改配置后 60s 内仍被负缓存跳过 | `Services/RemoteMCPTool.swift:152-156,18-19`（已亲核） | 开放 |
 | I-23 | 死配置：`appendV1Suffix` / `imageEndpointMode` 可配置可落盘，但请求构造零消费点 | `Models/ProviderModels.swift:22,178-180`、`Tools/ConfigTool.swift:398-399`（已亲核全库无消费） | 开放 |
 | I-24 | 死代码：`MountStore.resolveMountGuestPath`、`MiniClawEngineWebView`、`MiniClawCookieAudit.shared`、`BrowserDownloadCenter.agentReport` 均零调用 | 见各文件（已亲核：`resolveMountGuestPath` 仅定义+日志） | 开放 |
-| I-25 | 「关于 MiniClaw」文档仍把 **SwiftSoup / Highlightr / MarkdownUI 列为开源组件**，三者均非本工程依赖；`鸣谢.md` 已正确写为「观感参考」 | `Resources/AboutDocs/关于MiniClaw.md:14-18` vs `Resources/AboutDocs/鸣谢.md:18`（已亲核） | 开放 |
 | I-26 | `MiniClawCLI` 仍按 SwiftData `@Model` 使用 `ChatSession/ChatMessage`，主 App 已迁 Codable + `MiniClaw-Sessions/<uuid>/` ⇒ 该 target 编不过也读不到数据 | `MiniClawCLI/SessionStore.swift:2,18,94-95`（已亲核） | 开放 |
 | I-27 | `ResumePolicy` 仍是纯元数据（`resumePolicy(for:)` 零调用点）⇒ `memory_write` 声明的 `.requiresUserConfirmation` 不生效，真正门是默认关闭的 `confirmBeforeToolCall` | `Services/ToolProtocol.swift:223-224`、`Tools/MemoryTools.swift:8`（已亲核零调用） | 开放 |
 | I-28 | 用户气泡「测量与渲染不同源」（渲染纯 SwiftUI Text，测量走 cmark/CT）；memo 键含 `text.hashValue`（每进程随机）⇒ 跨启动必 miss。另：`+Heights.swift:160-166` 注释自称「已改由 MarkdownSurface 渲染」与实现不符 | `Views/Chat/List/ChatMessageRow.swift:208`、`+Heights.swift:157,160-229`（已亲核键与渲染点） | 开放 |
@@ -61,10 +59,9 @@
 | I-31 | 新挂载实际默认可写，与文档「默认只读」相反 | `Services/MountStore.swift:115` vs `Models/MountPermissionModels.swift:14` | 开放 |
 | I-32 | `ConfigTool` 的 defaults 域含健康/家庭读、写、控制总闸 ⇒ AI 可改能力开关（只受 `miniclawConfigWrite` 约束），与「AI 不能给自己授权」的设计目标冲突 | `Tools/ConfigTool.swift:264`、`Services/SettingsStore.swift:52` | 开放 |
 | I-33 | rootfs 部署校验只有「存在 + size>0」，无哈希；中断拷贝可能被误判为已部署 | `Services/LinuxShellRuntime.swift:110-117` | 开放 |
-| I-34 | `scripts/export-ipa.sh` 仍用 `/tmp/miniclaw-build`，与纪律定案 `~/.miniclaw-build` 冲突 | `scripts/export-ipa.sh:24` | 开放 |
-| I-35 | App 内《用户隐私政策》正文已补 9-18 的健康/家庭章节，但头部日期仍是「最后更新：2026 年 7 月」 | `Resources/AboutDocs/用户隐私政策.md:3`（已亲核） | 开放 |
 | I-36 | 测试覆盖缺口：8 个测试文件，无 MCP / 记忆 / 插件 / iSH 行为测试 | `MiniClawTests/` | 开放 |
 | I-37 | 浏览器 Cookie/登录态跨会话共享（`.default()` dataStore + 共享 processPool），会话隔离只在标签/URL 层 | `Services/Browser/MiniClawBrowserEngine.swift:310` | 已知设计现状 |
+| I-38 | 工具侧不可取消 continuation 仍无自带超时兜底（HomeKit/Location/HealthKit/Maps/Speech）：引擎已不再被拖死，但超时后残留任务不释放 | `Tools/HomeKitTools.swift:102-105` 等同族；9-19 报告 §3.3 C1 | 开放 |
 
 > 9-19 报告 §1.3 里还有一批 P2/P3（B6 工具卡整文件读、B11 参数流式 O(L²)、B14 主题读盘、B16 文件浏览器主线程 IO、B18 插件导入、B19 图片全解码、B21 终端逐行 hop、B22 子代理页、B23 快照频率、B24 常驻内存、B26 挂载镜像无上限、B27 SQLite pragma、B28 rendererCache、B29 下载、B34/B35 适配器、B37 子代理落盘、A9/A10 QoS、A11 prewarm 无退避、A12 索引、A13 挂载定时器、A14 插件扫描、A16 标题任务不可取消）已逐条复核过，**未重复抄进本表**；实施时按 9-19 报告编号查机制与改法。
 
@@ -74,6 +71,12 @@
 
 | 事项 | 关闭依据 |
 |---|---|
+| I-01 子代理预热闸门 `enter()` 永久阻塞 | `3e8f2b6`：新增 `ResumeOnceBox`/`withCancellableTimeout`，等待者登记 + 超时直接 resume + `relinquishLead` 显式放行；BuildProject 28.7s |
+| I-02 工具超时竞速导致 `executeTool` 永不返回 | `0f0b70c`：去掉 `withTaskGroup` 竞速，超时先定稿再 `execTask.cancel()`；BuildProject 18.3s |
+| I-04 `executionTimeout` 覆盖失效 | `81ad246`：`nil` 真正表示「引擎不设超时」，dispatch/shell 的覆盖接通；BuildProject 14.0s |
+| I-25 关于页开源组件失实 | `fdd4e39`：改为真实依赖（iSH / swift-cmark / SwiftMath）并指向「鸣谢」 |
+| I-35 App 内隐私政策日期过期 | `bb15e4b`：「最后更新」2026 年 7 月 → 9 月（正文 9-18 已补健康/家庭章节） |
+| I-34 export-ipa.sh 派生目录偏离纪律 | `250bad0`：改用 `$HOME/.miniclaw-build`（可覆盖）+ 补 `-Xfrontend` |
 | 工作区 55 个改动 + 5 个删除未落库 | 已全部提交；本次核对 `git status` 仅文档变更 |
 | `planTimeline/snapToRoundBoundary/freezeRoundBoundary/registerCollectionViewForNavBarScrollEdge` 只在工作区 | 均已在 HEAD（`git grep` 命中） |
 | 「volatile 段拼在消息流末尾」的旧缓存方案 | 已被 `cbe34dd` 推翻：易变段落盘进 `ChatMessage.apiContextSuffix` 并回放 |
