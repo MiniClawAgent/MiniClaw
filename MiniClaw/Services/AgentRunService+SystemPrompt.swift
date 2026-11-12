@@ -115,11 +115,19 @@ extension AgentRunService {
             toolNames.append(engineReserved)
         }
         toolNames.sort()
+        // 联网工具可用性：提示词前缀是静态的（要进缓存），这里按本轮真实工具清单补一句
+        // 动态提示，避免用户未启用联网插件时模型误以为「没有搜索能力」而拒绝任务。
+        let webSearchAvailabilityNote = toolNames.contains("web_search")
+            ? "需要联网检索时优先用 `web_search`；打开/操作具体网页用 `browser`；执行命令用 `shell_execute`；其他需求用文字回答。"
+            : "本轮**未启用 `web_search`**：联网检索请改用 `browser` 打开搜索引擎/目标站点，或用 `shell_execute` 的 wget/curl 抓取公开网页，不要因此拒绝任务。"
         volatileParts.append("""
         ## 可用工具 (\(toolNames.count) 个) — 完整列表如下，仅可调用此处列出的工具名
         \(toolNames.map { "- `\($0)`" }.joined(separator: "\n"))
 
-        **再次强调：** 上方列表是你唯一可用的工具，不得编造列表中不存在的工具名。需要联网检索时用 `web_search`（仅当它出现在上方列表）；需要打开/操作具体网页用 `browser`；执行命令用 `shell_execute`；其他需求请用文字回答。
+        **再次强调：** 上方列表是你唯一可用的工具，不得编造列表中不存在的工具名。
+        \(webSearchAvailabilityNote)
+
+        **联网检索的降级顺序：** 有 `web_search` 就优先用它；没有（插件未启用/未配置 Key）就用 `browser` 检索或打开目标站点；`browser` 不可用或需要纯文本抓取时，用 `shell_execute` 执行 `wget`/`curl` 抓取公开网页。不要因为缺少搜索工具就拒绝联网任务或编造结果。
         """)
 
         // 3.5.1 环境变量(设置页可改,不进前缀)
