@@ -82,7 +82,7 @@ MiniClaw 是一款**本地优先的 iOS 通用智能体应用**（不是编程�
 | 记忆写入 / 复盘 / 整理 | `Services/MemoryManager.swift`、`SessionReviewService.swift`、`MemoryConsolidator.swift` |
 | 技能 / 插件 / 内置工具声明 | `Services/SkillManager.swift`、`ToolPluginManager.swift`、`Resources/BundledPlugins/` |
 | MCP | `Services/MCPClient.swift`、`MCPConfigStore.swift`、`MCPOAuthManager.swift`、`RemoteMCPTool.swift` |
-| 联网搜索（DeepSeek Search API） | `Tools/WebSearchTool.swift`；内置工厂在 `ToolPluginManager.swift`，包声明在 `Resources/BundledPlugins/com.miniclaw.builtin.tools.mpk` |
+| 联网搜索（DeepSeek Search API） | `Tools/WebSearchTool.swift`；独立插件包 `Resources/BundledPlugins/com.miniclaw.builtin.websearch.mpk`；用户设置页在 `Views/Settings/WebSearchSettingsViews.swift`（插件 → 联网搜索 → 设置） |
 | 列表高度 / 滚动 / 冻结 | `Views/Chat/List/MessageListLayout.swift`、`MessageCollectionCoordinator+{Snapshot,Scrolling,Heights}.swift` |
 | Markdown / 公式 / 附件渲染 | `Views/Chat/Render/MarkdownView.swift` → `MarkdownTextView.swift` |
 | 容器 / 会话文件隔离 | `Services/LinuxShellRuntime.swift`、`SessionFileRouter.swift`、`Services/iSH/MiniClawiSH.m` |
