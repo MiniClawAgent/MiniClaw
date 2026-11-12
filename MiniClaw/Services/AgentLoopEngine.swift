@@ -2195,72 +2195,62 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
             guard !Task.isCancelled else {
                 return ToolResult(success: false, text: String(localized: "err_user_paused_cancelled"))
             }
-
-            do {
-                return try await withThrowingTaskGroup(of: ToolResult.self) { group in
-                group.addTask { [weak self] in
-                    guard let self else {
-                        return ToolResult(success: false, text: String(localized: "err_engine_released"))
-                    }
-                    // 在闭包内重建参数，避免捕获外部非 Sendable 的 [String:Any]。
-                    let innerArgs: [String: Any]
-                    if let data = tc.function.arguments.data(using: .utf8),
-                       let parsed = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-                        innerArgs = parsed
-                    } else {
-                        innerArgs = [:]
-                    }
-                    do {
-                        // 引擎作用域：引擎保留工具（dispatch/close_subagent）经 ToolEngineScope
-                        // 解析当前执行引擎（router 被父子引擎共享，不能靠固定 weak 引用）。
-                        // 浏览器作用域：子代理引擎用自身 subID（独立浏览器上下文），主引擎回落父会话。
-                        let browserScope = self.isSubagentEngine ? self.sessionID : nil
-                        // 过程流上报通道：TaskLocal 注入的 reporter 直达执行上下文，
-                        // appendOutputLine 内部做行缓冲 + 节流 + 回主线程写 block。
-                        let reporter: @Sendable (String) -> Void = { line in
-                            exec.appendOutputLine(line)
-                        }
-                        return try await ToolEngineScope.$box.withValue(EngineBox(self)) {
-                            try await ToolProgressScope.$reporter.withValue(reporter) {
-                                try await EngineBrowserScope.$sessionID.withValue(browserScope) {
-                                    try await self.toolRouter.execute(name: rawName, parameters: innerArgs)
-                                }
-                            }
-                        }
-                    } catch {
-                        return ToolResult(success: false, text: "Error: \(error.localizedDescription)")
-                    }
-                }
-                if let toolTimeout {
-                    group.addTask {
-                        do {
-                            try await Task.sleep(nanoseconds: UInt64(toolTimeout * 1_000_000_000))
-                            return ToolResult(success: false, text: String(format: String(localized: "loop_tool_timeout"), rawName))
-                        } catch {
-                            // CancellationError → pause/cancel 触发，立即返回"中断"而非等工具跑完。
-                            return ToolResult(success: false, text: String(format: String(localized: "loop_tool_interrupted"), rawName))
-                        }
-                    }
-                }
-                // 取第一个完成的结果（工具完成/失败 / 超时 / 用户取消），随后 cancelAll()
-                // 取消竞速中的另一个子任务。注意：withTaskGroup 默认会等待**所有**子任务结束才返回，
-                // 若不在拿到首个结果后立即取消，120s 睡眠任务会拖住 group 直到超时，导致工具早已返回
-                // 却要等满 120s 循环才拿到结果（表现为"模型硬等到 120 秒限制才继续回复"）。
-                guard let first = try await group.next() else {
-                    group.cancelAll()
-                    return ToolResult(success: false, text: String(localized: "err_tool_abnormal_interrupt"))
-                }
-                group.cancelAll()
-                return first
+            // 在闭包内重建参数，避免捕获外部非 Sendable 的 [String:Any]。
+            let innerArgs: [String: Any]
+            if let data = tc.function.arguments.data(using: .utf8),
+               let parsed = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                innerArgs = parsed
+            } else {
+                innerArgs = [:]
             }
+            do {
+                // 引擎作用域：引擎保留工具（dispatch/close_subagent）经 ToolEngineScope
+                // 解析当前执行引擎（router 被父子引擎共享，不能靠固定 weak 引用）。
+                // 浏览器作用域：子代理引擎用自身 subID（独立浏览器上下文），主引擎回落父会话。
+                let browserScope = self.isSubagentEngine ? self.sessionID : nil
+                // 过程流上报通道：TaskLocal 注入的 reporter 直达执行上下文，
+                // appendOutputLine 内部做行缓冲 + 节流 + 回主线程写 block。
+                let reporter: @Sendable (String) -> Void = { line in
+                    exec.appendOutputLine(line)
+                }
+                return try await ToolEngineScope.$box.withValue(EngineBox(self)) {
+                    try await ToolProgressScope.$reporter.withValue(reporter) {
+                        try await EngineBrowserScope.$sessionID.withValue(browserScope) {
+                            try await self.toolRouter.execute(name: rawName, parameters: innerArgs)
+                        }
+                    }
+                }
             } catch {
-                return ToolResult(success: false, text: String(localized: "err_tool_interrupted"))
+                if Task.isCancelled {
+                    return ToolResult(success: false, text: String(format: String(localized: "loop_tool_interrupted"), rawName))
+                }
+                return ToolResult(success: false, text: "Error: \(error.localizedDescription)")
             }
         }
         // [Fix 2026-08-11 并发工具崩溃] 按 callID 注册到集合(NSLock 保护):
         // 并发工具各自写自己的槽位,不再竞争单一共享属性;pause/cancel 枚举全部取消。
         toolExecutionTasks.insert(tc.id, task: execTask)
-        let result = await execTask.value
+        // [Fix 2026-11-12 I-02] 超时不再用 withTaskGroup 与工具竞速：
+        // group 退出前会隐式 await 所有子任务，而工具可能挂死在不可取消的
+        // withCheckedContinuation 上（HomeKit/Location/HealthKit…）⇒ 即使超时分支
+        // 先返回，executeTool 也永不返回。改为「超时先定稿并取消工具任务」：
+        // 超时结果立即返回；工具侧自带超时的兜底另行按 ISSUES I-02 收口。
+        let result: ToolResult
+        if let toolTimeout {
+            result = await withCancellableTimeout(
+                seconds: toolTimeout,
+                onTimeout: {
+                    execTask.cancel()
+                    return ToolResult(
+                        success: false,
+                        text: String(format: String(localized: "loop_tool_timeout"), rawName)
+                    )
+                },
+                work: { await execTask.value }
+            )
+        } else {
+            result = await execTask.value
+        }
         toolExecutionTasks.remove(tc.id)
 
         let duration = Date().timeIntervalSince(startedAt)
