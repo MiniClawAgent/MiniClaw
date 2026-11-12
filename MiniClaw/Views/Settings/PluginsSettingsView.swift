@@ -250,6 +250,10 @@ private struct SkillDetailView: View {
                 }
             }
 
+            if skill.directoryName == WebSearchPlugin.id {
+                WebSearchSettingsSection()
+            }
+
             if skill.type == "skill" {
                 Section(String(localized: "update")) {
                     Button {

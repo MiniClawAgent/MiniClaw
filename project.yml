@@ -121,6 +121,7 @@ targets:
       # 已全部移除，不再为厂商模型数据兜底；apigateway 仅保留协议网关模板（无厂商数据）。
       # 拉取的模型 ID 匹配用户插件 providers.json 的 models 声明，未匹配即无能力信息。
       - path: MiniClaw/Resources/BundledPlugins/com.miniclaw.builtin.tools.mpk
+      - path: MiniClaw/Resources/BundledPlugins/com.miniclaw.builtin.websearch.mpk
         buildPhase: resources
       - path: MiniClaw/Resources/BundledPlugins/com.miniclaw.builtin.memory.mpk
         buildPhase: resources

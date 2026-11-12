@@ -1,21 +1,29 @@
 import Foundation
 
+/// 联网搜索插件的稳定 id（= 沙盒目录名）。
+/// 工具、插件包 manifest、插件详情页的设置区都以此判别，避免三处各写一份字符串。
+enum WebSearchPlugin {
+    static let id = "com.miniclaw.builtin.websearch"
+    /// 未配置自定义地址时的官方端点根（插件 Key 场景）。
+    static let officialBaseURL = "https://api.deepseek.com"
+}
+
 /// `web_search`：DeepSeek 联网搜索（`POST /v1/tools/search`）。
 ///
 /// ## 为什么是「系统级内置工具」而不是 .mpk shell 插件
 /// - 该接口是 DeepSeek 官方 JSON API，需要 Bearer Key 与结构化响应解析；
 ///   `.mpk` 的 shell 后端只能起子进程、无法安全持有 Key，也不适合解析 JSON。
-/// - 归入 `com.miniclaw.builtin.tools`（系统能力工具包）：与 Apple 系统能力同一启停位，
-///   默认启用；包内 `tools/web_search.json` 只做声明，schema/执行在 Swift 侧单一真相源。
+/// - 归入独立插件包 `com.miniclaw.builtin.websearch`（可与其它插件分别启停）；
+///   包内 `tools/web_search.json` 只做声明，schema/执行在 Swift 侧单一真相源。
 ///
-/// ## 凭据
-/// 复用用户在「设置 → 服务商」里已配置的 **DeepSeek** API Key（不新增单独配置项）：
-/// 优先当前选中的服务商，其次任意可用 DeepSeek 实例；自定义 BaseURL（中转）同样生效。
-/// 未配置时返回可操作提示，不静默失败。
+/// ## 凭据（插件设置优先）
+/// 用户在「插件 → 联网搜索 → 设置」里填的 Key 走独立 Keychain 槽位；
+/// 留空时回退到「设置 → 服务商」里已配置的 **DeepSeek** 实例（优先当前选中）。
+/// Base URL 同理：插件设置 > 服务商自定义地址 > DeepSeek 官方地址。
 ///
 /// ## 计费与输出
-/// 服务端按**成功请求次数**计费；`need_content` 默认 false、正文按条截断，
-/// 避免一次搜索把上下文撑爆。错误按 401/402/429/5xx 分类提示。
+/// 服务端按**成功请求次数**计费；默认不返回正文，正文按「单条上限 / 总预算」截断，
+/// 避免一次搜索把上下文撑爆。以上参数均可在插件设置里调整。
 struct WebSearchTool: AgentTool {
     let name = "web_search"
 
@@ -54,19 +62,21 @@ struct WebSearchTool: AgentTool {
         guard !rawQuery.isEmpty else {
             throw ToolError.invalidParameters(String(localized: "web_search_query_required"))
         }
-        // 接口约束：1–50；文档默认 10。
-        let count = min(max((parameters["count"] as? Int) ?? 10, 1), 50)
-        let needContent = (parameters["need_content"] as? Bool) ?? false
+        let settings = (await SettingsStore.shared.snapshot()).webSearch
+        // 接口约束：1–50；未显式给 count 时用插件设置里的默认值。
+        let count = min(max((parameters["count"] as? Int) ?? settings.defaultCount, 1), 50)
+        let needContent = (parameters["need_content"] as? Bool) ?? settings.defaultNeedContent
         let oriQuestion = (parameters["ori_question"] as? String)?
             .trimmingCharacters(in: .whitespacesAndNewlines)
+        let timeout = TimeInterval(min(max(settings.timeoutSeconds, 5), 120))
 
-        guard let credential = await Self.resolveCredential() else {
+        guard let credential = await Self.resolveCredential(settings: settings) else {
             return ToolResult(success: false, text: String(localized: "web_search_no_provider"))
         }
 
         var request = URLRequest(url: credential.endpoint)
         request.httpMethod = "POST"
-        request.timeoutInterval = 20
+        request.timeoutInterval = timeout
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("Bearer \(credential.apiKey)", forHTTPHeaderField: "Authorization")
 
@@ -114,7 +124,16 @@ struct WebSearchTool: AgentTool {
             return ToolResult(success: true, text: String(localized: "web_search_no_results"))
         }
 
-        return ToolResult(success: true, text: Self.render(results, query: rawQuery, count: count, includeContent: needContent))
+        return ToolResult(
+            success: true,
+            text: Self.render(
+                results,
+                query: rawQuery,
+                includeContent: needContent,
+                perResultCap: max(200, settings.contentCapChars),
+                totalBudget: max(0, settings.contentBudgetChars)
+            )
+        )
     }
 
     // MARK: - 响应模型
@@ -155,8 +174,19 @@ struct WebSearchTool: AgentTool {
         let apiKey: String
     }
 
-    /// 解析 DeepSeek 服务商与 Key；无可用实例返回 nil（由调用方给出可操作提示）。
-    private static func resolveCredential() async -> Credential? {
+    /// 插件 Key 优先；没有则回退 DeepSeek 服务商 Key。
+    private static func resolveCredential(settings: WebSearchSettings) async -> Credential? {
+        let configuredBase = settings.baseURL.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        // 1) 插件设置里的独立 Key。
+        if let pluginKey = APIKeyStore.getWebSearchKey()?
+            .trimmingCharacters(in: .whitespacesAndNewlines), !pluginKey.isEmpty {
+            let base = configuredBase.isEmpty ? WebSearchPlugin.officialBaseURL : configuredBase
+            guard let endpoint = endpointURL(base: base) else { return nil }
+            return Credential(endpoint: endpoint, apiKey: pluginKey)
+        }
+
+        // 2) 回退：已配置的 DeepSeek 服务商（优先当前选中实例）。
         let snapshot: (providers: [ProviderSnapshot], selected: UUID?) = await MainActor.run {
             guard let app = AppState.shared else { return ([], nil) }
             let providers = app.providers
@@ -170,25 +200,27 @@ struct WebSearchTool: AgentTool {
                 }
             return (providers, app.selectedProviderId)
         }
-        // 优先当前选中的 DeepSeek 实例，其次任意可用实例。
         let ordered = snapshot.providers.filter { $0.id == snapshot.selected }
             + snapshot.providers.filter { $0.id != snapshot.selected }
-        guard let provider = ordered.first else { return nil }
-        // 逐个实例找有 Key 的那个（选中的实例可能恰好没填 Key）。
         for candidate in ordered {
             guard let key = APIKeyStore.getKey(for: candidate.id)?
                 .trimmingCharacters(in: .whitespacesAndNewlines), !key.isEmpty else { continue }
-            guard let endpoint = endpointURL(for: candidate) else { return nil }
+            let base: String
+            if !configuredBase.isEmpty {
+                base = configuredBase
+            } else {
+                let providerBase = candidate.customBaseURL.trimmingCharacters(in: .whitespacesAndNewlines)
+                base = providerBase.isEmpty ? candidate.defaultBaseURL : providerBase
+            }
+            guard let endpoint = endpointURL(base: base) else { return nil }
             return Credential(endpoint: endpoint, apiKey: key)
         }
-        _ = provider
         return nil
     }
 
-    /// 与模型端点同口径：自定义 BaseURL 若已带 `/v1` 先剥掉，避免拼出 `/v1/v1/...`。
-    private static func endpointURL(for provider: ProviderSnapshot) -> URL? {
-        let custom = provider.customBaseURL.trimmingCharacters(in: .whitespacesAndNewlines)
-        var base = custom.isEmpty ? provider.defaultBaseURL : custom
+    /// 与模型端点同口径：BaseURL 若已带 `/v1` 先剥掉，避免拼出 `/v1/v1/...`。
+    private static func endpointURL(base rawBase: String) -> URL? {
+        var base = rawBase
         if base.hasSuffix("/v1/") {
             base = String(base.dropLast("/v1/".count))
         } else if base.hasSuffix("/v1") {
@@ -207,20 +239,17 @@ struct WebSearchTool: AgentTool {
 
     // MARK: - 结果渲染
 
-    /// 单条正文上限 4 000 字符、整体正文预算 24 000 字符：宁可截断，不撑爆上下文。
-    private static let perResultContentCap = 4_000
-    private static let totalContentBudget = 24_000
-
     private static func render(
         _ items: [Item],
         query: String,
-        count: Int,
-        includeContent: Bool
+        includeContent: Bool,
+        perResultCap: Int,
+        totalBudget: Int
     ) -> String {
         var lines: [String] = [
             String(format: String(localized: "web_search_results_header"), items.count, query)
         ]
-        var contentBudget = totalContentBudget
+        var contentBudget = totalBudget
         for (index, item) in items.enumerated() {
             var line = "\(index + 1). \(item.title?.isEmpty == false ? item.title! : "(untitled)")"
             if let url = item.url, !url.isEmpty {
@@ -238,7 +267,7 @@ struct WebSearchTool: AgentTool {
                 line += "\n   snippet: \(snippet)"
             }
             if includeContent, let content = item.content, !content.isEmpty, contentBudget > 0 {
-                let cap = min(perResultContentCap, contentBudget)
+                let cap = min(perResultCap, contentBudget)
                 if content.count > cap {
                     line += "\n   content: " + String(content.prefix(cap))
                         + String(localized: "web_search_content_truncated")

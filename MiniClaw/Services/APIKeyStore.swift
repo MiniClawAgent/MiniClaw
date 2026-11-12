@@ -90,4 +90,69 @@ enum APIKeyStore {
         ]
         return SecItemCopyMatching(query as CFDictionary, nil) == errSecSuccess
     }
+
+    // MARK: - 插件级 Key（联网搜索）
+
+    /// 联网搜索插件使用独立 service 名，与服务商 Key 完全隔离：
+    /// 用户可在插件设置里单独填一把 DeepSeek Key，不影响/不依赖「服务商」配置。
+    private static let webSearchService = "com.neartop.miniclaw.websearchkey"
+    private static let webSearchAccount = "api-key"
+
+    /// 保存联网搜索 API Key（空串等价于删除）。
+    static func saveWebSearchKey(_ key: String) throws {
+        let data = Data(key.utf8)
+        guard !data.isEmpty else { deleteWebSearchKey(); return }
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: webSearchService,
+            kSecAttrAccount as String: webSearchAccount
+        ]
+        let attrs: [String: Any] = [
+            kSecValueData as String: data,
+            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlock
+        ]
+        let status = SecItemUpdate(query as CFDictionary, attrs as CFDictionary)
+        if status == errSecSuccess { return }
+        guard status == errSecItemNotFound else { throw APIKeyStoreError.writeFailed(status) }
+        var addQuery = query
+        addQuery[kSecValueData as String] = data
+        addQuery[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
+        let addStatus = SecItemAdd(addQuery as CFDictionary, nil)
+        guard addStatus == errSecSuccess else { throw APIKeyStoreError.writeFailed(addStatus) }
+    }
+
+    /// 读取联网搜索 API Key；不存在返回 nil。
+    static func getWebSearchKey() -> String? {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: webSearchService,
+            kSecAttrAccount as String: webSearchAccount,
+            kSecReturnData as String: true,
+            kSecMatchLimit as String: kSecMatchLimitOne
+        ]
+        var result: AnyObject?
+        let status = SecItemCopyMatching(query as CFDictionary, &result)
+        guard status == errSecSuccess, let data = result as? Data,
+              let key = String(data: data, encoding: .utf8), !key.isEmpty else { return nil }
+        return key
+    }
+
+    static func hasWebSearchKey() -> Bool {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: webSearchService,
+            kSecAttrAccount as String: webSearchAccount,
+            kSecReturnData as String: false
+        ]
+        return SecItemCopyMatching(query as CFDictionary, nil) == errSecSuccess
+    }
+
+    static func deleteWebSearchKey() {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: webSearchService,
+            kSecAttrAccount as String: webSearchAccount
+        ]
+        SecItemDelete(query as CFDictionary)
+    }
 }

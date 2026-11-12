@@ -198,6 +198,7 @@ final class SettingsStore: ObservableObject {
         case .defaults:    return settings.defaults as? T
         case .sync:        return settings.sync as? T
         case .subagent:    return settings.subagent as? T
+        case .webSearch:   return settings.webSearch as? T
         }
     }
 
@@ -218,6 +219,7 @@ final class SettingsStore: ObservableObject {
         case .defaults:    if let v = value as? DefaultSettings { settings.defaults = v }
         case .sync:        if let v = value as? SyncConfig { settings.sync = v }
         case .subagent:    if let v = value as? SubAgentSettings { settings.subagent = v }
+        case .webSearch:   if let v = value as? WebSearchSettings { settings.webSearch = v }
         }
     }
 
@@ -239,6 +241,7 @@ final class SettingsStore: ObservableObject {
         case .defaults:    return DefaultSettings.self
         case .sync:        return SyncConfig.self
         case .subagent:    return SubAgentSettings.self
+        case .webSearch:   return WebSearchSettings.self
         }
     }
 
@@ -261,6 +264,7 @@ final class SettingsStore: ObservableObject {
         case .defaults:    if let v = try? decoder.decode(DefaultSettings.self, from: data) { settings.defaults = v; return true }
         case .sync:        if let v = try? decoder.decode(SyncConfig.self, from: data) { settings.sync = v; return true }
         case .subagent:    if let v = try? decoder.decode(SubAgentSettings.self, from: data) { settings.subagent = v; return true }
+        case .webSearch:   if let v = try? decoder.decode(WebSearchSettings.self, from: data) { settings.webSearch = v; return true }
         }
         return false
     }

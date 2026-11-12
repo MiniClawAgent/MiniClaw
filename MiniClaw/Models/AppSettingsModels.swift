@@ -96,6 +96,8 @@ struct AppSettings: Codable {
     var sync: SyncConfig = SyncConfig()
     /// 子代理用户控制（设置 → 智能体 → 子代理）。
     var subagent: SubAgentSettings = SubAgentSettings()
+    /// 联网搜索（web_search 插件）配置；API Key 走 Keychain，不落盘在此。
+    var webSearch: WebSearchSettings = WebSearchSettings()
     /// 技能启用状态：`true`=启用（注入 system prompt），`false`=禁用。
     /// 键为技能 frontmatter 的 name；缺失视为启用（技能格式无启用概念，默认全启用）。
     var skillEnabledStates: [String: Bool] = [:]
@@ -131,6 +133,7 @@ struct AppSettings: Codable {
         defaults = try c.decodeIfPresent(DefaultSettings.self, forKey: .defaults) ?? DefaultSettings()
         sync = try c.decodeIfPresent(SyncConfig.self, forKey: .sync) ?? SyncConfig()
         subagent = try c.decodeIfPresent(SubAgentSettings.self, forKey: .subagent) ?? SubAgentSettings()
+        webSearch = try c.decodeIfPresent(WebSearchSettings.self, forKey: .webSearch) ?? WebSearchSettings()
         skillEnabledStates = try c.decodeIfPresent([String: Bool].self, forKey: .skillEnabledStates) ?? [:]
         skillInstallDates = try c.decodeIfPresent([String: Date].self, forKey: .skillInstallDates) ?? [:]
         skillUseCounts = try c.decodeIfPresent([String: Int].self, forKey: .skillUseCounts) ?? [:]
@@ -150,7 +153,24 @@ struct SubAgentSettings: Codable {
     var thinking: String = "follow"
 }
 
+/// 联网搜索（web_search 插件）用户配置。
+/// API Key 不在此结构内——单独存 Keychain（`APIKeyStore` 的 webSearch 槽位），避免明文落盘。
+struct WebSearchSettings: Codable, Equatable {
+    /// 自定义 Base URL；留空时依次回退「DeepSeek 服务商配置」「DeepSeek 官方地址」。
+    var baseURL: String = ""
+    /// 模型未显式给 count 时的默认条数（1–50）。
+    var defaultCount: Int = 10
+    /// 模型未显式给 need_content 时的默认值（默认不返回正文，控制 token）。
+    var defaultNeedContent: Bool = false
+    /// 单次请求超时（秒）。
+    var timeoutSeconds: Int = 20
+    /// need_content 时单条正文上限（字符）。
+    var contentCapChars: Int = 4_000
+    /// need_content 时全部结果正文总预算（字符）。
+    var contentBudgetChars: Int = 24_000
+}
+
 /// 配置域标识，用于审计日志定位与回滚
 enum SettingsDomain: String, CaseIterable, Codable {
-    case groups, envvars, soul, session, chat, speech, memory, browser, appearance, background, files, permissions, defaults, sync, subagent
+    case groups, envvars, soul, session, chat, speech, memory, browser, appearance, background, files, permissions, defaults, sync, subagent, webSearch
 }

@@ -57,6 +57,7 @@
 		1EF245CFF3BDBC535C9B3F62B0516D4F /* PluginTool.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F280901058859344DA1FE572DD22AE9 /* PluginTool.swift */; };
 		1FC8FC180B9F0F7B6390F183E03D665F /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B084FFFFF84BE48B9955CAEF32AE20E2 /* Security.framework */; };
 		20CB1D95D7EDC9EED9D76A9D22B5110A /* StorageSettingsViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49DFB199827ABA62782944333A1B6A09 /* StorageSettingsViews.swift */; };
+		8D796F4A19697A21EE251552FF4BD41D /* WebSearchSettingsViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F0E8C921B9DBC4480DC215F5C2094E8 /* WebSearchSettingsViews.swift */; };
 		21C9DBF0509503742BDC919CE80DD58C /* OpenAIOAuthManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 208025688B257E60634572797EF445A6 /* OpenAIOAuthManager.swift */; };
 		223BAAB93D10E388DDB7EB494911A579 /* APIKeyStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D9DE8A23DCD5AF62B2D53E8D5464AE9 /* APIKeyStore.swift */; };
 		2321399641862817ACB9119F24A9838F /* BrowserTool.swift in Sources */ = {isa = PBXBuildFile; fileRef = 67A9EDDECF5D2491737CFB1A2F100C50 /* BrowserTool.swift */; };
@@ -138,6 +139,7 @@
 		5510EA61E19308373BF058EBB8F2EDFE /* MCPModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1B8C5043C91833039B2124660623FE1 /* MCPModels.swift */; };
 		55548529CDBAEB22CBE92CEAC7BA4229 /* BrowserEngineAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C6EF3B1270F2A8D952F00D542597C77 /* BrowserEngineAdapter.swift */; };
 		55B31280E2B991E7E904940706F13DF5 /* com.miniclaw.builtin.tools.mpk in Resources */ = {isa = PBXBuildFile; fileRef = F071D17FB9FFF030FC87322C58E9AA47 /* com.miniclaw.builtin.tools.mpk */; };
+		992FE2F6143FB497425A684A6BF78B00 /* com.miniclaw.builtin.websearch.mpk in Resources */ = {isa = PBXBuildFile; fileRef = 86A8F1724A969EA70CCBC259754CAD78 /* com.miniclaw.builtin.websearch.mpk */; };
 		55B78F5BA4CA2DE12509442B2200AA93 /* MiniClawTabPool.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85D525B0A4FC61A6D354FB9861ABEBFF /* MiniClawTabPool.swift */; };
 		563B7C460FA3AEDC0892B29FAC9569F8 /* StdioMCPClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AEC49D3DB385E2D8F136148221AAD71 /* StdioMCPClient.swift */; };
 		567829A683C571B5083F812595FD0721 /* MTLabel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5720CB21C3FBB1A3427EB33319959EBA /* MTLabel.swift */; };
@@ -550,6 +552,7 @@
 		47EF261E12D1F07BC4EF9EC59337D2C3 /* FilePreviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilePreviewView.swift; sourceTree = "<group>"; };
 		4828E3FEABCEAB9762EFDC1F0C464DB1 /* CloudKitTransport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudKitTransport.swift; sourceTree = "<group>"; };
 		49DFB199827ABA62782944333A1B6A09 /* StorageSettingsViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StorageSettingsViews.swift; sourceTree = "<group>"; };
+		5F0E8C921B9DBC4480DC215F5C2094E8 /* WebSearchSettingsViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebSearchSettingsViews.swift; sourceTree = "<group>"; };
 		4A3E02A7633220ADB046FAE25FA44F56 /* MTMathListBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MTMathListBuilder.swift; sourceTree = "<group>"; };
 		4ADAE901D9E3CB5AD33D6F30F689F3F9 /* KitLogger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KitLogger.swift; sourceTree = "<group>"; };
 		4B7E201B3E19794C76B4F50DE33431CD /* HomeScreenWidgets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeScreenWidgets.swift; sourceTree = "<group>"; };
@@ -814,6 +817,7 @@
 		EF19FBFA6517AC9526043B86D9830189 /* ContactsTools.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContactsTools.swift; sourceTree = "<group>"; };
 		EFE9292B97226BF8D2B6C74DFBB8F9B1 /* com.miniclaw.builtin.apigateway.mpk */ = {isa = PBXFileReference; lastKnownFileType = file; path = com.miniclaw.builtin.apigateway.mpk; sourceTree = "<group>"; };
 		F071D17FB9FFF030FC87322C58E9AA47 /* com.miniclaw.builtin.tools.mpk */ = {isa = PBXFileReference; lastKnownFileType = file; path = com.miniclaw.builtin.tools.mpk; sourceTree = "<group>"; };
+		86A8F1724A969EA70CCBC259754CAD78 /* com.miniclaw.builtin.websearch.mpk */ = {isa = PBXFileReference; lastKnownFileType = file; path = com.miniclaw.builtin.websearch.mpk; sourceTree = "<group>"; };
 		F0DF3CA705906B70F738E5BDA81AEE8D /* ModelGroupEditViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelGroupEditViews.swift; sourceTree = "<group>"; };
 		F22703CBE3DB640DD075ECEAC6C0607F /* CacheStabilityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CacheStabilityTests.swift; sourceTree = "<group>"; };
 		F27512D34E4468020AD04EAF25D9525A /* BackgroundTaskComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundTaskComponents.swift; sourceTree = "<group>"; };
@@ -940,6 +944,7 @@
 				146E6F4078E78D10E50C988E3DA14F94 /* com.miniclaw.builtin.soul.mpk */,
 				E3B48407245D0980E96E866BBE24951F /* com.miniclaw.builtin.subagents.mpk */,
 				F071D17FB9FFF030FC87322C58E9AA47 /* com.miniclaw.builtin.tools.mpk */,
+				86A8F1724A969EA70CCBC259754CAD78 /* com.miniclaw.builtin.websearch.mpk */,
 			);
 			name = BundledPlugins;
 			path = MiniClaw/Resources/BundledPlugins;
@@ -1013,6 +1018,7 @@
 				7F75B223CFCEA5912307F4BEBF7A58AE /* SettingsView.swift */,
 				5CA34BF636ECA7C8A7BFA22BEB198801 /* SoulSettingsView.swift */,
 				49DFB199827ABA62782944333A1B6A09 /* StorageSettingsViews.swift */,
+				5F0E8C921B9DBC4480DC215F5C2094E8 /* WebSearchSettingsViews.swift */,
 				822E52700393D0FA33C6927A63651BE6 /* SubAgentSettingsView.swift */,
 				D8E59EE80EB4CBCC04AFBC6AFAB57722 /* TokenUsageViews.swift */,
 			);
@@ -1788,6 +1794,7 @@
 				CBD6F7A6676C7A6431A54DDF2300C336 /* com.miniclaw.builtin.soul.mpk in Resources */,
 				973019572D82C07FFE3EF899476D08F5 /* com.miniclaw.builtin.subagents.mpk in Resources */,
 				55B31280E2B991E7E904940706F13DF5 /* com.miniclaw.builtin.tools.mpk in Resources */,
+				992FE2F6143FB497425A684A6BF78B00 /* com.miniclaw.builtin.websearch.mpk in Resources */,
 				5BA4A77CBEFA24BD873802FC68ABBC53 /* mathFonts.bundle in Resources */,
 				9165BB74342F79D1E6F8CFE564AC410B /* rootfs in Resources */,
 				B5A8FA7F503F213B5928011CAD598DC0 /* 关于MiniClaw.md in Resources */,
@@ -2118,6 +2125,7 @@
 				149F29CBDE229B3B8E114F2AFA611E6B /* SpeechTools.swift in Sources */,
 				563B7C460FA3AEDC0892B29FAC9569F8 /* StdioMCPClient.swift in Sources */,
 				20CB1D95D7EDC9EED9D76A9D22B5110A /* StorageSettingsViews.swift in Sources */,
+				8D796F4A19697A21EE251552FF4BD41D /* WebSearchSettingsViews.swift in Sources */,
 				D6233E59B15492435D1ED58704337A30 /* SubAgentGuide.swift in Sources */,
 				B71B8436956722834B3901A8ADA7B754 /* SubAgentProfile.swift in Sources */,
 				36BD6D9F4E381783B3B0510683570007 /* SubAgentProfileStore.swift in Sources */,
