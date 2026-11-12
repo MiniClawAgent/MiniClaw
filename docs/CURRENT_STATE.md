@@ -12,7 +12,7 @@ MiniClaw 是一款**本地优先的 iOS 通用智能体应用**（不是编程�
 
 - 大模型接入：3 个适配器覆盖 OpenAI 兼容族（8 家）/ Anthropic / Gemini，支持 OAuth、思考档位、前缀缓存优化
 - 内置 Linux：iSH 移植（AArch64 guest + Asbestos 解释器，无需 JIT），给 Agent 一个真 shell
-- 工具：40 个 `AgentTool`（文件、浏览器、子代理、记忆、MCP、Apple 系统能力等）
+- 工具：41 个 `AgentTool`（文件、浏览器、子代理、记忆、MCP、Apple 系统能力、联网搜索等）
 - 会话渲染：UICollectionView 自绘布局 + TextKit1 + cmark-gfm + SwiftMath 的流式渲染管线
 - 扩展：Widget（含灵动岛/锁屏）、ShareExtension、AppIntents、深链
 
@@ -82,6 +82,7 @@ MiniClaw 是一款**本地优先的 iOS 通用智能体应用**（不是编程�
 | 记忆写入 / 复盘 / 整理 | `Services/MemoryManager.swift`、`SessionReviewService.swift`、`MemoryConsolidator.swift` |
 | 技能 / 插件 / 内置工具声明 | `Services/SkillManager.swift`、`ToolPluginManager.swift`、`Resources/BundledPlugins/` |
 | MCP | `Services/MCPClient.swift`、`MCPConfigStore.swift`、`MCPOAuthManager.swift`、`RemoteMCPTool.swift` |
+| 联网搜索（DeepSeek Search API） | `Tools/WebSearchTool.swift`；内置工厂在 `ToolPluginManager.swift`，包声明在 `Resources/BundledPlugins/com.miniclaw.builtin.tools.mpk` |
 | 列表高度 / 滚动 / 冻结 | `Views/Chat/List/MessageListLayout.swift`、`MessageCollectionCoordinator+{Snapshot,Scrolling,Heights}.swift` |
 | Markdown / 公式 / 附件渲染 | `Views/Chat/Render/MarkdownView.swift` → `MarkdownTextView.swift` |
 | 容器 / 会话文件隔离 | `Services/LinuxShellRuntime.swift`、`SessionFileRouter.swift`、`Services/iSH/MiniClawiSH.m` |
