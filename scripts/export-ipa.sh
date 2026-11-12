@@ -12,6 +12,9 @@ cd "$(dirname "$0")/.."
 
 METHOD="${1:-development}"
 TEAM="${DEVELOPMENT_TEAM:-LZ84D5PQ38}"
+# 派生目录与纪律定案一致：固定复用 ~/.miniclaw-build（增量构建，产物不进工程树）。
+# 可用 MINICLAW_DERIVED_DATA 覆盖。
+DERIVED_DATA="${MINICLAW_DERIVED_DATA:-$HOME/.miniclaw-build}"
 STAMP=$(date +%Y%m%d-%H%M)
 ARCHIVE="/tmp/MiniClaw-$STAMP.xcarchive"
 OUT="/tmp/MiniClaw-ipa-$STAMP"
@@ -21,8 +24,8 @@ xcodebuild archive \
   -project MiniClaw.xcodeproj -scheme MiniClaw \
   -destination 'generic/platform=iOS' \
   -archivePath "$ARCHIVE" \
-  -derivedDataPath /tmp/miniclaw-build \
-  OTHER_SWIFT_FLAGS="-disable-sandbox" \
+  -derivedDataPath "$DERIVED_DATA" \
+  OTHER_SWIFT_FLAGS="-Xfrontend -disable-sandbox" \
   -allowProvisioningUpdates 2>&1 | tail -3
 
 echo "==> [2/4] 补全 ApplicationProperties(Xcode 26.6 归档服务回归:不写此键 Organizer 不识别)"
