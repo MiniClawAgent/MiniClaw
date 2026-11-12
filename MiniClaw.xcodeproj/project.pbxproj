@@ -45,6 +45,7 @@
 		18446214AC20625791876C39B19473B4 /* BridgedCellViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 103B5F941583F9EBC5C38255D8AE8412 /* BridgedCellViews.swift */; };
 		188E82E60F60681452109873F0FE2EDB /* ThemeBackground.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38861749215566C5E889093BAAFA8BAA /* ThemeBackground.swift */; };
 		195E8133F64EA1362EEC43839E7D24EE /* RetryPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C83CB7A02F0F1F7E89A32B1E09298E3 /* RetryPolicy.swift */; };
+		F616E265E2FE151B112FC24751B1DB8D /* CancellableTimeout.swift in Sources */ = {isa = PBXBuildFile; fileRef = 87061A07068DA7FF14444BFC214795FA /* CancellableTimeout.swift */; };
 		1990FC44E2EA353BB78CB48D469BAE5F /* ProviderImportHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = C12A1DF6A1762E6477D3190BF7E5F0E3 /* ProviderImportHelper.swift */; };
 		19C03E7E7AB4FD0FB617EC1B33324ED0 /* HomeSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9B72E5C7C1FA1B465F6DEE8C93E3EC3 /* HomeSupport.swift */; };
 		1A4DD021276BA45278D781886DF4892D /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = C47F67F41AE44228FFEF8469211B2823 /* AppState.swift */; };
@@ -649,6 +650,7 @@
 		8BEB7F3E06B35D1BB5EE111397F04ED1 /* OpenAIStreamDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIStreamDelegate.swift; sourceTree = "<group>"; };
 		8C2B29B8DD54C960AD54DABFFFCE515B /* MountSettingsViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MountSettingsViews.swift; sourceTree = "<group>"; };
 		8C83CB7A02F0F1F7E89A32B1E09298E3 /* RetryPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RetryPolicy.swift; sourceTree = "<group>"; };
+		87061A07068DA7FF14444BFC214795FA /* CancellableTimeout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CancellableTimeout.swift; sourceTree = "<group>"; };
 		8DE186781C6AD7651C7F0F7BC762E88D /* core-extensions.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = "core-extensions.c"; sourceTree = "<group>"; };
 		8EE4DD99D94B2770FCB653FEC07CBB94 /* ChatModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatModels.swift; sourceTree = "<group>"; };
 		8F2B5099A06FFB609C780F6B28B10492 /* AgentLoopHelpersTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentLoopHelpersTests.swift; sourceTree = "<group>"; };
@@ -1314,6 +1316,7 @@
 				CF6386A10D97A37AC9188929D75F0C72 /* RemoteMCPTool.swift */,
 				A49827911C52565BC78EE4F78DD00EA0 /* ResponsesModels.swift */,
 				8C83CB7A02F0F1F7E89A32B1E09298E3 /* RetryPolicy.swift */,
+				87061A07068DA7FF14444BFC214795FA /* CancellableTimeout.swift */,
 				748F46E1A509945DF52890B06AAA9735 /* RuntimeStatus.swift */,
 				330221C4BDE012084F833D3E54445800 /* ScenePhaseMonitor.swift */,
 				E2E2167C1237BBC879EF7AE4E914A38B /* SessionFileRouter.swift */,
@@ -2083,6 +2086,7 @@
 				EA0A3B6498EA15228CB18C1A3D63477A /* ResponsesModels.swift in Sources */,
 				DD62267D40A46F548490243AE10E8040 /* RetryCardView.swift in Sources */,
 				195E8133F64EA1362EEC43839E7D24EE /* RetryPolicy.swift in Sources */,
+				F616E265E2FE151B112FC24751B1DB8D /* CancellableTimeout.swift in Sources */,
 				36280AE9C43DAB3625701019399C3337 /* RootfsManagerView.swift in Sources */,
 				C0B3A36D689B2696B945B536E39F6B2A /* RuntimeStatus.swift in Sources */,
 				F2345E7D68227A0C93DEDDB19A0B2831 /* RuntimeStatusView.swift in Sources */,
