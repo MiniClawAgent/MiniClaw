@@ -40,7 +40,7 @@ final class ChatMessage: Identifiable, Codable {
     /// 若每轮临时拼在请求末尾，上一轮请求的结尾在下一轮里不存在 ⇒ 缓存只能命中静态前块
     /// （真机实证：`[Cache命中]` 恒等于 sys+tools，历史逐轮 0 命中、未命中与 prompt 增量 1:1）。
     /// 把易变段落进本条消息并逐字回放后，请求序列恢复为纯追加 ⇒ 缓存可覆盖全部历史。
-    /// 根因与实测见 `Doc/MiniClaw_缓存命中率-根因报告-20260915.md`。
+    /// 根因与实测见 `docs/archive/MiniClaw_缓存命中率-根因报告-20260915.md`。
     var apiContextSuffix: String?
 
     /// 本条消息实际发给模型的正文 = `content` + `apiContextSuffix`。

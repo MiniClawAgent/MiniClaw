@@ -10,24 +10,30 @@
 MiniClaw 采用清晰的分层布局：
 
 ```
-MiniClaw/
+MiniClaw/                      # git 仓库根
 ├── MiniClaw/                  # iOS app 主代码（Swift / SwiftUI）
 │   ├── App/                   # App 入口、容器、环境注入
 │   ├── Views/                 # 视图层（按功能分子目录）
 │   │   ├── Home/             # 首页、会话列表
 │   │   ├── Chat/             # 聊天界面
 │   │   └── Settings/         # 设置页
-│   ├── Models/                # SwiftData 模型 + 数据定义
+│   ├── Models/                # 数据模型
 │   ├── Services/              # 业务逻辑层（无 UI 依赖）
-│   ├── Utils/                 # 工具类、扩展
 │   └── Resources/             # 资源文件
+├── MiniClawKit/               # 被 embed 的 framework（渲染核心）
 ├── MiniClawCLI/               # CLI 工具
 ├── MiniClawWidget/            # Widget 扩展
 ├── ShareExtension/            # 分享扩展
-├── 第三方源码/                 # 第三方代码（仅源码，不提交二进制）
-├── project.yml                # XcodeGen 定义（⚠️ 已与入库 pbxproj 漂移；**禁止**跑 xcodegen，见 S2/B4）
-└── MiniClaw.entitlements      # 权限声明（**高敏感，改动须审查**）
+├── docs/                      # 文档唯一入口：见 docs/README.md
+│   ├── CURRENT_STATE.md       # 当前状态（单一事实源）
+│   ├── ISSUES.md              # 开放问题台账（单一事实源）
+│   ├── archive/               # 历史报告（只读，见 archive/README.md）
+│   └── refactor-specs/        # 重构规格
+├── project.yml                # 工程定义（⚠️ 已与入库 pbxproj 漂移；**禁止**跑 xcodegen，见 S2/B4）
+└── MiniClaw/MiniClaw.entitlements  # 权限声明（**高敏感，改动须审查**）
 ```
+
+> 工作区级（**不在 git 内**）：`../Kit/`（SwiftMath + swift-cmark）、`../第三方源码/`（iSH 真身与上游参考）。
 
 ### 规则
 

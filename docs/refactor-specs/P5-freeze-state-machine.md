@@ -1,6 +1,6 @@
 # P5 · S6 冻结状态机 —— 实现规格
 
-> 来源：重构调研（2026-09-13）。基准文档：`../render-pipeline-refactor-2026-09-13.md`（§3 M1–M8 / §6 边界）。
+> 来源：重构调研（2026-09-13）。基准文档：`../archive/render-pipeline-refactor-2026-09-13.md`（§3 M1–M8 / §6 边界）。
 > 行号为调研时盘上值。路径前缀：`V` = `MessageCollectionView.swift`，`S` = `+Scrolling.swift`，`N` = `+Snapshot.swift`，`B` = `+Bindings.swift`，`L` = `MessageListLayout.swift`，`I` = `MessageListInfrastructure.swift`，`MT` = `Render/MarkdownTextView.swift`，`MA` = `Render/MarkdownAttachments.swift`，`HS` = `Services/MiniClawHostStubs.swift`，`BR` = `Bridge/MiniClawChatBridge.swift`（除 `HS` 外均在 `Views/Chat/` 下）。
 
 ## 实施记录（2026-09-13 晚）
