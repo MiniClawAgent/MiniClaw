@@ -5,6 +5,10 @@ import PDFKit
 struct ShellExecuteTool: AgentTool {
     var resumePolicy: ResumePolicy { .requiresUserConfirmation }
     let name = "shell_execute"
+    /// 后台命令的时限由工具自己的 `timeout` 参数（默认 900s）与 ShellRuntime 执行器负责，
+    /// 不再吃引擎默认的 120s（否则 900s 永远不可达，长命令被提前切断）。
+    /// 2026-11-12 随 ISSUES I-04 一起接通：`executionTimeout == nil` 现在真的表示「引擎不设超时」。
+    var executionTimeout: TimeInterval? { nil }
     /// 当前会话 ID：注入后该工具执行的 Shell 命令会被隔离到本会话的
     /// /var/MiniClaw/{workspace,attachments,browser,offloads}，与其他会话互不污染。
     let currentSessionID: UUID?

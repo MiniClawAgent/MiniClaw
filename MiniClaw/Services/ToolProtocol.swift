@@ -224,9 +224,16 @@ final class ToolRouter {
         tools[name]?.resumePolicy ?? .retryable
     }
 
-    /// 查询某个已注册工具的执行超时（未注册返回默认 120s）。
+    /// 查询某个已注册工具的执行超时。
+    ///
+    /// 语义（2026-11-12 修 ISSUES I-04）：`nil` 表示「引擎不设超时」，由工具自行治理；
+    /// 只有**未注册**的工具才回落默认 120s。
+    /// 旧实现 `tools[name]?.executionTimeout ?? 120` 会被可选链扁平化——
+    /// 「工具存在但显式返回 nil」与「工具不存在」变成同一个 nil 后再被 `?? 120` 吞掉，
+    /// 导致 `dispatch_subagent` 的「不限时」与 `shell_execute` 的 900s 全部失效。
     func executionTimeout(for name: String) -> TimeInterval? {
-        tools[name]?.executionTimeout ?? 120
+        guard let tool = tools[name] else { return 120 }
+        return tool.executionTimeout
     }
 }
 
