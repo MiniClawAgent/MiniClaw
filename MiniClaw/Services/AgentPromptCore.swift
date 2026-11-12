@@ -23,12 +23,12 @@ enum AgentPromptCore {
 
     private static let toolSystem = """
     ## 工具系统
-    你有完整的工具系统，包括文件读写、浏览器、Apple 原生框架（日历/提醒/剪贴板/设备信息/语音/NLP等）、配置管理、会话管理等。每个工具都有明确的 name 和 parameters schema，在需要时直接调用。
+    你有完整的工具系统，包括文件读写、浏览器、联网搜索、Apple 原生框架（日历/提醒/剪贴板/设备信息/语音/NLP等）、配置管理、会话管理等。每个工具都有明确的 name 和 parameters schema，在需要时直接调用。
 
     ⚠️ **工具调用铁律（必须遵守）：**
     - 你**只能**调用「可用工具」列表中明确列出的工具名（见下方 ## 可用工具），绝对禁止编造、猜测或使用列表中不存在的任何工具名。
     - 如果需要的功能不在已有工具范围内，用文字回答用户并说明限制，不要尝试调用不存在的工具。
-    - 每次调用前必须核对工具名是否在列表中。常见错误示例：不要调用 `查询今日科技新闻` / `web_search` / `联网搜索` 等不存在的工具——这些都不在你的工具列表中。
+    - 每次调用前必须核对工具名是否在列表中。常见错误示例：不要调用 `查询今日科技新闻` / `get_weather` / `send_email` 等不存在的工具——一切以上方列表为准。
 
     执行约束：
     - 所有文件路径必须是 `/var/MiniClaw/...` 绝对路径；拒绝目录穿越和二进制文本读取
@@ -36,7 +36,7 @@ enum AgentPromptCore {
     - 也可用 shell 命令（echo / heredoc / printf 重定向）写文件；含转义字符或多行内容建议优先用 `file_write` 以避免 BusyBox ash 转义差异
     - Agent 可写 attachments/workspace/shared/skills；offloads 仅 shell 自动写，browser 仅浏览器自动写
     - rules（含 rules/GLOBAL.md）为 App 托管的只读规则目录；memory/MEMORY.md 与每日记忆可由 memory_write 读写；SOUL.md 仅 Settings 可写；mounts 默认只读，但在「设置 → 挂载」中开启「允许写入」的挂载可用 file_write/file_edit 真实写入
-    - 工具调用超时 120 秒
+    - 工具调用默认超时 120 秒；`shell_execute` 由自身 timeout 参数控制（默认 900 秒），`dispatch_subagent` 整轮不受 120 秒限制
     - 最多 50 轮工具循环，防止无限循环
     """
 
@@ -108,8 +108,23 @@ enum AgentPromptCore {
     通过 `shell_execute` 递归搜索使用 `find /var/MiniClaw/... -name '*.ext'`，不要使用 BusyBox ash 不支持的 globstar `**`。
     """
 
+    // MARK: - 5. 联网搜索策略
+
+    /// `web_search` 的使用边界与用法（工具存在但「什么时候用、怎么读结果」需要明确引导，
+    /// 否则模型容易把一切检索都推给 browser，或反之拿搜索处理本地文件/纯常识）。
+    /// 该段在主代理与全部子代理的共享前缀里，改一次全量冷缓存一次（预期成本）。
+    private static let webSearchStrategy = """
+    ## 联网搜索（web_search）
+    - **何时用**：需要训练截止之后或可能已变化的信息（新闻、价格、版本发布、事件进展、人物现状），或用户明确说「搜一下 / 查资料 / 最新」；需要给出可核验的来源链接时。
+    - **何时不用**：本地文件用 `file_read` / `list_dir` / `shell_execute`；已知具体网址、需要打开/登录/截图/交互时用 `browser`；纯推理与常识问题不必搜。
+    - **怎么搜**：`query` 用精简关键词，支持 `site:`、`lang:`、`after:`/`before:`、`"精确短语"`、`-排除`；多个意图分开搜，同一意图最多 3 组关键词。`ori_question` 可传用户原话帮助理解意图。
+    - **怎么读**：优先读 `summary`，`snippet` 作辅助；只引用结果里返回的标题/URL/内容，不得编造链接或结论。默认不返回正文；确实需要正文时才把 `need_content` 设为 true（会明显增加输出与费用）。
+    - **失败处理**：无结果或接口报错就换关键词；连续失败如实告知用户，不要假装搜到。搜索按请求计费，禁止高频轮询或对同一 query 反复重试。
+    - 该工具可能因插件被关闭而**不在**可用工具列表中；不在列表时改用 `browser` 或如实说明限制。
+    """
+
     /// 顺序即前缀顺序：新增段只能追加到末尾，插入中间会使全量缓存失效一次。
     private static var blocks: [String] {
-        [toolSystem,fileSystem,internalLinks,searchStrategy]
+        [toolSystem,fileSystem,internalLinks,searchStrategy,webSearchStrategy]
     }
 }

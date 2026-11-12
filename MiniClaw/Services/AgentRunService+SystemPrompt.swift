@@ -77,7 +77,8 @@ extension AgentRunService {
             """
         }
 
-        // 3./4./miniclaw:// 链接/搜索策略四段已迁入 AgentPromptCore.sharedPrefix（置于 stable 最前，供主代理与子代理共享缓存前缀）。
+        // 3./4./5. 文件系统、miniclaw:// 链接、文件搜索、联网搜索策略已迁入
+        // AgentPromptCore.sharedPrefix（置于 stable 最前，供主代理与子代理共享缓存前缀）。
 
         // 5. 可用工具列表 —— 已移至下方 volatile 段:会话中 MCP 服务器可能增减工具,
         // 留在稳定前缀会导致工具变化时整段缓存失效;移到 volatile 后工具清单每轮更新
@@ -118,7 +119,7 @@ extension AgentRunService {
         ## 可用工具 (\(toolNames.count) 个) — 完整列表如下，仅可调用此处列出的工具名
         \(toolNames.map { "- `\($0)`" }.joined(separator: "\n"))
 
-        **再次强调：** 上方列表是你唯一可用的工具。没有「搜索」「新闻」「联网」「查询」等通用工具。如需浏览网页请用 `browser` 工具；如需执行命令请用 `shell_execute`；其他需求请用文字回答。
+        **再次强调：** 上方列表是你唯一可用的工具，不得编造列表中不存在的工具名。需要联网检索时用 `web_search`（仅当它出现在上方列表）；需要打开/操作具体网页用 `browser`；执行命令用 `shell_execute`；其他需求请用文字回答。
         """)
 
         // 3.5.1 环境变量(设置页可改,不进前缀)
