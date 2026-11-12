@@ -13,9 +13,7 @@ MiniClaw 是一款运行在 iOS 上的**本地优先智能体应用**。它把�
 
 ## 开源组件
 
-- SwiftSoup — HTML 解析
-- Highlightr — 代码高亮
-- MarkdownUI — Markdown 渲染
+本应用直接使用的开源组件：**iSH**（本地 Linux 用户态运行时）、**swift-cmark**（Markdown 解析）、**SwiftMath**（数学公式排版）。完整清单、许可证与设计参考来源见「鸣谢」。
 
 ## 鸣谢
 
