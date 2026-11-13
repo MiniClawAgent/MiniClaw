@@ -62,6 +62,7 @@
 | I-36 | 测试覆盖缺口：8 个测试文件，无 MCP / 记忆 / 插件 / iSH 行为测试 | `MiniClawTests/` | 开放 |
 | I-37 | 浏览器 Cookie/登录态跨会话共享（`.default()` dataStore + 共享 processPool），会话隔离只在标签/URL 层 | `Services/Browser/MiniClawBrowserEngine.swift:310` | 已知设计现状 |
 | I-38 | 工具侧不可取消 continuation 仍无自带超时兜底（HomeKit/Location/HealthKit/Maps/Speech）：引擎已不再被拖死，但超时后残留任务不释放 | `Tools/HomeKitTools.swift:102-105` 等同族；9-19 报告 §3.3 C1 | 开放 |
+| I-39 | **`browser` 工具因 params 形状被模型写坏而必然失败**：`params` 在 schema 里无 properties，模型把 url 写到顶层且 params 给空串 ⇒ navigate 静默判缺参、零网络请求；失败时无任何日志 | `Tools/BrowserTool.swift`（schema / normalizedActionParams / 失败日志）；现场见 2026-11-14 设备会话库 | 已关闭 `05e0d7b` |
 
 > 9-19 报告 §1.3 里还有一批 P2/P3（B6 工具卡整文件读、B11 参数流式 O(L²)、B14 主题读盘、B16 文件浏览器主线程 IO、B18 插件导入、B19 图片全解码、B21 终端逐行 hop、B22 子代理页、B23 快照频率、B24 常驻内存、B26 挂载镜像无上限、B27 SQLite pragma、B28 rendererCache、B29 下载、B34/B35 适配器、B37 子代理落盘、A9/A10 QoS、A11 prewarm 无退避、A12 索引、A13 挂载定时器、A14 插件扫描、A16 标题任务不可取消）已逐条复核过，**未重复抄进本表**；实施时按 9-19 报告编号查机制与改法。
 
