@@ -243,7 +243,23 @@ public final class AssistantBlock: Identifiable,ObservableObject {
     /// （真机实测空白带 21/42pt，与 M21「播种 40/42/53 → 真值 20.3」吻合）。
     /// 渲染判据、估高判据、可达性判据统一走这里，避免三处各写一份而漂移。
     var hasVisibleText: Bool {
-        !content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        !displayContent.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    /// 清洗结果的进程内缓存（按原文相等性失效）：渲染每帧都会读，不能每帧跑正则。
+    private var sanitizedCache: (source: String, result: String)?
+
+    /// **显示用正文**：剔除模型泄漏进正文的协议标记。
+    ///
+    /// 2026-11-14 真机实证：NeoHorse-1-9B 会把 XML 风格的工具调用语法直接写进 content，
+    /// 会话库原文形如 `…」>\n\n</tool_call>\n\n…`，屏上就出现 `</tool_call>`、`/>` 这类
+    /// "莫名其妙的字符"。模型侧不可控 ⇒ 在**显示边界**统一清洗；原始 `content` 保持不动
+    /// （历史回放 / 复制仍可取到原文）。
+    var displayContent: String {
+        if let c = sanitizedCache, c.source == content { return c.result }
+        let result = ProtocolMarkupSanitizer.sanitize(content)
+        sanitizedCache = (content, result)
+        return result
     }
 
     // [Stage 1 · §6.3 A2/A3 链式删除] 此处原有两个成员：
@@ -544,5 +560,67 @@ extension RenderMessage {
     /// 重进会话上滑抖动的主误差源（2026-09-06 修复方案 A）。
     var footerShowsQuietStatusRow: Bool {
         error == nil && (wasStopped || wasInterrupted || footerHasVisibleContent)
+    }
+}
+
+// MARK: - 协议标记清洗（显示边界）
+
+/// 剔除模型泄漏进正文的工具调用协议残留。
+///
+/// 背景：部分模型（真机实证 NeoHorse-1-9B）用 XML 风格表达工具调用
+/// （`<tool_call>{"name":…}</tool_call>`），偶发把这些标签写进 `content` 而不是
+/// 结构化 `tool_calls`。这些标签对用户没有意义，必须从**显示**里去掉。
+///
+/// 设计边界：
+/// - 只清「协议标记」与它们留下的**纯标点残行**，不碰正文；
+/// - 原文不改（见 `AssistantBlock.displayContent`），历史/复制仍可追溯；
+/// - 纯标点残行只在本次确实命中过协议标记时才清，避免误删正常代码块里的符号行。
+enum ProtocolMarkupSanitizer {
+
+    /// 成对块：`<tool_call …> … </tool_call>`（含换行）
+    private static let blockPattern = try! NSRegularExpression(
+        pattern: #"<\s*tool_calls?\b[^>]*>[\s\S]*?<\s*/\s*tool_calls?\s*>"#,
+        options: [.caseInsensitive]
+    )
+    /// 孤立开/闭标签：tool_call(s) / function_call(s) / tool_use / tool_result
+    private static let tagPattern = try! NSRegularExpression(
+        pattern: #"<\s*/?\s*(?:tool_calls?|function_calls?|tool_use|tool_result)\b[^>]*>"#,
+        options: [.caseInsensitive]
+    )
+    /// 特殊 token：`<|im_start|>`、`<|im_end|>`、`<|endoftext|>`、`<|tool_call|>` 等
+    private static let specialTokenPattern = try! NSRegularExpression(
+        pattern: #"<\|[A-Za-z0-9_./\-]+\|>"#
+    )
+    /// 纯标点残行（长度 ≤4 且只由这些字符组成）
+    private static let punctuationSet = Set("{}[]()<>\"'`”’「」『』:;,、~-_=+*/\\")
+
+    static func sanitize(_ text: String) -> String {
+        guard !text.isEmpty else { return text }
+        if !text.contains("<") && !text.contains("|") { return text }
+
+        var result = text
+        var matched = false
+        for regex in [blockPattern, tagPattern, specialTokenPattern] {
+            let range = NSRange(result.startIndex..., in: result)
+            if regex.firstMatch(in: result, options: [], range: range) != nil {
+                matched = true
+                result = regex.stringByReplacingMatches(in: result, options: [], range: range, withTemplate: "")
+            }
+        }
+        guard matched else { return text }
+
+        // 残留的纯标点行（如 `」>`、`}>`）随协议块一起清掉
+        var lines = result.components(separatedBy: "\n")
+        lines.removeAll { line in
+            let t = line.trimmingCharacters(in: .whitespaces)
+            return !t.isEmpty && t.count <= 4 && t.allSatisfy { punctuationSet.contains($0) }
+        }
+        result = lines.joined(separator: "\n")
+
+        // 折叠被协议块撕开的大段空行
+        while result.contains("\n\n\n") {
+            result = result.replacingOccurrences(of: "\n\n\n", with: "\n\n")
+        }
+        return result.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }

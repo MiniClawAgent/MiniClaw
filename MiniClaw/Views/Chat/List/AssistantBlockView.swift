@@ -687,7 +687,7 @@ struct AssistantBlockView: View {
 
     private var markdownView: some View {
         MarkdownView(
-            markdown: block.content,
+            markdown: block.displayContent,
             cachedContent: block.cachedMarkdown,
             cachedAttributedString: block.cachedAttributedString,
             isStreaming: isStreamingBlock,

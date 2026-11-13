@@ -396,7 +396,7 @@ extension MessageCollectionView.Coordinator {
                         let textH = MarkdownView.ctFramesetterHeight(for: attrStr,width: textWidth)
                         return textH+12
                     }
-                    return Self.estimateTextBlockHeight(block.content,width: width,scale: scale,lineHeight: lineHeight)
+                    return Self.estimateTextBlockHeight(block.displayContent,width: width,scale: scale,lineHeight: lineHeight)
                 case .thinking:
                     // capsules,).
                     let headerH: CGFloat = 40
