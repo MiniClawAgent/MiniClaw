@@ -36,9 +36,19 @@ struct BrowserTool: AgentTool {
                             "set_cookies", "wait_for_dom_stable"
                         ]
                     ),
+                    // 2026-11-14 修：原为无 properties 的空对象 ⇒ 模型（尤其小模型）不知道
+                    // 该往里放什么，直接把 url 写到了顶层，导致 navigate 必然失败
+                    // （真机实证：params="" + 顶层 url=https://zh.wikipedia.org/wiki/...）。
+                    // 这里把最关键的 url 显式列进结构，其余 action 专用键仍由 description 说明。
                     "params": JSONSchema.JSONProperty(
                         type: "object",
-                        description: String(localized: "param_browser_params_flat")
+                        description: String(localized: "param_browser_params_flat"),
+                        properties: [
+                            "url": JSONSchema.JSONProperty(
+                                type: "string",
+                                description: String(localized: "param_url_http")
+                            ),
+                        ]
                     ),
                     "tab_index": JSONSchema.JSONProperty(type: "integer", description: String(localized: "param_target_tab_index")),
                     "tab_id": JSONSchema.JSONProperty(type: "integer", description: String(localized: "browser_tab_id_desc")),
@@ -53,7 +63,7 @@ struct BrowserTool: AgentTool {
             return ToolResult(success: false, text: String(localized: "err_missing_action"))
         }
 
-        var params = parameters["params"] as? [String: Any] ?? [:]
+        var params = Self.normalizedActionParams(parameters)
         let tabIndex = parameters["tab_index"] as? Int
         // 2026-08-12 修复:tab_id 兼容 Int(引擎池返回数字 id,如 0/1)与 UUID 字符串(旧实现)。
         // 此前 `as? String` 会把数字 tab_id 解析成 nil → 引擎寻址断裂,截图/读取静默截错标签。
@@ -93,6 +103,14 @@ struct BrowserTool: AgentTool {
                let searchURL = makeSearchURL(query: query, engineSetting: engineSetting) {
                 params["url"] = searchURL
             } else {
+                // 诊断：把「模型实际给了什么形状」记下来，线上可直接在控制台定位
+                // （此前这里只有 UI 文案，罐里只有 TOOL ENTER/DONE，无法判断是模型写错还是工具读错）。
+                let topKeys = parameters.keys.sorted().joined(separator: ",")
+                let paramsShape = String(describing: type(of: parameters["params"] ?? NSNull()))
+                AppLogger.shared.warn(
+                    "[BrowserTool] navigate 缺 params.url — 顶层键=[\(topKeys)] params类型=\(paramsShape) activity=\(activity.prefix(40))",
+                    category: "Browser"
+                )
                 return ToolResult(
                     success: false,
                     text: String(localized: "browser_need_params_url")
@@ -122,6 +140,45 @@ struct BrowserTool: AgentTool {
         } catch {
             return ToolResult(success: false, text: String(format: String(localized: "browser_action_failed"), action, error.localizedDescription))
         }
+    }
+
+    // MARK: - 参数归一化（外部边界防御，单一入口）
+
+    /// 顶层结构键：不参与「并入 params」的归一化。
+    private static let structuralParamKeys: Set<String> = ["activity", "action", "params", "tab_index", "tab_id"]
+
+    /// action 参数白名单（与 `params` 语义一致）。用于把模型误写到顶层的参数并回 `params`。
+    /// 只收「明确属于操作参数」的键，顶层结构键永不迁移。
+    private static let actionParamKeys: Set<String> = [
+        "url", "max_length", "selector", "text", "script", "query", "index",
+        "x", "y", "dx", "dy", "key", "value", "timeout", "wait_ms", "filename", "format",
+    ]
+
+    /// 把模型/网关输出归一化成 action 参数字典。**不针对任何单一 action 加特例**：
+    /// 1. `params` 被网关序列化成 JSON 字符串（甚至空串）时还原为字典——
+    ///    真机实证 `"params": ""` 会让 `as? [String: Any]` 静默得到空字典；
+    /// 2. 模型把操作参数写到顶层时（违反 schema 说明），按白名单并回 `params`。
+    /// 正常调用（params 已是字典且顶层无操作参数）语义完全不变。
+    static func normalizedActionParams(_ parameters: [String: Any]) -> [String: Any] {
+        var params: [String: Any] = [:]
+        switch parameters["params"] {
+        case let dict as [String: Any]:
+            params = dict
+        case let raw as String:
+            let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmed.isEmpty,
+               let data = trimmed.data(using: .utf8),
+               let parsed = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                params = parsed
+            }
+        default:
+            break
+        }
+        for (key, value) in parameters
+        where Self.actionParamKeys.contains(key) && !Self.structuralParamKeys.contains(key) && params[key] == nil {
+            params[key] = value
+        }
+        return params
     }
 
     /// 把外网 `http://` 链接升级为 `https://`（ATS 仅放行 localhost，http 外链必然失败）。
