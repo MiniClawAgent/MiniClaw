@@ -427,8 +427,10 @@ extension MessageCollectionView.Coordinator {
         }
 
         static func estimateTextBlockHeight(_ content: String,width: CGFloat,scale: CGFloat,lineHeight: CGFloat) -> CGFloat {
-            // [T-ios-empty-textblock-gapH] An empty text block renders nothing
-            guard !content.isEmpty else { return 0 }
+            // [T-ios-empty-textblock-gapH] An empty text block renders nothing.
+            // 2026-11-14：判据从「空串」扩到「纯空白」——只含换行的块渲染出来是空段落，
+            // 会留下 20–42pt 凭空空白（真机空白带实测）。必须与渲染侧 `hasVisibleText` 同源。
+            guard !content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return 0 }
             // [2026-09-13 估高同源·高估方向修复] 原先这里是 `80` ⇒ `tw = width-80`，
             // 而**同一种块**（assistant 文本）的精确路径一律用 `max(cvWidth-32,100)`
             //（见上方 `.assistantBlock` 的 `.text` 分支与 `seedHeight` 的同一分支）。

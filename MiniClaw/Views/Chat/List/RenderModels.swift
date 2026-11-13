@@ -235,6 +235,17 @@ public final class AssistantBlock: Identifiable,ObservableObject {
     @Published public var kind: AssistantBlockKind
     @Published public var content: String
 
+    /// 该块是否有**可见**正文（纯空白不算）。
+    ///
+    /// 2026-11-14 修「流式期凭空空白」：模型在工具调用之间／思考结束时常连发空行，
+    /// 形成 content 只含 `\n` 的文本块。旧判据 `!content.isEmpty` 把这类块当成正文渲染，
+    /// Markdown 折成 1–2 个空段落 ⇒ 屏上出现 20–42pt 的「莫名其妙空白」
+    /// （真机实测空白带 21/42pt，与 M21「播种 40/42/53 → 真值 20.3」吻合）。
+    /// 渲染判据、估高判据、可达性判据统一走这里，避免三处各写一份而漂移。
+    var hasVisibleText: Bool {
+        !content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
     // [Stage 1 · §6.3 A2/A3 链式删除] 此处原有两个成员：
     //   · `public var contentUpdateSeq: Int = 0` —— 全库**零读者**（唯一的写点原本就在下方被删的函数里）；
     //   · `public func appendThinkingDelta(_:)` —— 全库**零调用者**（`git grep -n appendThinkingDelta -- '*.swift' .`

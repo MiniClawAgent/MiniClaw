@@ -567,7 +567,7 @@ struct ChatMessageRow: View {
     private var hasVisibleBody: Bool {
         message.blocks.contains { block in
             switch block.kind {
-            case .text: return !block.content.isEmpty
+            case .text: return block.hasVisibleText
             case .thinking: return true
             case .info: return true
             case .file: return true
