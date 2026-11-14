@@ -26,6 +26,7 @@
 | `CURRENT_STATE.md` | 架构总览、构建方式、关键不变量、当前版本与仓库状态 | 有结构性变更时必须同步 |
 | `ISSUES.md` | **唯一**的开放问题台账（已修复的不再列条目，只在文末保留关闭记录） | 修完一条改一条，禁止另起清单 |
 | `MiniClaw术语表.md` | 规范词汇表（代码/UI/文档统一用词） | 新增概念先登记再写代码 |
+| `../ENGINEERING_DISCIPLINE.md` | 工程纪律：结构 S / 构建 B / 持久化 P / 质量 Q / **协议与流式 T1–T16**、改动自检清单 | 协议、流式、持久化类改动逐条对照 §9.3 |
 | `llm-provider-behavior-official-reference.md` | 各厂商官方行为核对表（OpenAI 为主） | 厂商文档变更时更新 |
 | `ish-arm64-customization.md` | iSH 交叉编译与会话隔离定制说明 | 定制补丁变更时同步 |
 | `ish-arm64-customization.patch` | 对 `第三方源码/ish-arm64` 的补丁 | 同上 |

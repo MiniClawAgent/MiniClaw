@@ -167,4 +167,5 @@ xcodebuild build -project MiniClaw.xcodeproj -scheme MiniClaw \
 - 一次性报告完成后进 `docs/archive/` 并登记；**不新增并行的问题清单**。
 - 每次代码修改后必须构建验证（`BUILD SUCCEEDED`）才能交付；构建产物在工程外。
 - 修复遵守 S5「治本不补丁」：先问上游机制、消除重复事实，不接受「把常数改准」。
+- 协议、流式解析、会话树、持久化、导入导出类改动，先过 `ENGINEERING_DISCIPLINE.md` §九 的 T1–T16与 §9.3 自检清单；其中 T7（单一生产者）与 T16（失败必须留痕）对一切改动都适用。
 - 提交粒度一变量一提交，commit message 写清根因与验证方式。
