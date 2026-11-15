@@ -34,6 +34,9 @@ struct GeneralSettingsView: View {
                     Text(String(format: String(localized: "max_tabs"), "\(browser.maxTabs)"))
                 }
                 Toggle(String(localized: "block_pop_ups"), isOn: $browser.blockPopups)
+                // 默认关闭：开着等于允许 AI 访问内网（路由器后台/NAS/本地服务），
+                // 也可能被网页里藏的指令利用，所以交给用户显式开启。
+                Toggle(String(localized: "allow_private_network"), isOn: $browser.allowPrivateNetwork)
                 Toggle(String(localized: "open_in_builtin_browser"), isOn: Binding(
                     get: { MiniClawOpenURLHandler.openLinksInline() },
                     set: { UserDefaults.standard.set($0, forKey: MiniClawOpenURLHandler.openLinksInlineKey) }

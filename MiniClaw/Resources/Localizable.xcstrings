@@ -65534,6 +65534,34 @@
           }
         }
       }
+    },
+    "allow_private_network": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Allow LAN access (router, NAS, local services)"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "允许访问局域网（路由器、NAS、本地服务）"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "LAN アクセスを許可（ルーター・NAS・ローカルサービス）"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "LAN 접근 허용(공유기, NAS, 로컬 서비스)"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

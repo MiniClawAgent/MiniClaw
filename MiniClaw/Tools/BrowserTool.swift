@@ -91,12 +91,14 @@ struct BrowserTool: AgentTool {
                 category: "NetPolicy")
         }
 
-        // [P1-15] 内网/回环目标一律拒绝（防网页内容注入驱动的 SSRF）。
+        // [P1-15] 内网/回环目标默认拒绝（防网页内容注入驱动的 SSRF）；
+        // 用户确实要让 AI 管理路由器 / 访问 NAS 时，可在
+        // 设置 → 通用设置 → 浏览器 → 允许访问局域网地址 打开。
         if action == "navigate" || action == "fetch",
            let rawURL = (params["url"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines),
            let target = URL(string: rawURL),
-           let reason = Self.blockedHostReason(target) {
-            return ToolResult(success: false, text: "blocked: \(reason) (\(target.host ?? "-"))")
+           let reason = Self.blockedHostReason(target, allowPrivateNetwork: await SettingsStore.shared.snapshot().browser.allowPrivateNetwork) {
+            return ToolResult(success: false, text: "blocked: \(reason) (\(target.host ?? "-")). 如需访问，请在 设置 → 通用设置 → 浏览器 中打开「允许访问局域网地址」。")
         }
 
         // [2026-09-14 搜索引擎策略] 按 `SearchEnginePolicy`（用户偏好 > 地区先验 > 可达性事实）
@@ -194,15 +196,20 @@ struct BrowserTool: AgentTool {
     /// [P1-15] 之前只做 http→https 升级，并且**显式保留** localhost 的 http，
     /// 等于允许模型被网页内容诱导去访问 `127.0.0.1:18231`（MCP OAuth 本地回调）
     /// 或路由器后台（192.168.x.1）。这里统一拒绝，返回给模型可读的原因。
-    static func blockedHostReason(_ url: URL) -> String? {
+    /// - Parameter allowPrivateNetwork: 用户显式开启"允许访问局域网"时为 true。
+    ///   注意：**本机回环（127.0.0.1 / ::1 / localhost）始终拒绝**——那是 OAuth 本地回调
+    ///   与其他本机服务的地址，被网页注入利用的后果最重；管理路由器/NAS 也不需要它。
+    static func blockedHostReason(_ url: URL, allowPrivateNetwork: Bool) -> String? {
         guard let host = url.host?.lowercased(), !host.isEmpty else { return "invalid host" }
-        if host == "localhost" || host == "::1" || host.hasSuffix(".local") {
-            return "local address is not allowed"
-        }
+        if host == "localhost" || host == "::1" { return "loopback address is not allowed" }
         let parts = host.split(separator: ".").compactMap { Int($0) }
+        let isLoopback = parts.count == 4 && parts[0] == 127
+        if isLoopback { return "loopback address is not allowed" }
+        guard !allowPrivateNetwork else { return nil }
+        if host.hasSuffix(".local") { return "local address is not allowed" }
         if parts.count == 4 {
             let a = parts[0], b = parts[1]
-            if a == 127 || a == 10 || a == 0 { return "private address is not allowed" }
+            if a == 10 || a == 0 { return "private address is not allowed" }
             if a == 169 && b == 254 { return "link-local address is not allowed" }
             if a == 172 && (16...31).contains(b) { return "private address is not allowed" }
             if a == 192 && b == 168 { return "private address is not allowed" }

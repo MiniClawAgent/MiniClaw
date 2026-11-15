@@ -48,9 +48,15 @@ struct BrowserSettings: Codable, Equatable {
     /// 地址栏搜索词使用的搜索引擎（仅切换搜索，不影响默认首页）：
     /// auto / bing / sogou / so360 / baidu / google / duckduckgo，默认 auto
     var searchEngine: String = "auto"
+    /// 是否允许 AI 浏览器访问**局域网 / 本机**地址（默认关）。
+    ///
+    /// 关：拒绝 127.x、10.x、172.16-31.x、192.168.x、169.254.x、localhost、*.local
+    ///     —— 防"网页内容注入诱导模型去打内网"的 SSRF。
+    /// 开：允许，用于"让 AI 帮我管路由器 / 访问 NAS / 本地服务"。
+    var allowPrivateNetwork: Bool = false
 
     enum CodingKeys: String, CodingKey {
-        case maxTabs, uaMode, userAgent, blockPopups, defaultHomeURL, searchEngine
+        case maxTabs, uaMode, userAgent, blockPopups, defaultHomeURL, searchEngine, allowPrivateNetwork
     }
 
     /// 全字段 decodeIfPresent + 默认值兜底：新增字段缺键（旧数据）不整体失败丢其它设置。
@@ -62,6 +68,7 @@ struct BrowserSettings: Codable, Equatable {
         blockPopups = try c.decodeIfPresent(Bool.self, forKey: .blockPopups) ?? true
         defaultHomeURL = try c.decodeIfPresent(String.self, forKey: .defaultHomeURL) ?? "https://www.apple.com"
         searchEngine = try c.decodeIfPresent(String.self, forKey: .searchEngine) ?? "auto"
+        allowPrivateNetwork = try c.decodeIfPresent(Bool.self, forKey: .allowPrivateNetwork) ?? false
     }
 
     init() {}
