@@ -47,14 +47,14 @@ private struct EventDraft: Sendable {
 ///   只改其中一次（EventKit 的经典坑：默认会改整个系列）。
 /// - **授权**：与提醒共用 `EventKitAuthGate`，写入前才弹窗，未授权返回可执行的引导文案。
 struct AppleCalendarTool: AgentTool {
-    let name = "apple-calendar"
+    let name = "apple_calendar"
     /// 会真实改动用户数据，重试前必须经用户确认。
     let resumePolicy: ResumePolicy = .requiresUserConfirmation
 
     let schema = ToolSchema(
         type: "function",
         function: ToolSchema.FunctionDef(
-            name: "apple-calendar",
+            name: "apple_calendar",
             description: String(localized: "calendar_tool_desc"),
             parameters: JSONSchema(
                 type: "object",

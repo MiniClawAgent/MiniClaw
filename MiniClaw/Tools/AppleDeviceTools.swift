@@ -23,11 +23,11 @@ import UserNotifications
 // MARK: - 4. apple-clipboard (UIKit UIPasteboard)
 
 struct AppleClipboardTool: AgentTool {
-    let name = "apple-clipboard"
+    let name = "apple_clipboard"
     let schema = ToolSchema(
         type: "function",
         function: ToolSchema.FunctionDef(
-            name: "apple-clipboard",
+            name: "apple_clipboard",
             description: String(localized: "clipboard_tool_desc"),
             parameters: JSONSchema(
                 type: "object",
@@ -66,11 +66,11 @@ struct AppleClipboardTool: AgentTool {
 // MARK: - 5. apple-device (UIKit UIDevice)
 
 struct AppleDeviceTool: AgentTool {
-    let name = "apple-device"
+    let name = "apple_device"
     let schema = ToolSchema(
         type: "function",
         function: ToolSchema.FunctionDef(
-            name: "apple-device",
+            name: "apple_device",
             description: String(localized: "device_info_tool_desc"),
             parameters: JSONSchema(
                 type: "object",

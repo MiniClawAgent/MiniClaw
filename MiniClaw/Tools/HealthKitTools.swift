@@ -127,7 +127,7 @@ actor HealthKitAuthGate {
 /// - 读：直接查询，查不到即按「区间无数据或未授权」统一提示；
 /// - 写：写入类型的授权**可以**探测（`.sharingAuthorized`），据此决定是否弹窗。
 struct AppleHealthKitTool: AgentTool {
-    let name = "apple-healthkit"
+    let name = "apple_healthkit"
     /// 发起调用的会话：能力授权请求需按会话记账（见 `ToolConfirmationBridge.ensureCapability`）。
     let currentSessionID: UUID?
 
@@ -141,7 +141,7 @@ struct AppleHealthKitTool: AgentTool {
     let schema = ToolSchema(
         type: "function",
         function: ToolSchema.FunctionDef(
-            name: "apple-healthkit",
+            name: "apple_healthkit",
             description: String(localized: "health_tool_desc"),
             parameters: JSONSchema(
                 type: "object",

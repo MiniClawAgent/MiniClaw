@@ -6,7 +6,7 @@ import UIKit
 // MARK: - 1. miniclaw-open
 
 struct MiniClawOpenTool: AgentTool {
-    let name = "miniclaw-open"
+    let name = "miniclaw_open"
     /// 当前会话 ID：用于将 /var/MiniClaw/ 虚拟路径解析为真实 host 路径。
     let currentSessionID: UUID?
 
@@ -17,7 +17,7 @@ struct MiniClawOpenTool: AgentTool {
     let schema = ToolSchema(
         type: "function",
         function: ToolSchema.FunctionDef(
-            name: "miniclaw-open",
+            name: "miniclaw_open",
             description: String(localized: "internal_routing_desc"),
             parameters: JSONSchema(
                 type: "object",
@@ -74,11 +74,11 @@ struct MiniClawOpenTool: AgentTool {
 // MARK: - 2. miniclaw-model-use
 
 struct MiniClawModelUseTool: AgentTool {
-    let name = "miniclaw-model-use"
+    let name = "miniclaw_model_use"
     let schema = ToolSchema(
         type: "function",
         function: ToolSchema.FunctionDef(
-            name: "miniclaw-model-use",
+            name: "miniclaw_model_use",
             description: String(localized: "model_use_tool_desc"),
             parameters: JSONSchema(
                 type: "object",
@@ -102,7 +102,7 @@ struct MiniClawModelUseTool: AgentTool {
 // MARK: - 3. miniclaw-browser-use
 
 struct MiniClawBrowserUseTool: AgentTool {
-    let name = "miniclaw-browser-use"
+    let name = "miniclaw_browser_use"
 
     /// 当前会话 ID：委托给 BrowserTool 时一并传递，保证浏览器上下文隔离。
     let currentSessionID: UUID?
@@ -114,7 +114,7 @@ struct MiniClawBrowserUseTool: AgentTool {
     let schema = ToolSchema(
         type: "function",
         function: ToolSchema.FunctionDef(
-            name: "miniclaw-browser-use",
+            name: "miniclaw_browser_use",
             description: String(localized: "browser_tool_desc"),
             parameters: JSONSchema(
                 type: "object",
@@ -139,7 +139,7 @@ struct MiniClawBrowserUseTool: AgentTool {
 // MARK: - 4. miniclaw-debug
 
 struct MiniClawDebugTool: AgentTool {
-    let name = "miniclaw-debug"
+    let name = "miniclaw_debug"
     /// 当前会话 ID：sandbox_files 在收到 /var/MiniClaw/ 虚拟路径时用于解析为真实 host 路径。
     let currentSessionID: UUID?
 
@@ -150,7 +150,7 @@ struct MiniClawDebugTool: AgentTool {
     let schema = ToolSchema(
         type: "function",
         function: ToolSchema.FunctionDef(
-            name: "miniclaw-debug",
+            name: "miniclaw_debug",
             description: String(localized: "debug_tool_desc"),
             parameters: JSONSchema(
                 type: "object",

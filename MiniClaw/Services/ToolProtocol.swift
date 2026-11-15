@@ -161,16 +161,26 @@ final class ToolRouter {
     private var tools: [String: AgentTool] = [:]
 
     func register(_ tool: AgentTool) {
-        tools[tool.name] = tool
+        // 注册一律用规范名，避免同一工具同时以两种写法存在。
+        tools[Self.canonical(tool.name)] = tool
+    }
+
+    /// 工具名规范形式：一律 `lower_snake_case`。
+    ///
+    /// [2026-11-15 命名统一] 历史遗留的连字符名（`apple-open`、`open-in-safari` 等）已全部
+    /// 改为下划线。这里做一次规范映射，使**历史会话里的旧调用名、旧插件清单**仍然能用，
+    /// 不会因为改名而失效。
+    static func canonical(_ name: String) -> String {
+        name.replacingOccurrences(of: "-", with: "_")
     }
 
     /// 工具名是否已被占用（内置/已注册）：tool 插件注册时的重名冲突判定。
     func contains(_ name: String) -> Bool {
-        tools[name] != nil
+        tools[Self.canonical(name)] != nil
     }
 
     func execute(name: String, parameters: [String: Any]) async throws -> ToolResult {
-        guard let tool = tools[name] else {
+        guard let tool = tools[Self.canonical(name)] else {
             throw ToolError.unknownTool(name)
         }
         return try await tool.execute(parameters)
@@ -221,7 +231,7 @@ final class ToolRouter {
 
     /// 查询某个已注册工具的恢复/幂等策略（未注册或默认返回 `.retryable`）。
     func resumePolicy(for name: String) -> ResumePolicy {
-        tools[name]?.resumePolicy ?? .retryable
+        tools[Self.canonical(name)]?.resumePolicy ?? .retryable
     }
 
     /// 查询某个已注册工具的执行超时。
@@ -232,7 +242,7 @@ final class ToolRouter {
     /// 「工具存在但显式返回 nil」与「工具不存在」变成同一个 nil 后再被 `?? 120` 吞掉，
     /// 导致 `dispatch_subagent` 的「不限时」与 `shell_execute` 的 900s 全部失效。
     func executionTimeout(for name: String) -> TimeInterval? {
-        guard let tool = tools[name] else { return 120 }
+        guard let tool = tools[Self.canonical(name)] else { return 120 }
         return tool.executionTimeout
     }
 }

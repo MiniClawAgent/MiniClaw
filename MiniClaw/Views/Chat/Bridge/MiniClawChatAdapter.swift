@@ -415,10 +415,10 @@ enum MiniClawChatAdapter {
             return .fileWriteTool(path: pick("path", "file", "file_path", "filename"))
         case "file_edit":
             return .fileEditTool(path: pick("path", "file", "file_path", "filename"))
-        case "browser", "miniclaw-browser-use":
+        case "browser", "miniclaw_browser_use":
             let action = pick("action", "query", "search", "url", "link", "href")
             return .browserTool(action: action)
-        case "apple-image":
+        case "apple_image":
             return .readImageTool(path: pick("path", "file", "file_path", "filename"))
         case "memory_write", "memory_get":
             return .memoryTool(action: pick("action", "key", "topic", "subject"))

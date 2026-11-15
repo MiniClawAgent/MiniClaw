@@ -22,7 +22,7 @@ import Network
 struct RemoteHostTool: AgentTool {
     /// 远程执行有设备外副作用：与 shell_execute 同样走执行前确认。
     var resumePolicy: ResumePolicy { .requiresUserConfirmation }
-    let name = "remote-host"
+    let name = "remote_host"
 
     private static let configFileName = "remote-hosts.json"
     private static let defaultKeyPath = "~/.ssh/miniclaw"
@@ -35,7 +35,7 @@ struct RemoteHostTool: AgentTool {
     let schema = ToolSchema(
         type: "function",
         function: ToolSchema.FunctionDef(
-            name: "remote-host",
+            name: "remote_host",
             description: String(localized: "remote_host_tool_desc"),
             parameters: JSONSchema(
                 type: "object",

@@ -38,12 +38,12 @@ private struct MapPoint: Sendable {
 /// MapKit 对象必须在主线程创建与释放（否则 dealloc 阶段可能在通知中心崩溃），
 /// 因此所有地图操作都收在 `MapsBridge`（@MainActor）内。
 struct AppleMapsTool: AgentTool {
-    let name = "apple-maps"
+    let name = "apple_maps"
 
     let schema = ToolSchema(
         type: "function",
         function: ToolSchema.FunctionDef(
-            name: "apple-maps",
+            name: "apple_maps",
             description: String(localized: "maps_tool_desc"),
             parameters: JSONSchema(
                 type: "object",

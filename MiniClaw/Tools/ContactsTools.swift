@@ -36,14 +36,14 @@ private struct ContactDraft: Sendable {
 ///   授权 entitlement，没有它读取会失败。v1 不申请该权限，故字段整体不出现。
 /// - **分组 / 容器**：`CNGroup` / `CNContainer` 语义偏冷门，且跨账号行为不一致。
 struct AppleContactsTool: AgentTool {
-    let name = "apple-contacts"
+    let name = "apple_contacts"
     /// 会真实改动用户通讯录，重试前必须经用户确认。
     let resumePolicy: ResumePolicy = .requiresUserConfirmation
 
     let schema = ToolSchema(
         type: "function",
         function: ToolSchema.FunctionDef(
-            name: "apple-contacts",
+            name: "apple_contacts",
             description: String(localized: "contacts_tool_desc"),
             parameters: JSONSchema(
                 type: "object",

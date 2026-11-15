@@ -425,13 +425,15 @@ xcodebuild build -project MiniClaw.xcodeproj -scheme MiniClaw \
 
 ### 10.4 外部契约例外（唯一允许的"不统一"）
 
-**工具名是外部契约，必须与 MiniClaw 逐字一致**，即使 MiniClaw 自身混用 `_` 与 `-`。
-理由：改名会让模型侧、历史会话、以及将来双向迁移全部错位，代价远大于视觉统一。
+**工具名统一 `lower_snake_case`**（2026-11-15 唐唐决定，取代此前"与 MiniClaw 逐字一致"）。
 
-处理方式：
-- 工具名**不动**；
-- 但在 `docs/TOOL-PARITY.md` 中标注每一处不规范命名，作为已知债务；
-- 新增工具（MCD 独有）一律 `lower_snake_case`，向多数派靠。
+变更与兼容：
+- 注册名一律下划线（`apple-open` → `apple_open`、`open-in-safari` → `open_in_safari` 等）；
+- `ToolRouter.canonical(_:)` 把所有入参名做 `-` → `_` 规范化，**历史会话里的旧工具名、
+  旧插件清单仍可调用**，不会因改名失效；
+- 因此与 MiniClaw 的工具名不再逐字一致：跨端迁移时需要在边界做一次名称映射
+  （规则就是 `-` ↔ `_`），这一点写入 `docs/TOOL-PARITY.md` 的"命名差异"一节；
+- 新增工具一律 `lower_snake_case`，不允许再出现连字符。
 
 ### 10.5 自检清单（改完代码照着过）
 

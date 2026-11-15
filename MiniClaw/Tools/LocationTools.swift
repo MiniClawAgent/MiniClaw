@@ -81,7 +81,7 @@ private final class OneShotLocationFetcher: NSObject, CLLocationManagerDelegate 
 /// 只负责「怎么用」，不负责「何时授权」——定位授权沿用「设置 → 权限 → 定位」，
 /// 未授权时本工具返回结构化错误码并引导用户去开启，不在 AI 链路中弹系统弹窗。
 struct AppleLocationTool: AgentTool {
-    let name = "apple-location"
+    let name = "apple_location"
 
     /// 超时阈值：室内 / GPS 冷启动下定位可能数十秒无结果，
     /// 与其让整轮对话卡住，不如 10 秒后降级返回（或明确报错让模型换个问法）。
@@ -90,7 +90,7 @@ struct AppleLocationTool: AgentTool {
     let schema = ToolSchema(
         type: "function",
         function: ToolSchema.FunctionDef(
-            name: "apple-location",
+            name: "apple_location",
             description: String(localized: "location_tool_desc"),
             parameters: JSONSchema(
                 type: "object",

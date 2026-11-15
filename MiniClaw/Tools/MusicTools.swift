@@ -29,14 +29,14 @@ private struct MusicOutcome: Sendable {
 ///   上架风险远大于收益）。`volume` 只读，给了 `level` 会明确告知。
 /// - **后台播放**：本 App 不声明音频后台模式，切后台即停。
 struct AppleMediaTool: AgentTool {
-    let name = "apple-media"
+    let name = "apple_media"
     /// 会改变用户设备上的播放状态，重试前必须经用户确认。
     let resumePolicy: ResumePolicy = .requiresUserConfirmation
 
     let schema = ToolSchema(
         type: "function",
         function: ToolSchema.FunctionDef(
-            name: "apple-media",
+            name: "apple_media",
             description: String(localized: "music_tool_desc"),
             parameters: JSONSchema(
                 type: "object",
