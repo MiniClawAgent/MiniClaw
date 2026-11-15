@@ -244,3 +244,85 @@ protocol RowMeasuring {
 - 改：**行模型、高度调度、视口所有权、输入区几何、cell 容器、浮层挂载**。
 
 一句话：**把"谁来决定"重写，把"怎么画"留下。**
+
+---
+
+## 十、补充：外层清点结论（并入方案）
+
+### 10.1 三份重复的高度测量
+
+| 量 | 测量点 | 用途 |
+|---|---|---|
+| `inputBarHeight` | `ChatView.swift:888` `.onGeometryChange(global frame)` | 列表 inset |
+| `barHeight` | `ChatInputBar.swift:154` 自身几何 | 斜杠菜单底距 |
+| `floatingBarHeight` | `ChatView.swift:854` VStack 几何 | 列表 inset |
+
+同一棵子树测了两次高度（`inputBarHeight` 与 `barHeight`），两份防抖算法（380/320ms 与 300ms），
+且 `inputBarHeight` 的防抖 Task 在 `onDisappear` **没有取消**（离开会话后仍会写 `@State`）。
+→ 新架构里由 `Composer` 单一测量、单一上报。
+
+### 10.2 一个"看起来在工作"的空门
+
+`shouldAutoFollow`（`ChatView.swift:55`）的三个写点全是 `= true`（320/503/1238），两个 guard 恒通过。
+注释说"用户一拖动就关"，**实际从未关过**。这类"注释描述了一个不存在的机制"是这页最典型的腐化方式。
+
+### 10.3 呈现层：7 个布尔 + 3 个 item + 11 个 presentation 修饰符
+
+`showFileManager / showSessionTerminal / showSessionBrowser / showTokenUsage / showSoulSettings / showModelManagement /
+showProviderSettings` + `previewFileURL / activeSubagentConversation / pendingRemoveSubagent`。
+后果之一：`onDisappear` 的守卫只覆盖了 terminal/browser 两个（`ChatView.swift:1186`），
+其余三个 `fullScreenCover` 同样会让会话页 `onDisappear`，但不在守卫内 → 会误触发复盘与空会话删除。
+
+→ 新架构改成一个 `ChatPresentation` 枚举 + `.sheet(item:)`。
+
+### 10.4 可以直接删的（有依据）
+
+| 项 | 位置 | 依据 |
+|---|---|---|
+| `isNearBottom` 镜像 + 其 onChange | `ChatView.swift:1219,1262` | 写后无读（原"回到底部"按钮已删） |
+| `lastMessageID` + 其 onChange | `:50,1058,1133` | 无读取点 |
+| `lastLoggedInputBarH` | `:85,901` | 只自更新 |
+| `ContextRingIndicator` | `ChatViewComponents.swift:132` | 全仓零引用 |
+| `import QuickLook/AVKit` | `ChatView.swift:5-6` | 本文件无相关符号 |
+| 空 `else {}` | `:959` | 死分支 |
+| `let lastAssistant` | `:1073` | 未使用变量 |
+| `MiniClawChatBridge.onSend/onPause` | `Bridge:479,563` | 无赋值无读取 |
+
+**草稿重复落盘**：`onDraftChanged`（:869）与 `.onChange(inputText)`（:1175）各写一次盘 → 每次输入写两次。
+**提示条定时器竞争**：`showAttachmentNotice`（:1550）的 5s 清理无句柄，连续两次提示会提前清掉第二次。
+
+### 10.5 一个必须澄清的事实（影响第一节的结论）
+
+外层清点认为「键盘会让列表 frame 变矮」（依据是 `.ignoresSafeArea` 只忽略 `.container`，且代码注释写着"列表由系统推挤"）。
+
+但真机日志（17:06:50 与 17:57 两次）显示 `cvH` 在 `focused=0` 与 `focused=1` 时都是 **874**，没有变化。
+
+两种可能：
+1. 日志采样时刻都在键盘动画完成之前 → 需要 `keyboardWillChangeFrame` 时刻的采样；
+2. 列表确实没被推挤 → 那么"只改 34pt inset"就是在补偿一件没发生的事。
+
+**P0 探针必须直接回答这个问题**：在键盘 `willChangeFrame` 回调里记录 `cvH` 前后值。
+这条不确认，Phase 4 的输入区改造就没有地基。
+
+### 10.6 外层拆分建议（并入第三节）
+
+| 新单元 | 承接 |
+|---|---|
+| `ChatComposerView` + `ChatComposerModel` | 输入文本、注入、附件、语音、测高与持久化 |
+| `ChatFloatingStack` | 排队消息、子代理胶囊、附件提示、添加密钥条（只上报总高） |
+| `ChatToolbar` | 标题、模型名、菜单 |
+| `ChatPresentation` | 所有 sheet/cover 的统一枚举 |
+| `ChatSessionController` | 发送/停止/暂停/恢复/恢复检查点/排队消息/深链 |
+| `ViewportController` | 滚动与 inset（本方案核心） |
+| `BarHeightTracker` | 合并三份测高与两套防抖 |
+
+### 10.7 修订后的工期
+
+原 10.5 天 → **12 天**：外层拆分（`ChatSessionController` + 呈现层收敛）多出 1.5 天，
+但换来的是"`onAppear`/`onDisappear` 隐式顺序"这类脆弱耦合被拔掉。
+
+### 10.8 三条不可谈判的前置条件
+
+1. **P0 先回答 `cvH` 是否随键盘变化**（决定输入区方案）；
+2. **外层拆分与视口重写分开做**，不要在同一次提交里同时动（否则出问题无法归因）；
+3. **每个阶段保留旧路径开关**，直到该阶段验收通过。
