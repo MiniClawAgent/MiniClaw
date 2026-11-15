@@ -54,6 +54,29 @@ extension MessageCollectionView {
         /// contentInset.bottom — it reads this base and adds overflowH.
         public var baseBottomInset: CGFloat = 0
 
+        private var keyboardDismissPan: UIPanGestureRecognizer?
+
+        /// 键盘展开时：禁用列表自身的拖动，改由本手势接管——
+        /// 识别到任意滑动就收起键盘（走正常动画路径），不滚动内容。
+        /// 之所以不用 `isScrollEnabled = false`：那会在手势中途打断，
+        /// 表现为键盘和内容"啪"地瞬间掉下去（用户 04:00 实测无动画）。
+        func installKeyboardDismissPan(on cv: UICollectionView) {
+            guard keyboardDismissPan == nil else { return }
+            let pan = UIPanGestureRecognizer(target: self, action: #selector(handleKeyboardDismissPan(_:)))
+            pan.cancelsTouchesInView = false
+            cv.addGestureRecognizer(pan)
+            keyboardDismissPan = pan
+        }
+
+        @objc private func handleKeyboardDismissPan(_ gesture: UIPanGestureRecognizer) {
+            guard keyboardHeight > 0 else { return }
+            if gesture.state == .began {
+                AppLogger.shared.info("[Scroll] keyboard up pan → dismiss keyboard (no scroll)",
+                                      category: "ChatList.Keyboard")
+                onRequestDismissKeyboard?()
+            }
+        }
+
         /// 键盘展开时用户试图拖动列表 → 请求宿主收起键盘（不滚动）。
         public var onRequestDismissKeyboard: (() -> Void)?
 
@@ -110,6 +133,8 @@ extension MessageCollectionView {
                 // [2026-11-16 03:51 回退] 把 inset 包进键盘动画会让两条路径都抖
                 // （与系统自己的 offset 调整叠加）。退回"延迟一次性、不带动画"：
                 // 下滑收起时这条是顺的，点外面另从**焦点同步**解决。
+                // 键盘展开：禁用列表自身拖动（滚动交给专用手势拦截）；收起：恢复。
+                self.viewController?.collectionView.panGestureRecognizer.isEnabled = (newH == 0)
                 if newH > 0 {
                     self.applyInsetForKeyboardState()
                     self.reapplyInsetAfterKeyboardChange()
@@ -1272,6 +1297,7 @@ public struct MessageCollectionView: UIViewControllerRepresentable {
         coord.onStop = onStop
         coord.onCompact = onCompact
         coord.onRequestDismissKeyboard = onRequestDismissKeyboard
+        coord.installKeyboardDismissPan(on: vc.collectionView)
         coord.onRevertCompact = onRevertCompact
         coord.onForceSync = onForceSync
         coord.onScreenshotImage = onScreenshotImage
