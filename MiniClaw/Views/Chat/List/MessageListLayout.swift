@@ -283,6 +283,8 @@ public final class MessageListLayout: UICollectionViewLayout {
     private var itemAttributes: [UICollectionViewLayoutAttributes] = []
 
     private var totalHeight: CGFloat = 0
+    /// 上次上报的贴底垫高（仅用于探针去重，避免每次布局刷一条日志）
+    private var lastReportedPad: CGFloat = -1
 
 
     public override var collectionViewContentSize: CGSize {
@@ -395,6 +397,12 @@ public final class MessageListLayout: UICollectionViewLayout {
         // 内容增长时 pad 同步收缩、底边不动 ⇒ 不会因改 inset 触发二次布局/位移。
         let visibleH = cv.bounds.height - cv.adjustedContentInset.top - cv.adjustedContentInset.bottom
         let pad = max(0, visibleH - y)
+        if abs(pad - lastReportedPad) > 1 {
+            lastReportedPad = pad
+            AppLogger.shared.info(
+                "[BottomPad] visibleH=\(String(format: "%.0f", visibleH)) contentH=\(String(format: "%.0f", y)) pad=\(String(format: "%.0f", pad)) items=\(itemCount) — pad>0 表示内容不足一屏、已整体下移贴底",
+                category: "ChatList.CellMetrics")
+        }
         if pad > 0.5 {
             for idx in itemAttributes.indices {
                 itemAttributes[idx].frame.origin.y += pad
