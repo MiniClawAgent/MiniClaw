@@ -208,15 +208,24 @@ enum MiniClawChatAdapter {
 
         for event in message.toolCalls {
             // [ask_user] 历史重建：入参里的问题 + 结果里的答案 → 卡片载荷。
-            if event.name == "ask_user",
-               let payload = Self.questionPayloadJSON(arguments: event.arguments, result: event.resultText) {
-                let block = AssistantBlock(id: event.id,
-                                           kind: .question(callId: event.callID ?? event.id.uuidString),
-                                           content: payload)
-                block.toolUseId = event.callID ?? event.id.uuidString
-                block.toolInputArgs = event.arguments
-                block.toolStatus = toolStatus(for: event, message: message)
-                events.append((event.timelineOrder, event.position, block))
+            if event.name == "ask_user" {
+                if let payload = Self.questionPayloadJSON(arguments: event.arguments, result: event.resultText) {
+                    let block = AssistantBlock(id: event.id,
+                                               kind: .question(callId: event.callID ?? event.id.uuidString),
+                                               content: payload)
+                    block.toolUseId = event.callID ?? event.id.uuidString
+                    block.toolInputArgs = event.arguments
+                    block.toolStatus = toolStatus(for: event, message: message)
+                    events.append((event.timelineOrder, event.position, block))
+                    continue
+                }
+                // 解析不出问题（历史里的失败调用）：不要建空卡片，退化成一行信息，
+                // 显示工具返回的错误原因。
+                let info = AssistantBlock(id: event.id, kind: .info, content: event.resultText)
+                info.toolUseId = event.callID ?? event.id.uuidString
+                info.toolInputArgs = event.arguments
+                info.toolStatus = toolStatus(for: event, message: message)
+                events.append((event.timelineOrder, event.position, info))
                 continue
             }
             let block = AssistantBlock(id: event.id, kind: toolKind(event.name, arguments: event.arguments), content: event.resultText)
@@ -441,6 +450,9 @@ enum MiniClawChatAdapter {
             return ""
         }
         switch name {
+        case "ask_user":
+            // 流式期也要认：否则它会落到 default，显示成 "Shell command"（真机 01:54 复现）。
+            return .question(callId: "")
         case "dispatch_subagent":
             return .subagentTool(action: pick("focus", "task"))
         case "close_subagent":

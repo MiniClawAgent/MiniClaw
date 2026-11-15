@@ -22,11 +22,35 @@ struct AskUserTool: AgentTool {
             parameters: JSONSchema(
                 type: "object",
                 properties: [
-                    // 嵌套数组用 description 说明结构（JSONSchema 的 items 支持有限，
-                    // 这里不对模型做严格 schema 校验，限制由工具内部硬校验兜住）。
+                    // [真机 01:51] 只给 `type: array` 时，模型会发**空数组**（它看不到元素结构）。
+                    // 必须给出 items 的完整形状，模型才知道该往里填什么。
                     "questions": JSONSchema.JSONProperty(
                         type: "array",
-                        description: String(localized: "ask_user_param_questions")
+                        description: String(localized: "ask_user_param_questions"),
+                        items: JSONSchema(
+                            type: "object",
+                            properties: [
+                                "id": JSONSchema.JSONProperty(type: "string", description: String(localized: "ask_user_param_id")),
+                                "question": JSONSchema.JSONProperty(type: "string", description: String(localized: "ask_user_param_question")),
+                                "detail": JSONSchema.JSONProperty(type: "string", description: String(localized: "ask_user_param_detail")),
+                                "header": JSONSchema.JSONProperty(type: "string", description: String(localized: "ask_user_param_header")),
+                                "options": JSONSchema.JSONProperty(
+                                    type: "array",
+                                    description: String(localized: "ask_user_param_options"),
+                                    items: JSONSchema(
+                                        type: "object",
+                                        properties: [
+                                            "label": JSONSchema.JSONProperty(type: "string", description: String(localized: "ask_user_param_label")),
+                                            "description": JSONSchema.JSONProperty(type: "string", description: String(localized: "ask_user_param_option_desc")),
+                                        ],
+                                        required: ["label"]
+                                    )
+                                ),
+                                "multiSelect": JSONSchema.JSONProperty(type: "boolean", description: String(localized: "ask_user_param_multi")),
+                                "allowCustom": JSONSchema.JSONProperty(type: "boolean", description: String(localized: "ask_user_param_custom")),
+                            ],
+                            required: ["id", "question"]
+                        )
                     ),
                     "timeout": JSONSchema.JSONProperty(type: "number", description: String(localized: "ask_user_param_timeout")),
                 ],
@@ -82,6 +106,12 @@ struct AskUserTool: AgentTool {
         // 或者只给一个对象、或者用单数 `question`。真机 01:41 的 `no_questions`
         // 就是严格 `as? [[String: Any]]` 解析不出来导致的（工具 1ms 即失败）。
         // 这里做宽松归一化，任何"能看出意图"的写法都接住。
+        if let arr = parameters["questions"] as? [Any], arr.isEmpty {
+            return ToolResult(
+                success: false,
+                text: #"{"error":"empty_questions","hint":"questions 是空数组。请在每个元素里填 {id, question, options:[{label}]}，例如 {\"questions\":[{\"id\":\"q1\",\"question\":\"选哪个？\",\"options\":[{\"label\":\"A\"},{\"label\":\"B\"}]}]}"}"#
+            )
+        }
         guard let rawQuestions = Self.normalizeQuestions(parameters), !rawQuestions.isEmpty else {
             let preview = String(String(describing: parameters).prefix(400))
             AppLogger.shared.warn("[AskUser] unparsable args: \(preview)", category: "Agent", subsystem: "AgentLoop")
