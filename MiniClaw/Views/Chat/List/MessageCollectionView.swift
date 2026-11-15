@@ -147,10 +147,11 @@ extension MessageCollectionView {
                 self.keyboardDismissPan?.isEnabled = kbUp
                 if newH > 0 {
                     self.applyInsetForKeyboardState()
-                    // [2026-11-16 04:14] 立即开始、只做一次：
-                    // 目标用「压缩前高度 − 键盘高度」算，不依赖此刻 bounds 是否已缩
-                    // ⇒ 既不用等 0.3s（慢半拍），也不会重复减一次（冲一下）。
-                    self.animatePinForKeyboard(overlap: newH, duration: duration, curve: curve)
+                    // [2026-11-16 04:20 按要求恢复] 等待布局稳定（0.3s）后**算准 maxOff**，
+                    // 再用一次 setContentOffset(animated:) 到位。
+                    // 这是用户认可的"位置最准"的版本；代价是起步略慢半拍。
+                    // 暂不使用 animatePinForKeyboard（保留实现，便于以后对比）。
+                    self.reapplyInsetAfterKeyboardChange()
                 } else {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in
                         guard let self, let cv = self.viewController?.collectionView else { return }
