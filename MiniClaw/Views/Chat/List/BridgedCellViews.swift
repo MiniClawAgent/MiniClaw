@@ -239,7 +239,10 @@ struct BridgedAssistantFooter: View {
             // 消息状态行（2026-09-05，对齐子代理会话页 AssistantStatusRow）：
             // 流式/等待首字 = 三点思考指示器；终态按 已停止/已中断/已完成 显示（含耗时）。
             // 错误（inlineError）与「已暂停」恢复横幅保留原有专属展示，不在此重复。
-            if bridge.isActiveMessage && (!hasVisibleContent || message.isAwaitingModelResponse) {
+            // [2026-11-15] 只要这条消息还在活跃处理中，就必须显示"回复中"。
+            // 原判据 `!hasVisibleContent || isAwaiting` 在"已有正文 + 恢复后 isAwaiting 未置位"
+            // 时会落到 else ⇒ 显示"已完成"，而模型其实还在跑（真机 20:58 截图复现）。
+            if bridge.isActiveMessage {
                 replyingIndicator
             } else if message.error == nil && !bridge.canResume {
                 if message.wasStopped {

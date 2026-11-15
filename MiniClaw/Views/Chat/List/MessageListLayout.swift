@@ -284,7 +284,9 @@ public final class MessageListLayout: UICollectionViewLayout {
 
     private var totalHeight: CGFloat = 0
     /// 上次上报的贴底垫高（仅用于探针去重，避免每次布局刷一条日志）
-    private var lastReportedPad: CGFloat = -1
+    private var lastReportedTotal: CGFloat = -1
+    /// 贴底/几何专用日志（不参与诊断静默，见使用处说明）。
+    private static let bottomPadLogger = AppLogger(category: "BottomPad")
 
 
     public override var collectionViewContentSize: CGSize {
@@ -388,28 +390,24 @@ public final class MessageListLayout: UICollectionViewLayout {
             //
             if !isLast,!nextIsFooter,h>0 { y += itemSpacing }
         }
-        // [2026-11-15 空白] 内容不足一屏时**贴底**：把整表下移 (可见高 − 内容高)。
-        //
-        // 现象（真机 20:26/20:29）：流式刚开始只有「深度思考 + 几颗工具胶囊」，
-        // 内容停在顶部、下方一大片空白；等回复变长才"恢复正常"。
-        // 日志佐证：`offset = -116`（停在最顶部）⇒ 不是高度算错，是内容短时没有贴底。
-        // 做法放在布局层而不是 contentInset：contentSize 随之为「内容高 + pad」，
-        // 内容增长时 pad 同步收缩、底边不动 ⇒ 不会因改 inset 触发二次布局/位移。
-        let visibleH = cv.bounds.height - cv.adjustedContentInset.top - cv.adjustedContentInset.bottom
-        let pad = max(0, visibleH - y)
-        if abs(pad - lastReportedPad) > 1 {
-            lastReportedPad = pad
-            AppLogger.shared.info(
-                "[BottomPad] visibleH=\(String(format: "%.0f", visibleH)) contentH=\(String(format: "%.0f", y)) pad=\(String(format: "%.0f", pad)) items=\(itemCount) — pad>0 表示内容不足一屏、已整体下移贴底",
-                category: "ChatList.CellMetrics")
-        }
-        if pad > 0.5 {
-            for idx in itemAttributes.indices {
-                itemAttributes[idx].frame.origin.y += pad
+        // [2026-11-15 撤回贴底] 曾把整表下移 (可见高 − 内容高) 让短内容贴底，
+        // 真机 20:58 截图证明这会把空白从"下方"搬到"上方"（用户气泡离导航栏一大段），
+        // 属治标反噬，已撤回。真正的异常是 contentSize 偶发远大于内容高（1584 vs 544），
+        // 见下方 [GiantRow] 探针定位。
+        totalHeight = y
+
+        // [2026-11-15 空白定位] 赋值**之后**再打，且内容高度一变就打全部行。
+        // 之前打在赋值前，`total` 显示的是上一轮的值，导致误判为"contentSize 虚高"。
+        if abs(totalHeight - lastReportedTotal) > 1 {
+            lastReportedTotal = totalHeight
+            var pieces: [String] = []
+            for idx in 0..<itemAttributes.count {
+                let e = currentEntry(at: idx)
+                pieces.append("\(idx):h=\(String(format: "%.0f", itemAttributes[idx].frame.height))"
+                              + "/\(e?.source.rawValue ?? "nil")")
             }
-            totalHeight = y + pad
-        } else {
-            totalHeight = y
+            Self.bottomPadLogger.info(
+                "[Geom] bh=\(String(format: "%.0f", cv.bounds.height)) contentH=\(String(format: "%.0f", y)) total=\(String(format: "%.0f", totalHeight)) items=\(itemCount) offY=\(String(format: "%.0f", collectionView?.contentOffset.y ?? .nan)) adjT=\(String(format: "%.0f", cv.adjustedContentInset.top)) adjB=\(String(format: "%.0f", cv.adjustedContentInset.bottom)) ‖ \(pieces.joined(separator: " "))")
         }
         #if DEBUG
         // [Stage 0 · M13] **帧重叠终审探针**（只观测，不改返回值、不改几何）。

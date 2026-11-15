@@ -1732,8 +1732,13 @@ struct ChatView: View {
             runtime.taskStartOrResume()
             // 恢复流式缓冲区，使新 词元 续写到同一气泡（而非另起一段）。
             if let mid = runtime.streamingMessageID,
-               let msg = session.messages.first(where: { $0.id == mid }) {
-                runtime.streamingContent = msg.content
+               let idx = session.messages.firstIndex(where: { $0.id == mid }) {
+                // [2026-11-15 恢复后指示器显示"已完成"] 暂停时消息级 `isPaused=true`、
+                // `isStreaming=false`；恢复只改了运行时，消息仍是"已结束"形态 ⇒ footer
+                // 走 `statusRow(已完成)`。这里把消息状态一并复原。
+                session.messages[idx].isPaused = false
+                session.messages[idx].isStreaming = true
+                runtime.streamingContent = session.messages[idx].content
             }
             await runtime.engine.resume(task)
         }
