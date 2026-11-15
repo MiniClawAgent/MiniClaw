@@ -1,123 +1,178 @@
 import SwiftUI
 
+/// 设置主页：卡片宫格布局（2026-11-15 按唐唐给的参考图重排）。
+///
+/// 版面：头像 + 名称 → 2 列卡片（图标 / 箭头 / 标题 / 副标题）→ 底部标语 + 版本号。
+/// 六个入口与既有二级页一一对应，不新增功能、不删除入口：
+/// 通用 / 模型 / 本机 / 隐私 / 数据 / 关于。
 struct SettingsView: View {
     @EnvironmentObject private var appState: AppState
     /// 打开外部链接（备案号跳工信部 ICP 备案查询网站）。
     @Environment(\.openURL) private var openURL
-    /// 真实版本号（从主 App bundle 读取，2026-08-14 起不再硬编码）。
-    private var versionString: String {
-        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
-        return "MiniClaw v\(version)"
-    }
+
     @State private var navigateToGroups: Bool = false
     @State private var navigateToProviders: Bool = false
     @State private var navigateToEnvVars: Bool = false
     @State private var navigateToPermissions: Bool = false
 
+    private var versionString: String {
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
+        return "v\(version)"
+    }
+
+    private var displayName: String {
+        let name = Bundle.main.infoDictionary?["CFBundleDisplayName"] as? String
+        return (name?.isEmpty == false ? name! : "MiniClaw")
+    }
+
+    /// 2 列等宽自适应宫格。卡片最小宽 150，间距 14（与参考图一致的比例）。
+    private let columns = [
+        GridItem(.flexible(), spacing: 14),
+        GridItem(.flexible(), spacing: 14),
+    ]
+
     var body: some View {
-        List {
-            // 主页仅显示组入口行（唐唐 2026-08-30 定稿）：点入二级页才显示组内内容。
-            // 每行独立 Section = 独立卡片，行间留隙不贴连（唐唐要求）。
-            Section {
-                NavigationLink {
-                    AgentSettingsGroupView()
-                } label: {
-                    SettingsRow(icon: "cat.fill", color: .orange, title: String(localized: "agent"), subtitle: String(localized: "settings_group_agent_sub"))
-                }
-            }
+        ScrollView {
+            VStack(spacing: 22) {
+                header
 
-            Section {
-                NavigationLink {
-                    PluginsSettingsView()
-                } label: {
-                    SettingsRow(icon: "puzzlepiece.extension.fill", color: .blue, title: String(localized: "plugins"), subtitle: String(localized: "manage_extensible_plugin_packages"))
-                }
-            }
+                LazyVGrid(columns: columns, spacing: 14) {
+                    card(
+                        icon: "gearshape.fill", tint: .blue,
+                        title: "settings_card_general", subtitle: "settings_card_general_sub"
+                    ) { GeneralSettingsGroupView() }
 
-            Section {
-                NavigationLink {
-                    StorageSettingsGroupView()
-                } label: {
-                    SettingsRow(icon: "externaldrive.fill", color: .green, title: String(localized: "storage"), subtitle: String(localized: "settings_group_storage_sub"))
-                }
-            }
+                    card(
+                        icon: "square.stack.3d.up.fill", tint: .green,
+                        title: "settings_card_models", subtitle: "settings_card_models_sub"
+                    ) { AgentSettingsGroupView() }
 
-            Section {
-                NavigationLink {
-                    AppearanceSettingsView()
-                } label: {
-                    SettingsRow(icon: "circle.lefthalf.filled", color: .indigo, title: String(localized: "appearance"), subtitle: String(localized: "system_dark_light"))
-                }
-            }
+                    card(
+                        icon: "iphone", tint: .orange,
+                        title: "settings_card_device", subtitle: "settings_card_device_sub"
+                    ) { RuntimeStatusView() }
 
-            Section {
-                NavigationLink {
-                    GeneralSettingsGroupView()
-                } label: {
-                    SettingsRow(icon: "gearshape.2.fill", color: .gray, title: String(localized: "general_section"), subtitle: String(localized: "settings_group_general_sub"))
-                }
-            }
+                    card(
+                        icon: "lock.shield.fill", tint: .red,
+                        title: "settings_card_privacy", subtitle: "settings_card_privacy_sub"
+                    ) { PermissionsSettingsView() }
 
-            Section {
-                NavigationLink {
-                    LogsView()
-                } label: {
-                    SettingsRow(icon: "doc.text.below.ecg", color: .blue, title: String(localized: "logs"), subtitle: String(localized: "runtime_logs_and_crash_logs"))
-                }
-            }
+                    card(
+                        icon: "tray.full.fill", tint: .purple,
+                        title: "settings_card_data", subtitle: "settings_card_data_sub"
+                    ) { StorageSettingsGroupView() }
 
-            Section {
-                NavigationLink {
-                    AboutView()
-                } label: {
-                    SettingsRow(icon: "info.circle.fill", color: .teal, title: String(localized: "about_miniclaw_app"), subtitle: String(localized: "version_info_and_license"))
+                    card(
+                        icon: "info.circle", tint: .gray,
+                        title: "settings_card_about", subtitle: "settings_card_about_sub"
+                    ) { AboutView() }
                 }
-            }
+                .padding(.horizontal, 20)
 
-            // App version footer（版本号 Bundle.main 真实值；备案号点击跳工信部备案查询）
-            Section {
-                EmptyView()
-            } footer: {
-                HStack {
-                    Spacer()
-                    VStack(spacing: 4) {
-                        Text(versionString)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        Text("湘ICP备2023018958号-16A")
-                            .font(.caption2)
-                            .foregroundStyle(.tertiary)
-                            .onTapGesture {
-                                openURL(URL(string: "https://beian.miit.gov.cn/")!)
-                            }
-                    }
-                    Spacer()
-                }
+                footer
             }
+            .padding(.top, 8)
+            .padding(.bottom, 28)
         }
-        .listStyle(.insetGrouped)
-        // 背景主题挂载点：列表整体背景透明（行白卡保留，间隙透出主题）；
-        // 无主题时组件回退系统背景（视觉与现状一致）。
         .scrollContentBackground(.hidden)
         .background(ThemeBackground(slot: .settings))
         .navigationTitle(String(localized: "settings"))
         .navigationBarTitleDisplayMode(.inline)
-        .navigationDestination(isPresented: $navigateToGroups) {
-            GroupsSettingsView()
-        }
-        .navigationDestination(isPresented: $navigateToProviders) {
-            ProviderSettingsView()
-        }
-        .navigationDestination(isPresented: $navigateToPermissions) {
-            PermissionsSettingsView()
-        }
-        .navigationDestination(isPresented: $navigateToEnvVars) {
-            EnvVarsSettingsView()
-        }
-        .onAppear {
-            handleDeepLink()
-        }
+        .navigationDestination(isPresented: $navigateToGroups) { GroupsSettingsView() }
+        .navigationDestination(isPresented: $navigateToProviders) { ProviderSettingsView() }
+        .navigationDestination(isPresented: $navigateToPermissions) { PermissionsSettingsView() }
+        .navigationDestination(isPresented: $navigateToEnvVars) { EnvVarsSettingsView() }
+        .onAppear { handleDeepLink() }
         .onChange(of: appState.settingsDeepLink) { _ in handleDeepLink() }
+    }
+
+    // MARK: - 头部
+
+    private var header: some View {
+        VStack(spacing: 14) {
+            ZStack {
+                Circle().fill(Color(.secondarySystemBackground))
+                Image(systemName: "person.fill")
+                    .font(.system(size: 34, weight: .regular))
+                    .foregroundStyle(Color(.tertiaryLabel))
+            }
+            .frame(width: 104, height: 104)
+            .overlay(Circle().stroke(Color(.separator).opacity(0.25), lineWidth: 0.5))
+
+            Text(displayName)
+                .font(.system(size: 22, weight: .semibold))
+                .foregroundStyle(.primary)
+        }
+        .padding(.top, 12)
+    }
+
+    // MARK: - 卡片
+
+    /// 一张设置卡片：左上图标、右上箭头、左下标题与副标题。
+    private func card<Destination: View>(
+        icon: String,
+        tint: Color,
+        title: LocalizedStringKey,
+        subtitle: LocalizedStringKey,
+        @ViewBuilder destination: @escaping () -> Destination
+    ) -> some View {
+        NavigationLink {
+            destination()
+        } label: {
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(alignment: .top) {
+                    Image(systemName: icon)
+                        .font(.system(size: 19, weight: .regular))
+                        .foregroundStyle(tint)
+                    Spacer(minLength: 0)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(Color(.tertiaryLabel))
+                }
+
+                Spacer(minLength: 18)
+
+                Text(title)
+                    .font(.system(size: 19, weight: .semibold))
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+                Text(subtitle)
+                    .font(.system(size: 13))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.top, 2)
+            }
+            .padding(16)
+            .frame(maxWidth: .infinity, minHeight: 148, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .fill(Color(.secondarySystemGroupedBackground))
+            )
+        }
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .combine)
+    }
+
+    // MARK: - 底部
+
+    private var footer: some View {
+        VStack(spacing: 6) {
+            Text("settings_footer_tagline")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+            Text(versionString)
+                .font(.footnote)
+                .foregroundStyle(.tertiary)
+            Text("湘ICP备2023018958号-16A")
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+                .onTapGesture {
+                    openURL(URL(string: "https://beian.miit.gov.cn/")!)
+                }
+        }
+        .multilineTextAlignment(.center)
+        .padding(.top, 10)
     }
 
     // MARK: - Deep Link
@@ -139,7 +194,7 @@ struct SettingsView: View {
     }
 }
 
-// MARK: - Settings Row
+// MARK: - Settings Row（二级页共用的行样式）
 
 struct SettingsRow: View {
     let icon: String
