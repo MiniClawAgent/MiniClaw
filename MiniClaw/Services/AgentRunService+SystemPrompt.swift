@@ -89,6 +89,12 @@ extension AgentRunService {
         // 7. 内存系统（i18n：整段经 String(localized:) 查 String Catalog）
         stableParts.append(String(localized: "memory_system_section"))
 
+        // [ask_user] 只在本次工具集里确实有该工具时才注入使用纪律，
+        // 避免"让模型用不存在的工具"。
+        if toolRouter.contains("ask_user") {
+            stableParts.append(String(localized: "ask_user_prompt_section"))
+        }
+
         // 8. 子代理使用指南（stable：角色列表与角色文件同频，属稳定内容，进缓存前缀）
         stableParts.append(SubAgentGuide.guideWithProfiles())
         // 记忆内容会随会话复盘被 memory_write 改写，属于「易变内容」，若留在稳定前缀会导致

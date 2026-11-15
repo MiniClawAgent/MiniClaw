@@ -42,6 +42,7 @@ struct ToolCapsuleView: View {
         case .readImageTool: toolName = "read_image"
         case .memoryTool: toolName = "memory"
         case .subagentTool: toolName = "subagent"
+        case .question: toolName = "ask_user"
         case .text, .thinking, .info: toolName = "unknown"
         case .file: toolName = "file"
         }
@@ -594,6 +595,8 @@ struct AssistantBlockView: View {
             // 收缩后的 HStack 居中,加 .leading 对齐保证思考指示器靠左。
             .frame(maxWidth: .infinity,alignment: .leading)
             .padding(.vertical,2)
+        case .question(let callId):
+            QuestionCardView(block: block, callId: callId)
         case .shellTool:
             ToolCapsuleView(block: block, icon: "terminal", accentColor: .green,
                             commandStartTime: commandStartTime,onStop: onStop,browserPool: browserPool,

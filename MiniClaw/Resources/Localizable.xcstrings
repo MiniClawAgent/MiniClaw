@@ -65562,6 +65562,622 @@
           }
         }
       }
+    },
+    "ask_user_tool_desc": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ask the user when a decision belongs to them or you cannot resolve an ambiguity by inspection. Blocks until they answer."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "当你需要用户做决定、或无法通过查看资料消除歧义时使用：把选项摆好交给用户选。调用后会等待用户回答。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ユーザーが決めるべきことや、調査では解決できない曖昧さがあるときに質問します。回答まで待機します。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "사용자가 결정할 일이나 조사로 해결할 수 없는 모호함이 있을 때 질문합니다. 답변까지 기다립니다."
+          }
+        }
+      }
+    },
+    "ask_user_param_questions": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1-4 questions. Each: {id, question, detail?, header?, options?: [{label, description?}], multiSelect?, allowCustom?}. Put the recommended option first and append (Recommended) to its label."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1-4 个问题。每个：{id, question, detail?, header?, options?: [{label, description?}], multiSelect?, allowCustom?}。推荐项放第一个并在标签里写（推荐）。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1〜4 個の質問。各項目: {id, question, detail?, header?, options?, multiSelect?, allowCustom?}。推奨の選択肢を先頭に置き、ラベルに（推奨）と書きます。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1~4개 질문. 각 항목: {id, question, detail?, header?, options?, multiSelect?, allowCustom?}. 추천 항목을 첫 번째에 두고 라벨에 (추천)을 붙입니다."
+          }
+        }
+      }
+    },
+    "ask_user_param_id": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stable id unique within this call; echoed in the answer."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "本次调用内唯一的 id，答案里会原样回传。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "呼び出し内で一意な id。回答にそのまま返ります。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "호출 내에서 고유한 id. 답변에 그대로 반환됩니다."
+          }
+        }
+      }
+    },
+    "ask_user_param_question": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The question to display."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "要显示给用户的问题。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "表示する質問。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "표시할 질문."
+          }
+        }
+      }
+    },
+    "ask_user_param_detail": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Optional supporting detail shown under the question."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "可选补充说明，显示在问题下方。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "任意の補足説明。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "선택적 보충 설명."
+          }
+        }
+      }
+    },
+    "ask_user_param_header": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Optional short heading."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "可选短标题。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "任意の短い見出し。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "선택적 짧은 제목."
+          }
+        }
+      }
+    },
+    "ask_user_param_options": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Optional choices (max 6)."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "可选选项（最多 6 个）。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "任意の選択肢（最大 6 個）。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "선택 항목(최대 6개)."
+          }
+        }
+      }
+    },
+    "ask_user_param_label": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "User-facing label."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "显示给用户的选项文字。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ユーザーに表示するラベル。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "사용자에게 보일 라벨."
+          }
+        }
+      }
+    },
+    "ask_user_param_option_desc": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Optional one-line explanation."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "可选一句话说明。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "任意の一行説明。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "선택적 한 줄 설명."
+          }
+        }
+      }
+    },
+    "ask_user_param_multi": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Allow selecting more than one option (default false)."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "是否多选（默认单选）。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "複数選択を許可（既定は単一）。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "복수 선택 허용(기본 단일)."
+          }
+        }
+      }
+    },
+    "ask_user_param_custom": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Allow free-text input (default true)."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "是否允许自由输入（默认允许）。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "自由入力の可否（既定は可）。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "자유 입력 허용(기본 허용)."
+          }
+        }
+      }
+    },
+    "ask_user_param_timeout": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Optional wait seconds (0 = wait up to 10 minutes)."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "可选等待秒数（0 = 最多等 10 分钟）。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "任意の待機秒数（0 は最大 10 分）。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "선택 대기 초(0=최대 10분)."
+          }
+        }
+      }
+    },
+    "ask_user_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Needs your input"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "需要你确认"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "確認が必要です"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "확인이 필요합니다"
+          }
+        }
+      }
+    },
+    "ask_user_waiting": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Waiting"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "等待回答"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "回答待ち"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "답변 대기"
+          }
+        }
+      }
+    },
+    "ask_user_answered": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Answered"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已回答"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "回答済み"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "답변 완료"
+          }
+        }
+      }
+    },
+    "ask_user_skipped": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Skipped"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已跳过"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "スキップ"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "건너뜀"
+          }
+        }
+      }
+    },
+    "ask_user_expired": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Timed out"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已超时"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "タイムアウト"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "시간 초과"
+          }
+        }
+      }
+    },
+    "ask_user_cancelled": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancelled"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已取消"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "キャンセル"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "취소됨"
+          }
+        }
+      }
+    },
+    "ask_user_skip": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Skip"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "跳过"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "スキップ"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "건너뛰기"
+          }
+        }
+      }
+    },
+    "ask_user_submit": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Submit"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "提交答案"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "送信"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "답변 제출"
+          }
+        }
+      }
+    },
+    "ask_user_custom_placeholder": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Or type your own answer"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "也可以直接输入"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "自分で入力"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "직접 입력"
+          }
+        }
+      }
+    },
+    "ask_user_prompt_section": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "\nAsk the user with `ask_user` only when the decision is genuinely theirs (which file, which option, what value) or when an ambiguity cannot be resolved by inspecting files, logs or the web.\nDo NOT ask for facts you can find yourself; do NOT ask for confirmation of ordinary steps.\nRules: at most 4 questions per call; at most 6 options each; put the recommended option first and append (Recommended) to its label; keep questions short and concrete.\nIf the user already said \"decide yourself / don't ask\", do not call it. A skipped answer means: continue with your best judgment and state the assumption in your reply.\nSubagents cannot ask the user; if a subagent needs a decision, it must report the question in its final result so the parent can ask."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "\n只有在**决定权确实属于用户**（选哪个文件、哪个方案、填什么值），或歧义**无法通过查文件/日志/网页消除**时，才用 `ask_user` 提问。\n能自己查清的事实不要问；普通步骤不要问是否继续。\n纪律：一次最多 4 个问题、每题最多 6 个选项；推荐项放第一个并在标签里写（推荐）；问题要短、要具体。\n用户说过\"你自己决定/别问我\"时不要调用。用户跳过某题 = 按你最佳判断继续，并在回复里说明你的假设。\n子代理不能直接问用户；子代理需要决定时，必须把问题写进最终结果，由父级来问。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "\nユーザー自身の決定（どのファイル／どの案／どの値）や、ファイル・ログ・Web の調査では解消できない曖昧さがある場合にのみ `ask_user` を使います。\n自分で調べられる事実や、通常の手順の確認は質問しません。\n1 回につき最大 4 問、各問の選択肢は最大 6 個。推奨の選択肢を先頭に置き、ラベルに（推奨）と付けます。\n「自分で決めて」と言われた場合は呼び出しません。スキップされた場合は最善の判断で続行し、仮定を明記します。\n子エージェントはユーザーに質問できません。必要な決定は最終結果に含めて親に渡します。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "\n사용자가 직접 결정해야 하는 일(어떤 파일/어떤 안/어떤 값)이나 파일·로그·웹으로 해소할 수 없는 모호함이 있을 때만 `ask_user` 를 사용합니다.\n스스로 확인할 수 있는 사실이나 일반적인 단계 확인은 묻지 않습니다.\n호출당 최대 4개 질문, 질문당 최대 6개 선택지. 추천 항목을 첫 번째에 두고 라벨에 (추천)을 붙입니다.\n\"알아서 결정해\"라고 했다면 호출하지 않습니다. 건너뛴 답은 최선의 판단으로 계속하고 가정을 밝힙니다.\n하위 에이전트는 사용자에게 질문할 수 없으며, 필요한 결정은 최종 결과에 담아 상위에 전달합니다."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

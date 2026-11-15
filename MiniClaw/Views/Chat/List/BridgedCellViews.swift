@@ -42,6 +42,7 @@ struct BridgedAssistantBlock: View {
         case .thinking: return "assistantThinkingBlock"
         case .shellTool: return "assistantShellBlock"
         case .subagentTool: return "assistantSubagentBlock"
+        case .question: return "assistantQuestionBlock"
         case .fileReadTool: return "assistantFileReadBlock"
         case .fileWriteTool: return "assistantFileWriteBlock"
         case .fileEditTool: return "assistantFileEditBlock"

@@ -534,6 +534,8 @@ struct ToolLiveSheet: View {
         switch block.kind {
         case .text,.thinking:
             return ""
+        case .question:
+            return ""
         case .shellTool(let cmd):
             return "shell_execute(\(truncateParam(cmd)))"
         case .fileReadTool(let path):
@@ -572,6 +574,7 @@ struct ToolLiveSheet: View {
         case .readImageTool: Image(systemName: "photo")
         case .memoryTool: Image(systemName: "brain.head.profile")
         case .subagentTool: Image(systemName: "person.2.fill")
+        case .question: Image(systemName: "questionmark.bubble.fill")
         case .info: Image(systemName: "arrow.triangle.2.circlepath")
         case .text: Image(systemName: "text.alignleft")
         case .thinking: Image("ThinkingIcon")
@@ -1762,6 +1765,7 @@ struct ToolLiveSheet: View {
         case .readImageTool: return String(localized: "Reading Image")
         case .memoryTool: return String(localized: "Using Memory")
         case .subagentTool: return String(localized: "Managing Subagents")
+        case .question: return String(localized: "ask_user_title")
         case .info,.text,.thinking,.file: return "MiniClaw"
         }
     }
@@ -1794,6 +1798,7 @@ struct ToolLiveSheet: View {
         case .readImageTool: return .purple
         case .memoryTool: return .pink
         case .subagentTool: return .purple
+        case .question: return .orange
         case .info: return .secondary
         case .text: return .primary
         case .thinking: return .blue
@@ -2454,6 +2459,7 @@ private struct ToolPreviewThumbnail: View {
         case .text: return .primary
         case .thinking: return .blue
         case .file: return .secondary
+        case .question: return .orange
         }
     }
 

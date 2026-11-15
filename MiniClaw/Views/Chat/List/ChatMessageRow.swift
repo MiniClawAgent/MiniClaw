@@ -47,6 +47,17 @@ struct ChatMessageRow: View {
             switch block.kind {
             case .text:
                 if !block.content.isEmpty { partItems.append(block.content) }
+            case .question:
+                // 复制整条消息时，问答卡以「问题 / 答案」的纯文本形式带出。
+                if let req = UserQuestionRequest.decode(from: block.content) {
+                    for q in req.questions {
+                        partItems.append("Q: \(q.question)")
+                        if let a = req.answers?.first(where: { $0.id == q.id }) {
+                            let text = ([a.selected.joined(separator: "、"), a.custom ?? ""].filter { !$0.isEmpty }).joined(separator: " · ")
+                            if !text.isEmpty { partItems.append("A: \(text)") }
+                        }
+                    }
+                }
             case .subagentTool(let action):
                 if !action.isEmpty { partItems.append("Subagent: \(action)") }
             case .shellTool(let command):

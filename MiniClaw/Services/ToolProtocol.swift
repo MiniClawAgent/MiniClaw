@@ -261,6 +261,8 @@ final class EngineBox: @unchecked Sendable {
 /// 同一 router 实例被父子引擎共享，工具体据此解析到自己所属的引擎（深度/会话状态才正确）。
 enum ToolEngineScope {
     @TaskLocal static var box: EngineBox? = nil
+    /// 当前工具调用 id（`ask_user` 用它把自己的块换成问答卡）。
+    @TaskLocal static var callID: String? = nil
     static var engine: AgentLoopEngine? { box?.engine }
 }
 

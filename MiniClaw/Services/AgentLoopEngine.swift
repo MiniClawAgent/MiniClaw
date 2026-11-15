@@ -64,6 +64,13 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
         return (exec, true)
     }
 
+    /// 供工具（`ask_user`）把自己的块换成问答卡：按 callID 取当前执行上下文。
+    func blockForToolCall(_ callID: String) -> AssistantBlock? {
+        pendingToolExecutionsLock.lock()
+        defer { pendingToolExecutionsLock.unlock() }
+        return pendingToolExecutions[callID]?.block
+    }
+
     private func removePendingToolExecution(_ callID: String) {
         pendingToolExecutionsLock.lock()
         defer { pendingToolExecutionsLock.unlock() }
@@ -393,6 +400,10 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
     /// 同时清除检查点文件，避免残留误导下次进入会话的冷恢复。
     func cancel() {
         Task { await state.cancel() }
+        // 停止时连带取消"等待用户回答"的问题，否则工具会挂到超时才返回。
+        if let sid = sessionID {
+            Task { @MainActor in AskUserBroker.shared.cancel(sessionID: sid) }
+        }
         if let sid = sessionID { AgentTaskStore.shared.clear(sessionID: sid) }
         activeRequestTask?.cancel()
         activeRequestTask = nil
@@ -415,6 +426,11 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
     /// - 子代理：一并取消（P2），避免父会话暂停后子代理继续空跑烧 token、恢复后结果丢失。
     func pause() {
         Task { await state.requestPause() }
+        // 暂停同样要解除"等待用户回答"的挂起：continuation 不响应 Task 取消，
+        // 不主动 settle 就会一直挂到 10 分钟超时。
+        if let sid = sessionID {
+            Task { @MainActor in AskUserBroker.shared.cancel(sessionID: sid) }
+        }
         activeRequestTask?.cancel()
         activeRequestTask = nil
         // 取消正在执行的工具，让 executeTool 的 withTaskGroup 快速返回取消结果，
@@ -2260,12 +2276,14 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
                 let reporter: @Sendable (String) -> Void = { line in
                     exec.appendOutputLine(line)
                 }
-                return try await ToolEngineScope.$box.withValue(EngineBox(self)) {
+                return try await ToolEngineScope.$callID.withValue(tc.id) {
+                  try await ToolEngineScope.$box.withValue(EngineBox(self)) {
                     try await ToolProgressScope.$reporter.withValue(reporter) {
                         try await EngineBrowserScope.$sessionID.withValue(browserScope) {
                             try await self.toolRouter.execute(name: rawName, parameters: innerArgs)
                         }
                     }
+                  }
                 }
             } catch {
                 if Task.isCancelled {

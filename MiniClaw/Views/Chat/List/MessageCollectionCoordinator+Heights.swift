@@ -419,6 +419,20 @@ extension MessageCollectionView.Coordinator {
                 //（唯一定义见 RenderModels.swift）—— 此前它与 Snapshot 播种 switch 各自维护
                 // 同一张表，值相同但各自演化。等价性：`seedFallbackHeight` 的四个返回值与本处
                 // 原值逐字相同（.readImageTool→36 / .file→40 / .info→20+行数*16 / default→36）。
+                case .question:
+                    // 估高只求"不跳太多"：真实高度由卡片自 sizing 修正。
+                    // 结构：上下 padding 28 + 每题（问题 1 行 + 选项 ≤6×52 + 自定义 44）
+                    if let req = UserQuestionRequest.decode(from: block.content) {
+                        var h: CGFloat = 28
+                        for q in req.questions {
+                            h += 30
+                            if q.options != nil { h += CGFloat(min(q.options?.count ?? 0, 6)) * 52 }
+                            if q.allowCustom ?? true { h += 44 }
+                            h += 12
+                        }
+                        return h
+                    }
+                    return 160
                 default: return block.kind.seedFallbackHeight(content: block.content)
                 }
             case .assistantFooter:
