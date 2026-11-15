@@ -203,6 +203,19 @@ extension MessageCollectionView {
             // 它与系统压缩列表的动画是两套，叠加后会出现"先冲高再回落"。
             // 改用 UIScrollView 自带的动画，UIKit 会按自己的几何/时间曲线处理。
             cv.setContentOffset(CGPoint(x: 0, y: target), animated: true)
+
+            // 终点校正：动画结束后与真实底边比对，误差 > 4pt 才静默补齐（并记录），
+            // 保证"估算偏差"不会把内容停在错误位置，同时不制造可见抖动。
+            DispatchQueue.main.asyncAfter(deadline: .now() + (duration > 0 ? duration : 0.25) + 0.05) { [weak cv] in
+                guard let cv else { return }
+                let trueMax = cv.contentSize.height - cv.bounds.height + cv.contentInset.bottom
+                let diff = trueMax - cv.contentOffset.y
+                guard abs(diff) > 4, !cv.isTracking, !cv.isDecelerating else { return }
+                AppLogger.shared.info(
+                    "[Keyboard] settle fix \(String(format: "%.0f", cv.contentOffset.y))→\(String(format: "%.0f", trueMax)) Δ=\(String(format: "%.0f", diff))",
+                    category: "ChatList.Keyboard")
+                cv.setContentOffset(CGPoint(x: 0, y: max(0, trueMax)), animated: false)
+            }
         }
 
         private func reapplyInsetAfterKeyboardChange() {
