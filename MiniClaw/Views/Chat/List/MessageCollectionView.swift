@@ -57,6 +57,8 @@ extension MessageCollectionView {
         /// 键盘遮挡高度。[2026-11-16 视口单源] 由键盘通知写入，直接进 inset 公式。
         /// 旧实现按 `kbUp ? 0 : …` 做减法（假设列表被系统压缩），真机 cvH 恒 874 证明没有压缩。
         public var keyboardHeight: CGFloat = 0
+        /// 键盘弹起**之前**用户是否贴在底部（决定弹起后要不要补贴底）。
+        private var preKeyboardPinned: Bool?
         private var keyboardObserver: NSObjectProtocol?
 
         /// 观察键盘：只记录"键盘遮挡了多少"，不在这里改 offset（改 offset 由 inset 变化统一驱动）。
@@ -70,7 +72,14 @@ extension MessageCollectionView {
                       let frame = note.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect,
                       let cv = self.viewController?.collectionView,
                       let window = cv.window else { return }
-                self.keyboardHeight = max(0, window.bounds.maxY - window.convert(frame, from: nil).minY)
+                let newH = max(0, window.bounds.maxY - window.convert(frame, from: nil).minY)
+                // [2026-11-16] 必须在 **bounds 收缩之前** 记录用户是否贴底：
+                // 键盘一弹，cvH 874→546，maxOff 立刻增大 328，事后再判 isNearBottom 必然为 false
+                // ⇒ 之前"补一次贴底"永远不执行，表现为"输入法弹出但消息不动"。
+                if newH > self.keyboardHeight {
+                    self.preKeyboardPinned = self.isNearBottom(80)
+                }
+                self.keyboardHeight = newH
                 AppLogger.shared.info("[Keyboard] height=\(String(format: "%.0f", self.keyboardHeight))",
                                       category: "ChatList.Keyboard")
                 // 触发一次 updateUIViewController 之外的重新计算：直接请求父视图重算 inset。
@@ -86,10 +95,11 @@ extension MessageCollectionView {
             guard let cv = viewController?.collectionView else { return }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
                 guard let self, let cv = self.viewController?.collectionView else { return }
+                let shouldPin = self.preKeyboardPinned ?? self.isNearBottom(80)
                 AppLogger.shared.info(
-                    "[Keyboard] repin cvH=\(String(format: "%.0f", cv.bounds.height)) nearBottom=\(self.isNearBottom(60))",
+                    "[Keyboard] repin cvH=\(String(format: "%.0f", cv.bounds.height)) prePinned=\(self.preKeyboardPinned.map(String.init) ?? "nil") nearBottom=\(self.isNearBottom(80)) → pin=\(shouldPin)",
                     category: "ChatList.Keyboard")
-                guard self.isNearBottom(60), !cv.isTracking, !cv.isDecelerating else { return }
+                guard shouldPin, !cv.isTracking, !cv.isDecelerating else { return }
                 self.scrollToBottomNow(animated: false)
             }
         }
