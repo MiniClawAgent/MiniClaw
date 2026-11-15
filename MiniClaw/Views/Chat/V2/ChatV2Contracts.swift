@@ -131,11 +131,13 @@ enum ChatV2Feature {
     /// 读取设置；默认 false（旧页），验收通过后由用户切换。
     static let defaultsKey = "chat.v2.enabled"
 
-    /// 未设置过 → 默认启用（唐唐 2026-11-16 要求直接上新版）；设置里可切回旧页。
+    /// [2026-11-16 03:05] 默认关闭：V2 的"自 sizing 引擎"在流式场景不成立
+    /// （每次 apply 都会重新测量并重写 offset，导致跳跃与阻尼），先回到稳定的旧页，
+    /// 保留本目录作为视口所有权的试验田，等续写方案落地后再启用。
     static var isEnabled: Bool {
         get {
             let d = UserDefaults.standard
-            return d.object(forKey: defaultsKey) == nil ? true : d.bool(forKey: defaultsKey)
+            return d.object(forKey: defaultsKey) == nil ? false : d.bool(forKey: defaultsKey)
         }
         set { UserDefaults.standard.set(newValue, forKey: defaultsKey) }
     }

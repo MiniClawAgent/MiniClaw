@@ -43,8 +43,12 @@ final class ChatV2ListViewController: UIViewController {
         viewport.handle(.obscuredBottomChanged(delta: after - before))
     }
 
+    private var safeBottom: CGFloat {
+        view.window?.safeAreaInsets.bottom ?? view.safeAreaInsets.bottom
+    }
+
     private var obscuredBottom: CGFloat {
-        composerHeight + keyboardHeight + ChatV2Metrics.bottomGap
+        composerHeight + keyboardHeight + safeBottom + ChatV2Metrics.bottomGap
     }
 
     // MARK: - 组件
@@ -147,20 +151,23 @@ final class ChatV2ListViewController: UIViewController {
         snapshot.appendSections([0])
         snapshot.appendItems(newRows.map(\.id), toSection: 0)
         // 版本变化 → 只重配，不重建（保住 cell 与滚动位置）。
-        let changed = newRows.filter { row in
-            diffable.snapshot().itemIdentifiers.contains(row.id) && lastVersion[row.id] != row.version
-        }.map(\.id)
-        if !changed.isEmpty { snapshot.reconfigureItems(changed) }
         lastVersion = Dictionary(uniqueKeysWithValues: newRows.map { ($0.id, $0.version) })
 
+        UIView.performWithoutAnimation {
+            self.collectionView.collectionViewLayout.invalidateLayout()
+        }
         diffable.apply(snapshot, animatingDifferences: false) { [weak self] in
             guard let self else { return }
             self.view.layoutIfNeeded()
             let newHeight = self.collectionView.contentSize.height
             let delta = newHeight - oldHeight
             self.lastContentHeight = newHeight
-            AppLogger(category: "BottomPad").info(
-                "[V2] apply rows=\(self.rows.count) h=\(String(format: "%.0f", newHeight)) Δ=\(String(format: "%.0f", delta)) pinned=\(self.viewport.isPinnedToBottom) inset=\(String(format: "%.0f", self.collectionView.contentInset.bottom)) offY=\(String(format: "%.0f", self.collectionView.contentOffset.y))")
+            AppLogger.shared.info(
+                "[V2] apply rows=\(self.rows.count) h=\(String(format: "%.0f", newHeight)) Δ=\(String(format: "%.0f", delta)) pinned=\(self.viewport.isPinnedToBottom) inset=\(String(format: "%.0f", self.collectionView.contentInset.bottom)) offY=\(String(format: "%.0f", self.collectionView.contentOffset.y))",
+                category: "BottomPad")
+            let viewportH = self.collectionView.bounds.height
+            let inset = self.collectionView.contentInset.bottom
+            self.collectionView.isScrollEnabled = newHeight > viewportH - inset
             if delta != 0 {
                 self.viewport.handle(.contentGrewAtBottom(delta: delta))
             }
@@ -213,8 +220,9 @@ final class ChatV2ListViewController: UIViewController {
         )
         viewport.applyOffset = { [weak self] y, animated in
             guard let cv = self?.collectionView else { return }
-            AppLogger(category: "BottomPad").info(
-                "[V2] writeOffset \(String(format: "%.0f", cv.contentOffset.y))→\(String(format: "%.0f", y)) animated=\(animated)")
+            AppLogger.shared.info(
+                "[V2] writeOffset \(String(format: "%.0f", cv.contentOffset.y))→\(String(format: "%.0f", y)) animated=\(animated)",
+                category: "BottomPad")
             cv.setContentOffset(CGPoint(x: 0, y: y), animated: animated)
         }
         viewport.applyBottomInset = { [weak self] inset in
@@ -236,8 +244,9 @@ final class ChatV2ListViewController: UIViewController {
             self.keyboardHeight = overlap
             let after = self.obscuredBottom
             if abs(after - before) > 0.5 {
-                AppLogger(category: "BottomPad").info(
-                    "[V2] keyboard overlap=\(String(format: "%.0f", overlap)) obscured \(String(format: "%.0f", before))→\(String(format: "%.0f", after))")
+                AppLogger.shared.info(
+                    "[V2] keyboard overlap=\(String(format: "%.0f", overlap)) obscured \(String(format: "%.0f", before))→\(String(format: "%.0f", after))",
+                    category: "BottomPad")
                 self.viewport.handle(.obscuredBottomChanged(delta: after - before))
             }
         }
