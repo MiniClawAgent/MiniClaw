@@ -194,15 +194,13 @@ extension MessageCollectionView {
             let baseHeight = preKeyboardBoundsHeight ?? cv.bounds.height
             let postHeight = max(1, baseHeight - overlap)
             let target = max(0, cv.contentSize.height - postHeight + cv.contentInset.bottom)
-            let opts = UIView.AnimationOptions(rawValue: UInt(max(0, curve)) << 16)
             AppLogger.shared.info(
                 "[Keyboard] animate pin \(String(format: "%.0f", cv.contentOffset.y))→\(String(format: "%.0f", target)) dur=\(String(format: "%.3f", duration))",
                 category: "ChatList.Keyboard")
-            UIView.animate(withDuration: duration > 0 ? duration : 0.25,
-                           delay: 0,
-                           options: [opts, .beginFromCurrentState]) {
-                cv.contentOffset.y = target
-            }
+            // [2026-11-16 04:11] 不用 UIView.animate 改 contentOffset：
+            // 它与系统压缩列表的动画是两套，叠加后会出现"先冲高再回落"。
+            // 改用 UIScrollView 自带的动画，UIKit 会按自己的几何/时间曲线处理。
+            cv.setContentOffset(CGPoint(x: 0, y: target), animated: true)
         }
 
         private func reapplyInsetAfterKeyboardChange() {
