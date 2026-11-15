@@ -1241,10 +1241,14 @@ public struct MessageCollectionView: UIViewControllerRepresentable {
         // [2026-11-16 视口单源] 底部遮挡 = 输入栏 + 浮动栏 + 底部安全区 + 键盘 + 8。
         // 不再按键盘态做减法：减法等于假设"列表会被系统压缩"，而真机日志（cvH 恒 874）说明没有。
         // 键盘高度由 Coordinator 观察 keyboardWillChangeFrame 维护。
+        // [2026-11-16 03:30] 键盘展开时 home indicator 已被键盘盖住，安全区**不应**再计入：
+        // 多算 34pt 正是"内容与输入栏之间那道空档"的来源（截图 03:28）。
+        let safeContribution = coord.keyboardHeight > 0 ? 0 : bottomSafe
         let bottomPadVal: CGFloat = inputBarHeight
             + floatingBarHeight
             + 8
-            + bottomSafe
+            + safeContribution
+        AppLogger.shared.info("[ChatUI] build=0330 inset=\(String(format: "%.0f", bottomPadVal)) kb=\(String(format: "%.0f", coord.keyboardHeight)) safe=\(String(format: "%.0f", bottomSafe))", category: "ChatList.Keyboard")
         let baseChanged = abs(coord.baseBottomInset-bottomPadVal)>0.5
         if baseChanged {
             let cv = vc.collectionView!
