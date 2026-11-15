@@ -1285,6 +1285,15 @@ struct ChatView: View {
         .onChange(of: chatBridge.vm.isNearBottom) { near in
             isNearBottom = near
         }
+        // [2026-11-16 03:52] 点输入框外收起键盘时，UIKit 只 resign 了 responder，
+        // SwiftUI 的焦点仍是 true（日志实证 focused=1）⇒ 没有焦点变化 ⇒ 收起路径与
+        // "下滑收起"不一致（后者 focused=0，动画衔接顺）。
+        // 这里把焦点状态同步掉，让两条路径走同一条处理链。
+        .simultaneousGesture(
+            TapGesture().onEnded {
+                if isInputFocused { isInputFocused = false }
+            }
+        )
     }
 
     /// 适配列表(移植组件,默认路径),miniclaw.debug.chatList 开启时使用)
