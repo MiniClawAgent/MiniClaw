@@ -92,6 +92,12 @@ final class MarkdownTextView: UITextView,UIGestureRecognizerDelegate {
     /// 代价：内容最多晚 80ms 反映到高度上，肉眼不可见。
     private var lastMeasureAt: CFTimeInterval = 0
     private var pendingMeasureWork: DispatchWorkItem?
+    /// 冻结期（拖动/减速）跳过测量的单元格，由 settle 统一补测一次。
+    ///
+    /// 为什么不用 0.6s 重试：真机日志（20:21）显示一次拖动内 `[DeferRetry]` 出现 **311 次**，
+    /// 而 `stfMs` 峰值 **467ms/秒** —— 重试风暴本身就是卡顿源。改为"冻结期零测量 +
+    /// settle 后一次性 reconfigure"，把整段手势的测量成本压成 1 次。
+    static var pendingPostFreezeRemeasure = false
     /// Armed when a REAL height change was
     /// skipped. Guarantees one post-settle retry of invalidateCellSizeIfChanged
     private var pendingDeferredRemeasure = false
@@ -1275,6 +1281,13 @@ final class MarkdownTextView: UITextView,UIGestureRecognizerDelegate {
         if isInvalidatingCellSize {
             reentryGuardHits &+= 1
             cellSizeLogger.warning("[AttachHang][CellMetrics] RE-ENTRY BLOCKED hits=\(self.reentryGuardHits) tcW=\(String(format: "%.0f", self.textContainer.size.width)) lastH=\(String(format: "%.1f", self.lastComputedHeight))")
+            return
+        }
+        // [2026-11-15 拖动掉帧] 手势冻结期**不测量**：测量是 O(文本长度) 的 TextKit 全排，
+        // 拖动期反复量一次就是几百 ms/秒（真机 stfMs 峰值 467ms）。
+        // 只置一个标记，settle 解冻后统一 reconfigure 补测（见 `pendingPostFreezeRemeasure`）。
+        if (findCollectionView()?.collectionViewLayout as? MessageListLayout)?.deferSelfSizing == true {
+            Self.pendingPostFreezeRemeasure = true
             return
         }
         let measureWidth: CGFloat = bounds.width>1 ? bounds.width : textContainer.size.width

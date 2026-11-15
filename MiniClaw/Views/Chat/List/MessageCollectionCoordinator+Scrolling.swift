@@ -1097,6 +1097,12 @@ extension MessageCollectionView.Coordinator {
             layout.suppressContentOffsetAdjustment = true
             layout.invalidateLayout()
             layout.suppressContentOffsetAdjustment = false
+
+            // 冻结期跳过了测量的单元格，在这里补一次（整段手势只补这一次）。
+            if MarkdownTextView.pendingPostFreezeRemeasure {
+                MarkdownTextView.pendingPostFreezeRemeasure = false
+                reconfigureVisibleCells()
+            }
             // [2026-09-12] 上面那次强制重排**关闭了布局自带的 offset 补偿**，所以期间发生的
             // 「视口上方高度变化」没有任何锚定（真机实测 aboveΣ=-183.7pt）⇒ 停手瞬间整屏平移。
             // 这里把这批量一次性锚回，与 `aboveSum`（延后项）相加，两者互不重叠。
