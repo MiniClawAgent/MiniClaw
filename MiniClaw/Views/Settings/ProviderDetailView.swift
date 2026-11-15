@@ -220,7 +220,16 @@ struct ProviderDetailView: View {
         .sheet(isPresented: $showAddModel) {
             NavigationStack {
                 CustomModelEditorView(initial: ModelConfig(), provider: draft, isNew: true) { newModel in
-                    draft.models.append(newModel)
+                    // 标记为用户自定义：刷新模型时不能因为接口没返回它就被剔除
+                    var saved = newModel
+                    saved.isCustom = true
+                    // 同 ID 已存在（用户手填了接口也会返回的模型）时覆盖而不是并列，
+                    // 否则后续按 modelId 建字典会撞键。
+                    if let idx = draft.models.firstIndex(where: { $0.modelId == saved.modelId }) {
+                        draft.models[idx] = saved
+                    } else {
+                        draft.models.append(saved)
+                    }
                     persist()
                 }
             }
@@ -542,28 +551,13 @@ struct ProviderDetailView: View {
         modelFetchNotice = nil
         draft.modelFetchError = nil
         draft.modelFetchNotice = nil
-        let previousModels = Dictionary(
-                uniqueKeysWithValues: draft.models.map { ($0.modelId, $0) }
-            )
-        draft.models = models.map { fetched in
-            guard var existing = previousModels[fetched.modelId] else { return fetched }
-            // 用户手动改过名称则不再被拉取覆盖
-            if !fetched.displayName.isEmpty, existing.userRenamed != true {
-                existing.displayName = fetched.displayName
-            }
-            if fetched.contextLimit > 0 {
-                existing.contextLimit = fetched.contextLimit
-            }
-            if let maxOutputTokens = fetched.maxOutputTokens {
-                existing.maxOutputTokens = maxOutputTokens
-            }
-            existing.deepThinking = fetched.deepThinking
-            // 模态开关：统一交给 BuiltinModelInfo.reconcile（厂商适配器目录为准 + 语音启发式兜底），
-            // 不在此处重复手写易错的重置/回填逻辑。
-            let info = LLMProviderFactory.modelCapabilities(providerType: draft.providerType, modelID: fetched.modelId)
-            BuiltinModelInfo.reconcile(info, modelId: fetched.modelId, config: &existing)
-            return existing
-        }
+        // 合并规则见 ProviderModelMerge（纯函数，有单元测试覆盖）：
+        // 接口返回的更新元数据，接口没返回的一律保留（并集），同 modelId 去重。
+        draft.models = ProviderModelMerge.merge(
+            existing: draft.models,
+            fetched: models,
+            providerType: draft.providerType
+        )
         persist()
 
         // 仅当全局尚未选中任何默认模型时才默认选中第一个；

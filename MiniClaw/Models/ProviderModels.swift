@@ -435,6 +435,13 @@ struct ModelConfig: Identifiable, Codable, Equatable, Hashable {
     var maxOutputTokens: Int?
     /// 隐藏后不在模型组模型选项和添加列表中出现。Optional 用于兼容旧 providers.json。
     var isHidden: Bool?
+    /// 用户手动添加的自定义模型（不是服务商 `/v1/models` 返回的）。
+    ///
+    /// 存在的理由：刷新模型时接口只返回它自己认识的模型，用户手填的模型必然缺席。
+    /// 没有这个标记，刷新就只能按 modelId 求交集 ⇒ 自定义模型被整表替换掉；
+    /// 持久层 `syncModelEntries` 的 `!entry.isCustom` 保护也会因为标记恒为 false 而失效。
+    /// Optional 用于兼容旧 providers.json（缺失 ≡ false）。
+    var isCustom: Bool?
     /// 输入模态
     /// 文本输入：LLM 的通用基线能力，默认开启（以 `text` 作为文本输入的标准模态，
     /// 厂商 API 一般不单独暴露 `document` 作为输入模态类型）。
@@ -455,6 +462,11 @@ struct ModelConfig: Identifiable, Codable, Equatable, Hashable {
 
     var hidden: Bool {
         isHidden ?? false
+    }
+
+    /// 是否用户自定义模型（缺省非自定义）。
+    var custom: Bool {
+        isCustom ?? false
     }
 
     /// 将模型 ID 规整为「每个单词首字母大写」的显示名。

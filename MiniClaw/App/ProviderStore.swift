@@ -107,7 +107,12 @@ enum ProviderFileStore {
             c.providers[i].models = c.modelEntries
                 .filter { $0.providerInstanceId == pid }
                 .sorted { $0.baseModel.modelId < $1.baseModel.modelId }
-                .map { $0.model } // 合并 baseModel + overrides
+                .map { entry in
+                    var m = entry.model // 合并 baseModel + overrides
+                    // 标记存在条目上（baseModel 可能来自旧版本、没有该字段）⇒ 回填时以条目为准
+                    if entry.isCustom { m.isCustom = true }
+                    return m
+                }
         }
         return c
     }
@@ -167,21 +172,31 @@ enum ProviderFileStore {
                 if let idx = entries.firstIndex(where: { $0.compositeKey == compositeKey }) {
                     // 更新 baseModel（API 报告值），保留 overrides
                     entries[idx].baseModel = model
+                    // 自定义是「来源属性」，一旦成立就不再退化（接口后来也返回同名模型时保持）
+                    entries[idx].isCustom = entries[idx].isCustom || model.custom
                 } else {
                     // 新模型：创建条目（无 overrides）
                     entries.append(ModelEntry(
                         providerInstanceId: provider.id,
                         model: model,
-                        isCustom: false,
+                        // 标记必须随模型带来：此前恒写 false，导致下方「自定义模型不删除」
+                        // 的保护形同虚设（刷新即被删除）。
+                        isCustom: model.custom,
                         isHidden: model.isHidden ?? false
                     ))
                 }
             }
-            // 删除不再存在的模型条目（API 已不返回）
+            // 删除不在 provider.models 里的条目。
+            //
+            // 注意：这里的判据**不能**是「API 没返回」——provider.models 是权威列表，
+            // 它已经在上游（applyFetchedModels）把接口未返回的既有模型并进来了。
+            // 曾经这里写 `!entry.isCustom`，本意是保护自定义模型，实际造成两个问题：
+            //   ① 标记恒为 false（从未写 true）⇒ 保护不生效，刷新即删（用户报的 bug）
+            //   ② 标记真的生效后 ⇒ 用户主动删除的自定义模型会被"保护"复活
+            // 现在删除只看「是否还在权威列表里」，两种情况都正确。
             let currentModelIds = Set(provider.models.map { $0.modelId })
             entries.removeAll { entry in
                 entry.providerInstanceId == provider.id &&
-                !entry.isCustom && // 自定义模型不删除
                 !currentModelIds.contains(entry.baseModel.modelId)
             }
         }
