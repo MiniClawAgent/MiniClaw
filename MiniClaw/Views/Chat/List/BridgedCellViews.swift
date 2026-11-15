@@ -275,7 +275,10 @@ struct BridgedAssistantFooter: View {
             }
 
             if bridge.canResume && message.error == nil {
-                resumeBanner
+                // [2026-11-16 唐唐] 与「已完成」同款状态行：同样的高度/宽度/图标字号/衬距。
+                // 右侧「继续」按钮已移除——继续动作统一由输入框的发送键承担
+                //（ChatInputBar: 暂停 + 空输入 = 继续；有输入 = 入队发送）。
+                statusRow(icon: "pause.circle.fill", color: .orange, key: "pause_resume_hint")
             }
 
             if message.streamInterruptCount>0 || bridge.showUsage {
@@ -395,33 +398,6 @@ struct BridgedAssistantFooter: View {
         .background(Color.red.opacity(0.12)).clipShape(RoundedRectangle(cornerRadius: 10))
     }
 
-    var resumeBanner: some View {
-        HStack(alignment: .center,spacing: 8) {
-            HStack(spacing: 6) {
-                Image(systemName: "pause.circle.fill").font(.system(size: 13)).foregroundStyle(.orange)
-                Text(String(localized: "pause_resume_hint")).font(.system(size: 13)).foregroundStyle(.secondary)
-            }
-            Spacer()
-            if let onResume = bridge.onResume {
-                Button(action: onResume) {
-                    HStack(spacing: 3) {
-                        Image(systemName: "play.fill").font(.system(size: 11,weight: .semibold))
-                        Text(String(localized: "继续")).font(.system(size: 12,weight: .semibold))
-                    }
-                    .foregroundStyle(.white)
-                    .padding(.horizontal,10).padding(.vertical,4)
-                    .background(Color.orange).clipShape(Capsule())
-                }
-            }
-        }
-        .padding(.horizontal,12).frame(maxWidth: .infinity,alignment: .leading)
-        .frame(height: 36)
-        .background(Color(UIColor.systemGray6)).clipShape(RoundedRectangle(cornerRadius: 12))
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(Color.gray.opacity(0.35),lineWidth: 0.5)
-        )
-    }
 
     @ViewBuilder
     func usageCapsule(_ usage: TokenUsage) -> some View {
