@@ -229,7 +229,13 @@ public final class MessageListLayout: UICollectionViewLayout {
         // 判据：正在流式的行，拒绝**任何比当前条目更矮**的写入（估算/预演都算）。
         // 实测变高（PLAF）照常放行 ⇒ 高度单调增长，delta 从数百 pt 降到几十 pt。
         // 流式结束后 `streamingCellRanges` 清空，本闸门自动失效，收缩恢复正常。
+        //
+        // ⚠️ 只拦**非实测**的收缩。PLAF 的 `.measured` 是唯一真值来源 —— 早期版本把实测收缩
+        // 也拦了，后果是：某行先被兜底/估算撑大（如 200pt），实测说它其实只有 42pt 时被拒绝，
+        // 于是那行永久停在虚高值上，直到流式结束才允许收缩 ⇒ 界面上就是一大片空白
+        // （真机 2026-11-15 20:26 复现，日志 `[CellSizing] REJECT ... height=42`）。
         if isStreamingCell(index),
+           source != .measured,
            let existing = currentEntry(at: index),
            height < existing.height {
             return false
