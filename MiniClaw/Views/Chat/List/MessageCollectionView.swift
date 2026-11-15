@@ -87,8 +87,11 @@ extension MessageCollectionView {
                     self.preKeyboardPinned = self.lastKnownPinned
                 }
                 self.keyboardHeight = newH
-                AppLogger.shared.info("[Keyboard] height=\(String(format: "%.0f", self.keyboardHeight))",
-                                      category: "ChatList.Keyboard")
+                let duration = (note.userInfo?[UIResponder.keyboardAnimationDurationUserInfoKey] as? Double) ?? -1
+                let curve = (note.userInfo?[UIResponder.keyboardAnimationCurveUserInfoKey] as? Int) ?? -1
+                AppLogger.shared.info(
+                    "[Keyboard] height=\(String(format: "%.0f", self.keyboardHeight)) dur=\(String(format: "%.3f", duration)) curve=\(curve) focused=\(self.lastInputFocused ? 1 : 0) cvH=\(String(format: "%.0f", cv.bounds.height))",
+                    category: "ChatList.Keyboard")
                 // [2026-11-16 03:38] 弹出时必须**直接**重算 inset：
                 // 第二次弹键盘时焦点没变化 ⇒ SwiftUI 不重绘 ⇒ updateUIViewController 不跑
                 // ⇒ inset 停在上一次的值（真机日志：第二次没有 [ChatUI] 行，仍是 103）。
