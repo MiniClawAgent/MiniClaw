@@ -54,11 +54,17 @@ extension MessageCollectionView {
         /// contentInset.bottom — it reads this base and adds overflowH.
         public var baseBottomInset: CGFloat = 0
 
+        /// 用户是否停在底部（持续维护；只在拖动/惯性期间更新）。
+        /// 键盘事件只读它，不在回调里临时计算——那时 bounds 可能已被压缩，算了也是错的。
+        var lastKnownPinned: Bool = true
+
         /// 键盘遮挡高度。[2026-11-16 视口单源] 由键盘通知写入，直接进 inset 公式。
         /// 旧实现按 `kbUp ? 0 : …` 做减法（假设列表被系统压缩），真机 cvH 恒 874 证明没有压缩。
         public var keyboardHeight: CGFloat = 0
-        /// 键盘弹起**之前**用户是否贴在底部（决定弹起后要不要补贴底）。
+        /// 键盘弹起**之前**用户是否贴在底部（来自 lastKnownPinned 的快照）。
         private var preKeyboardPinned: Bool?
+
+
         private var keyboardObserver: NSObjectProtocol?
 
         /// 观察键盘：只记录"键盘遮挡了多少"，不在这里改 offset（改 offset 由 inset 变化统一驱动）。
@@ -77,7 +83,8 @@ extension MessageCollectionView {
                 // 键盘一弹，cvH 874→546，maxOff 立刻增大 328，事后再判 isNearBottom 必然为 false
                 // ⇒ 之前"补一次贴底"永远不执行，表现为"输入法弹出但消息不动"。
                 if newH > self.keyboardHeight {
-                    self.preKeyboardPinned = self.isNearBottom(80)
+                    // 只读持续维护的状态，不在此时计算（此时 bounds 可能已被压缩）。
+                    self.preKeyboardPinned = self.lastKnownPinned
                 }
                 self.keyboardHeight = newH
                 AppLogger.shared.info("[Keyboard] height=\(String(format: "%.0f", self.keyboardHeight))",
@@ -95,12 +102,13 @@ extension MessageCollectionView {
             guard let cv = viewController?.collectionView else { return }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
                 guard let self, let cv = self.viewController?.collectionView else { return }
-                let shouldPin = self.preKeyboardPinned ?? self.isNearBottom(80)
+                let shouldPin = self.preKeyboardPinned ?? self.lastKnownPinned
                 AppLogger.shared.info(
                     "[Keyboard] repin cvH=\(String(format: "%.0f", cv.bounds.height)) prePinned=\(self.preKeyboardPinned.map(String.init) ?? "nil") nearBottom=\(self.isNearBottom(80)) → pin=\(shouldPin)",
                     category: "ChatList.Keyboard")
                 guard shouldPin, !cv.isTracking, !cv.isDecelerating else { return }
                 self.scrollToBottomNow(animated: false)
+                self.lastKnownPinned = true
             }
         }
 

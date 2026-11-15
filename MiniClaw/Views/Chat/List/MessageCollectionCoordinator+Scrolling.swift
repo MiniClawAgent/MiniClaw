@@ -314,6 +314,7 @@ extension MessageCollectionView.Coordinator {
                 DispatchQueue.main.async { [weak self] in self?.syncScrollFlags() }
             } else {
                 cv.contentOffset = target
+                lastKnownPinned = true
                 syncScrollFlags()
             }
         }
@@ -852,6 +853,7 @@ extension MessageCollectionView.Coordinator {
         }
 
         public func scrollViewDidEndDragging(_ scrollView: UIScrollView,willDecelerate decelerate: Bool) {
+            if !decelerate { lastKnownPinned = isNearBottom(80) }
             if !decelerate {
                 settleAfterInteraction(scrollView)
             }
@@ -877,6 +879,8 @@ extension MessageCollectionView.Coordinator {
         }
 
         public func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) {
+            // [2026-11-16] 停止后刷新一次：拖动期最后一次采样可能还没到底。
+            lastKnownPinned = isNearBottom(80)
             // [Decel] DECELERATION END — summarize the phase: total
             if decelStartTime>0 {
                 #if DEBUG
@@ -1011,7 +1015,12 @@ extension MessageCollectionView.Coordinator {
             }
         }
 
+        /// [2026-11-16] 该属性的存储声明在 Coordinator 类体（MessageCollectionView.swift）；
+        /// 扩展里不能放存储属性。这里只做维护：**仅在用户交互期间**更新。
         public func scrollViewDidScroll(_ scrollView: UIScrollView) {
+            if scrollView.isTracking || scrollView.isDecelerating {
+                lastKnownPinned = isNearBottom(80)
+            }
             // [Decel] Detect dropped frames during the deceleration phase
             // (cheap: early-returns unless decelerating + frame gapH exceeded).
             logDecelFrameIfSlow(scrollView)
