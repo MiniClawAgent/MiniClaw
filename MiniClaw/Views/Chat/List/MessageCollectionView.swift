@@ -142,6 +142,10 @@ extension MessageCollectionView {
                 self.keyboardDismissPan?.isEnabled = kbUp
                 if newH > 0 {
                     self.applyInsetForKeyboardState()
+                    // [2026-11-16 04:07] 弹出也要有动画：只动画 **offset**（不动 inset），
+                    // 时长/曲线取系统键盘参数，与列表压缩动画同步。
+                    // 之前是 0.3s 后硬贴一次 ⇒ 用户看到"突然一瞬间弹上去"。
+                    self.animatePinForKeyboard(overlap: newH, duration: duration, curve: curve)
                     self.reapplyInsetAfterKeyboardChange()
                 } else {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in
@@ -176,6 +180,24 @@ extension MessageCollectionView {
         }
 
         /// inset 变化后：贴底就重新贴底（键盘顶起内容 = 用户要的行为）。
+        /// 键盘弹出时把内容**动画**顶上去（只动 offset，不动 inset）。
+        /// 目标按"压缩后的高度"估算：此刻 bounds 还是旧值，用 overlap 预推。
+        func animatePinForKeyboard(overlap: CGFloat, duration: Double, curve: Int) {
+            guard let cv = viewController?.collectionView, keyboardHeight > 0,
+                  preKeyboardPinned ?? lastKnownPinned else { return }
+            let postHeight = max(1, cv.bounds.height - overlap)
+            let target = max(0, cv.contentSize.height - postHeight + cv.contentInset.bottom)
+            let opts = UIView.AnimationOptions(rawValue: UInt(max(0, curve)) << 16)
+            AppLogger.shared.info(
+                "[Keyboard] animate pin \(String(format: "%.0f", cv.contentOffset.y))→\(String(format: "%.0f", target)) dur=\(String(format: "%.3f", duration))",
+                category: "ChatList.Keyboard")
+            UIView.animate(withDuration: duration > 0 ? duration : 0.25,
+                           delay: 0,
+                           options: [opts, .beginFromCurrentState]) {
+                cv.contentOffset.y = target
+            }
+        }
+
         private func reapplyInsetAfterKeyboardChange() {
             // [2026-11-16 真机实测] 键盘弹起时 cvH 874→546：列表**已被系统压缩**，
             // 因此这里只按新的 bounds 补一次贴底，绝不把键盘高度再写进 inset（那是重复计入）。
