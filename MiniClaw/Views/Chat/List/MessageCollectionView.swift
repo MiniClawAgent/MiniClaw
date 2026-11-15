@@ -91,8 +91,6 @@ extension MessageCollectionView {
         public var keyboardHeight: CGFloat = 0
         /// 键盘弹起**之前**用户是否贴在底部（来自 lastKnownPinned 的快照）。
         private var preKeyboardPinned: Bool?
-        /// 键盘弹起前一刻的列表高度（用于准确推算压缩后的底边）。
-        private var preKeyboardBoundsHeight: CGFloat?
 
 
         private var keyboardObserver: NSObjectProtocol?
@@ -115,9 +113,6 @@ extension MessageCollectionView {
                 if newH > self.keyboardHeight {
                     // 只读持续维护的状态，不在此时计算（此时 bounds 可能已被压缩）。
                     self.preKeyboardPinned = self.lastKnownPinned
-                    // [2026-11-16 04:09] 同时记下**压缩前**的高度：目标 offset 必须用它算，
-                    // 否则若 SwiftUI 已经缩过，再减一次 overlap ⇒ 目标过高 ⇒ 先冲上去再被兜底拉回。
-                    self.preKeyboardBoundsHeight = cv.bounds.height
                 }
                 self.keyboardHeight = newH
                 let duration = (note.userInfo?[UIResponder.keyboardAnimationDurationUserInfoKey] as? Double) ?? -1
@@ -150,7 +145,6 @@ extension MessageCollectionView {
                     // [2026-11-16 04:20 按要求恢复] 等待布局稳定（0.3s）后**算准 maxOff**，
                     // 再用一次 setContentOffset(animated:) 到位。
                     // 这是用户认可的"位置最准"的版本；代价是起步略慢半拍。
-                    // 暂不使用 animatePinForKeyboard（保留实现，便于以后对比）。
                     self.reapplyInsetAfterKeyboardChange()
                 } else {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in
@@ -185,50 +179,6 @@ extension MessageCollectionView {
         }
 
         /// inset 变化后：贴底就重新贴底（键盘顶起内容 = 用户要的行为）。
-        /// 键盘弹出时把内容**动画**顶上去（只动 offset，不动 inset）。
-        /// 目标按"压缩后的高度"估算：此刻 bounds 还是旧值，用 overlap 预推。
-        func animatePinForKeyboard(overlap: CGFloat, duration: Double, curve: Int) {
-            guard let cv = viewController?.collectionView, keyboardHeight > 0,
-                  preKeyboardPinned ?? lastKnownPinned else { return }
-            // [2026-11-16 04:16] 不再依赖任何 bounds：键盘挡住多少，内容就上移多少。
-            // 之前用「压缩前高度 − 键盘高度」算目标，但那一刻列表往往已被 SwiftUI 缩过，
-            // 记录到的"压缩前高度"其实是压缩后的 ⇒ 再减一次 ⇒ 目标过高 ⇒ 冲高。
-            // 现在只用两个稳定量：当前 offset + 键盘遮挡高度。
-            let rawTarget = cv.contentOffset.y + overlap
-            let hardLimit = max(0, cv.contentSize.height - 1)
-            let target = min(rawTarget, hardLimit)
-            AppLogger.shared.info(
-                "[Keyboard] animate pin \(String(format: "%.0f", cv.contentOffset.y))→\(String(format: "%.0f", target)) dur=\(String(format: "%.3f", duration))",
-                category: "ChatList.Keyboard")
-            // [2026-11-16 04:11] 不用 UIView.animate 改 contentOffset：
-            // 它与系统压缩列表的动画是两套，叠加后会出现"先冲高再回落"。
-            // 改用 UIScrollView 自带的动画，UIKit 会按自己的几何/时间曲线处理。
-            // [2026-11-16 04:18] 起点对齐到系统压缩开始的那一帧，时长用键盘自己的时长：
-            // 之前 setContentOffset(animated:) 用固定 0.25s，与键盘 0.383s 不同步
-            // ⇒ 先慢后冲。这里用同一时长 + 下一帧启动。
-            let animDur = duration > 0 ? duration : 0.35
-            let curveRaw2 = max(0, curve)
-            let opts2 = UIView.AnimationOptions(rawValue: UInt(curveRaw2) << 16)
-            DispatchQueue.main.async {
-                UIView.animate(withDuration: animDur, delay: 0,
-                               options: [opts2, .beginFromCurrentState]) {
-                    cv.contentOffset.y = target
-                }
-            }
-
-            // 终点校正：动画结束后与真实底边比对，误差 > 4pt 才静默补齐（并记录），
-            // 保证"估算偏差"不会把内容停在错误位置，同时不制造可见抖动。
-            DispatchQueue.main.asyncAfter(deadline: .now() + (duration > 0 ? duration : 0.25) + 0.05) { [weak cv] in
-                guard let cv else { return }
-                let trueMax = cv.contentSize.height - cv.bounds.height + cv.contentInset.bottom
-                let diff = trueMax - cv.contentOffset.y
-                guard abs(diff) > 4, !cv.isTracking, !cv.isDecelerating else { return }
-                AppLogger.shared.info(
-                    "[Keyboard] settle fix \(String(format: "%.0f", cv.contentOffset.y))→\(String(format: "%.0f", trueMax)) Δ=\(String(format: "%.0f", diff))",
-                    category: "ChatList.Keyboard")
-                cv.setContentOffset(CGPoint(x: 0, y: max(0, trueMax)), animated: false)
-            }
-        }
 
         private func reapplyInsetAfterKeyboardChange() {
             // [2026-11-16 真机实测] 键盘弹起时 cvH 874→546：列表**已被系统压缩**，

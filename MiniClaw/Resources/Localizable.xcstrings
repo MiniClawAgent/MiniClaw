@@ -66239,34 +66239,6 @@
           }
         }
       }
-    },
-    "chat_v2_toggle": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "New chat screen (experimental)"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "新版会话页（实验）"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "新しいチャット画面（試験）"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "새 채팅 화면(실험)"
-          }
-        }
-      }
     }
   },
   "version": "1.0"

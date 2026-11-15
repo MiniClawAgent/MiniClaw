@@ -37,11 +37,7 @@ struct GeneralSettingsView: View {
                 // 默认关闭：开着等于允许 AI 访问内网（路由器后台/NAS/本地服务），
                 // 也可能被网页里藏的指令利用，所以交给用户显式开启。
                 Toggle(String(localized: "allow_private_network"), isOn: $browser.allowPrivateNetwork)
-                // 会话页新版开关：出问题时一键切回旧页（两个版本共用同一数据源）。
-                Toggle(String(localized: "chat_v2_toggle"), isOn: Binding(
-                    get: { ChatV2Feature.isEnabled },
-                    set: { ChatV2Feature.isEnabled = $0 }
-                ))
+
                 Toggle(String(localized: "open_in_builtin_browser"), isOn: Binding(
                     get: { MiniClawOpenURLHandler.openLinksInline() },
                     set: { UserDefaults.standard.set($0, forKey: MiniClawOpenURLHandler.openLinksInlineKey) }

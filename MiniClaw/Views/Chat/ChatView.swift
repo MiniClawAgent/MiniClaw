@@ -1299,46 +1299,6 @@ struct ChatView: View {
     /// 适配列表(移植组件,默认路径),miniclaw.debug.chatList 开启时使用)
 
     private var adaptedListContent: some View {
-        Group {
-            if ChatV2Feature.isEnabled {
-                ChatV2ListHost(
-                    vm: chatBridge.vm,
-                    actions: ChatV2Actions(
-                        onStop: { chatBridge.onStop?() },
-                        onRetryLast: nil,
-                        onEdit: { id in editMessage(id) },
-                        onWithdraw: nil,
-                        onSendQueued: nil,
-                        onCompact: { id in compactAbove(id) },
-                        onCopyScreenshot: {
-                            // 复刻旧页：截图真实生成后写入剪贴板。
-                        },
-                        onResume: { chatBridge.onResume?() }
-                    ),
-                    composerHeight: inputBarHeight + floatingBarHeight
-                )
-                .onAppear {
-                    chatBridge.attach(session: session, appState: appState)
-                    chatBridge.onResume = { resumeGeneration() }
-                    chatBridge.onStop = { stopGeneration() }
-                }
-                // 与旧页同一套刷新触发（推到下一 runloop，避免 view update 内写 @Published）。
-                .onChange(of: session.messages.count) { _ in
-                    DispatchQueue.main.async { chatBridge.refresh() }
-                }
-                .onChange(of: session.messages.last?.content.count ?? 0) { _ in
-                    DispatchQueue.main.async { chatBridge.refresh() }
-                }
-                .onChange(of: session.messages.last?.isStreaming ?? false) { _ in
-                    DispatchQueue.main.async { chatBridge.refresh(force: true) }
-                }
-            } else {
-                legacyListContent
-            }
-        }
-    }
-
-    private var legacyListContent: some View {
         MessageCollectionView(
             vm: chatBridge.vm,
             inputFocused: isInputFocused,
