@@ -809,6 +809,21 @@ extension MessageCollectionView.Coordinator {
         }
 
         public func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
+            // [2026-11-16 03:56] 键盘展开时，列表**不接受滚动**：这一下拖拽只用来收键盘。
+            // 原因：键盘态下 bounds 正在变，拖动会与 inset/贴底互相拉扯，表现为抖动。
+            // 语义与"下滑输入框收起"一致，两条路径最终都走同一个焦点处理链。
+            if keyboardHeight > 0 {
+                AppLogger.shared.info("[Scroll] drag while keyboard up → dismiss keyboard, ignore scroll",
+                                      category: "ChatList.Keyboard")
+                scrollView.isScrollEnabled = false
+                scrollView.panGestureRecognizer.isEnabled = false
+                scrollView.panGestureRecognizer.isEnabled = true
+                onRequestDismissKeyboard?()
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak scrollView] in
+                    scrollView?.isScrollEnabled = true
+                }
+                return
+            }
             // [Scroll][willBeginDragging] 逐次日志已删（每次拖动一条、纯偏移陈述）；
             // 滚动诊断由 ScrollStall / Settle / ChatList.CellMetrics 的异常路径日志承载。
             #if DEBUG

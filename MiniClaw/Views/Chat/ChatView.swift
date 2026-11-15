@@ -1342,6 +1342,7 @@ struct ChatView: View {
         MessageCollectionView(
             vm: chatBridge.vm,
             inputFocused: isInputFocused,
+            onRequestDismissKeyboard: { if isInputFocused { isInputFocused = false } },
             onRetryMessage: { messageID in retryMessage(messageID) },
             onEdit: { messageID in editMessage(messageID) },
             onResume: { chatBridge.onResume?() },

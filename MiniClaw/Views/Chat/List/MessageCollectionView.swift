@@ -54,6 +54,9 @@ extension MessageCollectionView {
         /// contentInset.bottom — it reads this base and adds overflowH.
         public var baseBottomInset: CGFloat = 0
 
+        /// 键盘展开时用户试图拖动列表 → 请求宿主收起键盘（不滚动）。
+        public var onRequestDismissKeyboard: (() -> Void)?
+
         /// 用户是否停在底部（持续维护；只在拖动/惯性期间更新）。
         /// 键盘事件只读它，不在回调里临时计算——那时 bounds 可能已被压缩，算了也是错的。
         var lastKnownPinned: Bool = true
@@ -1166,6 +1169,8 @@ extension MessageCollectionView {
 public struct MessageCollectionView: UIViewControllerRepresentable {
     @ObservedObject public var vm: MessageListModel
     public var inputFocused: Bool
+    /// 键盘展开时拖动列表：交给宿主收键盘，本次不滚动。
+    public var onRequestDismissKeyboard: (() -> Void)?
     public var onRetryMessage: ((UUID) -> Void)?
     public var onRetryLast: (() -> Void)?
     public var onEdit: ((UUID) -> Void)?
@@ -1184,6 +1189,7 @@ public struct MessageCollectionView: UIViewControllerRepresentable {
 
     public init(vm: MessageListModel,
                 inputFocused: Bool,
+                onRequestDismissKeyboard: (() -> Void)? = nil,
                 onRetryMessage: ((UUID) -> Void)? = nil,
                 onRetryLast: (() -> Void)? = nil,
                 onEdit: ((UUID) -> Void)? = nil,
@@ -1200,6 +1206,7 @@ public struct MessageCollectionView: UIViewControllerRepresentable {
                 inputBarHeight: CGFloat) {
         self.vm = vm
         self.inputFocused = inputFocused
+        self.onRequestDismissKeyboard = onRequestDismissKeyboard
         self.onRetryMessage = onRetryMessage
         self.onRetryLast = onRetryLast
         self.onEdit = onEdit
@@ -1264,6 +1271,7 @@ public struct MessageCollectionView: UIViewControllerRepresentable {
         coord.onResume = onResume
         coord.onStop = onStop
         coord.onCompact = onCompact
+        coord.onRequestDismissKeyboard = onRequestDismissKeyboard
         coord.onRevertCompact = onRevertCompact
         coord.onForceSync = onForceSync
         coord.onScreenshotImage = onScreenshotImage
