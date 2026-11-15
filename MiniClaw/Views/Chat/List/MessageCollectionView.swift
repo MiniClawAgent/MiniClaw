@@ -104,10 +104,11 @@ extension MessageCollectionView {
                 // （下滑=0、点外面=1，日志实证），而 inset 的硬改没有动画衔接，
                 // 所以只有"点外面"这条路看得出抖。
                 // 统一：inset 变化跟随系统键盘动画（dur/curve 取自通知），两条路径一致。
-                let duration = max(0, (note.userInfo?[UIResponder.keyboardAnimationDurationUserInfoKey] as? Double) ?? 0.25)
-                let curveRaw = (note.userInfo?[UIResponder.keyboardAnimationCurveUserInfoKey] as? Int) ?? 7
+                // 复用上面日志里已经解析出的 duration / curve（避免重复声明）。
+                let animDuration = duration >= 0 ? duration : 0.25
+                let curveRaw = curve >= 0 ? curve : 7
                 let options = UIView.AnimationOptions(rawValue: UInt(curveRaw) << 16)
-                UIView.animate(withDuration: duration, delay: 0, options: [options, .beginFromCurrentState]) {
+                UIView.animate(withDuration: animDuration, delay: 0, options: [options, .beginFromCurrentState]) {
                     self.applyInsetForKeyboardState()
                 }
                 self.reapplyInsetAfterKeyboardChange()
