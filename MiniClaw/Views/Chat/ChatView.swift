@@ -84,6 +84,9 @@ struct ChatView: View {
     /// 普通存储属性无法在其中赋值(Cannot assign to property: 'self' is immutable)。
     @State private var lastLoggedInputBarH: CGFloat = -1
     @State private var latestInputBarFrameH: CGFloat = 0
+    /// 可疑跳变的候选值与连续计数（过滤键盘动画中间帧）。
+    @State private var suspiciousInputBarH: CGFloat = 0
+    @State private var suspiciousInputBarCount: Int = 0
     @State private var didSeedInputBarHeight = false
 
     /// 本会话的进行中运行时（含引擎与流式缓冲区），存活于 AppState、跨视图重建可认领。
@@ -885,16 +888,36 @@ struct ChatView: View {
             .zIndex(1)
             // 照 inputBar 测高:seed 首帧同步 + 380ms debounce + 320ms settle-confirm。
             // .global frame 的 height 不受键盘影响(键盘只改 Y),配合 onscreen 守卫。
-            .onGeometryChange(for: CGRect.self) { proxy in
-                proxy.frame(in: .global)
-            } action: { frame in
-                let newH = frame.size.height
+            // [2026-11-16 03:26 真机实证] `.frame(in: .global).height` 在键盘动画期间会跳
+            // （日志 03:25:14–17 连续四次 61 ↔ 214），inset 跟着 103 ↔ 256 抖 ⇒ 抬起量算错。
+            // 改为读**本地尺寸**，并对"单次跳变过大"的值要求连续两次一致才采纳：
+            // 正常输入栏 61pt，语音面板展开约 214pt —— 只有真正稳定下来才算数。
+            .onGeometryChange(for: CGSize.self) { proxy in
+                proxy.size
+            } action: { size in
+                let newH = size.height
                 guard newH > 0 else { return }
+                let previous = latestInputBarFrameH
+                if previous > 0, abs(newH - previous) > 120 {
+                    // 可疑跳变：要求连续两次一致（过滤动画中间帧/布局错帧）。
+                    if abs(newH - suspiciousInputBarH) < 1 {
+                        suspiciousInputBarCount += 1
+                    } else {
+                        suspiciousInputBarH = newH
+                        suspiciousInputBarCount = 1
+                    }
+                    if suspiciousInputBarCount < 2 {
+                        AppLogger.shared.info(
+                            "[InputBar] ignore suspicious h=\(String(format: "%.0f", newH)) prev=\(String(format: "%.0f", previous))",
+                            category: "ChatList.Keyboard")
+                        return
+                    }
+                }
+                suspiciousInputBarCount = 0
+                suspiciousInputBarH = 0
+                // 本地尺寸下没有全局坐标，onscreen 判定退化为"宽度接近窗口宽"。
                 let hostWindow = inputBarWindowBounds()
-                let paneW = frame.width > 1 ? frame.width : hostWindow.width
-                let tolerance = paneW * 0.25
-                let onscreen = frame.minX >= hostWindow.minX - tolerance
-                    && frame.maxX <= hostWindow.maxX + tolerance
+                let onscreen = size.width > 1 ? abs(size.width - hostWindow.width) <= hostWindow.width * 0.25 : false
                 if onscreen { latestInputBarFrameH = newH }
                 // [KbdDiag 2026-08-11] 输入栏测高全链路日志(照 InputBarLayout):
                 // 每次上报打 frame.height + onscreen,seed/commit 时打结果。
