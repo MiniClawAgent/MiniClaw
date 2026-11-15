@@ -166,7 +166,7 @@ struct BridgedAssistantBlock: View {
 /// 形态切换不再改变行高 ⇒ 底边不会增长 ⇒ 不会再出现"横幅被裁"或"露到输入框下面"。
 /// 错误条（inlineError）是唯一例外：它需要多行，仍按内容自适应。
 enum ChatFooterMetrics {
-    static let height: CGFloat = 40
+    static let height: CGFloat = 24
 }
 
 /// No GeometryReader. Sheet moved to zero-size overlay to prevent
@@ -247,7 +247,7 @@ struct BridgedAssistantFooter: View {
     var body: some View {
         content
             .frame(height: message.error == nil ? ChatFooterMetrics.height : nil,
-                   alignment: .top)
+                   alignment: .center)
     }
 
     private var content: some View {

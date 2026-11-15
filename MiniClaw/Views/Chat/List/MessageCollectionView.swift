@@ -81,15 +81,16 @@ extension MessageCollectionView {
 
         /// inset 变化后：贴底就重新贴底（键盘顶起内容 = 用户要的行为）。
         private func reapplyInsetAfterKeyboardChange() {
+            // [2026-11-16 真机实测] 键盘弹起时 cvH 874→546：列表**已被系统压缩**，
+            // 因此这里只按新的 bounds 补一次贴底，绝不把键盘高度再写进 inset（那是重复计入）。
             guard let cv = viewController?.collectionView else { return }
-            let base = inputBarHeightCache + floatingBarHeightCache + 8
-                + (viewController?.collectionView.safeAreaInsets.bottom ?? 0)
-                + keyboardHeight
-            if abs(cv.contentInset.bottom - base) > 0.5 {
-                cv.contentInset.bottom = base
-            }
-            if isNearBottom(60) && !cv.isTracking && !cv.isDecelerating {
-                scrollToBottomNow(animated: false)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
+                guard let self, let cv = self.viewController?.collectionView else { return }
+                AppLogger.shared.info(
+                    "[Keyboard] repin cvH=\(String(format: "%.0f", cv.bounds.height)) nearBottom=\(self.isNearBottom(60))",
+                    category: "ChatList.Keyboard")
+                guard self.isNearBottom(60), !cv.isTracking, !cv.isDecelerating else { return }
+                self.scrollToBottomNow(animated: false)
             }
         }
 
@@ -1226,7 +1227,6 @@ public struct MessageCollectionView: UIViewControllerRepresentable {
             + floatingBarHeight
             + 8
             + bottomSafe
-            + coord.keyboardHeight
         let baseChanged = abs(coord.baseBottomInset-bottomPadVal)>0.5
         if baseChanged {
             let cv = vc.collectionView!
