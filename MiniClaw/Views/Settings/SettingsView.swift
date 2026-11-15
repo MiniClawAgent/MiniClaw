@@ -27,8 +27,8 @@ struct SettingsView: View {
 
     /// 2 列等宽自适应宫格。卡片最小宽 150，间距 14（与参考图一致的比例）。
     private let columns = [
-        GridItem(.flexible(), spacing: 14),
-        GridItem(.flexible(), spacing: 14),
+        GridItem(.flexible(), spacing: 12),
+        GridItem(.flexible(), spacing: 12),
     ]
 
     var body: some View {
@@ -36,50 +36,50 @@ struct SettingsView: View {
             VStack(spacing: 22) {
                 header
 
-                LazyVGrid(columns: columns, spacing: 14) {
+                LazyVGrid(columns: columns, spacing: 12) {
                     card(icon: "cat.fill", tint: .orange,
                          title: String(localized: "agent"),
-                         subtitle: String(localized: "settings_group_agent_sub")) {
+                         subtitle: String(localized: "settings_sub_agent")) {
                         AgentSettingsGroupView()
                     }
 
                     card(icon: "puzzlepiece.extension.fill", tint: .blue,
                          title: String(localized: "plugins"),
-                         subtitle: String(localized: "manage_extensible_plugin_packages")) {
+                         subtitle: String(localized: "settings_sub_plugins")) {
                         PluginsSettingsView()
                     }
 
                     card(icon: "externaldrive.fill", tint: .green,
                          title: String(localized: "storage"),
-                         subtitle: String(localized: "settings_group_storage_sub")) {
+                         subtitle: String(localized: "settings_sub_storage")) {
                         StorageSettingsGroupView()
                     }
 
                     card(icon: "circle.lefthalf.filled", tint: .indigo,
                          title: String(localized: "appearance"),
-                         subtitle: String(localized: "system_dark_light")) {
+                         subtitle: String(localized: "settings_sub_appearance")) {
                         AppearanceSettingsView()
                     }
 
                     card(icon: "gearshape.2.fill", tint: .gray,
                          title: String(localized: "general_section"),
-                         subtitle: String(localized: "settings_group_general_sub")) {
+                         subtitle: String(localized: "settings_sub_general")) {
                         GeneralSettingsGroupView()
                     }
 
                     card(icon: "doc.text.below.ecg", tint: .blue,
                          title: String(localized: "logs"),
-                         subtitle: String(localized: "runtime_logs_and_crash_logs")) {
+                         subtitle: String(localized: "settings_sub_logs")) {
                         LogsView()
                     }
 
                     card(icon: "info.circle.fill", tint: .teal,
                          title: String(localized: "about_miniclaw_app"),
-                         subtitle: String(localized: "version_info_and_license")) {
+                         subtitle: String(localized: "settings_sub_about")) {
                         AboutView()
                     }
                 }
-                .padding(.horizontal, 20)
+                .padding(.horizontal, 16)
 
                 footer
             }
@@ -142,23 +142,24 @@ struct SettingsView: View {
                         .foregroundStyle(Color(.tertiaryLabel))
                 }
 
-                Spacer(minLength: 18)
+                Spacer(minLength: 10)
 
                 Text(title)
-                    .font(.system(size: 19, weight: .semibold))
+                    .font(.system(size: 17, weight: .semibold))
                     .foregroundStyle(.primary)
                     .lineLimit(1)
                 Text(subtitle)
-                    .font(.system(size: 13))
+                    .font(.system(size: 12))
                     .foregroundStyle(.secondary)
-                    .lineLimit(2)
-                    .fixedSize(horizontal: false, vertical: true)
+                    .lineLimit(1)          // 副标题一律单行（文案已按 ≤10 字编写）
                     .padding(.top, 2)
             }
-            .padding(16)
-            .frame(maxWidth: .infinity, minHeight: 148, alignment: .leading)
+            .padding(14)
+            // 高度对齐参考图：两列卡片约 92–96pt（原 148 明显偏高，圆角显得不协调）
+            .frame(maxWidth: .infinity, minHeight: 96, alignment: .leading)
             .background(
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                // iOS 卡片规范：连续曲率圆角，16pt 与 96pt 卡片高度成比例
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
                     .fill(Color(.secondarySystemGroupedBackground))
             )
         }
