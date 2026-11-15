@@ -156,7 +156,7 @@ struct SettingsView: View {
                     .padding(.top, 2)
             }
             .padding(.horizontal, 14)
-            .padding(.vertical, 13)
+            .padding(.vertical, 18)   // 上下内容各向内收 5pt（13 → 18），卡高保持 110
             // 高度对齐模板：约 92pt（此前 148 偏高；96 仍略高，且圆角看起来不成比例）
             .frame(maxWidth: .infinity, minHeight: 110, alignment: .leading)
             .background(
