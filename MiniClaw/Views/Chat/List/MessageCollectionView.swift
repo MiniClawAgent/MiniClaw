@@ -202,7 +202,18 @@ extension MessageCollectionView {
             // [2026-11-16 04:11] 不用 UIView.animate 改 contentOffset：
             // 它与系统压缩列表的动画是两套，叠加后会出现"先冲高再回落"。
             // 改用 UIScrollView 自带的动画，UIKit 会按自己的几何/时间曲线处理。
-            cv.setContentOffset(CGPoint(x: 0, y: target), animated: true)
+            // [2026-11-16 04:18] 起点对齐到系统压缩开始的那一帧，时长用键盘自己的时长：
+            // 之前 setContentOffset(animated:) 用固定 0.25s，与键盘 0.383s 不同步
+            // ⇒ 先慢后冲。这里用同一时长 + 下一帧启动。
+            let animDur = duration > 0 ? duration : 0.35
+            let curveRaw2 = max(0, curve)
+            let opts2 = UIView.AnimationOptions(rawValue: UInt(curveRaw2) << 16)
+            DispatchQueue.main.async {
+                UIView.animate(withDuration: animDur, delay: 0,
+                               options: [opts2, .beginFromCurrentState]) {
+                    cv.contentOffset.y = target
+                }
+            }
 
             // 终点校正：动画结束后与真实底边比对，误差 > 4pt 才静默补齐（并记录），
             // 保证"估算偏差"不会把内容停在错误位置，同时不制造可见抖动。
