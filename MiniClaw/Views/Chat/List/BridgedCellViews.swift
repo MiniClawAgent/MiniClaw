@@ -380,7 +380,7 @@ struct BridgedAssistantFooter: View {
         HStack(alignment: .center,spacing: 8) {
             HStack(spacing: 6) {
                 Image(systemName: "pause.circle.fill").font(.system(size: 13)).foregroundStyle(.orange)
-                Text(String(localized: "已暂停 — 点继续恢复")).font(.system(size: 13)).foregroundStyle(.secondary)
+                Text(String(localized: "pause_resume_hint")).font(.system(size: 13)).foregroundStyle(.secondary)
             }
             Spacer()
             if let onResume = bridge.onResume {

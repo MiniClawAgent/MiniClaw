@@ -429,7 +429,13 @@ extension MessageCollectionView.Coordinator {
                 flushingNow = false
                 let rawMaxOff = cv.contentSize.height-cv.bounds.height+cv.adjustedContentInset.bottom
                 let maxOff = max(0,rawMaxOff)
-                if newRows.count<oldCount && cv.contentOffset.y>maxOff {
+                // [2026-11-15 空白] offset 越界兜底：下面的收缩分支只覆盖「行数减少」，
+                // 而 footer 状态变化/工具块/思考块收缩时**行数不变**，此前没有任何 clamp
+                // ⇒ offset 停在内容底部之外，底部留白。这里补一条与行数无关的通用收敛。
+                if cv.contentOffset.y > maxOff + 0.5, !cv.isDragging, !cv.isDecelerating {
+                    cv.setContentOffset(CGPoint(x: 0, y: maxOff), animated: false)
+                    applySubViewportCompensation(caller: "snapshot-overrun", forceRelax: true)
+                } else if newRows.count<oldCount && cv.contentOffset.y>maxOff {
                     cv.setContentOffset(CGPoint(x: 0,y: maxOff),animated: false)
                     // overflowH region — re-evaluate compensation so any
                     // and would leave a permanent blank gapH at the bottom.
@@ -703,7 +709,8 @@ extension MessageCollectionView.Coordinator {
                 footerProminent = errored || canResumeFlag || isActive
                 layout.setFooterHug(!footerProminent,at: i)
                 if errored || canResumeFlag {
-                    footerEstimate = 48
+                    // resume 横幅实际 36pt + footer 上下各 2pt = 40；errored 的内联错误条更高。
+                    footerEstimate = canResumeFlag ? 40 : 48
                 } else if isActive || (footerMsg?.footerShowsQuietStatusRow ?? false) {
                     // [治本 2026-09-17] 原为字面量 `18`。真机 M24 实测该行成型 = **16.3**，
                     // 而 `caption 行高(14.32) + .padding(.top,2) = 16.32` ⇒ **完全吻合**

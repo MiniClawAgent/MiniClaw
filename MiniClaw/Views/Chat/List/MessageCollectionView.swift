@@ -637,6 +637,37 @@ extension MessageCollectionView {
                     updateBridge(b,message: msg,in: messages)
                 }
             }
+            refreshFooterHeightIfProminenceChanged()
+        }
+
+        /// footer 的"显眼形态"（暂停横幅 / 回复中 / 错误）变化时，**强制那一行重测**。
+        ///
+        /// 为什么必需：`canResume` / `isProcessing` 翻转只写 `CellStateBridge`，不重建消息、
+        /// 也就不走 `applyContentConfiguration`；而 PLAF 的第一道去重分支按宽度命中
+        /// `lastCalcH` ⇒ 直接返回**暂停前**的高度（≈16.3 或 4pt），36pt 的暂停横幅被 cell
+        /// 从下方裁掉（真机 20:29 截图：横条偏矮、「继续」胶囊贴死在右上角）。
+        /// 这里显式失效该行条目 + reconfigure 一次，让 PLAF 重新量。
+        private var lastFooterProminent: Bool?
+        private func refreshFooterHeightIfProminenceChanged() {
+            guard let vm,
+                  let layout = viewController?.messageListLayout,
+                  let lastAI = vm.messages.last(where: { $0.role == .assistant }) else { return }
+            let prominent = vm.isProcessing || (vm.canResume && !vm.isProcessing)
+            guard lastFooterProminent != prominent else { return }
+            lastFooterProminent = prominent
+
+            let item = MessageListItem.assistantFooter(lastAI.id)
+            guard let idx = itemToIndex[item] ?? prevSnapshotIds.firstIndex(of: item),
+                  let cv = viewController?.collectionView else { return }
+            layout.invalidateHeight(at: idx)
+            if abs(cv.contentOffset.y) < 0.5 { /* 顶部也照常重排，保持断言简单 */ }
+            var snapshot = dataSource.snapshot()
+            guard snapshot.itemIdentifiers.contains(item) else { return }
+            snapshot.reconfigureItems([item])
+            (cv as? NoAnimationCollectionView)?.isApplyingSnapshot = true
+            dataSource.apply(snapshot, animatingDifferences: false)
+            (cv as? NoAnimationCollectionView)?.isApplyingSnapshot = false
+            layout.invalidateLayout()
         }
 
         /// Re-point the coordinator at a NEW view

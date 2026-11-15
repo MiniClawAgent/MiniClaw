@@ -386,7 +386,23 @@ public final class MessageListLayout: UICollectionViewLayout {
             //
             if !isLast,!nextIsFooter,h>0 { y += itemSpacing }
         }
-        totalHeight = y
+        // [2026-11-15 空白] 内容不足一屏时**贴底**：把整表下移 (可见高 − 内容高)。
+        //
+        // 现象（真机 20:26/20:29）：流式刚开始只有「深度思考 + 几颗工具胶囊」，
+        // 内容停在顶部、下方一大片空白；等回复变长才"恢复正常"。
+        // 日志佐证：`offset = -116`（停在最顶部）⇒ 不是高度算错，是内容短时没有贴底。
+        // 做法放在布局层而不是 contentInset：contentSize 随之为「内容高 + pad」，
+        // 内容增长时 pad 同步收缩、底边不动 ⇒ 不会因改 inset 触发二次布局/位移。
+        let visibleH = cv.bounds.height - cv.adjustedContentInset.top - cv.adjustedContentInset.bottom
+        let pad = max(0, visibleH - y)
+        if pad > 0.5 {
+            for idx in itemAttributes.indices {
+                itemAttributes[idx].frame.origin.y += pad
+            }
+            totalHeight = y + pad
+        } else {
+            totalHeight = y
+        }
         #if DEBUG
         // [Stage 0 · M13] **帧重叠终审探针**（只观测，不改返回值、不改几何）。
         //
