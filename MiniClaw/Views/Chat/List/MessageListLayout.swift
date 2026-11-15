@@ -50,7 +50,7 @@ public final class MessageListLayout: UICollectionViewLayout {
     /// 统一高度条目 = **高度 + 来源优先级 + 内容版本键**。
     ///
     /// [2026-09-13 内容版本·重排第一刀] `key` 是该条目**写入时**的
-    /// `contentKeyByIndex[index]`。此前条目**按 index 存、完全不含内容版本**，于是"内容变了"
+    /// `contentKey(at: index)`。此前条目**按 index 存、完全不含内容版本**，于是"内容变了"
     /// 这件事：有的缓存看得见（`MarkdownRenderCache` 用全量 hash），有的看不见（条目只看 index）
     /// ⇒ **陈旧条目永不被发现**。真机后果两类：
     ///   ① **拖动期大片空白**：`prepare()` 拿陈旧偏大条目算帧 → PLAF 要求收缩 →
@@ -75,7 +75,14 @@ public final class MessageListLayout: UICollectionViewLayout {
         /// `nil` = 未知来源（旧路径），诊断时回落到 `source.rawValue`。
         var provenance: String? = nil
     }
-    private var heightEntries: [Int: HeightEntry] = [:]
+    /// 高度存储（身份键）。行号只是语法糖：每次读写都先翻译成 `MessageListItem`，
+    /// 因此插入/删除导致的行号位移**不会**再丢条目 —— 旧实现需要 `remapHeights` 做二次映射，
+    /// 映射失败即 `continue`（= 丢一条），落到兜底常量后就是用户看到的间距异常。
+    private let heightCache = MessageHeightCache()
+    /// 行身份 → 当前内容键（用于判断条目是否过期）
+    private var contentKeyByItem: [MessageListItem: String] = [:]
+    /// 行身份 → footer 是否贴合（间距策略）
+    private var footerHugByItem: [MessageListItem: Bool] = [:]
 
     /// 该 index 的**有效**条目：当"条目记录的内容键"与"当前内容键"**已知不一致**时返回 nil，
     /// 视同「没有条目」。这样调用方会走兜底链，并且：
@@ -83,10 +90,46 @@ public final class MessageListLayout: UICollectionViewLayout {
     /// - `applySnapshot` 的「缺失条目全扫」（`cachedHeight == nil`）会重新播种它；
     /// - `seedHeight` 的 `hasMeasuredHeight` 早退不再拦住内容已变的块。
     /// 键任一为 nil 时不 demote（信息不足，保守当作有效）。
+    /// 该行**已记录**的高度条目（过期也返回：过期只影响"要不要重算"，不影响"能不能用"）。
     private func currentEntry(at index: Int) -> HeightEntry? {
-        guard let e = heightEntries[index] else { return nil }
-        guard let stored = e.key, let cur = contentKeyByIndex[index] else { return e }
-        return stored == cur ? e : nil
+        guard let entry = heightCache.entry(at: index) else { return nil }
+        return HeightEntry(
+            height: entry.height,
+            source: entry.source == .measured ? .measured
+                  : entry.source == .precalc ? .precalc : .estimated,
+            key: entry.contentKey,
+            provenance: entry.provenance
+        )
+    }
+
+    /// 条目内容键是否已过期（= 内容变了、需要重新估算；此时旧高度仍可用）。
+    private func isStaleEntry(at index: Int) -> Bool {
+        heightCache.isStale(at: index, currentContentKey: contentKey(at: index))
+    }
+
+    /// 行号 → 行身份（存储层唯一的行号消费者）。
+    private func rowItem(at index: Int) -> MessageListItem? { heightCache.item(at: index) }
+
+    private func contentKey(at index: Int) -> String? {
+        guard let item = rowItem(at: index) else { return nil }
+        return contentKeyByItem[item]
+    }
+
+    #if DEBUG
+    private func metricsTag(at index: Int) -> String? {
+        guard let item = rowItem(at: index) else { return nil }
+        return metricsTagByItem[item]
+    }
+    #endif
+
+    private func footerHug(at index: Int) -> Bool? {
+        guard let item = rowItem(at: index) else { return nil }
+        return footerHugByItem[item]
+    }
+
+    /// 同步行顺序（快照变化时由 Coordinator 在 apply 之前调用）。
+    public func setOrder(_ items: [MessageListItem]) {
+        heightCache.setOrder(items)
     }
 
     /// [治本·步1] `provenance` 标明**谁产出了这个估算值**（7 个调用点各不同）。
@@ -145,8 +188,8 @@ public final class MessageListLayout: UICollectionViewLayout {
                           provenance: String? = nil, at index: Int) -> Bool {
         let rank: (HeightSource) -> Int = { $0 == .measured ? 3 : $0 == .precalc ? 2 : 1 }
         // [2026-09-13 S15 闭环·闸门必须按"当期"条目判] 原先比的是**裸条目**
-        // `heightEntries[index]`。于是内容已变的陈旧 `.measured`（其 `key` 与
-        // `contentKeyByIndex[index]` 不一致）会出现一个自相矛盾的组合：
+        // `currentEntry(at: index)`。于是内容已变的陈旧 `.measured`（其 `key` 与
+        // `contentKey(at: index)` 不一致）会出现一个自相矛盾的组合：
         //   · `currentEntry` 认为它**已不是条目**（键不一致 ⇒ nil）；
         //   · `hasMeasuredHeight` 因此返回 false ⇒ `seedHeight` 的 measured 早退**不拦**它，
         //     播种会照常算出一个新的 `.precalc`/`.estimated`；
@@ -154,7 +197,8 @@ public final class MessageListLayout: UICollectionViewLayout {
         // 净效果：陈旧高度永久压住新内容，且 `.missing` 每轮重试、每轮失败。这正是 S15
         // 想消灭的"旧实测值永久滞留"，只是断点藏在这个闸门里。
         // 判据与 `currentEntry` **同源**：键不一致即视为无条目 ⇒ 允许覆盖。
-        if let existing = currentEntry(at: index), rank(existing.source) > rank(source) {
+        if let existing = currentEntry(at: index), !isStaleEntry(at: index),
+           rank(existing.source) > rank(source) {
             #if DEBUG
             // [Stage 0 · M17] **静默拒绝**观测（只观测；拒绝本身是设计正确的，不予取消）。
             // 上方注释自述：「新值**被静默拒绝**（调用方不看返回值，没有任何信号）」——
@@ -181,7 +225,13 @@ public final class MessageListLayout: UICollectionViewLayout {
             #endif
             return false
         }
-        heightEntries[index] = HeightEntry(height: height, source: source, key: contentKeyByIndex[index], provenance: provenance)
+        heightCache.set(
+            height: height,
+            source: source == .measured ? .measured : source == .precalc ? .precalc : .estimated,
+            contentKey: contentKey(at: index),
+            provenance: provenance,
+            at: index
+        )
         return true
     }
 
@@ -206,13 +256,11 @@ public final class MessageListLayout: UICollectionViewLayout {
     private static var _sharedMeasuredHeights: [String: (height: CGFloat,width: CGFloat)] = [:]
     private static var _memoLock = os_unfair_lock_s()
 
-    private var contentKeyByIndex: [Int: String] = [:]
 
     private var itemAttributes: [UICollectionViewLayoutAttributes] = []
 
     private var totalHeight: CGFloat = 0
 
-    private var lastItemCount: Int = 0
 
     public override var collectionViewContentSize: CGSize {
         let width = collectionView?.bounds.width ?? 0
@@ -256,7 +304,7 @@ public final class MessageListLayout: UICollectionViewLayout {
             // 回来后又缩回去（= "内容缩小、视图变了"）。**与拖动/停手无关**（idle 里也交替出现）。
             // 其中最离谱的是 header：它的真实高度是**常量 28**（播种分支写死 28），却被兜底成 200。
             // 这里按内容键前缀给同量级兜底 —— 需注意这只能"减轻伤害"，条目为何丢失是**独立根因**，另行定位。
-            let key = contentKeyByIndex[i]
+            let key = contentKey(at: i)
             if let e = currentEntry(at: i)?.height {
                 h = e
                 // [2026-09-12 兜底对「条目丢失」免疫] 顺手记住「该内容键上次的真实高度」。
@@ -309,14 +357,13 @@ public final class MessageListLayout: UICollectionViewLayout {
             // Suppress the inter-cell spacing when the NEXT
             let isLast = (i+1 == itemCount)
             let nextIsFooter = !isLast
-                && MessageCollectionView.Coordinator.ContentKeyKind.of(contentKeyByIndex[i+1]) == .assistantFooter
-                && (footerHugByIndex[i+1] ?? true)
+                && MessageCollectionView.Coordinator.ContentKeyKind.of(contentKey(at: i+1)) == .assistantFooter
+                && (footerHug(at: i+1) ?? true)
                 && !isStreamingCell(i+1)
             //
             if !isLast,!nextIsFooter,h>0 { y += itemSpacing }
         }
         totalHeight = y
-        lastItemCount = itemCount
         #if DEBUG
         // [Stage 0 · M13] **帧重叠终审探针**（只观测，不改返回值、不改几何）。
         //
@@ -354,7 +401,7 @@ public final class MessageListLayout: UICollectionViewLayout {
             note: String(format: "%.1fms", elapsed))
         #endif
         if elapsed >= 5 {
-            AppLogger.shared.debug("[prepare] #\(Self.prepareCallCount) \(String(format: "%.1f", elapsed))ms items=\(itemCount) totalH=\(String(format: "%.0f", totalHeight)) cacheHits=\(self.heightEntries.count)", category: "ChatList.Stall")
+            AppLogger.shared.debug("[prepare] #\(Self.prepareCallCount) \(String(format: "%.1f", elapsed))ms items=\(itemCount) totalH=\(String(format: "%.0f", totalHeight)) cacheHits=\(self.heightCache.count)", category: "ChatList.Stall")
         }
     }
     #if DEBUG
@@ -555,15 +602,15 @@ public final class MessageListLayout: UICollectionViewLayout {
         var aboveSum: CGFloat = 0,insideSum: CGFloat = 0,dropped = 0
         var detail: [String] = []
         for (idx,h) in deferredHeights {
-            let old = heightEntries[idx]?.height ?? estimatedItemHeight
-            // [2026-09-12 修复「延后即丢弃」] 闸门只在 `heightEntries[idx]?.source == .measured`
-            // （**已有条目**）时才延后，而这里原先只在 `heightEntries[idx] == nil`（**没有条目**）
+            let old = currentEntry(at: idx)?.height ?? estimatedItemHeight
+            // [2026-09-12 修复「延后即丢弃」] 闸门只在 `currentEntry(at: idx)?.source == .measured`
+            // （**已有条目**）时才延后，而这里原先只在 `currentEntry(at: idx) == nil`（**没有条目**）
             // 时才应用 —— 两条件互斥 ⇒ **每一条延后项都被丢弃**：浏览期间该收缩的 cell 会一直
             // 保持旧的高帧，直到别的路径触发重排。症状就是本函数末尾那行聚合日志恒为
             // `dropped=n aboveΣ=+0.0 insideΣ=+0.0`（n 条全部被丢，没有任何位置分类被累加）。
             // 解冻时应用才是**构造上安全**的时机（这正是延后机制在等的那一刻），故改为
             // 「与现值有实质差异就应用」；`dropped` 保留，用于统计真正无差异的项。
-            let cur = heightEntries[idx]?.height
+            let cur = currentEntry(at: idx)?.height
             if cur == nil || abs((cur ?? 0) - h) > 0.5 {
                 setEntry(h, source: .measured, at: idx)
                 let delta = h-old
@@ -579,9 +626,9 @@ public final class MessageListLayout: UICollectionViewLayout {
                 //
                 ScrollMetricsRecorder.shared.record(
                     kind: "flush", idx: idx, a: old, b: h,
-                    key: String(contentKeyByIndex[idx]?.prefix(2) ?? ""),
+                    key: String(contentKey(at: idx)?.prefix(2) ?? ""),
                     pos: pos,offset: vpTop,
-                    tag: metricsTagByIndex[idx] ?? "")
+                    tag: metricsTag(at: idx) ?? "")
                 #endif
             } else {
                 dropped += 1
@@ -650,8 +697,8 @@ public final class MessageListLayout: UICollectionViewLayout {
         // `.padding(.top,2)` 的算术给 ≈18，而实测真值是 16.3 ⇒ **推出来的值仍高于真值**。
         // 到底是 caption 的实际行高不同、还是 padding 未计入、抑或成型另有来源 —— 需要三条并排才判得清。
         // 本探针把三者放在同一行：实测成型高 / caption 行高 / caption+2 推算值（外加种子，便于对照）。
-        if let key = contentKeyByIndex[index],key.hasPrefix("h:") || key.hasPrefix("f:"),
-           let e = heightEntries[index],e.source != .measured,origH > 1 {
+        if let key = contentKey(at: index),key.hasPrefix("h:") || key.hasPrefix("f:"),
+           let e = currentEntry(at: index),e.source != .measured,origH > 1 {
             Self.noteFixedRowBreakdown(kind: key.hasPrefix("h:") ? "h(header)" : "f(footer)",
                                        orig: origH,pref: prefH,entryH: e.height,
                                        producer: e.provenance ?? e.source.rawValue)
@@ -669,7 +716,7 @@ public final class MessageListLayout: UICollectionViewLayout {
         // 而 `ToolCapsuleView` 里写的是 `.frame(height: 36)` ⇒ **36 才是权威值，26 是测量偏矮**。
         // 若照原方案把种子改成 26，就是主动把种子压到视图声明高度之下（S5 反例库 #1 的补丁）。
         // 这枚探针就是为了让"谁对"先有数据、再动手。
-        if let e = heightEntries[index],e.source != .measured,origH > 1,
+        if let e = currentEntry(at: index),e.source != .measured,origH > 1,
            prefH < origH-0.5 {
             let producer = e.provenance ?? "unknown(\(e.source.rawValue))"
             if prefH <= 1 {
@@ -702,7 +749,7 @@ public final class MessageListLayout: UICollectionViewLayout {
             //
             // 机制：`currentEntry(at:)` 是**有效性**判据（条目键 == 当前内容键），却被 `hasCached`
             // 当作**保护性**判据用。而 `setContentKey(_:at:)` 只写 `contentKeyByIndex`、
-            // **不同步** `heightEntries[index].key`；它的两个调用点之一是
+            // **不同步** `currentEntry(at: index).key`；它的两个调用点之一是
             // `MessageCollectionView.swift:444`（`configureCell` 路径）。于是：
             //   拖动 → 新 cell 进视口 / 流式块内容变化 → configureCell → setContentKey(新键)
             //   → heightEntries[i] 仍是旧键 → currentEntry 返回 nil → hasCached=false
@@ -713,7 +760,7 @@ public final class MessageListLayout: UICollectionViewLayout {
             // `keyStale` = 有条目但键过期（闸门本该保护却跳过）；
             // `noEntry`  = 连条目都没有（`prepare()` 不写条目，只有 4 个 setEntry 写入口）。
             if !hasCached, prefH < origH - 0.5 {
-                if heightEntries[index] != nil {
+                if currentEntry(at: index) != nil {
                     Self.gateBypassKeyStaleCount &+= 1
                 } else {
                     Self.gateBypassNoEntryCount &+= 1
@@ -722,7 +769,7 @@ public final class MessageListLayout: UICollectionViewLayout {
                 if nowTs - Self.gateBypassLastLogAt >= 1.0 {
                     Self.gateBypassLastLogAt = nowTs
                     AppLogger.shared.warning(
-                        "[Stage0][M10] 拖动期收缩绕过闸门 keyStale=\(Self.gateBypassKeyStaleCount) noEntry=\(Self.gateBypassNoEntryCount) idx=\(index) orig=\(String(format: "%.1f", origH))→pref=\(String(format: "%.1f", prefH)) delta=\(String(format: "%+.1f", prefH-origH)) key=\(contentKeyByIndex[index] ?? "nil") entryKey=\(heightEntries[index]?.key ?? "nil") — hasCached=false 致 deferSelfSizing 保护被跳过",
+                        "[Stage0][M10] 拖动期收缩绕过闸门 keyStale=\(Self.gateBypassKeyStaleCount) noEntry=\(Self.gateBypassNoEntryCount) idx=\(index) orig=\(String(format: "%.1f", origH))→pref=\(String(format: "%.1f", prefH)) delta=\(String(format: "%+.1f", prefH-origH)) key=\(contentKey(at: index) ?? "nil") entryKey=\(currentEntry(at: index)?.key ?? "nil") — hasCached=false 致 deferSelfSizing 保护被跳过",
                         category: "ChatList.CellMetrics")
                 }
             }
@@ -743,7 +790,7 @@ public final class MessageListLayout: UICollectionViewLayout {
                             let viewBottom = viewTop + cv.bounds.height
                             let pos = f.maxY <= viewTop ? "above" : (f.minY >= viewBottom ? "below" : "inside")
                             AppLogger.shared.info(
-                                "[DeferShrink] idx=\(index) orig=\(String(format: "%.1f", origH))→pref=\(String(format: "%.1f", prefH)) delta=\(String(format: "%+.1f", prefH-origH)) pos=\(pos) src=\(heightEntries[index]?.source.rawValue ?? "?") key=\(contentKeyByIndex[index] ?? "??")",
+                                "[DeferShrink] idx=\(index) orig=\(String(format: "%.1f", origH))→pref=\(String(format: "%.1f", prefH)) delta=\(String(format: "%+.1f", prefH-origH)) pos=\(pos) src=\(currentEntry(at: index)?.source.rawValue ?? "?") key=\(contentKey(at: index) ?? "??")",
                                 category: "ChatList.Blank")
                         }
                     }
@@ -763,7 +810,7 @@ public final class MessageListLayout: UICollectionViewLayout {
         if mustInvalidate && delta>100 {
             // [2026-09-09] key 从 2 字符前缀扩为完整 contentKey（含 messageId/blockId/
             // contentCount）——高度裁切类「丢字」复盘时直接指认块，不再需要反查。
-            AppLogger.shared.info("[CellSizing] INVALIDATE idx=\(index) delta=\(String(format: "%.0f", delta)) est=\(String(format: "%.0f", origH)) → pref=\(String(format: "%.0f", prefH)) cached=\(heightEntries[index]?.source == .measured) key=\(contentKeyByIndex[index] ?? "??")", category: "ChatList.CellMetrics")
+            AppLogger.shared.info("[CellSizing] INVALIDATE idx=\(index) delta=\(String(format: "%.0f", delta)) est=\(String(format: "%.0f", origH)) → pref=\(String(format: "%.0f", prefH)) cached=\(currentEntry(at: index)?.source == .measured) key=\(contentKey(at: index) ?? "??")", category: "ChatList.CellMetrics")
         }
         return mustInvalidate
     }
@@ -858,12 +905,12 @@ public final class MessageListLayout: UICollectionViewLayout {
             let phase = cv.isDecelerating ? "decel" : (cv.isTracking ? "drag" : "idle")
             // Record EVERY correction (no threshold)
             // [Stage 1 · A16] `estimateSrc` 只服务本行 ⇒ 声明也放在本 `#if DEBUG` 内。
-            let estimateSrc = heightEntries[index].map { $0.source.rawValue + "!" } ?? "def"
+            let estimateSrc = currentEntry(at: index).map { $0.source.rawValue + "!" } ?? "def"
             ScrollMetricsRecorder.shared.record(
                 kind: "inv", idx: index, a: oldH, b: newH,
-                key: contentKeyByIndex[index] ?? "",
+                key: contentKey(at: index) ?? "",
                 src: estimateSrc,pos: pos,offset: vpTop,note: phase,
-                tag: metricsTagByIndex[index] ?? "")
+                tag: metricsTag(at: index) ?? "")
             #endif
             // [2026-09-12 抖动探针·补盲区] 原条件只覆盖 `isDecelerating` ⇒ **拖动中（isTracking）
             // 一条日志都不打**。而真机现象「只有首次上滑抖、滑得越快抖得越快、滑到顶后再往下正常」
@@ -1027,41 +1074,12 @@ public final class MessageListLayout: UICollectionViewLayout {
     public enum MemoPolicy { case indexOnly, withMemo }
 
     public func invalidateHeight(at index: Int, memo: MemoPolicy = .withMemo) {
-        // 统一条目：一次移除即完成原三字典的清空（measured/precalc/estimated 同源）。
-        heightEntries.removeValue(forKey: index)
-        if memo == .withMemo, let key = contentKeyByIndex[index] {
+        // 只删这一行的身份条目；行号本身不再被存储，所以不存在"错位"。
+        heightCache.invalidate(at: index)
+        if memo == .withMemo, let key = contentKey(at: index) {
             // 连带剔除该内容键的进程级实测 memo（原 `invalidateHeight` 语义）。
             invalidateMemo(forKey: key)
         }
-    }
-
-    /// [2026-09-09 快照缓存重映射] 快照行变化时按 item
-    /// 身份整体重映射全部索引键缓存。索引键条目在插入/删除后**整体错位**
-    /// 是高度串块的根源（真机实证：展开态思考块 idx=29 高度 340→40 裁切）；
-    /// 旧方案只清洗 inserted 条目，错位的既有条目原样残留。按 item 身份
-    /// 重映射后，未匹配（新增）item 的条目自然清空，由随后的 seedHeight 重新播种。
-    public func remapHeights(oldIds: [MessageListItem],newIds: [MessageListItem]) {
-        var oldIndexByItem: [MessageListItem: Int] = [:]
-        for (i,item) in oldIds.enumerated() { oldIndexByItem[item] = i }
-        var newEntries: [Int: HeightEntry] = [:]
-        var newKeys: [Int: String] = [:]
-        var newHug: [Int: Bool] = [:]
-        var newTags: [Int: String] = [:]
-        for (newIndex,item) in newIds.enumerated() {
-            guard let oldIndex = oldIndexByItem[item] else { continue }
-            if let e = heightEntries[oldIndex] { newEntries[newIndex] = e }
-            if let k = contentKeyByIndex[oldIndex] { newKeys[newIndex] = k }
-            if let h = footerHugByIndex[oldIndex] { newHug[newIndex] = h }
-            #if DEBUG
-            if let t = metricsTagByIndex[oldIndex] { newTags[newIndex] = t }
-            #endif
-        }
-        heightEntries = newEntries
-        contentKeyByIndex = newKeys
-        footerHugByIndex = newHug
-        #if DEBUG
-        metricsTagByIndex = newTags
-        #endif
     }
 
     /// 该索引**当前记录**的高度（来源不限：measured / precalc / estimated）。
@@ -1078,7 +1096,7 @@ public final class MessageListLayout: UICollectionViewLayout {
     }
 
     public func hasPrecalcHeight(at index: Int) -> Bool {
-        currentEntry(at: index)?.source == .precalc
+        currentEntry(at: index)?.source == .precalc && !isStaleEntry(at: index)
     }
 
     /// 该索引是否已有「实测」高度（source == .measured）。
@@ -1093,26 +1111,28 @@ public final class MessageListLayout: UICollectionViewLayout {
         // 拦住内容已变的块，它会带**当前内容键**重新播种（这正是 I11 缺的那条失效路径）。
         // [2026-09-13] 此处原先写死行号 `+Snapshot.swift:579`，已因搬移失效；跨文件引用一律用
         // 符号名而非行号 —— 行号引用正是这些注释反复过期的根因。
-        currentEntry(at: index)?.source == .measured
+        currentEntry(at: index)?.source == .measured && !isStaleEntry(at: index)
     }
 
     // MARK: - Content-keyed real-height memo
 
     public func setContentKey(_ key: String,at index: Int) {
-        contentKeyByIndex[index] = key
+        guard let item = rowItem(at: index) else { return }
+        contentKeyByItem[item] = key
     }
 
     /// Per-footer spacing policy, decided by the Coordinator
-    private var footerHugByIndex: [Int: Bool] = [:]
     public func setFooterHug(_ hug: Bool,at index: Int) {
-        footerHugByIndex[index] = hug
+        guard let item = rowItem(at: index) else { return }
+        footerHugByItem[item] = hug
     }
 
     #if DEBUG
     /// index → stable content-hash tag, so layout-
-    private var metricsTagByIndex: [Int: String] = [:]
+    private var metricsTagByItem: [MessageListItem: String] = [:]
     public func setMetricsTag(_ tag: String,at index: Int) {
-        metricsTagByIndex[index] = tag
+        guard let item = rowItem(at: index) else { return }
+        metricsTagByItem[item] = tag
     }
     #endif
 
@@ -1192,13 +1212,16 @@ public final class MessageListLayout: UICollectionViewLayout {
     /// 直接命中实测高度，上滑零修正零抖动（2026-09-06 方案 C）。字体
     /// 变更路径（reconfigureAllCells）保持默认 false，全量清 memo。
     public func clearHeightCache(keepingSharedMemo: Bool = false) {
-        heightEntries.removeAll()
+        heightCache.clear(keepingContent: keepingSharedMemo)
         // [2026-09-12] 内容键记忆表随条目一起清：它的语义是"上次布局真实用到的高度"，
         // 字体变更/会话切换后该口径失效（memo 的 contentKey 不含字体指纹，同理）。
         // 注：原 `lastHeightByKey.removeAll()` 已随该死机制一并删除（2026-09-13）。
         if !keepingSharedMemo { Self.clearSharedMemo() }
-        contentKeyByIndex.removeAll()
-        footerHugByIndex.removeAll()
+        contentKeyByItem.removeAll()
+        footerHugByItem.removeAll()
+        #if DEBUG
+        metricsTagByItem.removeAll()
+        #endif
         // [2026-09-08] user bubble 测量 memo 同为进程级静态字典，此前**从不清理**
         // → 随会话切换单调增长（长会话残留常驻）。统一在清高度缓存时释放。
         MessageCollectionView.Coordinator.clearUserBubbleMemo()
@@ -1218,11 +1241,12 @@ public final class MessageListLayout: UICollectionViewLayout {
     /// user bubble memo 的键**含 `usableTextWidth`**（`+Heights`），宽度一变旧键永不命中，
     /// 不清只会在反复旋转/分屏时单调增长。
     public func purgeIndexHeightsForWidthChange() {
-        heightEntries.removeAll()
+        // 宽度变了：身份条目与内容键 memo 都要重算（memo 键含宽度，天然不命中）。
+        heightCache.clear(keepingContent: false)
         MessageCollectionView.Coordinator.clearUserBubbleMemo()
     }
 
-    public var debugCachedHeightCount: Int { heightEntries.count }
+    public var debugCachedHeightCount: Int { heightCache.count }
 }
 
 // MARK: - In-memory scroll diagnostics ring buffer

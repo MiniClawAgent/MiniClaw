@@ -19,10 +19,7 @@ extension MessageCollectionView.Coordinator {
             case all
             /// 本次**新增**的 item：先只清索引条目（**保留** memo，见下）再播种。
             case inserted([MessageListItem])
-            /// 当前**无当期条目**的 item（判据 `cachedHeight(at:) == nil`，已含内容版本感知）。
-            case missing
-            /// 仅这些 index（UIKit 预取回调）。判据同 `.missing`，只是把作用域限制在给定下标，
-            /// 避免为一次预取做全表扫描。
+            /// 仅这些 index（UIKit 预取回调）：只给尚未实测的行播种，避免全表扫描。
             case indices([Int])
         }
 
@@ -48,12 +45,6 @@ extension MessageCollectionView.Coordinator {
                     // 若连带剔 memo（`.withMemo`），种子会退化为粗估 ⇒ 上滑抖动（2026-09-06 真机）。
                     layout.invalidateHeight(at: idx, memo: .indexOnly)
                     seedHeight(at: idx, item: item, messages: messages,
-                               width: width, isReseed: true)
-                }
-            case .missing:
-                guard let layout = viewController?.messageListLayout else { return }
-                for (i, item) in rows.enumerated() where layout.cachedHeight(at: i) == nil {
-                    seedHeight(at: i, item: item, messages: messages,
                                width: width, isReseed: true)
                 }
             case .indices(let idxs):
@@ -295,10 +286,10 @@ extension MessageCollectionView.Coordinator {
             let oldRows = prevSnapshotIds
             let oldSet = Set(prevSnapshotIds)
             let inserted = newRows.filter { !oldSet.contains($0) }
-            if !identityUnchanged {
-                viewController?.messageListLayout?
-                    .remapHeights(oldIds: oldRows,newIds: newRows)
-            }
+            // 高度按行身份存储，行号位移不再丢条目 ⇒ 只需要把**当前顺序**告诉布局，
+            // 让「行号 → 身份」的翻译可用。不再有 remap（它的 `continue` 就是丢条目的入口）。
+            // 即使 identityUnchanged 也同步一次：开销是一次数组赋值，换来顺序永不过期。
+            viewController?.messageListLayout?.setOrder(newRows)
 
             // ── 段 1：播种（唯一入口 `seedHeights`）───────────────────────────────
             if viewController?.messageListLayout != nil {
@@ -412,7 +403,10 @@ extension MessageCollectionView.Coordinator {
                     seedHeights(.inserted(Array(inserted)), rows: newRows,
                                 messages: messages, width: cv.bounds.width)
                 }
-                seedHeights(.missing, rows: newRows, messages: messages, width: cv.bounds.width)
+                // [2026-11-15 高度重写] 原先这里还有一次 `.missing` 全表扫描（判据 cachedHeight==nil）。
+                // 它恒不生效：前面的 `.all` 已逐条播种，而 `seedHeight` 的每条出口都会写条目。
+                // 删掉省下每次快照一次 O(n) 扫描；`cachedHeight` 现在也永不因"内容过期"返回 nil
+                // （过期只降级、不丢高度），这个判据本身已失去意义。
             }
 
             snapshotLayout?.suppressContentOffsetAdjustment = true

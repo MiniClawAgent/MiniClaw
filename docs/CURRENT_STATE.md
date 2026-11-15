@@ -104,10 +104,15 @@ MiniClaw 是一款**本地优先的 iOS 通用智能体应用**（不是编程�
 - 检查点三重守卫：`!isSubagentEngine && sessionID != nil && keepRunning()`；子代理引擎不写检查点。
 - UI 回调唯一出口 `deliverOnMain`：一律 `main.async`，不 `main.sync`，不做主线程短路。
 
-**渲染与高度**
-- 高度单一写入口 `HeightEntry.setEntry`，优先级 `measured > precalc > estimated`，低不覆盖高。
-- `currentEntry` 内容版本键不一致即视为无条目（上滑裁尾的治本点）。
-- 三个唯一出入口：`seedHeights` / `invalidateHeight`+`remapHeights` / `applyDeferredHeights`+`takePendingAboveShift`。
+**渲染与高度**（2026-11-15 重写：按行身份存储）
+- 高度按**行身份**（`MessageListItem`）存于 `MessageHeightCache`，行号只用于翻译，不参与存储；
+  插入/删除/重排不再需要重映射，`remapHeights` 已删除（它的 `continue` 是丢条目的入口）。
+- 单一写入口仍是 `setEntry`，优先级 `measured > precalc > estimated`，低不覆盖高；
+  **内容过期不算数**（`isStale` 时不参与 rank 比较），因此陈旧高值不会压住新内容。
+- `invalidateHeight` **只降级不删除**：高度保留、`source` 降为 estimated。
+  这样"失效了但没人重新播种"的路径（附件通知/思考折叠/字体清表/前台回写）不会让行跳成兜底常量。
+- `prepare()` 取高链：有效条目 → 进程级 memo → 类型化兜底；因为条目不会消失，200pt 兜底基本不再触发。
+- 三个出入口：`seedHeights` / `invalidateHeight` / `applyDeferredHeights`+`takePendingAboveShift`。
 - 三根正交轴不可合并：几何冻结 `deferSelfSizing` ∥ 数据冻结 `streamingUIUpdatesSuspended` ∥ offset 静默窗。
 - 引擎下限 `engineFloor = engineTextHeight + 4`，不得含 cell 当前高度。
 
