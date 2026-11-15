@@ -277,7 +277,19 @@ extension MessageCollectionView {
                     return
                 }
 
-                if delta>0 && self.scrollMode == .autoScrolling {
+                // [2026-11-16 底部增长未锚定·真因] 原判据只认 `scrollMode == .autoScrolling`。
+                // 用户往上拖过一次后模式变 .userBrowsing，此时底部新增一行（暂停横幅 16.3→40pt、
+                // 工具胶囊、状态行）只打一条 "IN BROWSE MODE — no pin" 日志，**offset 不动** ⇒
+                // 新增的这部分就露到输入框下面（真机 02:04 两张截图：横幅下半截被输入栏盖住）。
+                // 数字证据：贴底时 offset=1289.7 = 2060.7−874+103（正确）；横幅 +24pt 后
+                // maxOff=1313.7，offset 仍是 1289.7 ⇒ 差 24pt。
+                //
+                // 语义修正（对齐用户的"队列"模型）：**内容在底部增长时，只要用户仍在底部附近，
+                // 就把底边锚住**——与当前是 autoScrolling 还是 userBrowsing 无关；
+                // 真正翻历史（离底部远）时才不打扰。
+                let grewWhileNearBottom = delta > 0 && !cv.isTracking && cv.isDecelerating == false
+                    && self.isNearBottom(80)
+                if delta>0 && (self.scrollMode == .autoScrolling || grewWhileNearBottom) {
                     if self.isAnimatingScrollToBottom {
                         self.scheduleCoalescedScroll()
                     } else {
@@ -294,7 +306,7 @@ extension MessageCollectionView {
                         }
                     }
                 } else if delta>0 && self.scrollMode == .userBrowsing {
-                    AppLogger.shared.info("[KVO] contentSize grew +\(String(format: "%.0f", delta)) IN BROWSE MODE — no pin. offset=\(String(format: "%.0f", cv.contentOffset.y)) tracking=\(cv.isTracking) decel=\(cv.isDecelerating)", category: "ChatList.Stream")
+                    AppLogger.shared.info("[KVO] contentSize grew +\(String(format: "%.0f", delta)) IN BROWSE MODE (far from bottom) — no pin. offset=\(String(format: "%.0f", cv.contentOffset.y)) tracking=\(cv.isTracking) decel=\(cv.isDecelerating)", category: "ChatList.Stream")
                 } else if delta<0 && self.scrollMode == .autoScrolling {
                     let maxOff = max(0,newH-cv.bounds.height+cv.adjustedContentInset.bottom)
                     if cv.contentOffset.y>maxOff && !cv.isDecelerating {
@@ -683,6 +695,13 @@ extension MessageCollectionView {
             dataSource.apply(snapshot, animatingDifferences: false)
             (cv as? NoAnimationCollectionView)?.isApplyingSnapshot = false
             layout.invalidateLayout()
+            // 形态变化会改变 footer 行高（16.3 ↔ 40/48）：若用户就在底部，
+            // 立刻把底边重新锚住，避免新增高度露到输入栏下面。
+            if self.isNearBottom(80), !cv.isTracking, !cv.isDecelerating {
+                DispatchQueue.main.async { [weak self] in
+                    self?.scrollToBottomNow(animated: false)
+                }
+            }
         }
 
         /// Re-point the coordinator at a NEW view
