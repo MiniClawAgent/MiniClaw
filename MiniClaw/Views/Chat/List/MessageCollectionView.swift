@@ -89,11 +89,31 @@ extension MessageCollectionView {
                 self.keyboardHeight = newH
                 AppLogger.shared.info("[Keyboard] height=\(String(format: "%.0f", self.keyboardHeight))",
                                       category: "ChatList.Keyboard")
-                // [2026-11-16 03:38] 必须在这里**直接**重算 inset：
+                // [2026-11-16 03:38] 弹出时必须**直接**重算 inset：
                 // 第二次弹键盘时焦点没变化 ⇒ SwiftUI 不重绘 ⇒ updateUIViewController 不跑
                 // ⇒ inset 停在上一次的值（真机日志：第二次没有 [ChatUI] 行，仍是 103）。
-                self.applyInsetForKeyboardState()
-                self.reapplyInsetAfterKeyboardChange()
+                //
+                // [2026-11-16 03:41] 收起时**不能立刻改**：那一刻列表还在放大，
+                // 先改 inset 会让 UIKit 按旧 bounds 调整 offset，随后 0.3s 补贴底再改一次
+                // ⇒ 收起时可见"抖一下"（弹出时不抖，因为方向相反、两步落在同一侧）。
+                // 收起改为等动画结束、一次性完成 inset + 贴底，且不带动画。
+                if newH > 0 {
+                    self.applyInsetForKeyboardState()
+                    self.reapplyInsetAfterKeyboardChange()
+                } else {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in
+                        guard let self, let cv = self.viewController?.collectionView else { return }
+                        UIView.performWithoutAnimation {
+                            self.applyInsetForKeyboardState()
+                            if self.preKeyboardPinned ?? self.lastKnownPinned {
+                                self.scrollToBottomNow(animated: false)
+                                self.lastKnownPinned = true
+                            } else if cv.contentOffset.y > cv.contentSize.height {
+                                cv.contentOffset.y = max(0, cv.contentSize.height - cv.bounds.height)
+                            }
+                        }
+                    }
+                }
             }
         }
 
