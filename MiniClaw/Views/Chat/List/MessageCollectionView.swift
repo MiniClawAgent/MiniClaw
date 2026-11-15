@@ -64,6 +64,8 @@ extension MessageCollectionView {
             guard keyboardDismissPan == nil else { return }
             let pan = UIPanGestureRecognizer(target: self, action: #selector(handleKeyboardDismissPan(_:)))
             pan.cancelsTouchesInView = false
+            // [2026-11-16 04:03] 默认必须禁用：装上即参与识别会抢走列表拖动 ⇒ 整页不能滑。
+            pan.isEnabled = false
             cv.addGestureRecognizer(pan)
             keyboardDismissPan = pan
         }
@@ -133,8 +135,11 @@ extension MessageCollectionView {
                 // [2026-11-16 03:51 回退] 把 inset 包进键盘动画会让两条路径都抖
                 // （与系统自己的 offset 调整叠加）。退回"延迟一次性、不带动画"：
                 // 下滑收起时这条是顺的，点外面另从**焦点同步**解决。
-                // 键盘展开：禁用列表自身拖动（滚动交给专用手势拦截）；收起：恢复。
-                self.viewController?.collectionView.panGestureRecognizer.isEnabled = (newH == 0)
+                // 键盘展开：列表 pan 关闭、专用手势启用（滑动＝收键盘）；
+                // 键盘收起：反过来。两者始终互斥，避免平时抢走滚动。
+                let kbUp = newH > 0
+                self.viewController?.collectionView.panGestureRecognizer.isEnabled = !kbUp
+                self.keyboardDismissPan?.isEnabled = kbUp
                 if newH > 0 {
                     self.applyInsetForKeyboardState()
                     self.reapplyInsetAfterKeyboardChange()
