@@ -14,35 +14,49 @@ struct WebSearchSettingsSection: View {
     @State private var revealKey: Bool = false
     @State private var alertMessage: String = ""
     @State private var showAlert: Bool = false
+    /// 移除密钥前的二次确认（密钥删掉就得重填，误触代价高）
+    @State private var showRemoveConfirm: Bool = false
 
     var body: some View {
         Section {
             HStack(spacing: 8) {
-                Group {
-                    if revealKey {
-                        TextField(String(localized: "web_search_api_key_placeholder"), text: $apiKeyDraft)
-                    } else {
-                        SecureField(String(localized: "web_search_api_key_placeholder"), text: $apiKeyDraft)
+                if hasStoredKey {
+                    // 已保存：输入框位置改为展示「已保存密钥」，避免把真实密钥显示在界面上，
+                    // 也避免用户以为还能直接编辑一个已被存起来的 Key。
+                    Text("web_search_api_key_stored_display")
+                        .font(.system(.body, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .accessibilityLabel(Text("web_search_api_key_stored_display"))
+                } else {
+                    Group {
+                        if revealKey {
+                            TextField(String(localized: "web_search_api_key_placeholder"), text: $apiKeyDraft)
+                        } else {
+                            SecureField(String(localized: "web_search_api_key_placeholder"), text: $apiKeyDraft)
+                        }
                     }
-                }
-                .textInputAutocapitalization(.never)
-                .autocorrectionDisabled()
-                .font(.system(.body, design: .monospaced))
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .font(.system(.body, design: .monospaced))
 
-                Button {
-                    revealKey.toggle()
-                } label: {
-                    Image(systemName: revealKey ? "eye.slash" : "eye")
+                    Button {
+                        revealKey.toggle()
+                    } label: {
+                        Image(systemName: revealKey ? "eye.slash" : "eye")
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.secondary)
                 }
-                .buttonStyle(.plain)
-                .foregroundStyle(.secondary)
             }
 
             HStack {
                 Button(String(localized: "web_search_api_key_save")) {
                     saveKey()
                 }
-                .disabled(apiKeyDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                // 已保存时按钮置灰不可点（此时草稿为空，也不用靠"空草稿"来禁用）
+                .disabled(hasStoredKey
+                          || apiKeyDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
 
                 if hasStoredKey {
                     Spacer()
@@ -50,7 +64,7 @@ struct WebSearchSettingsSection: View {
                         .font(.caption)
                         .foregroundStyle(.green)
                     Button(role: .destructive) {
-                        removeKey()
+                        showRemoveConfirm = true
                     } label: {
                         Text(String(localized: "web_search_api_key_delete"))
                     }
@@ -66,6 +80,20 @@ struct WebSearchSettingsSection: View {
             Text(String(localized: "web_search_settings_title"))
         } footer: {
             Text(String(localized: "web_search_settings_footer"))
+        }
+        // 移除密钥前二次确认（删掉就得重填，误触代价高）。
+        // 挂在 Section 上会破坏 `header:/footer:` 的尾随闭包结构，故挂在外层容器。
+        .confirmationDialog(
+            Text("web_search_api_key_remove_confirm_title"),
+            isPresented: $showRemoveConfirm,
+            titleVisibility: .visible
+        ) {
+            Button(String(localized: "web_search_api_key_delete"), role: .destructive) {
+                removeKey()
+            }
+            Button(String(localized: "cancel"), role: .cancel) {}
+        } message: {
+            Text("web_search_api_key_remove_confirm_message")
         }
 
         Section {
