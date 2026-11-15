@@ -180,7 +180,12 @@ final class AppLogger: @unchecked Sendable {
     nonisolated(unsafe) static var heightDiagnosticsEnabled: Bool = {
         let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first
         guard let logs = docs?.appendingPathComponent("MiniClaw/logs", isDirectory: true) else { return false }
-        return FileManager.default.fileExists(atPath: logs.appendingPathComponent(".height-diag-on").path)
+        // 开：放 `.height-diag-on`；关：放 `.height-diag-off`（优先）。
+        // 之所以要"关"的文件：devicectl 没有删除容器内文件的子命令，删不掉开启标记时
+        // 只能加一个更高优先级的关闭标记来覆盖。
+        let fm = FileManager.default
+        if fm.fileExists(atPath: logs.appendingPathComponent(".height-diag-off").path) { return false }
+        return fm.fileExists(atPath: logs.appendingPathComponent(".height-diag-on").path)
     }()
     private static let heightDiagnosticCategories: Set<String> = [
         "ChatList.CellMetrics", "ChatList.Blank", "ChatList.Stall",
