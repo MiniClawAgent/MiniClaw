@@ -165,12 +165,31 @@ final class AppLogger: @unchecked Sendable {
     /// 诊断使命完成后会常驻刷屏（实测占单日日志 91%：8216/9038 行）。
     /// 需要复现排查时把类别移出本集合即可恢复全量观测；WARN/ERROR/FAULT 不受影响
     /// （始终保留，见 log 中的级别判断）。
+    /// 高度 / 滚动 / 渲染诊断类别：**默认全部静默**。
+    ///
+    /// 背景：这批日志是为定位"工具指示器间距异常"加的（M10–M24、[DeferShrink]、[BlankProbe2]、
+    /// [SettleAnchor]…）。问题已由"高度按行身份存储"修掉（2026-11-15），日志不再需要，
+    /// 但它们分散在热路径（每次布局 / 每格 / 每秒），Debug 包里很吵，所以在这里统一关掉。
+    ///
+    /// 复现同类问题时改 `heightDiagnosticsEnabled = true`（或临时把本行改成 true）即可全部找回，
+    /// 不需要再去各处加日志。
+    nonisolated(unsafe) static var heightDiagnosticsEnabled = false
+    private static let heightDiagnosticCategories: Set<String> = [
+        "ChatList.CellMetrics", "ChatList.Blank", "ChatList.Stall",
+        "ChatList.Scroll", "ChatList.Layout", "ChatList.Decel",
+        "ChatScreenshot", "RenderCache", "MarkdownSTF", "ChatList.Watchdog",
+    ]
+
     private static let quietInfoCategories: Set<String> = [
         "RenderCache", "MarkdownRenderer",
     ]
 
     func log(category: String, subsystem: String? = nil, level: LogLevel, message: String) {
         guard appLoggerEnabledFlag else { return }
+        // 高度/滚动诊断：默认静默（见 `heightDiagnosticsEnabled`）。error/fault 一律放行。
+        if !Self.heightDiagnosticsEnabled,
+           Self.heightDiagnosticCategories.contains(category),
+           level != .error, level != .fault { return }
         // 插桩静默：在 formatLine 之前短路，省掉无谓的格式化与线程 id 查询开销。
         if level == .info || level == .debug, Self.quietInfoCategories.contains(category) { return }
 

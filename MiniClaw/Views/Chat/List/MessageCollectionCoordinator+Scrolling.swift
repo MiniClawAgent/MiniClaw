@@ -969,6 +969,9 @@ extension MessageCollectionView.Coordinator {
         /// （extension 不能放实例存储属性，故用 static 节流锚点。）
         private static var blankProbeLastAt: CFTimeInterval = 0
         private func blankHoleProbeIfNeeded(_ sv: UIScrollView) {
+            // [2026-11-15] 诊断关闭时**直接不采样**：此函数在 Release 里也编译，
+            // 原先前置闸门在 #if DEBUG 内 ⇒ Release 每次拖动都以 1Hz 做整视口属性 + 逐格遍历。
+            guard ScrollMetricsRecorder.shared.isEnabled else { return }
             guard sv.isDragging || sv.isDecelerating else { return }
             let now = CACurrentMediaTime()
             guard now - Self.blankProbeLastAt >= 1.0 else { return }
@@ -997,10 +1000,6 @@ extension MessageCollectionView.Coordinator {
                 //（实测默认态全天 426 行，且 1Hz 反复打印同一批空格）。
                 // 「条目丢失 → 行间空白」仍是**未结案项**（洞= 那一段仍是唯一量化），故保留探针而非删除；
                 // 需要查时 `devicectl copy to` 放哨兵即恢复全量。
-                #if DEBUG
-                ScrollMetricsRecorder.shared.ensureEnabledChecked()
-                guard ScrollMetricsRecorder.shared.isEnabled else { return }
-                #endif
                 AppLogger.shared.info("[BlankProbe2] attrIdx=\(idxs.first ?? -1)~\(idxs.last ?? -1) 属性数=\(attrs.count)\(holeTag) 空内容格(\(empties.count)): \(empties.prefix(12).joined(separator: " | "))",
                                       category: "ChatList.Blank")
             }
