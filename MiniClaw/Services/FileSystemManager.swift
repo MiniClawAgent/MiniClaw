@@ -1104,8 +1104,10 @@ final class FileSystemManager: @unchecked Sendable {
     }
 
     private func contains(_ candidate: URL, in directory: URL) -> Bool {
-        let root = directory.standardizedFileURL.path
-        let path = candidate.standardizedFileURL.path
+        // [P2-12] 必须解析符号链接：`standardizedFileURL` 只做路径规范化，
+        // `shared/link -> ~/Documents` 这种链接会让前缀校验通过、实际写到沙盒外。
+        let root = directory.resolvingSymlinksInPath().standardizedFileURL.path
+        let path = candidate.resolvingSymlinksInPath().standardizedFileURL.path
         return path == root || path.hasPrefix(root + "/")
     }
 

@@ -214,11 +214,13 @@ struct FileEditTool: AgentTool {
             let (normOld, oldMap) = Self.fuzzyNormalize(oldStr)
             var mapped: [Range<String.Index>] = []
             var scanIdx = normContent.startIndex
+            // [P2-6] 原实现里 `scanIdx = r.upperBound` 之后紧跟 `if r.upperBound == scanIdx { break }`
+            // 恒真 ⇒ 循环首轮就退出，模糊匹配永远只有一处，多命中保护随之失效。
             while let r = normContent.range(of: normOld, range: scanIdx..<normContent.endIndex) {
                 mapped.append(r)
-                scanIdx = r.upperBound == scanIdx ? r.upperBound : r.upperBound
                 if r.upperBound == scanIdx { break }
                 scanIdx = r.upperBound
+                if scanIdx >= normContent.endIndex { break }
             }
             // 归一化偏移 → 原文 String.Index 区间（map 记录归一化字符对应的原文字符）
             var original: [Range<String.Index>] = []

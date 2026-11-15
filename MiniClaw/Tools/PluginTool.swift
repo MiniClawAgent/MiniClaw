@@ -48,7 +48,7 @@ struct PluginTool: AgentTool {
             return ToolResult(success: false, text: String(localized: "plugin_tool_missing_action"))
         }
         switch action {
-        case "list": return list()
+        case "list": return await list()
         case "install": return try await install(parameters)
         case "enable": return try await setState(parameters, enabled: true)
         case "disable": return try await setState(parameters, enabled: false)
@@ -59,14 +59,16 @@ struct PluginTool: AgentTool {
 
     // MARK: - list
 
-    private func list() -> ToolResult {
+    private func list() async -> ToolResult {
         var lines: [String] = [String(localized: "plugin_tool_list_header")]
+        // [P2-8] 快照只用取一次：工具在后台 Task 里跑，裸读 @Published 设置会和主线程写并发。
+        let settingsSnapshot = await SettingsStore.shared.snapshot()
         for dir in FileSystemManager.shared.allPluginDirectories() {
             guard let data = try? Data(contentsOf: dir.appendingPathComponent("plugin.json")),
                   let m = try? JSONDecoder().decode(PluginManifest.self, from: data)
             else { continue }
             let key = m.name.isEmpty ? dir.lastPathComponent : m.name
-            let enabled = SettingsStore.shared.settings.skillEnabledStates[key] ?? m.enabledByDefault
+            let enabled = settingsSnapshot.skillEnabledStates[key] ?? m.enabledByDefault
             let state = enabled ? String(localized: "plugin_tool_state_enabled") : String(localized: "plugin_tool_state_disabled")
             lines.append("- \(key) [\(m.type)] v\(m.version) — \(state)（id: \(dir.lastPathComponent)）")
         }
@@ -85,7 +87,8 @@ struct PluginTool: AgentTool {
         }
 
         // 确认开关（通用设置 → 默认行为，默认开）：弹窗请求用户批准。
-        if SettingsStore.shared.settings.defaults.aiPluginInstallRequiresConfirmation {
+        let snapshotForPlugin = await SettingsStore.shared.snapshot()
+        if snapshotForPlugin.defaults.aiPluginInstallRequiresConfirmation {
             let title = await MainActor.run {
                 currentSessionID.flatMap { SessionManager.shared.session(id: $0)?.title }
                     ?? String(localized: "unknown_session")

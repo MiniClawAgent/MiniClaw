@@ -65506,6 +65506,34 @@
           }
         }
       }
+    },
+    "loop_bad_tool_arguments": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tool %@ received invalid JSON arguments (truncated: %@). Fix the JSON and call again."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "工具 %@ 收到的参数不是合法 JSON（截断预览：%@）。请修正 JSON 后重新调用。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ツール %@ の引数が不正な JSON です（先頭: %@）。修正して再実行してください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "도구 %@ 의 인자가 올바른 JSON 이 아닙니다(미리보기: %@). 수정 후 다시 호출하세요."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

@@ -2238,12 +2238,17 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
                 return ToolResult(success: false, text: String(localized: "err_user_paused_cancelled"))
             }
             // 在闭包内重建参数，避免捕获外部非 Sendable 的 [String:Any]。
-            let innerArgs: [String: Any]
-            if let data = tc.function.arguments.data(using: .utf8),
-               let parsed = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-                innerArgs = parsed
-            } else {
-                innerArgs = [:]
+            // [P2-7] 参数 JSON 非法时**不能**降级成空字典：那样模型只会收到
+            // "缺少 path/command"，于是原样重发同一段坏 JSON，两次同签名失败即触发熔断。
+            // 直接把"参数不是合法 JSON"回给模型，它才有机会改正。
+            let parsedArgs = tc.function.arguments.data(using: .utf8).flatMap {
+                try? JSONSerialization.jsonObject(with: $0) as? [String: Any]
+            }
+            guard let innerArgs = parsedArgs else {
+                return ToolResult(
+                    success: false,
+                    text: String(format: String(localized: "loop_bad_tool_arguments"), rawName, String(tc.function.arguments.prefix(200)))
+                )
             }
             do {
                 // 引擎作用域：引擎保留工具（dispatch/close_subagent）经 ToolEngineScope
