@@ -374,3 +374,87 @@ xcodebuild build -project MiniClaw.xcodeproj -scheme MiniClaw \
 `chat-demo` 是 Web 前端，以下**不搬**：DOM 虚拟滚动与 CSS Modules、`zustand`/`IndexedDB`/`localStorage`、
 `file://` 静态分发、`rspack` 构建链。它们的原生等价物是 UICollectionView/SwiftUI + TextKit、
 `@Observable`/SwiftData/SQLite、`.xcassets`/`xcconfig` —— 只借"组织方式"，不借实现。
+
+---
+
+## 十、命名与可读性纪律（N1–N9）
+
+> 起因：MCD 迁移过程中出现"同一批工具里既有 `file_read` 又有 `apple-image`"的混用，
+> 以及日志 scope、i18n key、目录名各写一套的情况。命名不一致的代价不是丑，是**找不到、改错地方、重复实现**。
+
+### 10.1 四条总原则
+
+| 原则 | 要求 | 反例 |
+|---|---|---|
+| **可读优先** | 名字要能让半年后的自己一眼看懂，不用缩写（除公认：URL / ID / API / JSON） | `Svc`、`Mgr2`、`tmpX` |
+| **同类同形** | 同一类东西必须同一种形态，不允许 A 用下划线、B 用连字符 | `file_read` vs `apple-image` |
+| **层次一致** | 目录、类型、方法、日志、文案 key 各有固定结构，不即兴发挥 | 日志 scope 一会儿 `parse` 一会儿 `protocol` |
+| **改一处** | 名字只在一处定义，其他地方引用 | 工具名散落在 schema 与注册表两处手写 |
+
+### 10.2 各层命名规则
+
+| 对象 | 规则 | 示例 |
+|---|---|---|
+| 文件 / 目录 | `UpperCamelCase.swift`；目录按**职责**（单数、UpperCamel） | `Services/Tools/FileTools.swift`、`Views/Chat/MessageRow.swift` |
+| 类型 | `UpperCamelCase`，名词或"名词+职责" | `AgentRunner`、`SystemPromptBuilder`、`SandboxFileManager` |
+| 协议 | 名词，不加 `Protocol` 后缀 | `AgentTool`、`ShellRuntime` |
+| 方法 | `lowerCamelCase`，动词开头 | `makeRegistry(settings:)`、`appendBlock(_:sessionID:messageID:)` |
+| 属性 / 局部变量 | `lowerCamelCase`；布尔用 `is/has/can/should` 开头 | `isStreaming`、`hasAPIKey` |
+| 常量 | `lowerCamelCase`（Swift 惯例），不用全大写 | `maxToolRounds` |
+| 日志 scope | **固定枚举**，见 10.3 | `llm`、`tool`、`chat` |
+| i18n key | `区域.对象.动作/属性`，全小写点分 | `chat.placeholder`、`error.rateLimited` |
+| 沙盒目录 | 全小写单数名词 | `sessions/`、`workspace/`、`memory/` |
+| JSON 字段（落盘） | `lowerCamelCase`（Swift 侧）；外部协议按其规范 | `searchQueries`、`toolIsError` |
+
+### 10.3 日志 scope 白名单（禁止新增即兴 scope）
+
+| scope | 覆盖范围 |
+|---|---|
+| `llm` | 请求组装、流式帧、结束统计 |
+| `tool` | 工具执行开始/结束/失败 |
+| `chat` | 会话状态机（发送、结束、空回复） |
+| `agent` | 智能体循环（轮次、上限） |
+| `storage` | 会话读写 |
+| `sandbox` | 沙盒目录 |
+| `keychain` | 密钥 |
+| `parse` | 协议数据解析失败 |
+| `runtime` | 命令运行时（Alpine） |
+| `probe` | 启动自检 / 连通性探测 |
+
+新增 scope 必须先加进本表，否则视为违反 N3。
+
+### 10.4 外部契约例外（唯一允许的"不统一"）
+
+**工具名是外部契约，必须与 MiniClaw 逐字一致**，即使 MiniClaw 自身混用 `_` 与 `-`。
+理由：改名会让模型侧、历史会话、以及将来双向迁移全部错位，代价远大于视觉统一。
+
+处理方式：
+- 工具名**不动**；
+- 但在 `docs/TOOL-PARITY.md` 中标注每一处不规范命名，作为已知债务；
+- 新增工具（MCD 独有）一律 `lower_snake_case`，向多数派靠。
+
+### 10.5 自检清单（改完代码照着过）
+
+1. 新增文件是否在正确的职责目录、文件名是否 `UpperCamelCase`；
+2. 新增类型名是否能不看实现猜出职责；
+3. 是否出现同类不同形（`a_b` 与 `c-d` 并存）；
+4. 日志 scope 是否在白名单内；
+5. i18n key 是否符合 `区域.对象.动作`；
+6. 文案是否全部走 String Catalog，无硬编码；
+7. 名字是否只定义一次、其他地方引用而非复制。
+
+### 10.6 不适用
+
+- 对接第三方协议字段（如 OpenAI 的 `tool_calls`、DeepSeek 的 `reasoning_content`）**保持原样**，不做本地化改写；
+- 系统 API 命名（`URLSession`、`FileManager`）不参与本规范。
+
+### 10.7 落地检查（可自动化）
+
+```sh
+# 1) 工具名混用检查（只应出现在外部契约处）
+grep -rn 'name = "[a-z0-9_]*-[a-z0-9_-]*"' MiniClawDemo/ios/Sources | grep -v TOOL-PARITY
+# 2) 日志 scope 越界检查
+grep -rn 'Diagnostics\.\(note\|dropped\)("' MiniClawDemo/ios/Sources | grep -vE '"(llm|tool|chat|agent|storage|sandbox|keychain|parse|runtime)"'
+# 3) 硬编码中文检查（UI 目录内不应出现中文字面量）
+grep -rn '[一-龥]' MiniClawDemo/ios/Sources/Views | grep -v '//'
+```
