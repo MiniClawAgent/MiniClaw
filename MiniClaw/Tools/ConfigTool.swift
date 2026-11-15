@@ -284,8 +284,17 @@ struct ConfigTool: AgentTool {
     private func saveArray(topic: String, arr: [[String: Any]]) -> Bool {
         switch topic {
         case "providers":
-            guard let providers = (try? JSONSerialization.data(withJSONObject: arr)).flatMap({ try? JSONDecoder().decode([LLMProvider].self, from: $0) }) else { return false }
+            guard var providers = (try? JSONSerialization.data(withJSONObject: arr)).flatMap({ try? JSONDecoder().decode([LLMProvider].self, from: $0) }) else { return false }
             var c = ProviderFileStore.load()
+            // [P0-1] `models` 不在 LLMProvider 的 CodingKeys 里（运行时属性，由 modelEntries 回填）。
+            // 解码出来的每个 provider 的 models 都是空数组；若直接写回，`ProviderFileStore.save`
+            // 的条目清理会因为"当前列表为空"而删掉**所有**服务商的全部模型。
+            // 这里按 id 把磁盘上的模型列表还回去，模型本身仍由 modelEntries 权威管理。
+            for i in providers.indices {
+                if let existing = c.providers.first(where: { $0.id == providers[i].id }) {
+                    providers[i].models = existing.models
+                }
+            }
             c.providers = providers
             ProviderFileStore.save(c)
             return true

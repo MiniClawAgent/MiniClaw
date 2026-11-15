@@ -148,6 +148,8 @@ struct CustomModelEditorView: View {
                     if current != original {
                         saved.userRenamed = true
                     }
+                    // [P1-8] 保存即视为"用户编辑过能力字段"：后续目录校正/刷新不得覆盖。
+                    saved.userEdited = true
                     onSave?(saved)
                     dismiss()
                 }

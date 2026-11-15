@@ -163,24 +163,9 @@ class OpenAIProviderAdapter: LLMProviderAdapter, @unchecked Sendable {
             body = buildChatCompletionsBody(request: request)
         }
         // 编码失败必须报错而不能静默发空 body(与旧路径 encodingFailed 语义一致)。
-        // [2026-09-15 诊断·临时] 请求体落盘（环转保留最近 3 份）。
-        // 目的：把**实际发出去的 body** 存下来，相邻两次请求一 diff ⇒ 第一处不同字节的位置
-        // 就是「前缀在哪一段发生变动」的答案。定位完成后删除本块。
-        // 落点 = 日志目录（与 AppLogger 同处，便于直接拉取）。
-        do {
-            if let base = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first {
-                let dir = base.appendingPathComponent("MiniClaw/logs", isDirectory: true)
-                try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-                let stamp = String(format: "%d", Int(Date().timeIntervalSince1970))
-                try? body.write(to: dir.appendingPathComponent("reqdump_\(stamp).json"), options: .atomic)
-                if let files = try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil) {
-                    let dumps = files
-                        .filter { $0.lastPathComponent.hasPrefix("reqdump_") }
-                        .sorted { $0.lastPathComponent < $1.lastPathComponent }
-                    for old in dumps.dropLast(2) { try? FileManager.default.removeItem(at: old) }
-                }
-            }
-        }
+        // [P1-13] 原「请求体落盘」诊断块已删除：它把**完整请求体**（全部历史 + 系统提示 +
+        // 工具 schema）每次请求都明文写进 Documents/MiniClaw/logs，既扩大数据面又增加同步 IO。
+        // 需要再看 body 时用日志里的长度/哈希即可，不要落原文。
         guard !body.isEmpty else {
             let stream = AsyncThrowingStream<LLMStreamEvent, Error> { cont in
                 cont.finish(throwing: LLMError.encodingFailed)
@@ -435,7 +420,13 @@ class OpenAIProviderAdapter: LLMProviderAdapter, @unchecked Sendable {
             return .providerRejected(fallback.isEmpty ? String(localized: "err_request_rejected") : fallback)
         default:
             if statusCode >= 500 {
-                return .providerRejected(String(format: String(localized: "err_server_error"), statusCode, String(fallback.prefix(300))))
+                // [P1-3] 5xx 必须是**可重试**：此前包成 `.providerRejected`，
+                // 而 RetryPolicy 把它判成 fatal ⇒ 承诺的"5xx 自动重试 5 次"从未生效，
+                // 服务端一抖动就直接报错。`.invalidResponse(5xx)` 在分类器里走 retryable。
+                AppLogger.shared.warning(
+                    String(format: String(localized: "err_server_error"), statusCode, String(fallback.prefix(200))),
+                    category: "LLM", subsystem: "Provider")
+                return .invalidResponse(statusCode)
             }
             return nil
         }

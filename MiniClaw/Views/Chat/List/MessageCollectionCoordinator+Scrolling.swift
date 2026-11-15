@@ -1118,7 +1118,10 @@ extension MessageCollectionView.Coordinator {
             flushingNow = false
 
             if scrollMode == .userBrowsing {
-                cv.contentOffset.y = savedOffset
+                // [P1-4] 原先直接写回 `savedOffset`，把上面算好的 `aboveSum`/`settleAbove`
+                // 两笔锚定整体丢弃 ⇒ 视口上方的高度变化会 1:1 平移可见内容 = 松手跳一下。
+                // 浏览态同样需要锚定：只补偿"视口上方"的部分，不改变用户当前看的位置语义。
+                cv.contentOffset.y = savedOffset + aboveSum + settleAbove
                 #if DEBUG
                 // [Stage 0 · M12] 只观测：`scrollMode == .userBrowsing` 时上面 ①② 两处锚定
                 // （`aboveSum` + `settleAbove`）被这一行**整体丢弃**。而视口**上方**的高度变化会

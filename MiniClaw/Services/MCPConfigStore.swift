@@ -29,10 +29,11 @@ final class MCPConfigStore: ObservableObject {
             let token = bearerToken.trimmingCharacters(in: .whitespacesAndNewlines)
             if token.isEmpty {
                 MCPBearerTokenStore.deleteToken(for: server.id)
+                stored.hasBearerToken = false
             } else {
-                MCPBearerTokenStore.saveToken(token, for: server.id)
+                // [P1-11] 以 Keychain 实际写入结果为准，不谎报"已配置"
+                stored.hasBearerToken = MCPBearerTokenStore.saveToken(token, for: server.id)
             }
-            stored.hasBearerToken = !token.isEmpty
         } else {
             stored.hasBearerToken = MCPBearerTokenStore.hasToken(for: server.id)
         }
@@ -291,9 +292,9 @@ final class MCPConfigStore: ObservableObject {
             }
             touched.append(cfg.id)
             if let token = parsedToken {
-                MCPBearerTokenStore.saveToken(token, for: cfg.id)
+                let saved = MCPBearerTokenStore.saveToken(token, for: cfg.id)
                 if let idx = servers.firstIndex(where: { $0.id == cfg.id }) {
-                    servers[idx].hasBearerToken = true
+                    servers[idx].hasBearerToken = saved
                 }
             }
         }
@@ -367,21 +368,32 @@ final class MCPConfigStore: ObservableObject {
 enum MCPBearerTokenStore {
     static let service = "com.neartop.miniclaw.mcpbearertoken"
 
-    static func saveToken(_ token: String, for serverId: UUID) {
+    /// 保存 MCP Bearer 令牌。返回是否真正写入成功。
+    ///
+    /// [P1-11] 原实现丢弃 `SecItemAdd/Update` 的返回码，调用方随后无条件
+    /// `hasBearerToken = true` ⇒ UI 显示"已配置令牌"，实际请求全无 Authorization（401），
+    /// 日志里也没有任何线索。现在把失败显式报出来。
+    @discardableResult
+    static func saveToken(_ token: String, for serverId: UUID) -> Bool {
         let data = Data(token.utf8)
-        guard !data.isEmpty else { deleteToken(for: serverId); return }
+        guard !data.isEmpty else { deleteToken(for: serverId); return true }
         let query = baseQuery(for: serverId)
         let attributes: [String: Any] = [
             kSecValueData as String: data,
             kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlock
         ]
-        let status = SecItemUpdate(query as CFDictionary, attributes as CFDictionary)
+        var status = SecItemUpdate(query as CFDictionary, attributes as CFDictionary)
         if status == errSecItemNotFound {
             var add = query
             add[kSecValueData as String] = data
             add[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
-            SecItemAdd(add as CFDictionary, nil)
+            status = SecItemAdd(add as CFDictionary, nil)
         }
+        guard status == errSecSuccess else {
+            AppLogger.shared.error("[MCP] token save failed server=\(serverId.uuidString.prefix(8)) status=\(status)", category: "MCP")
+            return false
+        }
+        return true
     }
 
     static func getToken(for serverId: UUID) -> String? {

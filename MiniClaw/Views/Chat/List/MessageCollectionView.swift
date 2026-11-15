@@ -993,7 +993,23 @@ extension MessageCollectionView {
                 .receive(on: DispatchQueue.main)
                 .sink { [weak self] _ in
                     guard let self,let vm = self.vm else { return }
-                    self.applySnapshot(messages: vm.messages)
+                    // [P1-5] `showUsage` 只改 bridge（@Published），不改变 item 身份 ⇒
+                    // `applySnapshot` 会在 identityUnchanged 处早退，footer 高度不重测；
+                    // 而 PLAF 命中 dedup 会返回旧高度，多出来的用量胶囊被 cell 裁掉。
+                    // 这里直接失效并重配最后一条 assistant 的 footer 行。
+                    if let lastAI = vm.messages.last(where: { $0.role == .assistant }),
+                       let layout = self.viewController?.messageListLayout {
+                        let footerItem = MessageListItem.assistantFooter(lastAI.id)
+                        if let idx = self.itemToIndex[footerItem] {
+                            layout.invalidateHeight(at: idx)
+                        }
+                        var snapshot = self.dataSource.snapshot()
+                        if snapshot.itemIdentifiers.contains(footerItem) {
+                            snapshot.reconfigureItems([footerItem])
+                            self.dataSource.apply(snapshot, animatingDifferences: false)
+                        }
+                        layout.invalidateLayout()
+                    }
                 }
                 .store(in: &subscriptions)
         }

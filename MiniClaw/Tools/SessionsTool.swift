@@ -47,6 +47,13 @@ struct SessionsTool: AgentTool {
         let requestedID = parameters["id"] as? String
         let id: String?
         if target == "explicit" {
+            // [P1-16] 只允许操作**当前会话**：此前任意 UUID 都能被删除/改写，
+            // 等价于模型（或被注入的网页内容）可以跨会话毁数据。
+            if let requestedID, let current = currentSessionID,
+               requestedID.caseInsensitiveCompare(current.uuidString) != .orderedSame,
+               command == "delete" || command == "update" || command == "append" {
+                return ToolResult(success: false, text: "refuse: cross-session \(command) is not allowed")
+            }
             id = requestedID
         } else if command == "delete" {
             id = nil

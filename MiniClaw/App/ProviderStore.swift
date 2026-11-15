@@ -123,6 +123,8 @@ enum ProviderFileStore {
         var c = container
         for ei in c.modelEntries.indices {
             var entry = c.modelEntries[ei]
+            // [P1-8] 用户手动调过模态的模型不再被厂商目录拍平（否则重启即还原）。
+            if entry.baseModel.edited { continue }
             var m = entry.baseModel
             // 找不到所属 provider 时跳过校正(避免误用默认厂商目录)。
             guard let pt = c.providers.first(where: { $0.id == entry.providerInstanceId })?.providerType else { continue }
@@ -159,7 +161,10 @@ enum ProviderFileStore {
             p.apiKey = "" // 落盘前清空明文
             toSave.providers[i] = p
         }
-        _ = persist(toSave, to: fileURL)
+        // [P1-11] 落盘失败不能静默：否则用户在设置里改的一切"看起来保存成功"，重启全回滚。
+        if !persist(toSave, to: fileURL) {
+            AppLogger.shared.error("[ProviderStore] persist failed path=\(fileURL.lastPathComponent)", category: "Provider")
+        }
     }
 
     /// 把 provider.models 同步到 modelEntries：已有条目更新 baseModel，新模型新增条目。
@@ -194,6 +199,15 @@ enum ProviderFileStore {
             //   ① 标记恒为 false（从未写 true）⇒ 保护不生效，刷新即删（用户报的 bug）
             //   ② 标记真的生效后 ⇒ 用户主动删除的自定义模型会被"保护"复活
             // 现在删除只看「是否还在权威列表里」，两种情况都正确。
+            // [P0-1 兜底] 运行时列表为空 = "没加载/没回填"，不是"用户删光了"。
+            // 前者若走删除分支会清空该服务商的全部模型（config 工具曾造成这种事故）。
+            // 代价：用户把最后一个模型删光后，重启会因条目仍在而"复活"——用数据安全换这点不便。
+            guard !provider.models.isEmpty else {
+                AppLogger.shared.warning(
+                    "[ProviderStore] skip entry prune: provider \(provider.id.uuidString.prefix(8)) models empty (treated as unloaded)",
+                    category: "Provider")
+                continue
+            }
             let currentModelIds = Set(provider.models.map { $0.modelId })
             entries.removeAll { entry in
                 entry.providerInstanceId == provider.id &&

@@ -226,6 +226,9 @@ struct ProviderDetailView: View {
                     // 同 ID 已存在（用户手填了接口也会返回的模型）时覆盖而不是并列，
                     // 否则后续按 modelId 建字典会撞键。
                     if let idx = draft.models.firstIndex(where: { $0.modelId == saved.modelId }) {
+                        // [P1-7] 复用原模型 id：`selectedModelId` 存的是 ModelConfig.id，
+                        // 换号会让"当前默认模型"永久指不到它（聊天静默降级到别的模型）。
+                        saved.id = draft.models[idx].id
                         draft.models[idx] = saved
                     } else {
                         draft.models.append(saved)
@@ -366,10 +369,14 @@ struct ProviderDetailView: View {
 
     /// 把 headerRows 编辑结果同步回 draft.customHeaders（触发 onChange → persist 落盘）。
     private func syncHeaders() {
+        // [P0-2] 用 `uniquingKeysWith` 而不是 `uniqueKeysWithValues`：
+        // 后者遇到重名直接 fatalError 崩溃。用户在编辑过程中"新加一行同名、旧行还没删"
+        // 就会踩到（每次按键都走这里），所以必须容错（保留先出现的那条）。
         draft.customHeaders = Dictionary(
-            uniqueKeysWithValues: headerRows
+            headerRows
                 .filter { !$0.key.trimmingCharacters(in: .whitespaces).isEmpty }
-                .map { ($0.key, $0.value) }
+                .map { ($0.key, $0.value) },
+            uniquingKeysWith: { first, _ in first }
         )
     }
 

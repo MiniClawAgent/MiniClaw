@@ -435,6 +435,14 @@ struct ModelConfig: Identifiable, Codable, Equatable, Hashable {
     var maxOutputTokens: Int?
     /// 隐藏后不在模型组模型选项和添加列表中出现。Optional 用于兼容旧 providers.json。
     var isHidden: Bool?
+    /// 用户是否手动编辑过该模型的**能力字段**（上下文/输出上限/模态）。
+    ///
+    /// 用于两处覆盖保护：
+    /// - `reconcileModelModalities` 不再用厂商目录把用户勾的模态拍平；
+    /// - 刷新模型时不拿接口值覆盖用户手填的上下文/输出上限。
+    /// Optional 兼容旧数据（缺失 ≡ 未编辑）。
+    var userEdited: Bool?
+
     /// 用户手动添加的自定义模型（不是服务商 `/v1/models` 返回的）。
     ///
     /// 存在的理由：刷新模型时接口只返回它自己认识的模型，用户手填的模型必然缺席。
@@ -467,6 +475,11 @@ struct ModelConfig: Identifiable, Codable, Equatable, Hashable {
     /// 是否用户自定义模型（缺省非自定义）。
     var custom: Bool {
         isCustom ?? false
+    }
+
+    /// 是否被用户手动编辑过（缺省未编辑）。
+    var edited: Bool {
+        userEdited ?? false
     }
 
     /// 将模型 ID 规整为「每个单词首字母大写」的显示名。

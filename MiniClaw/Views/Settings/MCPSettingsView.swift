@@ -695,15 +695,18 @@ private struct MCPServerEditorView: View {
         let hasBearerToken = removeSavedCredential
             ? false
             : (server?.hasBearerToken == true || !trimmedToken.isEmpty)
+        // [P0-2] 重名容错：uniqueKeysWithValues 撞键会 fatalError 崩溃。
         let customHeaders = Dictionary(
-            uniqueKeysWithValues: headerRows
+            headerRows
                 .map { ($0.key.trimmingCharacters(in: .whitespacesAndNewlines), $0.value) }
-                .filter { !$0.0.isEmpty }
+                .filter { !$0.0.isEmpty },
+            uniquingKeysWith: { first, _ in first }
         )
         let envVars = Dictionary(
-            uniqueKeysWithValues: envRows
+            envRows
                 .map { ($0.key.trimmingCharacters(in: .whitespacesAndNewlines), $0.value) }
-                .filter { !$0.0.isEmpty }
+                .filter { !$0.0.isEmpty },
+            uniquingKeysWith: { first, _ in first }
         )
         let config = MCPServerConfig(
             id: server?.id ?? UUID(),

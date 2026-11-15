@@ -40,11 +40,14 @@ enum ProviderModelMerge {
             if !incoming.displayName.isEmpty, current.userRenamed != true {
                 current.displayName = incoming.displayName
             }
-            if incoming.contextLimit > 0 {
-                current.contextLimit = incoming.contextLimit
-            }
-            if let maxOutputTokens = incoming.maxOutputTokens {
-                current.maxOutputTokens = maxOutputTokens
+            // [P1-14] 用户手填过的上限保持不动：此前无保护，一次"刷新模型"就会覆盖。
+            if !current.edited {
+                if incoming.contextLimit > 0 {
+                    current.contextLimit = incoming.contextLimit
+                }
+                if let maxOutputTokens = incoming.maxOutputTokens {
+                    current.maxOutputTokens = maxOutputTokens
+                }
             }
             current.deepThinking = incoming.deepThinking
             // 模态开关统一交给 BuiltinModelInfo.reconcile（厂商适配器目录为准 + 启发式兜底），

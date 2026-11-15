@@ -532,7 +532,29 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
 
     /// 从检查点恢复：直接载入 `task.messages` 重放上下文，开一个全新 Loop。
     /// 与 `run` 不同，不重新拼 system/history（检查点已含全部上下文）。
+    /// 补齐"有 tool_calls 但缺 tool 响应"的悬空消息（恢复检查点时使用）。
+    private func repairDanglingToolCalls(in task: inout AgentTask) {
+        guard let lastAssistantIndex = task.messages.lastIndex(where: { $0.role == "assistant" }),
+              let calls = task.messages[lastAssistantIndex].toolCalls, !calls.isEmpty else { return }
+        let responded = Set(task.messages[(lastAssistantIndex + 1)...].compactMap { $0.toolCallID })
+        let dangling = calls.filter { !responded.contains($0.id) }
+        guard !dangling.isEmpty else { return }
+        for call in dangling {
+            task.messages.append(ChatCompletionMessage(
+                role: "tool",
+                content: String(localized: "loop_tool_interrupted_on_resume"),
+                toolCallID: call.id,
+                name: call.function.name
+            ))
+        }
+        AppLogger.shared.warning(
+            "[Resume] repaired dangling tool_calls count=\(dangling.count)",
+            category: "Agent", subsystem: "AgentLoop")
+    }
+
     func resume(_ task: AgentTask) async {
+        // 局部可变副本：恢复前需要修补悬空的 tool_calls（见 repairDanglingToolCalls）。
+        var task = task
         guard let routingPlan, !routingPlan.endpoints.isEmpty else {
             // 主线程投递：onError 的消费方（AgentRunService）在闭包内使用
             // MainActor.assumeIsolated，若这里在非主线程直接调用即 fatalError。
@@ -550,6 +572,10 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
             promoted.status = .running
             AgentTaskStore.shared.save(promoted)
         }
+
+        // [P0-4 兜底] 旧版本可能在工具执行前落盘，尾部留下裸 `assistant(tool_calls)`。
+        // 冷恢复逐字重放会缺 tool 响应 → 端点 400。进入循环前先补齐。
+        repairDanglingToolCalls(in: &task)
 
         await state.configureRunning()
 
@@ -1112,18 +1138,25 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
             )
             messages.append(assistantMsg)
 
-            // 每完成一轮 → 落盘检查点（status .running），支撑 App 被杀后的冷恢复。
-            if sessionID != nil {
+            // [P0-4] 检查点不能在工具执行**之前**落盘：那时尾消息是裸 `assistant(tool_calls)`，
+            // 冷恢复逐字重放会缺 tool 响应 → 端点 400，且重试耗尽后任务不可挽回。
+            // 因此：无工具调用的轮次（尾消息是 assistant 文本）可立刻存档；
+            // 有工具调用的轮次推迟到「整批 tool 消息落盘之后」（见下方 saveCheckpoint）。
+            let checkpointDeferred = !validToolCalls.isEmpty
+            if sessionID != nil, !checkpointDeferred {
                 let pending = await state.pendingInputs()
                 await saveCheckpoint(status: .running, pendingInputs: pending)
             }
 
-            // 无效工具调用：不写入 assistant.tool_calls（避免空名进入 API 请求），
-            // 改为追加一条 user 备注，让模型知道并重新发起正确调用或改用文字回答。
+            // [P0-3] 无效工具调用：不写入 assistant.tool_calls（避免空名进入请求），
+            // 改为追加一条 user 备注提醒模型。但**必须等 tool 结果全部落盘之后**再追加——
+            // 否则「同一轮既有合法工具又有无效工具」时顺序会变成
+            // assistant(tool_calls) → user(备注) → tool，打断紧邻关系，端点直接 400。
+            var invalidToolNote: ChatCompletionMessage?
             if !invalidToolCalls.isEmpty {
                 let names = invalidToolCalls.map { $0.function.name.isEmpty ? String(localized: "empty_name") : $0.function.name }.joined(separator: "、")
                 let note = String(format: String(localized: "loop_invalid_tool_hint"), invalidToolCalls.count, names)
-                messages.append(ChatCompletionMessage(role: "user", content: note))
+                invalidToolNote = ChatCompletionMessage(role: "user", content: note)
                 AppLogger.shared.warn(String(format: String(localized: "loop_invalid_tool_note"), names), category: "Agent", subsystem: "AgentLoop")
             }
 
@@ -1259,6 +1292,15 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
             // [2026-09-15 缓存治本] 易变段轮内变化（skill_load 注入技能正文）→ 在**整批工具消息之后**
             // 末尾追加快照消息。位置必须在这里：夹在 `assistant(tool_calls)` 与其 `tool` 结果之间会被
             // 端点判 400（同上一条纪律），而**改写**已有字节则会让本轮已发出的前缀全部作废。
+            // 备注排在整批 tool 消息之后（P0-3），随后补上本轮检查点（P0-4）。
+            if let invalidToolNote {
+                messages.append(invalidToolNote)
+            }
+            if sessionID != nil, checkpointDeferred {
+                let pending = await state.pendingInputs()
+                await saveCheckpoint(status: .running, pendingInputs: pending)
+            }
+
             await deliverVolatileDeltaIfNeeded()
 
             // 安全点②：本轮工具结果已落库、上下文完整后，若请求暂停 → 落地为 .paused。

@@ -49,8 +49,10 @@ extension MessageCollectionView.Coordinator {
                 }
             case .indices(let idxs):
                 guard let layout = viewController?.messageListLayout else { return }
+                // [P1-9] 判据从"没有条目"改成"没有实测"：`invalidateHeight` 现在是**降级不删除**
+                // （条目仍在、source 变 estimated），用 cachedHeight == nil 会导致重播种整段跳过。
                 for i in idxs where i >= 0 && i < rows.count
-                    && layout.cachedHeight(at: i) == nil {
+                    && !layout.hasMeasuredHeight(at: i) {
                     seedHeight(at: i, item: rows[i], messages: messages,
                                width: width, isReseed: true)
                 }
@@ -900,9 +902,19 @@ extension MessageCollectionView.Coordinator {
             }
         }
 
+        /// [P0-5] 字体度量变更：清高度缓存**并重播种**。
+        ///
+        /// `clearHeightCache()` 会连 `contentKeyByItem` 一起清；若不重播种，`prepare()` 对每个
+        /// 无条目/无键的行落到 `estimatedItemHeight`（200pt）⇒ 内容总高虚高数倍、同一 offset
+        /// 指向别处（跳位），随滚动逐行收缩。宽度变更路径有 `onIndexHeightsPurged` 补播种，
+        /// 字体路径此前没有。
         func reconfigureAllCells() {
-            viewController?.messageListLayout?.clearHeightCache()
+            guard let layout = viewController?.messageListLayout else { return }
+            layout.clearHeightCache()
+            seedHeights(.all, rows: prevSnapshotIds, messages: snapshotMessages,
+                        width: viewController?.collectionView.bounds.width ?? 390)
             reconfigureVisibleCells()
+            layout.invalidateLayout()
         }
 
         func reconfigureVisibleCells() {

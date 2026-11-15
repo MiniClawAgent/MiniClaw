@@ -372,6 +372,9 @@ struct ChatView: View {
     @MainActor
     private func editMessage(_ messageID: UUID) {
         guard let msg = session.messages.first(where: { $0.id == messageID }), msg.role == .user else { return }
+        // [P1-1] 输入框的文本由 ChatInputBar 内部 `draft` 独占，外部只能通过 injection 注入。
+        // 只改 `inputText`（本视图的镜像）不会让输入框出现内容——长按"编辑"看起来点了没反应。
+        injectInput(msg.content)
         inputText = msg.content
         isInputFocused = true
     }

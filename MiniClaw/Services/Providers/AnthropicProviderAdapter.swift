@@ -286,7 +286,13 @@ final class AnthropicProviderAdapter: LLMProviderAdapter, @unchecked Sendable {
             return .providerRejected(body.isEmpty ? String(localized: "err_request_rejected") : body)
         default:
             if statusCode >= 500 {
-                return .providerRejected(String(format: String(localized: "err_server_error"), statusCode, String(body.prefix(300))))
+                // [P1-3] 5xx 必须是**可重试**：此前包成 `.providerRejected`，
+                // 而 RetryPolicy 把它判成 fatal ⇒ 承诺的"5xx 自动重试 5 次"从未生效，
+                // 服务端一抖动就直接报错。`.invalidResponse(5xx)` 在分类器里走 retryable。
+                AppLogger.shared.warning(
+                    String(format: String(localized: "err_server_error"), statusCode, String(body.prefix(200))),
+                    category: "LLM", subsystem: "Provider")
+                return .invalidResponse(statusCode)
             }
             return nil
         }

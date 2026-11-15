@@ -53,7 +53,9 @@ struct FileReadTool: AgentTool {
         let tail = parameters["tail"] as? Int
 
         do {
-            let content = try FileSystemManager.shared.readFile(at: path, offset: offset, limit: limit, tail: tail, sessionID: currentSessionID)
+            // [P1-2] 必须走分页读取：非分页路径会把整文件原样返回，
+            // 80k 字符截断、next_offset 续读、二进制十六进制预览全部失效（大文件撑爆上下文）。
+            let content = try FileSystemManager.shared.readFile(at: path, offset: offset, limit: limit, tail: tail, sessionID: currentSessionID, paged: true)
             return ToolResult(success: true, text: content)
         } catch {
             return ToolResult(success: false, text: error.localizedDescription)

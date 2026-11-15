@@ -17232,30 +17232,29 @@
       }
     },
     "encrypted_storage_cannot_be_read_back": {
-      "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Encrypted storage, cannot be read back"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "暗号化保存、読み戻し不可"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "암호화 저장, 되읽기 불가"
+            "value": "Hidden in list (stored on device)"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "加密存储，不可回读"
+            "value": "列表内隐藏（保存在本机）"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "一覧では非表示（端末内に保存）"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "목록에서 숨김(기기 내 저장)"
           }
         }
       }
@@ -65476,6 +65475,34 @@
           "stringUnit": {
             "state": "translated",
             "value": "일시정지"
+          }
+        }
+      }
+    },
+    "loop_tool_interrupted_on_resume": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[Interrupted] This tool call did not finish because the app was closed. Continue with what you already know, or retry it."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "【已中断】App 关闭导致该工具调用未完成。请基于已知信息继续，或重新调用。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "【中断】アプリ終了のため、このツール呼び出しは完了していません。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[중단] 앱 종료로 이 도구 호출이 완료되지 않았습니다."
           }
         }
       }

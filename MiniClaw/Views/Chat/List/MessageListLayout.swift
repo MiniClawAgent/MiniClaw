@@ -1039,8 +1039,9 @@ public final class MessageListLayout: UICollectionViewLayout {
     public func isStreamingCell(_ index: Int) -> Bool {
         // Take ONE locked snapshot of
         let ranges = streamingCellRanges
-        if let last = ranges.last,index >= last.lowerBound { return true }
-        //
+        // [P1-10] 删除"index >= 最后一个区间起点就算流式"的短路：它把最后一段之后的所有行
+        // 都判成流式，导致这些行的非实测收缩被"只长不缩"闸门永久拒绝（footer 回落时留空白）。
+        // 区间本身已是精确的 start..<end。
         return ranges.contains { $0.contains(index) }
     }
 

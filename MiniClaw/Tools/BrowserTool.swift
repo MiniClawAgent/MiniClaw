@@ -91,6 +91,14 @@ struct BrowserTool: AgentTool {
                 category: "NetPolicy")
         }
 
+        // [P1-15] 内网/回环目标一律拒绝（防网页内容注入驱动的 SSRF）。
+        if action == "navigate" || action == "fetch",
+           let rawURL = (params["url"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines),
+           let target = URL(string: rawURL),
+           let reason = Self.blockedHostReason(target) {
+            return ToolResult(success: false, text: "blocked: \(reason) (\(target.host ?? "-"))")
+        }
+
         // [2026-09-14 搜索引擎策略] 按 `SearchEnginePolicy`（用户偏好 > 地区先验 > 可达性事实）
         // 解析本轮应使用的引擎。设置快照按工程纪律走 `snapshot()`（@MainActor，
         // **不裸读 SettingsStore**，与 ShellTool 同款约束）。
@@ -179,6 +187,28 @@ struct BrowserTool: AgentTool {
             params[key] = value
         }
         return params
+    }
+
+    /// 是否禁止访问的目标（回环 / 私有网段 / 链路本地）。
+    ///
+    /// [P1-15] 之前只做 http→https 升级，并且**显式保留** localhost 的 http，
+    /// 等于允许模型被网页内容诱导去访问 `127.0.0.1:18231`（MCP OAuth 本地回调）
+    /// 或路由器后台（192.168.x.1）。这里统一拒绝，返回给模型可读的原因。
+    static func blockedHostReason(_ url: URL) -> String? {
+        guard let host = url.host?.lowercased(), !host.isEmpty else { return "invalid host" }
+        if host == "localhost" || host == "::1" || host.hasSuffix(".local") {
+            return "local address is not allowed"
+        }
+        let parts = host.split(separator: ".").compactMap { Int($0) }
+        if parts.count == 4 {
+            let a = parts[0], b = parts[1]
+            if a == 127 || a == 10 || a == 0 { return "private address is not allowed" }
+            if a == 169 && b == 254 { return "link-local address is not allowed" }
+            if a == 172 && (16...31).contains(b) { return "private address is not allowed" }
+            if a == 192 && b == 168 { return "private address is not allowed" }
+            if a == 100 && (64...127).contains(b) { return "carrier-grade NAT address is not allowed" }
+        }
+        return nil
     }
 
     /// 把外网 `http://` 链接升级为 `https://`（ATS 仅放行 localhost，http 外链必然失败）。

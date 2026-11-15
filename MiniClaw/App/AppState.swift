@@ -77,6 +77,11 @@ final class AppState: ObservableObject {
     /// 删除服务商：同时清理该实例的 OAuth 令牌（OAuthKeychainStorage）与 API key（APIKeyStore）。
     @MainActor
     func removeProvider(id: UUID) {
+        // [P1-6] 清掉指向该服务商的默认选择，避免把悬空 UUID 落盘：
+        // 否则下次启动会静默回退到别家服务商，用户以为还在用原来那家。
+        let removedModelIds = Set(providers.first(where: { $0.id == id })?.models.map(\.id) ?? [])
+        if selectedProviderId == id { selectedProviderId = nil }
+        if let mid = selectedModelId, removedModelIds.contains(mid) { selectedModelId = nil }
         APIKeyStore.deleteKey(for: id)
         if let p = providers.first(where: { $0.id == id }), p.credentialType == "oauth" {
             if let manager = Self.oauthManager(for: p.providerType) {
