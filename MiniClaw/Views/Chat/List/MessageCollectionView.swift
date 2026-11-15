@@ -54,6 +54,49 @@ extension MessageCollectionView {
         /// contentInset.bottom — it reads this base and adds overflowH.
         public var baseBottomInset: CGFloat = 0
 
+        /// 键盘遮挡高度。[2026-11-16 视口单源] 由键盘通知写入，直接进 inset 公式。
+        /// 旧实现按 `kbUp ? 0 : …` 做减法（假设列表被系统压缩），真机 cvH 恒 874 证明没有压缩。
+        public var keyboardHeight: CGFloat = 0
+        private var keyboardObserver: NSObjectProtocol?
+
+        /// 观察键盘：只记录"键盘遮挡了多少"，不在这里改 offset（改 offset 由 inset 变化统一驱动）。
+        func startKeyboardObservation() {
+            guard keyboardObserver == nil else { return }
+            keyboardObserver = NotificationCenter.default.addObserver(
+                forName: UIResponder.keyboardWillChangeFrameNotification,
+                object: nil, queue: .main
+            ) { [weak self] note in
+                guard let self,
+                      let frame = note.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect,
+                      let cv = self.viewController?.collectionView,
+                      let window = cv.window else { return }
+                self.keyboardHeight = max(0, window.bounds.maxY - window.convert(frame, from: nil).minY)
+                AppLogger.shared.info("[Keyboard] height=\(String(format: "%.0f", self.keyboardHeight))",
+                                      category: "ChatList.Keyboard")
+                // 触发一次 updateUIViewController 之外的重新计算：直接请求父视图重算 inset。
+                self.viewController?.view.setNeedsLayout()
+                self.reapplyInsetAfterKeyboardChange()
+            }
+        }
+
+        /// inset 变化后：贴底就重新贴底（键盘顶起内容 = 用户要的行为）。
+        private func reapplyInsetAfterKeyboardChange() {
+            guard let cv = viewController?.collectionView else { return }
+            let base = inputBarHeightCache + floatingBarHeightCache + 8
+                + (viewController?.collectionView.safeAreaInsets.bottom ?? 0)
+                + keyboardHeight
+            if abs(cv.contentInset.bottom - base) > 0.5 {
+                cv.contentInset.bottom = base
+            }
+            if isNearBottom(60) && !cv.isTracking && !cv.isDecelerating {
+                scrollToBottomNow(animated: false)
+            }
+        }
+
+        /// 最近一次由 SwiftUI 传入的两个高度（键盘回调里无法直接读 updateUIViewController 的入参）。
+        fileprivate var inputBarHeightCache: CGFloat = 0
+        fileprivate var floatingBarHeightCache: CGFloat = 0
+
         /// [Swift 6] `deinit` 是 nonisolated，而本类因服从 `UICollectionViewDelegate`（该协议在
         /// iOS 26 SDK 中为 `@MainActor`）被主线程隔离 ⇒ 无法从 `deinit` 访问隔离存储属性。
         /// 该链表的创建/失效**只在主线程**（`startDecelDisplayLink` / `stopDecelDisplayLink` 均由
@@ -646,7 +689,6 @@ extension MessageCollectionView {
                     updateBridge(b,message: msg,in: messages)
                 }
             }
-            refreshFooterHeightIfProminenceChanged()
         }
 
         /// footer 的"显眼形态"（暂停横幅 / 回复中 / 错误）变化时，**强制那一行重测**。
@@ -1169,17 +1211,22 @@ public struct MessageCollectionView: UIViewControllerRepresentable {
         // 安全区加回来，否则末条消息会被输入栏/小横条压住。当初为配合"CV 底边上移 34pt"
         // 而删掉的那一项已还原，两处必须成对，不能只改一边。
         let bottomSafe = (vc.collectionView as? NoAnimationCollectionView)?.stableBottomSafeArea ?? 0
+        coord.inputBarHeightCache = inputBarHeight
+        coord.floatingBarHeightCache = floatingBarHeight
         // [2026-09-13 键盘展开距离修正] 键盘展开时 `floatingBarHeight`(48) 与 `bottomSafe`(34)
         // **都已被键盘取代**：浮动栏被收起、home indicator 被键盘盖住 ⇒ 再计入就会把内容多顶 ~82pt
         // （真机 `[Keyboard]` 实测：`151 = 61+48+8+34` 两项同时计入，而键盘展开时应为 `61+8 = 69`；
         //  截图里末条消息与输入栏之间多出的那段空隙正对应这 ~90pt）。
         // 信号用既有的 `coord.lastInputFocused`（由 ChatView 焦点态传入，非新造状态）。
         // 注意：**键盘自身高度不在本式内**（列表由系统推挤，手动注入会把消息额外垫高，见 980 行注释）。
-        let kbUp = coord.lastInputFocused
+        // [2026-11-16 视口单源] 底部遮挡 = 输入栏 + 浮动栏 + 底部安全区 + 键盘 + 8。
+        // 不再按键盘态做减法：减法等于假设"列表会被系统压缩"，而真机日志（cvH 恒 874）说明没有。
+        // 键盘高度由 Coordinator 观察 keyboardWillChangeFrame 维护。
         let bottomPadVal: CGFloat = inputBarHeight
-            + (kbUp ? 0 : floatingBarHeight)
+            + floatingBarHeight
             + 8
-            + (kbUp ? 0 : bottomSafe)
+            + bottomSafe
+            + coord.keyboardHeight
         let baseChanged = abs(coord.baseBottomInset-bottomPadVal)>0.5
         if baseChanged {
             let cv = vc.collectionView!
@@ -1235,21 +1282,8 @@ public struct MessageCollectionView: UIViewControllerRepresentable {
             let wasNearBottom = coord.isNearBottom()
             coord.lastInputFocused = inputFocused
             if inputFocused {
-                // [2026-11-16 键盘弹起内容被拽走] 原实现有两处有害：
-                //   ① 无条件 `scrollMode = .autoScrolling` —— 用户正在看历史也会被改回"自动贴底"，
-                //      于是之后每次内容更新都往底部拽；
-                //   ②  unconditionally 延迟 0.6s 再贴一次 —— 这一下就是"弹下去"。
-                // 现在：只有**本来就在底部**才重新贴底；浏览历史时完全不动，也不改模式。
-                // 延迟仍保留（键盘动画期间 bounds 是中间帧，按它算 maxOff 会贴错位置）。
-                guard wasNearBottom else {
-                    AppLogger.shared.info("[Scroll][B2-focus] keyboard shown but not near bottom → keep position", category: "ChatList.Scroll")
-                    return
-                }
-                DispatchQueue.main.asyncAfter(deadline: .now()+0.55) { [weak coord] in
-                    guard let coord, coord.isNearBottom(160) else { return }
-                    coord.scrollToBottomNow(animated: false)
-                    AppLogger.shared.info("[Scroll][B2-focus] keyboard shown → re-pin bottom (delayed, no anim)", category: "ChatList.Scroll")
-                }
+                // [2026-11-16 视口单源] 聚焦不再单独贴底：键盘高度进 inset，由
+                // `reapplyInsetAfterKeyboardChange` 统一处理（一个变化 → 一次贴底）。
             } else if wasNearBottom {
                 // 键盘收起:维持原逻辑(仅近底时贴底,浏览历史不打扰)。
                 DispatchQueue.main.asyncAfter(deadline: .now()+0.3) { [weak coord] in
@@ -1259,7 +1293,11 @@ public struct MessageCollectionView: UIViewControllerRepresentable {
         }
     }
 
-    public func makeCoordinator() -> Coordinator { Coordinator() }
+    public func makeCoordinator() -> Coordinator {
+        let c = Coordinator()
+        c.startKeyboardObservation()
+        return c
+    }
 
     enum Section { case main }
 }

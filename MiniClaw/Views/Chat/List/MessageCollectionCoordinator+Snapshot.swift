@@ -710,17 +710,10 @@ extension MessageCollectionView.Coordinator {
                 let isActive = isTailMsg && vm.isProcessing
                 footerProminent = errored || canResumeFlag || isActive
                 layout.setFooterHug(!footerProminent,at: i)
-                if errored || canResumeFlag {
-                    // resume 横幅实际 36pt + footer 上下各 2pt = 40；errored 的内联错误条更高。
-                    footerEstimate = canResumeFlag ? 40 : 48
-                } else if isActive || (footerMsg?.footerShowsQuietStatusRow ?? false) {
-                    // [治本 2026-09-17] 原为字面量 `18`。真机 M24 实测该行成型 = **16.3**，
-                    // 而 `caption 行高(14.32) + .padding(.top,2) = 16.32` ⇒ **完全吻合**
-                    //（视图定义：`Text("replying").font(.caption)` + `.padding(.top,2)`）。
-                    // ⇒ 改为由**视图同源度量**推导（字面量 18 比真值高 1.7pt ⇒ 空白）。
-                    footerEstimate = FontSettings.shared.scaledMessage(
-                        UIFont.preferredFont(forTextStyle: .caption1).lineHeight) + 2
-                }
+                // [2026-11-16] 状态行统一高度：所有形态同一高度，播种不再随状态漂移。
+                // 错误条是唯一例外（多行内容，保持自适应）。
+                footerEstimate = errored ? 48 : ChatFooterMetrics.height
+
             }
 
             // 守卫语义 = 旧三字典的「仅实测高度跳过」。合并字典后

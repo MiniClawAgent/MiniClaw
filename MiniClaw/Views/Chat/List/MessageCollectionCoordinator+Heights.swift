@@ -436,7 +436,8 @@ extension MessageCollectionView.Coordinator {
                 default: return block.kind.seedFallbackHeight(content: block.content)
                 }
             case .assistantFooter:
-                return 4
+                // 统一高度（错误条另算，由 cell 自 sizing 修正）。
+                return ChatFooterMetrics.height
             }
         }
 

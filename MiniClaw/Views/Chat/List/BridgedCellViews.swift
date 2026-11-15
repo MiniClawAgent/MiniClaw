@@ -160,6 +160,15 @@ struct BridgedAssistantBlock: View {
     }
 }
 
+/// 会话页底部状态行的**统一高度**（唯一来源）。
+///
+/// 2026-11-16 决策：暂停横幅 / 回复中 / 已完成 / 已停止 全部用这一个高度。
+/// 形态切换不再改变行高 ⇒ 底边不会增长 ⇒ 不会再出现"横幅被裁"或"露到输入框下面"。
+/// 错误条（inlineError）是唯一例外：它需要多行，仍按内容自适应。
+enum ChatFooterMetrics {
+    static let height: CGFloat = 40
+}
+
 /// No GeometryReader. Sheet moved to zero-size overlay to prevent
 struct BridgedAssistantFooter: View {
     @ObservedObject var message: RenderMessage
@@ -236,6 +245,12 @@ struct BridgedAssistantFooter: View {
     }
 
     var body: some View {
+        content
+            .frame(height: message.error == nil ? ChatFooterMetrics.height : nil,
+                   alignment: .top)
+    }
+
+    private var content: some View {
         VStack(alignment: .leading,spacing: 8) {
             // 消息状态行（2026-09-05，对齐子代理会话页 AssistantStatusRow）：
             // 流式/等待首字 = 三点思考指示器；终态按 已停止/已中断/已完成 显示（含耗时）。
