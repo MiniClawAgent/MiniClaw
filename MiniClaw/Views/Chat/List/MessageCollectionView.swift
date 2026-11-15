@@ -189,10 +189,13 @@ extension MessageCollectionView {
         func animatePinForKeyboard(overlap: CGFloat, duration: Double, curve: Int) {
             guard let cv = viewController?.collectionView, keyboardHeight > 0,
                   preKeyboardPinned ?? lastKnownPinned else { return }
-            // 用"压缩前高度 − 键盘高度"，而不是当前 bounds（它可能已经缩过）。
-            let baseHeight = preKeyboardBoundsHeight ?? cv.bounds.height
-            let postHeight = max(1, baseHeight - overlap)
-            let target = max(0, cv.contentSize.height - postHeight + cv.contentInset.bottom)
+            // [2026-11-16 04:16] 不再依赖任何 bounds：键盘挡住多少，内容就上移多少。
+            // 之前用「压缩前高度 − 键盘高度」算目标，但那一刻列表往往已被 SwiftUI 缩过，
+            // 记录到的"压缩前高度"其实是压缩后的 ⇒ 再减一次 ⇒ 目标过高 ⇒ 冲高。
+            // 现在只用两个稳定量：当前 offset + 键盘遮挡高度。
+            let rawTarget = cv.contentOffset.y + overlap
+            let hardLimit = max(0, cv.contentSize.height - 1)
+            let target = min(rawTarget, hardLimit)
             AppLogger.shared.info(
                 "[Keyboard] animate pin \(String(format: "%.0f", cv.contentOffset.y))→\(String(format: "%.0f", target)) dur=\(String(format: "%.3f", duration))",
                 category: "ChatList.Keyboard")
