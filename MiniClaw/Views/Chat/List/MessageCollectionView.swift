@@ -89,9 +89,26 @@ extension MessageCollectionView {
                 self.keyboardHeight = newH
                 AppLogger.shared.info("[Keyboard] height=\(String(format: "%.0f", self.keyboardHeight))",
                                       category: "ChatList.Keyboard")
-                // 触发一次 updateUIViewController 之外的重新计算：直接请求父视图重算 inset。
-                self.viewController?.view.setNeedsLayout()
+                // [2026-11-16 03:38] 必须在这里**直接**重算 inset：
+                // 第二次弹键盘时焦点没变化 ⇒ SwiftUI 不重绘 ⇒ updateUIViewController 不跑
+                // ⇒ inset 停在上一次的值（真机日志：第二次没有 [ChatUI] 行，仍是 103）。
+                self.applyInsetForKeyboardState()
                 self.reapplyInsetAfterKeyboardChange()
+            }
+        }
+
+        /// 键盘态直接重算底部留白（与 updateUIViewController 同一公式，不依赖重绘）。
+        private func applyInsetForKeyboardState() {
+            guard let cv = viewController?.collectionView else { return }
+            let safe = (cv as? NoAnimationCollectionView)?.stableBottomSafeArea ?? cv.safeAreaInsets.bottom
+            let base = inputBarHeightCache + floatingBarHeightCache + 8
+                + (keyboardHeight > 0 ? 0 : safe)
+            AppLogger.shared.info(
+                "[ChatUI] kb-path inset=\(String(format: "%.0f", base)) kb=\(String(format: "%.0f", keyboardHeight)) bar=\(String(format: "%.0f", inputBarHeightCache))",
+                category: "ChatList.Keyboard")
+            if abs(cv.contentInset.bottom - base) > 0.5 {
+                cv.contentInset.bottom = base
+                baseBottomInset = base
             }
         }
 
