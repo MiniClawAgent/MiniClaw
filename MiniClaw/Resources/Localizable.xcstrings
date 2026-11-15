@@ -6275,7 +6275,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Background / Permission Grants"
+            "value": "Permissions · Background"
           }
         },
         "ja": {
@@ -6293,7 +6293,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "后台行为 / 权限授权"
+            "value": "权限·后台·健康"
           }
         }
       }
@@ -13003,7 +13003,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Control subagent enablement, concurrency, and thinking"
+            "value": "Concurrency & thinking"
           }
         },
         "ja": {
@@ -13021,7 +13021,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "控制子代理的启用、并发与思考"
+            "value": "并发上限与思考档位"
           }
         }
       }
@@ -15004,7 +15004,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Default name / Language / Confirm"
+            "value": "Confirm, chat & browser"
           }
         },
         "ja": {
@@ -15022,7 +15022,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "默认名称 / 语言 / 确认"
+            "value": "确认、聊天与浏览器"
           }
         }
       }
@@ -27966,7 +27966,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "iSH Running"
+            "value": "Status · mirrors · reset"
           }
         },
         "ja": {
@@ -27984,7 +27984,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "iSH 运行中"
+            "value": "安装状态·换源·重置"
           }
         }
       }
@@ -31649,7 +31649,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Manage model groups and default model"
+            "value": "Groups & four model slots"
           }
         },
         "ja": {
@@ -31667,7 +31667,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "管理模型分组与默认模型"
+            "value": "分组与四类模型槽位"
           }
         }
       }
@@ -65176,13 +65176,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Models & agents"
+            "value": "Providers · Soul · Memory"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "模型与智能体"
+            "value": "供应商·灵魂·记忆"
           }
         },
         "ja": {
@@ -65288,13 +65288,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "MCP & runtime"
+            "value": "MCP · Env · Permissions"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "MCP 与运行环境"
+            "value": "MCP·环境·权限"
           }
         },
         "ja": {

@@ -334,9 +334,6 @@ extension MessageCollectionView {
             bindViewModel(vm)
         }
 
-        func currentIndex(for item: MessageListItem) -> Int? {
-            return itemToIndex[item]
-        }
 
         static let cellLogger = AppLogger(category: "CellPerf")
         let screenshotLogger = AppLogger(category: "ChatList.TurnShot")

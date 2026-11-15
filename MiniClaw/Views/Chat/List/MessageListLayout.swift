@@ -84,8 +84,11 @@ public final class MessageListLayout: UICollectionViewLayout {
     /// 行身份 → footer 是否贴合（间距策略）
     private var footerHugByItem: [MessageListItem: Bool] = [:]
 
-    /// 该 index 的**有效**条目：当"条目记录的内容键"与"当前内容键"**已知不一致**时返回 nil，
-    /// 视同「没有条目」。这样调用方会走兜底链，并且：
+    /// 该 index 的**已记录**条目（**注意：内容过期也返回**）。
+    ///
+    /// 2026-11-15 高度重写后语义变了：过期不再等于"没有条目"，而是由 `isStaleEntry`
+    /// 单独表达——高度继续可用（避免跳回兜底常量），只影响"要不要重新估算"。
+    /// 下面这段描述的是**改造前**的行为，保留作历史背景，不要再按它写新代码。这样调用方会走兜底链，并且：
     /// - `setEntry` 的"低不覆盖高"不会再被旧值压住（陈旧矮条目可被新值覆盖）；
     /// - `applySnapshot` 的「缺失条目全扫」（`cachedHeight == nil`）会重新播种它；
     /// - `seedHeight` 的 `hasMeasuredHeight` 早退不再拦住内容已变的块。
@@ -1143,10 +1146,9 @@ public final class MessageListLayout: UICollectionViewLayout {
     /// 已删除，其唯一调用点统一到本方法。**按来源分档**请用 `hasMeasuredHeight` /
     /// `hasPrecalcHeight`。
     public func cachedHeight(at index: Int) -> CGFloat? {
-        // 走 currentEntry：**内容已变的陈旧条目视为无条目** ⇒ `applySnapshot` 的
-        // 「缺失条目全扫」（判据就是 `cachedHeight(at:) == nil`）会重新播种它，
-        // 而不是被一条过期值骗过（此前 `.measured` 陈旧条目既不被全量播种刷新、
-        // 也不被全扫覆盖 ⇒ 永久滞留，拖动期被冻结成空白）。
+        // 走 currentEntry：**过期条目仍然返回高度**（2026-11-15 起）。
+        // 这样流式/内容变化时不会先塌回兜底常量；是否重新播种由 `hasMeasuredHeight`
+        // 与 `isStaleEntry` 判定，不再依赖 `cachedHeight == nil`。
         currentEntry(at: index)?.height
     }
 
@@ -1161,9 +1163,8 @@ public final class MessageListLayout: UICollectionViewLayout {
     /// chunk 的逐次重播种（估高随内容增长刷新）会被首帧估算永久冻结，
     /// 流式 cell 停在首帧高度，正文与下方工具卡/思考块重叠（2026-09-05 回归）。
     public func hasMeasuredHeight(at index: Int) -> Bool {
-        // 关键后果：内容已变的陈旧 `.measured` 条目不再算"已实测" ⇒ `seedHeight` 的
-        // `guard !hasMeasuredHeight(at:) else { return }`（`+Snapshot.swift` 的 `seedHeight`）不再
-        // 拦住内容已变的块，它会带**当前内容键**重新播种（这正是 I11 缺的那条失效路径）。
+        // 判据 = 「来源是实测」且「内容键未过期」。过期条目**仍有高度但不算实测**，
+        // 于是 `seedHeight` 的 `guard !hasMeasuredHeight` 会放行，带当前内容键重新播种。
         // [2026-09-13] 此处原先写死行号 `+Snapshot.swift:579`，已因搬移失效；跨文件引用一律用
         // 符号名而非行号 —— 行号引用正是这些注释反复过期的根因。
         currentEntry(at: index)?.source == .measured && !isStaleEntry(at: index)

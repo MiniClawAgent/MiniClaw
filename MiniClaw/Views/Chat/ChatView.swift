@@ -1901,13 +1901,6 @@ struct ChatView: View {
         startAgentResponse(to: next.text, userMessageID: userMessage.id, injectedSkill: next.skillName, attachments: next.attachments, thinkingLevel: session.thinkingLevel, deepLinkCallback: next.deepLinkCallback)
     }
 
-    /// 删除某条排队中的消息（点击虚线气泡右侧删除按钮）
-    private func deletePendingMessage(_ id: UUID) {
-        guard var queue = appState.pendingUserMessages[session.id] else { return }
-        queue.removeAll { $0.id == id }
-        appState.pendingUserMessages[session.id] = queue.isEmpty ? nil : queue
-        persistQueue()
-    }
 
     /// 点击某条排队消息左侧的发送按钮：硬停止当前生成（清检查点），
     /// 再把这条排队消息提升为真实用户消息并启动新一轮回复（即「停止并处理这条消息」）。
