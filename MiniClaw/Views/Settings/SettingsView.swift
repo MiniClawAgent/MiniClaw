@@ -37,7 +37,7 @@ struct SettingsView: View {
                 header
 
                 LazyVGrid(columns: columns, spacing: 12) {
-                    card(icon: "cat.fill", tint: .orange,
+                    card(icon: "sparkles", tint: .purple,
                          title: String(localized: "agent"),
                          subtitle: String(localized: "settings_sub_agent")) {
                         AgentSettingsGroupView()
@@ -49,31 +49,31 @@ struct SettingsView: View {
                         PluginsSettingsView()
                     }
 
-                    card(icon: "externaldrive.fill", tint: .green,
+                    card(icon: "internaldrive.fill", tint: .green,
                          title: String(localized: "storage"),
                          subtitle: String(localized: "settings_sub_storage")) {
                         StorageSettingsGroupView()
                     }
 
-                    card(icon: "circle.lefthalf.filled", tint: .indigo,
+                    card(icon: "paintpalette.fill", tint: .pink,
                          title: String(localized: "appearance"),
                          subtitle: String(localized: "settings_sub_appearance")) {
                         AppearanceSettingsView()
                     }
 
-                    card(icon: "gearshape.2.fill", tint: .gray,
+                    card(icon: "gearshape.fill", tint: .gray,
                          title: String(localized: "general_section"),
                          subtitle: String(localized: "settings_sub_general")) {
                         GeneralSettingsGroupView()
                     }
 
-                    card(icon: "doc.text.below.ecg", tint: .blue,
+                    card(icon: "doc.text.magnifyingglass", tint: .orange,
                          title: String(localized: "logs"),
                          subtitle: String(localized: "settings_sub_logs")) {
                         LogsView()
                     }
 
-                    card(icon: "info.circle.fill", tint: .teal,
+                    card(icon: "info.circle.fill", tint: .indigo,
                          title: String(localized: "about_miniclaw_app"),
                          subtitle: String(localized: "settings_sub_about")) {
                         AboutView()
@@ -142,24 +142,26 @@ struct SettingsView: View {
                         .foregroundStyle(Color(.tertiaryLabel))
                 }
 
-                Spacer(minLength: 10)
+                Spacer(minLength: 6)
 
                 Text(title)
                     .font(.system(size: 17, weight: .semibold))
                     .foregroundStyle(.primary)
                     .lineLimit(1)
+                    .minimumScaleFactor(0.9)
                 Text(subtitle)
                     .font(.system(size: 12))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)          // 副标题一律单行（文案已按 ≤10 字编写）
                     .padding(.top, 2)
             }
-            .padding(14)
-            // 高度对齐参考图：两列卡片约 92–96pt（原 148 明显偏高，圆角显得不协调）
-            .frame(maxWidth: .infinity, minHeight: 96, alignment: .leading)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 13)
+            // 高度对齐模板：约 92pt（此前 148 偏高；96 仍略高，且圆角看起来不成比例）
+            .frame(maxWidth: .infinity, minHeight: 92, alignment: .leading)
             .background(
-                // iOS 卡片规范：连续曲率圆角，16pt 与 96pt 卡片高度成比例
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                // 模板卡片的圆角约为卡高的 1/4；用 24pt 连续曲率贴近该观感
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
                     .fill(Color(.secondarySystemGroupedBackground))
             )
         }
