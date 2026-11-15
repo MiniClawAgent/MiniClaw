@@ -150,7 +150,6 @@ extension MessageCollectionView {
                     // [2026-11-16 04:07] 弹出也要有动画：只动画 **offset**（不动 inset），
                     // 时长/曲线取系统键盘参数，与列表压缩动画同步。
                     // 之前是 0.3s 后硬贴一次 ⇒ 用户看到"突然一瞬间弹上去"。
-                    self.animatePinForKeyboard(overlap: newH, duration: duration, curve: curve)
                     self.reapplyInsetAfterKeyboardChange()
                 } else {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in
@@ -214,7 +213,11 @@ extension MessageCollectionView {
                     "[Keyboard] repin cvH=\(String(format: "%.0f", cv.bounds.height)) prePinned=\(self.preKeyboardPinned.map(String.init) ?? "nil") nearBottom=\(self.isNearBottom(80)) → pin=\(shouldPin)",
                     category: "ChatList.Keyboard")
                 guard shouldPin, !cv.isTracking, !cv.isDecelerating else { return }
-                self.scrollToBottomNow(animated: false)
+                // [2026-11-16 04:13] 只动作一次且用 UIScrollView 自带动画：
+                // 之前是"立即动画 + 0.3s 硬贴"两次动作，第二次在动画尾部硬拽一下 = 冲一下。
+                let maxOff = cv.contentSize.height - cv.bounds.height + cv.contentInset.bottom
+                guard maxOff > 0 else { return }
+                cv.setContentOffset(CGPoint(x: 0, y: maxOff), animated: true)
                 self.lastKnownPinned = true
             }
         }
