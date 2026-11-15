@@ -109,18 +109,6 @@ struct GeneralSettingsGroupView: View {
                 SettingsRow(icon: "gearshape.2.fill", color: .gray, title: String(localized: "general_settings"), subtitle: String(localized: "defaults_name_language_confirm_full"))
             }
 
-            // 主页改成六卡宫格后（2026-11-15），插件与日志归入通用页，避免入口丢失。
-            NavigationLink {
-                PluginsSettingsView()
-            } label: {
-                SettingsRow(icon: "puzzlepiece.extension.fill", color: .blue, title: String(localized: "plugins"), subtitle: String(localized: "manage_extensible_plugin_packages"))
-            }
-
-            NavigationLink {
-                LogsView()
-            } label: {
-                SettingsRow(icon: "doc.text.below.ecg", color: .blue, title: String(localized: "logs"), subtitle: String(localized: "runtime_logs_and_crash_logs"))
-            }
         }
         .listStyle(.insetGrouped)
         .scrollContentBackground(.hidden)

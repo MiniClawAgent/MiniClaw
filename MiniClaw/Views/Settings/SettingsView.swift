@@ -37,35 +37,47 @@ struct SettingsView: View {
                 header
 
                 LazyVGrid(columns: columns, spacing: 14) {
-                    card(
-                        icon: "gearshape.fill", tint: .blue,
-                        title: "settings_card_general", subtitle: "settings_card_general_sub"
-                    ) { GeneralSettingsGroupView() }
+                    card(icon: "cat.fill", tint: .orange,
+                         title: String(localized: "agent"),
+                         subtitle: String(localized: "settings_group_agent_sub")) {
+                        AgentSettingsGroupView()
+                    }
 
-                    card(
-                        icon: "square.stack.3d.up.fill", tint: .green,
-                        title: "settings_card_models", subtitle: "settings_card_models_sub"
-                    ) { AgentSettingsGroupView() }
+                    card(icon: "puzzlepiece.extension.fill", tint: .blue,
+                         title: String(localized: "plugins"),
+                         subtitle: String(localized: "manage_extensible_plugin_packages")) {
+                        PluginsSettingsView()
+                    }
 
-                    card(
-                        icon: "iphone", tint: .orange,
-                        title: "settings_card_device", subtitle: "settings_card_device_sub"
-                    ) { RuntimeStatusView() }
+                    card(icon: "externaldrive.fill", tint: .green,
+                         title: String(localized: "storage"),
+                         subtitle: String(localized: "settings_group_storage_sub")) {
+                        StorageSettingsGroupView()
+                    }
 
-                    card(
-                        icon: "lock.shield.fill", tint: .red,
-                        title: "settings_card_privacy", subtitle: "settings_card_privacy_sub"
-                    ) { PermissionsSettingsView() }
+                    card(icon: "circle.lefthalf.filled", tint: .indigo,
+                         title: String(localized: "appearance"),
+                         subtitle: String(localized: "system_dark_light")) {
+                        AppearanceSettingsView()
+                    }
 
-                    card(
-                        icon: "tray.full.fill", tint: .purple,
-                        title: "settings_card_data", subtitle: "settings_card_data_sub"
-                    ) { StorageSettingsGroupView() }
+                    card(icon: "gearshape.2.fill", tint: .gray,
+                         title: String(localized: "general_section"),
+                         subtitle: String(localized: "settings_group_general_sub")) {
+                        GeneralSettingsGroupView()
+                    }
 
-                    card(
-                        icon: "info.circle", tint: .gray,
-                        title: "settings_card_about", subtitle: "settings_card_about_sub"
-                    ) { AboutView() }
+                    card(icon: "doc.text.below.ecg", tint: .blue,
+                         title: String(localized: "logs"),
+                         subtitle: String(localized: "runtime_logs_and_crash_logs")) {
+                        LogsView()
+                    }
+
+                    card(icon: "info.circle.fill", tint: .teal,
+                         title: String(localized: "about_miniclaw_app"),
+                         subtitle: String(localized: "version_info_and_license")) {
+                        AboutView()
+                    }
                 }
                 .padding(.horizontal, 20)
 
@@ -112,8 +124,8 @@ struct SettingsView: View {
     private func card<Destination: View>(
         icon: String,
         tint: Color,
-        title: LocalizedStringKey,
-        subtitle: LocalizedStringKey,
+        title: String,
+        subtitle: String,
         @ViewBuilder destination: @escaping () -> Destination
     ) -> some View {
         NavigationLink {
