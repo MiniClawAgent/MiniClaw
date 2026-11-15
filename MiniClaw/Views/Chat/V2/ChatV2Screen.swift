@@ -159,6 +159,8 @@ final class ChatV2ListViewController: UIViewController {
             let newHeight = self.collectionView.contentSize.height
             let delta = newHeight - oldHeight
             self.lastContentHeight = newHeight
+            AppLogger(category: "BottomPad").info(
+                "[V2] apply rows=\(self.rows.count) h=\(String(format: "%.0f", newHeight)) Δ=\(String(format: "%.0f", delta)) pinned=\(self.viewport.isPinnedToBottom) inset=\(String(format: "%.0f", self.collectionView.contentInset.bottom)) offY=\(String(format: "%.0f", self.collectionView.contentOffset.y))")
             if delta != 0 {
                 self.viewport.handle(.contentGrewAtBottom(delta: delta))
             }
@@ -211,6 +213,8 @@ final class ChatV2ListViewController: UIViewController {
         )
         viewport.applyOffset = { [weak self] y, animated in
             guard let cv = self?.collectionView else { return }
+            AppLogger(category: "BottomPad").info(
+                "[V2] writeOffset \(String(format: "%.0f", cv.contentOffset.y))→\(String(format: "%.0f", y)) animated=\(animated)")
             cv.setContentOffset(CGPoint(x: 0, y: y), animated: animated)
         }
         viewport.applyBottomInset = { [weak self] inset in
@@ -232,6 +236,8 @@ final class ChatV2ListViewController: UIViewController {
             self.keyboardHeight = overlap
             let after = self.obscuredBottom
             if abs(after - before) > 0.5 {
+                AppLogger(category: "BottomPad").info(
+                    "[V2] keyboard overlap=\(String(format: "%.0f", overlap)) obscured \(String(format: "%.0f", before))→\(String(format: "%.0f", after))")
                 self.viewport.handle(.obscuredBottomChanged(delta: after - before))
             }
         }
