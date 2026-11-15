@@ -91,6 +91,8 @@ extension MessageCollectionView {
         public var keyboardHeight: CGFloat = 0
         /// 键盘弹起**之前**用户是否贴在底部（来自 lastKnownPinned 的快照）。
         private var preKeyboardPinned: Bool?
+        /// 键盘弹起前一刻的列表高度（用于准确推算压缩后的底边）。
+        private var preKeyboardBoundsHeight: CGFloat?
 
 
         private var keyboardObserver: NSObjectProtocol?
@@ -113,6 +115,9 @@ extension MessageCollectionView {
                 if newH > self.keyboardHeight {
                     // 只读持续维护的状态，不在此时计算（此时 bounds 可能已被压缩）。
                     self.preKeyboardPinned = self.lastKnownPinned
+                    // [2026-11-16 04:09] 同时记下**压缩前**的高度：目标 offset 必须用它算，
+                    // 否则若 SwiftUI 已经缩过，再减一次 overlap ⇒ 目标过高 ⇒ 先冲上去再被兜底拉回。
+                    self.preKeyboardBoundsHeight = cv.bounds.height
                 }
                 self.keyboardHeight = newH
                 let duration = (note.userInfo?[UIResponder.keyboardAnimationDurationUserInfoKey] as? Double) ?? -1
@@ -185,7 +190,9 @@ extension MessageCollectionView {
         func animatePinForKeyboard(overlap: CGFloat, duration: Double, curve: Int) {
             guard let cv = viewController?.collectionView, keyboardHeight > 0,
                   preKeyboardPinned ?? lastKnownPinned else { return }
-            let postHeight = max(1, cv.bounds.height - overlap)
+            // 用"压缩前高度 − 键盘高度"，而不是当前 bounds（它可能已经缩过）。
+            let baseHeight = preKeyboardBoundsHeight ?? cv.bounds.height
+            let postHeight = max(1, baseHeight - overlap)
             let target = max(0, cv.contentSize.height - postHeight + cv.contentInset.bottom)
             let opts = UIView.AnimationOptions(rawValue: UInt(max(0, curve)) << 16)
             AppLogger.shared.info(
