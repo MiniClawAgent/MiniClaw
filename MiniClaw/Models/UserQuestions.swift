@@ -34,6 +34,8 @@ enum UserQuestionState: String, Codable {
     case skipped
     case cancelled
     case expired
+    /// 工具侧失败（参数不合法等）：卡片只展示错误，不提供交互。
+    case failed
 }
 
 /// 卡片渲染与工具返回共用的载体。
@@ -54,6 +56,8 @@ struct UserQuestionRequest: Codable, Hashable {
             return #"{"error":"cancelled"}"#
         case .expired:
             return #"{"error":"no_answer"}"#
+        case .failed:
+            return #"{"error":"failed"}"#
         case .answered, .skipped:
             var items: [String] = []
             for q in questions {

@@ -87,6 +87,9 @@ struct QuestionCardView: View {
         case .cancelled:
             Label(String(localized: "ask_user_cancelled"), systemImage: "xmark.circle")
                 .font(.caption2).foregroundStyle(.secondary)
+        case .failed:
+            Label(String(localized: "ask_user_failed"), systemImage: "exclamationmark.triangle")
+                .font(.caption2).foregroundStyle(.red)
         }
     }
 

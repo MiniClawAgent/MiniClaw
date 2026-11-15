@@ -208,8 +208,8 @@ enum MiniClawChatAdapter {
 
         for event in message.toolCalls {
             // [ask_user] 历史重建：入参里的问题 + 结果里的答案 → 卡片载荷。
-            if event.name == "ask_user" {
-                let payload = Self.questionPayloadJSON(arguments: event.arguments, result: event.resultText)
+            if event.name == "ask_user",
+               let payload = Self.questionPayloadJSON(arguments: event.arguments, result: event.resultText) {
                 let block = AssistantBlock(id: event.id,
                                            kind: .question(callId: event.callID ?? event.id.uuidString),
                                            content: payload)
@@ -402,23 +402,25 @@ enum MiniClawChatAdapter {
     /// 让工具卡显示真实操作名称(而非笼统的 "Browser action"/"Shell command")。
     /// 纯函数（无状态依赖）→ nonisolated：服务层（ToolExecution）也可调用。
     /// 把 ask_user 的入参与结果合并成卡片载荷 JSON（历史回放用）。
-    nonisolated static func questionPayloadJSON(arguments: String, result: String) -> String {
+    nonisolated static func questionPayloadJSON(arguments: String, result: String) -> String? {
         struct RawArgs: Decodable { let questions: [UserQuestion] }
         struct RawResult: Decodable {
             let answers: [UserQuestionAnswer]?
             let error: String?
             let pending: Bool?
         }
-        let args = try? JSONDecoder().decode(RawArgs.self, from: Data(arguments.utf8))
+        guard let args = try? JSONDecoder().decode(RawArgs.self, from: Data(arguments.utf8)),
+              !args.questions.isEmpty else { return nil }
         let res = try? JSONDecoder().decode(RawResult.self, from: Data(result.utf8))
         let state: UserQuestionState
         if res?.answers != nil { state = .answered }
         else if res?.error == "cancelled" { state = .cancelled }
         else if res?.error == "no_answer" { state = .expired }
+        else if res?.error != nil { state = .failed }
         else if res?.pending == true { state = .pending }
         else { state = .skipped }
         let request = UserQuestionRequest(callId: "",
-                                          questions: args?.questions ?? [],
+                                          questions: args.questions,
                                           answers: res?.answers,
                                           state: state,
                                           createdAt: Date())
