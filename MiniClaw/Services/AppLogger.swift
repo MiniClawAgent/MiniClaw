@@ -173,7 +173,15 @@ final class AppLogger: @unchecked Sendable {
     ///
     /// 复现同类问题时改 `heightDiagnosticsEnabled = true`（或临时把本行改成 true）即可全部找回，
     /// 不需要再去各处加日志。
-    nonisolated(unsafe) static var heightDiagnosticsEnabled = false
+    ///
+    /// 开关改为**文件哨兵**：在 `Documents/MiniClaw/logs/` 放一个 `.height-diag-on`
+    /// 即开启（下次启动生效），不需要重新编译/装机。排查"流式掉帧"这类问题时，
+    /// 让用户放文件、复现一轮、把日志取回来即可。
+    nonisolated(unsafe) static var heightDiagnosticsEnabled: Bool = {
+        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first
+        guard let logs = docs?.appendingPathComponent("MiniClaw/logs", isDirectory: true) else { return false }
+        return FileManager.default.fileExists(atPath: logs.appendingPathComponent(".height-diag-on").path)
+    }()
     private static let heightDiagnosticCategories: Set<String> = [
         "ChatList.CellMetrics", "ChatList.Blank", "ChatList.Stall",
         "ChatList.Scroll", "ChatList.Layout", "ChatList.Decel",

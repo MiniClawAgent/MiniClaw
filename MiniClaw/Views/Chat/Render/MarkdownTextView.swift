@@ -85,6 +85,13 @@ final class MarkdownTextView: UITextView,UIGestureRecognizerDelegate {
     /// Set while `invalidateCellSizeIfChanged` is executing. The collection-view
     /// `preferredLayoutAttributesFitting` → `sizeThatFits` → `invalidateCellSizeIfChanged`.
     private var isInvalidatingCellSize = false
+    /// [2026-11-15 流式掉帧] 测量节流：流式期每条 chunk 都会走到 `sizeThatFits`，
+    /// 而 TextKit 全量排版是 O(文本长度) ⇒ 长回复累计 O(n²)（真机日志：一次长回复
+    /// 105 次 INVALIDATE，delta 中位数 244pt、最大 2457pt）。
+    /// 这里把测量合并到最多 ~12 次/秒，并保证**最后一条**内容一定被测量（尾随任务）。
+    /// 代价：内容最多晚 80ms 反映到高度上，肉眼不可见。
+    private var lastMeasureAt: CFTimeInterval = 0
+    private var pendingMeasureWork: DispatchWorkItem?
     /// Armed when a REAL height change was
     /// skipped. Guarantees one post-settle retry of invalidateCellSizeIfChanged
     private var pendingDeferredRemeasure = false
@@ -135,6 +142,18 @@ final class MarkdownTextView: UITextView,UIGestureRecognizerDelegate {
         let idx = (findCell() as? SelfSizingCell).flatMap { cv.indexPath(for: $0)?.item }
         return " idx=\(idx.map(String.init) ?? "-1") scroll=\(phase)"
     }
+    /// 合并尾随测量：80ms 窗口内多次内容变化只触发一次 `sizeThatFits`。
+    private func scheduleTrailingMeasure(after delay: TimeInterval) {
+        guard pendingMeasureWork == nil else { return }
+        let work = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            self.pendingMeasureWork = nil
+            self.invalidateCellSizeIfChanged()
+        }
+        pendingMeasureWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + max(delay, 0.01), execute: work)
+    }
+
     private func armDeferredRemeasure() {
         guard !pendingDeferredRemeasure else {
             deferredRemeasureCoalescedCount &+= 1
@@ -1270,6 +1289,16 @@ final class MarkdownTextView: UITextView,UIGestureRecognizerDelegate {
            lastComputedHeight>0 {
             return
         }
+        // 节流：距上次测量不足 80ms 就先排一个尾随任务，避免每条 chunk 都全量排版。
+        // 位置必须在指纹早退**之后**（未变化的块零成本），且在 sizeThatFits **之前**。
+        let nowTs = CACurrentMediaTime()
+        let minInterval: CFTimeInterval = 0.08
+        if nowTs - lastMeasureAt < minInterval {
+            scheduleTrailingMeasure(after: minInterval - (nowTs - lastMeasureAt))
+            return
+        }
+        lastMeasureAt = nowTs
+
         isInvalidatingCellSize = true
         defer { isInvalidatingCellSize = false }
         let newHeight = sizeThatFits(CGSize(width: measureWidth,height: .greatestFiniteMagnitude)).height

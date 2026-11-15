@@ -217,6 +217,23 @@ public final class MessageListLayout: UICollectionViewLayout {
         // 后续全部 y 与 collectionViewContentSize 变成 inf；下游
         // `contentSize.height - bounds.height` 得到 inf-inf = NaN，CoreGraphics
         // 便打出成片的 "invalid numeric value (NaN) passed to CoreGraphics"。
+        // [2026-11-15 流式跳动/掉帧治本] 流式行**只长不缩**。
+        //
+        // 真机日志（20:13，一次长回复）：
+        //   [CellSizing] INVALIDATE idx=21 delta=165 est=338 → pref=503
+        //   [CellSizing] INVALIDATE idx=21 delta=933 est=3718 → pref=4651
+        // 每条 chunk 都把正文块重播种成一个**偏小的估算**，布局先按它框矮；
+        // 紧接着 PLAF 实测出真实高度，要求长高 100–900pt ⇒ 失效重排 ⇒ 贴底滚动跟着挪
+        // ⇒ 肉眼"一直跳动"，且每次都要重跑 TextKit 全量测量 ⇒ 帧率崩。
+        //
+        // 判据：正在流式的行，拒绝**任何比当前条目更矮**的写入（估算/预演都算）。
+        // 实测变高（PLAF）照常放行 ⇒ 高度单调增长，delta 从数百 pt 降到几十 pt。
+        // 流式结束后 `streamingCellRanges` 清空，本闸门自动失效，收缩恢复正常。
+        if isStreamingCell(index),
+           let existing = currentEntry(at: index),
+           height < existing.height {
+            return false
+        }
         guard height.isFinite, height >= 0 else {
             #if DEBUG
             // [Stage 0 · M17] 第二个拒绝原因（非有限/负高度）。同样只观测。
@@ -877,8 +894,17 @@ public final class MessageListLayout: UICollectionViewLayout {
         // 不再直接对字典赋值 —— 此处曾是绕过闸门的「第四写入口」，9-09 的 -40 负高度
         // （SwiftUI hosting 损坏测量）就是从这里回流进布局的。
         if !setEntry(newH, source: .measured, at: index) {
+            // 两种拒绝原因要分开报，否则日志会把"流式期拒绝收缩"误标成"负高度"。
+            let reason: String
+            if !newH.isFinite || newH < 0 {
+                reason = "nonfinite/negative"
+            } else if isStreamingCell(index) {
+                reason = "streaming-shrink"
+            } else {
+                reason = "rank-guard"
+            }
             AppLogger.shared.warning(
-                "[CellSizing] REJECT nonfinite/negative preferred height=\(String(format: "%.0f", newH)) idx=\(index)（保留原条目，负高度防御）",
+                "[CellSizing] REJECT \(reason) preferred height=\(String(format: "%.0f", newH)) idx=\(index)（保留原条目）",
                 category: "ChatList.CellMetrics")
         }
 
