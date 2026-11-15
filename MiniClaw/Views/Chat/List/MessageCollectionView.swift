@@ -644,20 +644,38 @@ extension MessageCollectionView {
         /// `lastCalcH` ⇒ 直接返回**暂停前**的高度（≈16.3 或 4pt），36pt 的暂停横幅被 cell
         /// 从下方裁掉（真机 20:29 截图：横条偏矮、「继续」胶囊贴死在右上角）。
         /// 这里显式失效该行条目 + reconfigure 一次，让 PLAF 重新量。
-        private var lastFooterProminent: Bool?
+        private var lastFooterSignature: String?
         private func refreshFooterHeightIfProminenceChanged() {
             guard let vm,
                   let layout = viewController?.messageListLayout,
                   let lastAI = vm.messages.last(where: { $0.role == .assistant }) else { return }
-            let prominent = vm.isProcessing || (vm.canResume && !vm.isProcessing)
-            guard lastFooterProminent != prominent else { return }
-            lastFooterProminent = prominent
+            // [真机 01:46 复现] 原先用「显眼/不显眼」布尔做边沿判定：
+            // 暂停时 `isProcessing`(true→false) 与 `canResume`(false→true) 是**分两次**翻转的，
+            // 中间那一刻 prominent 一直是 true ⇒ 一次边沿都不触发 ⇒ 状态行/暂停横幅继续用
+            // 16.3pt 的旧高度 ⇒ 被 cell 裁成一条细缝（橙色按钮看着像戳出条外）。
+            // 改为按**完整状态签名**判定，任一字段变化都重测。
+            let signature = [
+                vm.isProcessing ? "run" : "idle",
+                vm.canResume ? "resume" : "-",
+                lastAI.error != nil ? "err" : "-",
+                String(lastAI.streamInterruptCount),
+                lastAI.footerShowsQuietStatusRow ? "quiet" : "-",
+            ].joined(separator: "|")
+            guard lastFooterSignature != signature else { return }
+            lastFooterSignature = signature
 
             let item = MessageListItem.assistantFooter(lastAI.id)
             guard let idx = itemToIndex[item] ?? prevSnapshotIds.firstIndex(of: item),
                   let cv = viewController?.collectionView else { return }
+            let hBefore = layout.cachedHeight(at: idx) ?? -1
             layout.invalidateHeight(at: idx)
-            if abs(cv.contentOffset.y) < 0.5 { /* 顶部也照常重排，保持断言简单 */ }
+            AppLogger(category: "BottomPad").info(
+                "[FooterRefresh] sig=\(signature) idx=\(idx) hBefore=\(String(format: "%.1f", hBefore))")
+            // 双保险：直接清掉该 cell 的本地高度缓存（PLAF 的 dedup 命中 lastCalcH 就会返回旧值，
+            // 只 invalidate 布局层不够）。
+            if let cell = cv.cellForItem(at: IndexPath(item: idx, section: 0)) as? SelfSizingCell {
+                cell.clearCachedHeight()
+            }
             var snapshot = dataSource.snapshot()
             guard snapshot.itemIdentifiers.contains(item) else { return }
             snapshot.reconfigureItems([item])
