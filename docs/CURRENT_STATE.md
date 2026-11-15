@@ -174,3 +174,15 @@ xcodebuild build -project MiniClaw.xcodeproj -scheme MiniClaw \
 - 修复遵守 S5「治本不补丁」：先问上游机制、消除重复事实，不接受「把常数改准」。
 - 协议、流式解析、会话树、持久化、导入导出类改动，先过 `ENGINEERING_DISCIPLINE.md` §九 的 T1–T16与 §9.3 自检清单；其中 T7（单一生产者）与 T16（失败必须留痕）对一切改动都适用。
 - 提交粒度一变量一提交，commit message 写清根因与验证方式。
+
+## 2026-11-15 全仓审计与修复
+
+- 五路只读审计（会话列表/桥接/Agent 内核/服务层/设置层），结论见 `docs/BUG-AUDIT-2026-11-15.md`；
+  修复报告见 `docs/FIX-REPORT-2026-11-15.md`。
+- 已修：P0 ×5（config 清模型、重名崩溃、工具顺序 400、检查点残缺、改字号跳位）、
+  P1 ×16、P2 ×4。
+- 工具名统一 `lower_snake_case`（25 个连字符名改下划线），`ToolRouter.canonical` 兼容旧名；
+  与 MiniClaw 的差异变为 `-` ↔ `_` 一次映射（纪律 §10.4 已改）。
+- 死代码：删除 `ChatMessageRow` 不可达的 assistant 分支（约 300 行）等。
+- 遗留债务：同步子系统空转、ResumePolicy 无人读、ModelOverrides 无写入、
+  243 个未引用本地化词条、环境变量真加密、TokenUsage 全量写盘。
