@@ -20,6 +20,12 @@ extension MessageCollectionView.Coordinator {
             return isWithinBottom(nearBottomThreshold)
         }
 
+        /// 带容差的"是否在底部"：键盘弹起后视口变矮，用默认阈值会把"其实还在底部"
+        /// 判成"不在底部"，故回调里用更宽的容差复核一次。
+        public func isNearBottom(_ tolerance: CGFloat) -> Bool {
+            return isWithinBottom(tolerance)
+        }
+
         public func isAtContentTop(_ threshold: CGFloat = 8) -> Bool {
             guard let cv = viewController?.collectionView else { return false }
             return cv.contentOffset.y <= -cv.adjustedContentInset.top+threshold

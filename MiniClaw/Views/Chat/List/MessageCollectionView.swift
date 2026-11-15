@@ -1213,20 +1213,23 @@ public struct MessageCollectionView: UIViewControllerRepresentable {
         coord.resetLeakedFreezeIfNeeded("updateUIVC")
 
         if focusChanged {
-            let wasNearBottom = coord.scrollMode == .autoScrolling && coord.isNearBottom()
+            let wasNearBottom = coord.isNearBottom()
             coord.lastInputFocused = inputFocused
             if inputFocused {
-                // [B2 2026-08-11] 键盘弹出(用户点击输入框)时延迟贴底:
-                // 打字刷新的效果(=updateUIViewController 重跑→re-pin)提前到点击时刻。
-                // 关键参数(2026-08-11 实测调整):
-                // · 延迟 0.6s:必须大于键盘弹出动画(约 0.35-0.4s),等 bounds 完全稳定
-                // 后再算 maxOff,否则按动画中间帧的 bounds 贴到错误位置;
-                // · animated: false:瞬时跳转,避免动画滚动被 bounds 变化打断
-                // (曾导致 2-5 秒卡顿 + 位置不对)。
-                DispatchQueue.main.asyncAfter(deadline: .now()+0.6) { [weak coord] in
-                    coord?.scrollMode = .autoScrolling
-                    coord?.scrollToBottomNow(animated: false)
-                    AppLogger.shared.info("[Scroll][B2-focus] keyboard shown → re-pin bottom (delayed 0.6s, no anim)", category: "ChatList.Scroll")
+                // [2026-11-16 键盘弹起内容被拽走] 原实现有两处有害：
+                //   ① 无条件 `scrollMode = .autoScrolling` —— 用户正在看历史也会被改回"自动贴底"，
+                //      于是之后每次内容更新都往底部拽；
+                //   ②  unconditionally 延迟 0.6s 再贴一次 —— 这一下就是"弹下去"。
+                // 现在：只有**本来就在底部**才重新贴底；浏览历史时完全不动，也不改模式。
+                // 延迟仍保留（键盘动画期间 bounds 是中间帧，按它算 maxOff 会贴错位置）。
+                guard wasNearBottom else {
+                    AppLogger.shared.info("[Scroll][B2-focus] keyboard shown but not near bottom → keep position", category: "ChatList.Scroll")
+                    return
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now()+0.55) { [weak coord] in
+                    guard let coord, coord.isNearBottom(160) else { return }
+                    coord.scrollToBottomNow(animated: false)
+                    AppLogger.shared.info("[Scroll][B2-focus] keyboard shown → re-pin bottom (delayed, no anim)", category: "ChatList.Scroll")
                 }
             } else if wasNearBottom {
                 // 键盘收起:维持原逻辑(仅近底时贴底,浏览历史不打扰)。
