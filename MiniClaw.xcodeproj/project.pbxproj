@@ -215,6 +215,7 @@
 		8CF733F766DFA1C095ADE5A792C9B4C4 /* MTMathListBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A3E02A7633220ADB046FAE25FA44F56 /* MTMathListBuilder.swift */; };
 		8EA264CA56B0B98EDD6A3CDB16DE200B /* SessionRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AED02C1B10A48DEA057E7CD3EC121A87 /* SessionRowView.swift */; };
 		8F05B8B4368EE3853CFA4A087B9967DC /* ProviderModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64BF15875268181ACE54460B49910E8F /* ProviderModels.swift */; };
+		E3D8089CE43D190D3E5BDCEE /* OpenRouterCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FC08A1AA2FC6E0E4F0A32AC /* OpenRouterCatalog.swift */; };
 		E0889E88875E04E4874056EB /* MessageHeightCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8BA769112C7A23B8B63A06D7 /* MessageHeightCache.swift */; };
 		F31ACE2717E375DB0473BF9B /* ProviderModelMerge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03F6E9D64E8F4D58118F04A7 /* ProviderModelMerge.swift */; };
 		8FC3E954E61CE7968FA7970F80DB04CB /* ChatModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8EE4DD99D94B2770FCB653FEC07CBB94 /* ChatModels.swift */; };
@@ -594,6 +595,7 @@
 		626FB442193034ED801055DAEED6306C /* AppleDeviceTools.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleDeviceTools.swift; sourceTree = "<group>"; };
 		62C990DAAF7BD1A4EBFD28FE319BE17E /* ToolStreamingParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolStreamingParser.swift; sourceTree = "<group>"; };
 		64BF15875268181ACE54460B49910E8F /* ProviderModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProviderModels.swift; sourceTree = "<group>"; };
+		0FC08A1AA2FC6E0E4F0A32AC /* OpenRouterCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenRouterCatalog.swift; sourceTree = "<group>"; };
 		8BA769112C7A23B8B63A06D7 /* MessageHeightCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageHeightCache.swift; sourceTree = "<group>"; };
 		03F6E9D64E8F4D58118F04A7 /* ProviderModelMerge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProviderModelMerge.swift; sourceTree = "<group>"; };
 		65246C227D246285A5AB536D40D2F080 /* MarkdownAttachments.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownAttachments.swift; sourceTree = "<group>"; };
@@ -1254,6 +1256,7 @@
 				C93ACC7F1B43D4F1BE3B47D793EE2FE4 /* OpenAIProviderAdapter.swift */,
 				8BEB7F3E06B35D1BB5EE111397F04ED1 /* OpenAIStreamDelegate.swift */,
 				5B546DDDE301071C2E1E58333D528FCF /* PluginModelCatalog.swift */,
+				0FC08A1AA2FC6E0E4F0A32AC /* OpenRouterCatalog.swift */,
 			);
 			path = Providers;
 			sourceTree = "<group>";
@@ -2098,6 +2101,7 @@
 				14E52438BEF3CFE8C2F24FD0ABFE437C /* ProviderDetailView.swift in Sources */,
 				1990FC44E2EA353BB78CB48D469BAE5F /* ProviderImportHelper.swift in Sources */,
 				8F05B8B4368EE3853CFA4A087B9967DC /* ProviderModels.swift in Sources */,
+				E3D8089CE43D190D3E5BDCEE /* OpenRouterCatalog.swift in Sources */,
 				E0889E88875E04E4874056EB /* MessageHeightCache.swift in Sources */,
 				F31ACE2717E375DB0473BF9B /* ProviderModelMerge.swift in Sources */,
 				2ECF2C1AAAB6DA81CC3EACCC655B3760 /* ProviderOAuthViews.swift in Sources */,

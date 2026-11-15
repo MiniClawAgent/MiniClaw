@@ -540,7 +540,12 @@ struct ProviderDetailView: View {
             return
         }
 
-        applyFetchedModels(models)
+        // 供应商接口通常只给 id，缺上下文/最大输出/模态。用 OpenRouter 公开目录补空缺
+        // （匿名可拉、24h 缓存；失败静默降级，不影响刷新主流程）。
+        // 注意方向：只填 `contextLimit == 0` / `maxOutputTokens == nil` 的字段，
+        // 供应商自己给过的值一律不覆盖。
+        let enriched = await OpenRouterCatalog.shared.enrich(models, providerType: draft.providerType)
+        applyFetchedModels(enriched)
     }
 
     /// 把拉取到的模型写入草稿（合并用户已改名称、持久化、按需默选），
