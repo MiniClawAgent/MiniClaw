@@ -147,10 +147,10 @@ extension MessageCollectionView {
                 self.keyboardDismissPan?.isEnabled = kbUp
                 if newH > 0 {
                     self.applyInsetForKeyboardState()
-                    // [2026-11-16 04:07] 弹出也要有动画：只动画 **offset**（不动 inset），
-                    // 时长/曲线取系统键盘参数，与列表压缩动画同步。
-                    // 之前是 0.3s 后硬贴一次 ⇒ 用户看到"突然一瞬间弹上去"。
-                    self.reapplyInsetAfterKeyboardChange()
+                    // [2026-11-16 04:14] 立即开始、只做一次：
+                    // 目标用「压缩前高度 − 键盘高度」算，不依赖此刻 bounds 是否已缩
+                    // ⇒ 既不用等 0.3s（慢半拍），也不会重复减一次（冲一下）。
+                    self.animatePinForKeyboard(overlap: newH, duration: duration, curve: curve)
                 } else {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in
                         guard let self, let cv = self.viewController?.collectionView else { return }
