@@ -134,7 +134,7 @@ struct SettingsView: View {
             VStack(alignment: .leading, spacing: 0) {
                 HStack(alignment: .top) {
                     Image(systemName: icon)
-                        .font(.system(size: 19, weight: .regular))
+                        .font(.system(size: 16, weight: .regular))
                         .foregroundStyle(tint)
                     Spacer(minLength: 0)
                     Image(systemName: "chevron.right")
@@ -158,7 +158,7 @@ struct SettingsView: View {
             .padding(.horizontal, 14)
             .padding(.vertical, 13)
             // 高度对齐模板：约 92pt（此前 148 偏高；96 仍略高，且圆角看起来不成比例）
-            .frame(maxWidth: .infinity, minHeight: 92, alignment: .leading)
+            .frame(maxWidth: .infinity, minHeight: 110, alignment: .leading)
             .background(
                 // 模板卡片的圆角约为卡高的 1/4；用 24pt 连续曲率贴近该观感
                 RoundedRectangle(cornerRadius: 24, style: .continuous)
