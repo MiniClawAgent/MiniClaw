@@ -100,23 +100,17 @@ extension MessageCollectionView {
                 // 先改 inset 会让 UIKit 按旧 bounds 调整 offset，随后 0.3s 补贴底再改一次
                 // ⇒ 收起时可见"抖一下"（弹出时不抖，因为方向相反、两步落在同一侧）。
                 // 收起改为等动画结束、一次性完成 inset + 贴底，且不带动画。
-                if newH > 0 {
+                // [2026-11-16 03:50] 两条收起路径唯一的差别是 **焦点是否变化**
+                // （下滑=0、点外面=1，日志实证），而 inset 的硬改没有动画衔接，
+                // 所以只有"点外面"这条路看得出抖。
+                // 统一：inset 变化跟随系统键盘动画（dur/curve 取自通知），两条路径一致。
+                let duration = max(0, (note.userInfo?[UIResponder.keyboardAnimationDurationUserInfoKey] as? Double) ?? 0.25)
+                let curveRaw = (note.userInfo?[UIResponder.keyboardAnimationCurveUserInfoKey] as? Int) ?? 7
+                let options = UIView.AnimationOptions(rawValue: UInt(curveRaw) << 16)
+                UIView.animate(withDuration: duration, delay: 0, options: [options, .beginFromCurrentState]) {
                     self.applyInsetForKeyboardState()
-                    self.reapplyInsetAfterKeyboardChange()
-                } else {
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in
-                        guard let self, let cv = self.viewController?.collectionView else { return }
-                        UIView.performWithoutAnimation {
-                            self.applyInsetForKeyboardState()
-                            if self.preKeyboardPinned ?? self.lastKnownPinned {
-                                self.scrollToBottomNow(animated: false)
-                                self.lastKnownPinned = true
-                            } else if cv.contentOffset.y > cv.contentSize.height {
-                                cv.contentOffset.y = max(0, cv.contentSize.height - cv.bounds.height)
-                            }
-                        }
-                    }
                 }
+                self.reapplyInsetAfterKeyboardChange()
             }
         }
 
