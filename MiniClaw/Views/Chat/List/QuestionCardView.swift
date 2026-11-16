@@ -169,6 +169,7 @@ struct QuestionCardView: View {
         return VStack(alignment: .leading, spacing: 0) {
             Button {
                 withAnimation(.easeInOut(duration: 0.15)) { expanded.toggle() }
+            notifyLayoutChanged()
             } label: {
                 HStack(spacing: 6) {
                     Image(systemName: "checkmark.seal.fill")
@@ -259,6 +260,15 @@ struct QuestionCardView: View {
         } else {
             submitted = true
             broker.submit(callId: callId, answers: collectAnswers(request))
+            notifyLayoutChanged()
+        }
+    }
+
+    /// 形态变了 ⇒ 该行高度要重测（否则收起后仍占着展开时的高度）。
+    private func notifyLayoutChanged() {
+        DispatchQueue.main.async {
+            NotificationCenter.default.post(name: .chatQuestionCardLayoutChanged,
+                                           object: block.id.uuidString)
         }
     }
 

@@ -1172,6 +1172,28 @@ extension MessageCollectionView {
                 }
                 .store(in: &subscriptions)
 
+            // [2026-11-16 22:55] 提问卡片形态变化（答题→收起 / 收起→展开）后，
+            // 该行高度必须重新测量：否则行高仍停在"展开时"的量 ⇒ 上方一大块空白。
+            NotificationCenter.default.publisher(for: .chatQuestionCardLayoutChanged)
+                .receive(on: DispatchQueue.main)
+                .sink { [weak self] note in
+                    guard let self,
+                          let blockID = note.object as? String,
+                          let layout = self.viewController?.messageListLayout else { return }
+                    guard let item = self.itemToIndex.keys.first(where: { it in
+                        if case .assistantBlock(_, let bid) = it { return bid.uuidString == blockID }
+                        return false
+                    }), let idx = self.itemToIndex[item] else { return }
+                    layout.invalidateHeight(at: idx)
+                    var snapshot = self.dataSource.snapshot()
+                    if snapshot.itemIdentifiers.contains(item) {
+                        snapshot.reconfigureItems([item])
+                        self.dataSource.apply(snapshot, animatingDifferences: false)
+                    }
+                    layout.invalidateLayout()
+                }
+                .store(in: &subscriptions)
+
             NotificationCenter.default.publisher(for: .messageListNeedsResnapshot)
                 .receive(on: DispatchQueue.main)
                 .sink { [weak self] _ in
@@ -1426,6 +1448,8 @@ public struct MessageCollectionView: UIViewControllerRepresentable {
 /// matching the Soul Settings UI.
 extension Notification.Name {
     static let messageListNeedsResnapshot = Notification.Name("messageListNeedsResnapshot")
+    /// 提问卡片形态变化（答题提交、展开/收起）后请求重测该行高度。
+    static let chatQuestionCardLayoutChanged = Notification.Name("chatQuestionCardLayoutChanged")
 }
 
 // MARK: - MessageCollectionView
