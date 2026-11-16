@@ -50,19 +50,27 @@ struct ToolCardOverlay: View {
                             // 卡宽 < 页宽（页内左右 24 边距），页间自然形成卡间隔；
                             // 圆角/描边/投影/底色挂在**卡片级**（不是 TabView 级），
                             // 滑动即「一张卡片切换到另一张卡片」，而非连体内容。
-                            ToolLiveSheet(
-                                toolBlocks: toolBlocks,
-                                initialIdx: i,
-                                toolSnapshots: toolSnapshots,
-                                snapshotBridge: snapshotBridge,
-                                browserPool: browserPool,
-                                browserContentProvider: browserContentProvider,
-                                // 关闭按钮与卡外点按走同一动画路径（close() 先播
-                                // 下沉淡出，再触发 onClose 隐藏窗口）。
-                                onClose: { close() },
-                                hidesSwitchRow: true,
-                                cardSurface: true
-                            )
+                            Group {
+                                if case .question = toolBlocks[i].kind {
+                                    // [2026-11-16 23:08] ask_user 的详情只展示「问题 → 回答」，
+                                    // 不再把工具入参 JSON 摊开。
+                                    AskUserSummarySheet(content: toolBlocks[i].content)
+                                } else {
+    ToolLiveSheet(
+                                    toolBlocks: toolBlocks,
+                                    initialIdx: i,
+                                    toolSnapshots: toolSnapshots,
+                                    snapshotBridge: snapshotBridge,
+                                    browserPool: browserPool,
+                                    browserContentProvider: browserContentProvider,
+                                    // 关闭按钮与卡外点按走同一动画路径（close() 先播
+                                    // 下沉淡出，再触发 onClose 隐藏窗口）。
+                                    onClose: { close() },
+                                    hidesSwitchRow: true,
+                                    cardSurface: true
+                                )
+                                }
+                            }
                             .frame(height: cardHeight)
                             // 背景必须在 clipShape 之前：先画底色再裁圆角——
                             // 顺序反了会让直角背景从圆角外露出（唐唐真机截图）。
