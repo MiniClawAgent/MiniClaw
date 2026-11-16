@@ -197,3 +197,65 @@ struct AskUserDialog: View {
         }
     }
 }
+
+/// 工具详情里的 `ask_user` 记录：只列「问题 → 回答」，不展示原始 JSON。
+struct AskUserSummarySheet: View {
+    let content: String
+
+    private var request: UserQuestionRequest? {
+        UserQuestionRequest.decode(from: content)
+    }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    if let request {
+                        ForEach(Array(request.questions.enumerated()), id: \.element.id) { idx, q in
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text("\(idx + 1). \(q.question)")
+                                    .font(.system(size: 15, weight: .medium))
+                                    .fixedSize(horizontal: false, vertical: true)
+
+                                let answer = answerText(request, q)
+                                HStack(alignment: .top, spacing: 6) {
+                                    Image(systemName: answer.skipped
+                                          ? "arrow.turn.down.right" : "checkmark.circle.fill")
+                                        .font(.system(size: 12))
+                                        .foregroundStyle(answer.skipped ? Color.secondary : Color.green)
+                                    Text(answer.text)
+                                        .font(.system(size: 14))
+                                        .foregroundStyle(answer.skipped ? Color.secondary : Color.primary)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                }
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(12)
+                            .background(
+                                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                    .fill(Color(uiColor: .secondarySystemBackground))
+                            )
+                        }
+                    } else {
+                        Text(String(localized: "ask_user_title"))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .padding(16)
+            }
+            .navigationTitle(String(localized: "ask_user_title"))
+            .navigationBarTitleDisplayMode(.inline)
+        }
+    }
+
+    private func answerText(_ request: UserQuestionRequest,
+                            _ q: UserQuestion) -> (text: String, skipped: Bool) {
+        guard let a = request.answers?.first(where: { $0.id == q.id }),
+              !a.selected.isEmpty || !(a.custom?.isEmpty ?? true) else {
+            return (String(localized: "ask_user_skipped"), true)
+        }
+        var parts = a.selected
+        if let c = a.custom, !c.isEmpty { parts.append(c) }
+        return (parts.joined(separator: " · "), false)
+    }
+}
