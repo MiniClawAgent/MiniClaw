@@ -427,6 +427,18 @@ extension MessageCollectionView {
                     return
                 }
 
+                // [2026-11-16 23:16] 一次性大幅变化视为**重新测量**，不是"底部新增内容"：
+                // 真机日志（23:15:24）contentH 在 3061→4078→3844→3074→3972 之间反复跳，
+                // 每次都被当成 growth 去贴底，于是 offset 被反复重写（-116→2303→3201→2785），
+                // 看起来就是消息"莫名跳一下"。流式增长是几十像素量级，不可能一次 900pt。
+                if delta > 400 {
+                    AppLogger.shared.info(
+                        "[KVO] big delta +\(String(format: "%.0f", delta)) contentH=\(String(format: "%.0f", newH)) → 判定为重测，不贴底",
+                        category: "ChatList.Stream")
+                    self.vm?.contentSizeDeltaSignal.send(delta)
+                    return
+                }
+
                 // [2026-11-16 底部增长未锚定·真因] 原判据只认 `scrollMode == .autoScrolling`。
                 // 用户往上拖过一次后模式变 .userBrowsing，此时底部新增一行（暂停横幅 16.3→40pt、
                 // 工具胶囊、状态行）只打一条 "IN BROWSE MODE — no pin" 日志，**offset 不动** ⇒
