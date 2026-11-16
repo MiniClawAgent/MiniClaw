@@ -353,7 +353,16 @@ public final class AssistantBlock: Identifiable,ObservableObject {
         case .text,.thinking:
             return ""
         case .question:
-            return ""
+            // [2026-11-16 23:14] 之前这里固定返回空串 ⇒ 工具没带 activity、或
+            // 引擎摘出的 summary 为空时，指示器只剩一个图标没有标题（真机第二次提问复现）。
+            // 现在从提问载荷里自取标题：header → 首题文本 → 兜底文案，保证永不为空。
+            if let req = UserQuestionRequest.decode(from: content) {
+                if let h = req.questions.first?.header, !h.isEmpty { return h }
+                if let q = req.questions.first?.question, !q.isEmpty {
+                    return String(q.prefix(24))
+                }
+            }
+            return String(localized: "ask_user_title")
         case .file(let url):
             return (url as NSString).lastPathComponent
         case .shellTool(let command):
