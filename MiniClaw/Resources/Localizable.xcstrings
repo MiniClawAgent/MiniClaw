@@ -66295,6 +66295,34 @@
           }
         }
       }
+    },
+    "ask_user_timeout_hint": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ignored after 5 minutes — AI will continue on its own."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "5 分钟内未选择将自动跳过，AI 会自行继续。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "5 分以内に選ばない場合、自動でスキップされます。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "5분 내 선택하지 않으면 자동으로 건너뜁니다."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

@@ -54,6 +54,8 @@ struct ChatView: View {
     /// 后续 词元 / 工具事件不再抢回滚动控制，直到用户主动发送消息或重新进入会话。
     @State private var shouldAutoFollow: Bool = true
     @FocusState private var isInputFocused: Bool
+    /// ask_user：提问以授权弹窗呈现，会话里只留工具指示器。
+    @ObservedObject private var askUserBroker = AskUserBroker.shared
     /// 悬浮层总高度(2026-08-11 重写):onGeometryChange 测整个 chatOverlay 真实内容高度
     /// (排队消息 + 子代理头像 + 附件提示 + 输入栏),不含键盘。键盘展开/收起不改该值,
     /// 故消息距输入栏距离在无键盘态与有键盘态恒定(= 列表 contentInset.bottom - 8)。
@@ -969,6 +971,14 @@ struct ChatView: View {
         .overlay(alignment: .bottom) {
             chatOverlay
         }
+        // [2026-11-16 23:00] ask_user 改为授权式弹窗（不挤压会话高度）。
+        .overlay {
+            if let active = askUserBroker.active, active.sessionID == session.id {
+                AskUserDialog(callId: active.callId, request: active.request)
+                    .zIndex(100)
+            }
+        }
+        .animation(.easeInOut(duration: 0.18), value: askUserBroker.active?.callId)
         // 键盘高度监听已移至列表 Coordinator(keyboardHeight),此处不再手动桥接。
         .onChange(of: appState.pendingBrowserURL) { url in
             if let url { browserURL = url; appState.pendingBrowserURL = nil }

@@ -595,8 +595,13 @@ struct AssistantBlockView: View {
             // 收缩后的 HStack 居中,加 .leading 对齐保证思考指示器靠左。
             .frame(maxWidth: .infinity,alignment: .leading)
             .padding(.vertical,2)
-        case .question(let callId):
-            QuestionCardView(block: block, callId: callId)
+        case .question:
+            // [2026-11-16 23:00] 提问内容走授权弹窗；会话里与其它工具一致，只留指示器。
+            ToolCapsuleView(block: block, icon: "questionmark.circle", accentColor: .purple,
+                            commandStartTime: commandStartTime, onStop: onStop,
+                            browserPool: browserPool,
+                            toolSnapshots: toolSnapshots, snapshotBridge: snapshotBridge,
+                            detailBlock: $detailBlock)
         case .shellTool:
             ToolCapsuleView(block: block, icon: "terminal", accentColor: .green,
                             commandStartTime: commandStartTime,onStop: onStop,browserPool: browserPool,

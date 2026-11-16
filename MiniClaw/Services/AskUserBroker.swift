@@ -27,6 +27,18 @@ final class AskUserBroker: ObservableObject {
 
     /// 当前待答（按 callId）。UI 只知道 callId，据此决定卡片是否可交互。
     @Published private(set) var pending: [String: UserQuestionRequest] = [:]
+
+    /// 当前**需要弹出授权窗**的提问（每个会话最多一条）。
+    /// 2026-11-16 唐唐定的形态：提问不再内嵌在消息流里（会挤压高度），
+    /// 改成类似授权弹窗的居中对话框；会话里只保留一条工具指示器。
+    @Published private(set) var active: ActiveQuestion?
+
+    struct ActiveQuestion: Identifiable, Equatable {
+        let callId: String
+        let sessionID: UUID
+        var request: UserQuestionRequest
+        var id: String { callId }
+    }
     private var slots: [String: Slot] = [:]
     private var sessionByCall: [String: UUID] = [:]
 
@@ -46,6 +58,7 @@ final class AskUserBroker: ObservableObject {
             slots[callId] = Slot(request: request, continuation: cont)
             sessionByCall[callId] = sessionID
             pending[callId] = request
+            active = ActiveQuestion(callId: callId, sessionID: sessionID, request: request)
         }
         timeout.cancel()
         return outcome
@@ -72,6 +85,7 @@ final class AskUserBroker: ObservableObject {
         slots[callId] = nil
         sessionByCall[callId] = nil
         pending[callId] = nil
+        if active?.callId == callId { active = nil }
         slot.continuation.resume(returning: outcome)
     }
 }
