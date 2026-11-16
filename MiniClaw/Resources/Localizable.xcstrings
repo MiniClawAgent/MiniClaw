@@ -5258,25 +5258,25 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Optional wait seconds (0 = wait up to 10 minutes)."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "任意の待機秒数（0 は最大 10 分）。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "선택 대기 초(0=최대 10분)."
+            "value": "Optional wait seconds (0 = wait up to 5 minutes)."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "可选等待秒数（0 = 最多等 10 分钟）。"
+            "value": "可选等待秒数（0 = 最多等 5 分钟）。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "任意の待機秒数（0 は最大 5 分）。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "선택 대기 초(0=최대 5분)."
           }
         }
       }
@@ -66236,6 +66236,62 @@
           "stringUnit": {
             "state": "translated",
             "value": "；"
+          }
+        }
+      }
+    },
+    "ask_user_next": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Next"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "下一题"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "次へ"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "다음"
+          }
+        }
+      }
+    },
+    "ask_user_result_line": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Answered %1$d of %2$d"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已回答 %1$d / %2$d 题"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d / %2$d 問に回答"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d / %2$d 문항 응답"
           }
         }
       }

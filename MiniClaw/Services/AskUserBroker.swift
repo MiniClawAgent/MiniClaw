@@ -31,7 +31,7 @@ final class AskUserBroker: ObservableObject {
     private var sessionByCall: [String: UUID] = [:]
 
     /// 默认等待时长：用户离开太久就别把引擎挂死了。
-    static let timeoutSeconds: TimeInterval = 10 * 60
+    static let timeoutSeconds: TimeInterval = 5 * 60
 
     func request(_ request: UserQuestionRequest, sessionID: UUID) async -> Outcome {
         let callId = request.callId
