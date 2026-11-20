@@ -2174,7 +2174,13 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
         }
         // 预检查：若 name 不在已注册工具列表中，立即返回错误并提示具体名称
         let registeredNames = toolRouter.allToolNames()
-        guard registeredNames.contains(rawName) else {
+        // [2026-11-20 MCP 未知工具·第二道门] 这里此前用**原始名**做 membership 检查，
+        // 而 ToolRouter 注册时已 canonical 化（`-`→`_`）。模型从历史/旧 schema 里拿到
+        // `mcp__ardot-remo_…` 这类连字符名时，会在这一道被拒，而后面的 `ToolRouter.execute`
+        // 其实能通过 canonical 找到 —— 也就是说"前面拦了、后面放行"。
+        // 统一：预检查同样按规范名比对。
+        let canonicalName = ToolRouter.canonical(rawName)
+        guard registeredNames.contains(canonicalName) else {
             AppLogger.shared.error("工具调用失败：未知工具「\(rawName)」（已注册工具：\(registeredNames.joined(separator: ", "))）", category: "Agent", subsystem: "ToolRouter")
             // 按类别分组列出可用工具，帮助模型快速定位正确工具名
             let sortedNames = registeredNames.sorted()
