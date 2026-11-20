@@ -8,6 +8,8 @@ private final class WholeMessageCell: SelfSizingCell {}
 private struct BridgedAssistantHeader: View {
     @ObservedObject var message: RenderMessage
     var maxWidth: CGFloat = 0
+    /// 无思考块时，工具徽标挂到标题行（否则工具会没有落脚点）。
+    var detailBlock: Binding<AssistantBlock?>? = nil
     @State private var soulMeta: SoulMetadata = SoulStore.cachedMetadata
     var body: some View {
         HStack(spacing: 6) {
@@ -17,6 +19,15 @@ private struct BridgedAssistantHeader: View {
             Text(soulMeta.name.isEmpty ? "MiniClaw" : soulMeta.name)
                 .font(.body.weight(.semibold))
                 .foregroundStyle(ChatColors.primaryText)
+            if ChatInlineToolBadges.isEnabled,
+               !message.blocks.contains(where: { if case .thinking = $0.kind { return true }; return false }),
+               let detail = detailBlock {
+                let toolBlocks = message.blocks.filter { $0.toolStatus != nil }
+                if !toolBlocks.isEmpty {
+                    ToolBadgeCluster(blocks: toolBlocks, detailBlock: detail)
+                        .padding(.leading, 2)
+                }
+            }
         }
         .legibleTextShadow()
         .padding(.top,4)
@@ -549,9 +560,12 @@ extension MessageCollectionView {
             case .assistantHeader(let msgId):
                 guard let msgIdx = messageIndex[msgId],msgIdx<messages.count else { return }
                 let message = messages[msgIdx]
+                let bridge = getOrCreateBridge(for: message, in: messages)
                 cell.backgroundColor = .clear
                 let config = UIHostingConfiguration {
-                    BridgedAssistantHeader(message: message,maxWidth: width)
+                    BridgedAssistantHeader(message: message,maxWidth: width,
+                                           detailBlock: Binding(get: { bridge.detailBlock },
+                                                                set: { bridge.detailBlock = $0 }))
                         .transaction { $0.disablesAnimations = true }
                         .environmentObject(vm)
                 }.minSize(width: 0,height: 0).margins(.all,0)

@@ -374,6 +374,8 @@ extension MessageCollectionView.Coordinator {
             case .assistantBlock(let msgId,let blockId):
                 guard let msg = messages.first(where: { $0.id == msgId }),
                       let block = msg.blocks.first(where: { $0.id == blockId }) else { return 44 }
+                // [2026-11-20] 工具已折叠进思考行的圆点 ⇒ 这些行不再占高度。
+                if ChatInlineToolBadges.isEnabled, block.toolStatus != nil { return 0 }
                 switch block.kind {
                 case .text:
                     // [2026-09-11 尾部行裁切修复] 仅**新鲜**渲染结果可用于精确高度：

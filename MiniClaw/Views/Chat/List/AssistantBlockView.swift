@@ -2,6 +2,55 @@ import SwiftUI
 import Combine
 
 
+/// 工具行是否折叠成「思考指示器后面的小圆点」。
+/// 2026-11-20 唐唐：一次思考可能连跑多个工具，每个工具占一行会把排版撑得很空。
+/// 默认开启；关闭即回到「每个工具一行」的旧形态（回退开关）。
+enum ChatInlineToolBadges {
+    static let defaultsKey = "chat.inlineToolBadges"
+    static var isEnabled: Bool {
+        let d = UserDefaults.standard
+        return d.object(forKey: defaultsKey) == nil ? true : d.bool(forKey: defaultsKey)
+    }
+}
+
+/// 叠在思考指示器后面的工具圆点：最多 3 个，其余折成 +N；点任意一点打开工具详情卡片。
+struct ToolBadgeCluster: View {
+    let blocks: [AssistantBlock]
+    @Binding var detailBlock: AssistantBlock?
+
+    private var shown: [AssistantBlock] { Array(blocks.prefix(3)) }
+
+    var body: some View {
+        HStack(spacing: -7) {
+            ForEach(shown) { b in
+                Circle()
+                    .fill(color(for: b))
+                    .frame(width: 18, height: 18)
+                    .overlay(Circle().strokeBorder(Color(uiColor: .systemBackground), lineWidth: 1.5))
+            }
+            if blocks.count > 3 {
+                Text("+\(blocks.count - 3)")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                    .padding(.leading, 11)
+            }
+        }
+        .contentShape(Rectangle())
+        .onTapGesture { detailBlock = blocks.last }
+        .accessibilityLabel(Text("\(blocks.count) 个工具"))
+    }
+
+    private func color(for b: AssistantBlock) -> Color {
+        switch b.toolStatus {
+        case .running, .streaming: return .accentColor
+        case .failed: return .red
+        case .cancelled: return .orange
+        case .success: return .green
+        default: return .secondary
+        }
+    }
+}
+
 struct ToolCapsuleView: View {
     @ObservedObject var block: AssistantBlock
     let icon: String
@@ -576,6 +625,16 @@ struct AssistantBlockView: View {
     }
 
     var body: some View {
+        if ChatInlineToolBadges.isEnabled, block.toolStatus != nil {
+            // 工具已折叠成思考行后面的圆点；本行只保留零高度占位（高度侧也已归零）。
+            EmptyView()
+        } else {
+            blockBody
+        }
+    }
+
+    @ViewBuilder
+    private var blockBody: some View {
         switch block.kind {
         case .text:
             if block.hasVisibleText {
@@ -587,10 +646,17 @@ struct AssistantBlockView: View {
                     )
             }
         case .thinking:
-            ThinkingBlockView(
-                block: block,
-                isStreaming: isActiveMessage && message.blocks.last?.id == block.id
-            )
+            let toolBlocks = message.blocks.filter { $0.toolStatus != nil }
+            HStack(alignment: .center, spacing: 8) {
+                ThinkingBlockView(
+                    block: block,
+                    isStreaming: isActiveMessage && message.blocks.last?.id == block.id
+                )
+                if ChatInlineToolBadges.isEnabled, !toolBlocks.isEmpty {
+                    ToolBadgeCluster(blocks: toolBlocks, detailBlock: $detailBlock)
+                }
+                Spacer(minLength: 0)
+            }
             // [Fix 2026-08-11] 显式靠左:外层容器 frame(maxWidth:.infinity) 会把
             // 收缩后的 HStack 居中,加 .leading 对齐保证思考指示器靠左。
             .frame(maxWidth: .infinity,alignment: .leading)
