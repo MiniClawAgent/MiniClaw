@@ -221,10 +221,12 @@ extension AgentRunService {
         }
         volatileParts.append(subagentTail)
 
-        return (
-            stable: stableParts.joined(separator: "\n\n"),
-            volatile: volatileParts.joined(separator: "\n\n")
-        )
+        let stableText = stableParts.joined(separator: "\n\n")
+        let volatileText = volatileParts.joined(separator: "\n\n")
+        // [2026-11-20] 开发者选项：把**实际发给模型**的前置提示词原样落盘，便于核对。
+        // 开关在「设置 → 关于 → 开发者选项」，默认关；失败静默，不影响请求。
+        PromptDumpStore.write(stable: stableText, volatile: volatileText, sessionID: sessionID)
+        return (stable: stableText, volatile: volatileText)
     }
 
     /// 长期记忆注入段：向量检索可用时注入相关片段（省 词元），否则全文兜底（现状行为）。
