@@ -770,6 +770,14 @@ extension MessageCollectionView.Coordinator {
                     return
                 }
 
+                // [2026-11-20 重进会话上滑空白] 工具已折叠成思考行后的圆点，
+                // 这些行在渲染上是空视图；但播种仍按块类型给了 36pt ⇒ 每颗球下面
+                // 垫一条空白，松手重测归零才收起（真机日志 16:31:25 rows 3/4 h=36/estimated）。
+                if ChatInlineToolBadges.isEnabled, block.toolStatus != nil {
+                    layout.setEstimatedHeight(0, provenance: "est.inlineBadge", at: i)
+                    return
+                }
+
                 switch block.kind {
                 case .text:
                     // [2026-09-11 尾部行裁切修复] 陈旧渲染结果**不得**用于精确 precalc：
