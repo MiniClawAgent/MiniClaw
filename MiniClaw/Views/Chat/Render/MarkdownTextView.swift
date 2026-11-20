@@ -1314,9 +1314,24 @@ final class MarkdownTextView: UITextView,UIGestureRecognizerDelegate {
 
         isInvalidatingCellSize = true
         defer { isInvalidatingCellSize = false }
-        let newHeight = sizeThatFits(CGSize(width: measureWidth,height: .greatestFiniteMagnitude)).height
+        var newHeight = sizeThatFits(CGSize(width: measureWidth,height: .greatestFiniteMagnitude)).height
         if textContainer.size.height<CGFloat.greatestFiniteMagnitude {
             textContainer.size.height = CGFloat.greatestFiniteMagnitude
+        }
+        // [2026-11-20 正文尾部空白] `sizeThatFits` 在长文本上会返回比实际排版更高的值
+        // （真机：正文写完后又空了约 100pt 才到状态行，tvContentH 与 cellH 却"对得上"）。
+        // 判据：字形已全部排完（glyphs == storage.length）、不在流式中、且 usedRect 明显更矮。
+        // 只用它**修正测量值**，不改 textView 的 frame（历史事故就是因为在探针里改几何）。
+        if textStorage.length > 0 {
+            let glyphCount = layoutManager.numberOfGlyphs
+            if glyphCount == textStorage.length {
+                let usedH = layoutManager.usedRect(for: textContainer).height
+                    + textContainerInset.top + textContainerInset.bottom
+                if usedH > 1, usedH < newHeight - 4 {
+                    cellSizeLogger.info("[CellSize] USED-RECT TRIM contentH=\(String(format: "%.1f", newHeight)) usedH=\(String(format: "%.1f", usedH)) storage=\(textStorage.length) — 采用排版实际高度")
+                    newHeight = usedH
+                }
+            }
         }
         let previousHeight = lastComputedHeight
         if abs(newHeight-previousHeight) <= 1 {
