@@ -13,6 +13,18 @@ enum ChatInlineToolBadges {
     }
 }
 
+/// 取「本思考块之后、下一个思考块之前」的工具块。
+/// 未使用 timelineOrder：历史数据里它可能全是默认值，按数组顺序（planTimeline 已排好）更稳。
+func toolsAfterThinking(_ thinking: AssistantBlock, in message: RenderMessage) -> [AssistantBlock] {
+    guard let idx = message.blocks.firstIndex(where: { $0.id == thinking.id }) else { return [] }
+    var result: [AssistantBlock] = []
+    for b in message.blocks[(idx + 1)...] {
+        if case .thinking = b.kind { break }
+        if b.toolStatus != nil { result.append(b) }
+    }
+    return result
+}
+
 /// 叠在思考指示器后面的工具圆点：最多 3 个，其余折成 +N；点任意一点打开工具详情卡片。
 struct ToolBadgeCluster: View {
     enum Mode {
@@ -752,7 +764,10 @@ struct AssistantBlockView: View {
                     )
             }
         case .thinking:
-            let toolBlocks = message.blocks.filter { $0.toolStatus != nil }
+            // [2026-11-20 唐唐] 只挂**本轮思考之后**的工具：此前用整条消息的全部工具，
+            // 导致每一轮思考后面都重复挂着同一批（失败的搜索球在每一行都出现）。
+            // 切分规则：从本思考块之后开始，遇到下一个思考块就停。
+            let toolBlocks = toolsAfterThinking(block, in: message)
             HStack(alignment: .center, spacing: 8) {
                 ThinkingBlockView(
                     block: block,
