@@ -4,7 +4,7 @@ import PDFKit
 
 struct ShellExecuteTool: AgentTool {
     var resumePolicy: ResumePolicy { .requiresUserConfirmation }
-    let name = "shell_execute"
+    let name = "shell-execute"
     /// 后台命令的时限由工具自己的 `timeout` 参数（默认 900s）与 ShellRuntime 执行器负责，
     /// 不再吃引擎默认的 120s（否则 900s 永远不可达，长命令被提前切断）。
     /// 2026-11-12 随 ISSUES I-04 一起接通：`executionTimeout == nil` 现在真的表示「引擎不设超时」。
@@ -15,7 +15,7 @@ struct ShellExecuteTool: AgentTool {
     let schema = ToolSchema(
         type: "function",
         function: ToolSchema.FunctionDef(
-            name: "shell_execute",
+            name: "shell-execute",
             description: String(localized: "shell_execute_tool_desc"),
             parameters: JSONSchema(
                 type: "object",
@@ -97,7 +97,7 @@ struct ShellExecuteTool: AgentTool {
             // AI 常误以为文件落在 /tmp 或"文件不见了"而反复扑空。
             // 路径写法铁律(2026-09):只回传 /var/MiniClaw。会话隔离的内部段 sessions/<uuid>
             // **绝不**出现在给模型看的文本里——Swift 文件工具遇到它会直接抛错，模型还会
-            // 照抄它去写 file_read。相对路径实际落在本会话目录，由这一句说明。
+            // 照抄它去写 file-read。相对路径实际落在本会话目录，由这一句说明。
             final += "\n[env] cwd: /var/MiniClaw (relative paths land in this session's directory)"
             if let bashReminder { final += bashReminder }
             // 环境教学（2026-09-07）：Alpine 最小环境默认只有 busybox 命令集，模型按

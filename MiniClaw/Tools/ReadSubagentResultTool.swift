@@ -1,7 +1,7 @@
 import Foundation
 
 /// 分页读取子代理的完整最终回答。
-/// `dispatch_subagent` 只回有界预览（保证父上下文不被撑爆）；当需要子代理结果的
+/// `dispatch-subagent` 只回有界预览（保证父上下文不被撑爆）；当需要子代理结果的
 /// 完整内容（长文/报告全文）时，用本工具按 subagent_id + 字符偏移分页读取。
 /// 数据来自 SubagentStore（子代理对话已落盘持久化）。
 final class ReadSubagentResultTool: AgentTool {

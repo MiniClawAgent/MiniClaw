@@ -1,12 +1,12 @@
 import Foundation
 import SwiftData
 
-/// sessions_cli（spec 9.4）
+/// sessions-cli（spec 9.4）
 /// 对 SwiftData 会话数据库（Session → [Message]）进行 CRUD 操作。
 /// 所有数据库访问都在 `MainActor.run` 闭包内经 `SessionManager.shared` 完成，
 /// 避免 SwiftData 的 ModelContext 跨 actor 不安全；闭包内完成序列化后只返回 String。
 struct SessionsTool: AgentTool {
-    let name = "sessions_cli"
+    let name = "sessions-cli"
     let currentSessionID: UUID?
 
     init(currentSessionID: UUID? = nil) {
@@ -17,7 +17,7 @@ struct SessionsTool: AgentTool {
         ToolSchema(
             type: "function",
             function: ToolSchema.FunctionDef(
-                name: "sessions_cli",
+                name: "sessions-cli",
                 description: String(localized: "sessions_tool_desc"),
                 parameters: JSONSchema(
                     type: "object",

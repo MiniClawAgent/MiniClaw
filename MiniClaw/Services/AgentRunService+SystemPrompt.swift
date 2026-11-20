@@ -61,7 +61,7 @@ extension AgentRunService {
             stableParts.append(String(localized: "project_rules_header") + ruleSections.joined(separator: "\n\n"))
         }
 
-        // 2.5 已启用技能（渐进式加载：仅常驻 name + description 元数据；正文由 skill_load 工具按需加载）
+        // 2.5 已启用技能（渐进式加载：仅常驻 name + description 元数据；正文由 skill-load 工具按需加载）
         let skillMeta = await SkillManager.shared.enabledSkillMetadata()
         if !skillMeta.isEmpty {
             stableParts.append(String(localized: "enabled_skills_header") + skillMeta + String(localized: "skills_hint_load"))
@@ -97,15 +97,15 @@ extension AgentRunService {
         // 7. 内存系统（i18n：整段经 String(localized:) 查 String Catalog）
         stableParts.append(String(localized: "memory_system_section"))
 
-        // [ask_user] 只在本次工具集里确实有该工具时才注入使用纪律，
+        // [ask-user] 只在本次工具集里确实有该工具时才注入使用纪律，
         // 避免"让模型用不存在的工具"。
-        if toolRouter.contains("ask_user") {
+        if toolRouter.contains("ask-user") {
             stableParts.append(String(localized: "ask_user_prompt_section"))
         }
 
         // 8. 子代理使用指南（stable：角色列表与角色文件同频，属稳定内容，进缓存前缀）
         stableParts.append(SubAgentGuide.guideWithProfiles())
-        // 记忆内容会随会话复盘被 memory_write 改写，属于「易变内容」，若留在稳定前缀会导致
+        // 记忆内容会随会话复盘被 memory-write 改写，属于「易变内容」，若留在稳定前缀会导致
         // 每次记忆更新后整段缓存失效、命中率归零，故必须放在断点之后。
 
         // === 易变段开始：以下内容置于 system prompt 末尾，避免污染 KV 缓存前缀 ===
@@ -118,22 +118,22 @@ extension AgentRunService {
         //   近期记忆 → 长期记忆 → 环境快照(每小时) → 子代理段(每次派发/关闭都变，收尾)
 
         // 3.5 可用工具列表(会话中 MCP 工具可增减,每轮更新;schema 权威在 tools: 参数)
-        // 追加引擎保留工具 dispatch_subagent/close_subagent：它们由引擎拦截执行，必须出现在
+        // 追加引擎保留工具 dispatch-subagent/close-subagent：它们由引擎拦截执行，必须出现在
         // 白名单里，否则「列表外禁止调用」铁律会让模型判定该工具不可用（子代理从不触发的根因）。
         // [2026-09-15 去重] 这两个工具现已由 `AgentLoopEngine.init` 幂等注册进 `ToolRouter`
         // ⇒ `allToolNames()` 里**已经包含**它们，原先无条件 append 会让清单出现重复项
-        //（真机 reqdump 实证：`close_subagent`/`dispatch_subagent` 各出现两次）。
+        //（真机 reqdump 实证：`close-subagent`/`dispatch-subagent` 各出现两次）。
         // 改为「缺失才补」，两种注册状态都正确。
         var toolNames = toolRouter.allToolNames()
-        for engineReserved in ["dispatch_subagent", "close_subagent"] where !toolNames.contains(engineReserved) {
+        for engineReserved in ["dispatch-subagent", "close-subagent"] where !toolNames.contains(engineReserved) {
             toolNames.append(engineReserved)
         }
         toolNames.sort()
         // 联网工具可用性：提示词前缀是静态的（要进缓存），这里按本轮真实工具清单补一句
         // 动态提示，避免用户未启用联网插件时模型误以为「没有搜索能力」而拒绝任务。
-        let webSearchAvailabilityNote = toolNames.contains("web_search")
-            ? "需要联网检索时优先用 `web_search`；打开/操作具体网页用 `browser`；执行命令用 `shell_execute`；其他需求用文字回答。"
-            : "本轮**未启用 `web_search`**：联网检索请改用 `browser` 打开 **必应**（`https://cn.bing.com/search?q=<关键词>`，抓取与可达率最高），或用 `shell_execute` 的 wget/curl 抓取公开网页，不要因此拒绝任务。"
+        let webSearchAvailabilityNote = toolNames.contains("web-search")
+            ? "需要联网检索时优先用 `web-search`；打开/操作具体网页用 `browser`；执行命令用 `shell-execute`；其他需求用文字回答。"
+            : "本轮**未启用 `web-search`**：联网检索请改用 `browser` 打开 **必应**（`https://cn.bing.com/search?q=<关键词>`，抓取与可达率最高），或用 `shell-execute` 的 wget/curl 抓取公开网页，不要因此拒绝任务。"
         volatileParts.append("""
         ## 可用工具 (\(toolNames.count) 个) — 完整列表如下，仅可调用此处列出的工具名
         \(toolNames.map { "- `\($0)`" }.joined(separator: "\n"))
@@ -141,7 +141,7 @@ extension AgentRunService {
         **再次强调：** 上方列表是你唯一可用的工具，不得编造列表中不存在的工具名。
         \(webSearchAvailabilityNote)
 
-        **联网检索的降级顺序：** 有 `web_search` 就优先用它；没有（插件未启用/未配置 Key）就用 `browser`——**引擎优先必应 `https://cn.bing.com/search?q=<关键词>`**（实测抓取与可达率最高），必应不可用再试 `https://www.bing.com/search?q=` 或 DuckDuckGo HTML；`browser` 不可用或需要纯文本抓取时，用 `shell_execute` 执行 `wget`/`curl`（同样先必应）。不要因为缺少搜索工具就拒绝联网任务或编造结果。
+        **联网检索的降级顺序：** 有 `web-search` 就优先用它；没有（插件未启用/未配置 Key）就用 `browser`——**引擎优先必应 `https://cn.bing.com/search?q=<关键词>`**（实测抓取与可达率最高），必应不可用再试 `https://www.bing.com/search?q=` 或 DuckDuckGo HTML；`browser` 不可用或需要纯文本抓取时，用 `shell-execute` 执行 `wget`/`curl`（同样先必应）。不要因为缺少搜索工具就拒绝联网任务或编造结果。
         """)
 
         // 3.5.1 环境变量(设置页可改,不进前缀)
@@ -166,16 +166,16 @@ extension AgentRunService {
             let firstPath = mounted.first!.path
             volatileParts.append("""
             ## 已挂载的外部文件夹
-            以下文件夹是用户在「设置 → 挂载」中挂载的外部目录，可通过文件系统工具（`list_dir` / `file_read` / `file_write` / `file_edit`）或 `shell_execute` 两种方式访问：
+            以下文件夹是用户在「设置 → 挂载」中挂载的外部目录，可通过文件系统工具（`list-dir` / `file-read` / `file-write` / `file-edit`）或 `shell-execute` 两种方式访问：
             \(mountLines)
 
             读取挂载内容的方式：
-            1. 若想知道当前挂载了哪些外部文件夹，先 `list_dir` 路径 `/var/MiniClaw/mounts/`，会返回挂载名列表；
-            2. 再用 `list_dir`，path 设为某个挂载目录，例如 `\(firstPath)/`，查看里面有哪些文件；
-            3. 读取具体文件用 `file_read`，path 设为 `/var/MiniClaw/mounts/<name>/<子路径>`。
+            1. 若想知道当前挂载了哪些外部文件夹，先 `list-dir` 路径 `/var/MiniClaw/mounts/`，会返回挂载名列表；
+            2. 再用 `list-dir`，path 设为某个挂载目录，例如 `\(firstPath)/`，查看里面有哪些文件；
+            3. 读取具体文件用 `file-read`，path 设为 `/var/MiniClaw/mounts/<name>/<子路径>`。
 
             写入挂载内容：
-            - 标注「可写」的挂载可用 `file_write` / `file_edit` 把内容写到外部真实文件夹（真实落盘，不是拷贝）；
+            - 标注「可写」的挂载可用 `file-write` / `file-edit` 把内容写到外部真实文件夹（真实落盘，不是拷贝）；
             - 标注「只读」的挂载写入会被拒绝并提示「该挂载为只读」；如需写入请在「设置 → 挂载」开启该文件夹的「允许写入」开关。
             """)
         }
@@ -186,7 +186,7 @@ extension AgentRunService {
         }
 
         // 8. 近期记忆 + 9. 长期记忆（受「记忆开关」守卫；关闭时不注入）。
-        // 记忆内容会随会话复盘被 memory_write 改写，属于「易变内容」，必须放在 volatile 段
+        // 记忆内容会随会话复盘被 memory-write 改写，属于「易变内容」，必须放在 volatile 段
         // （缓存断点之后），否则每次记忆更新都会让稳定前缀失效、缓存命中率归零。
         // 段内顺序：**长期记忆靠后**——向量检索开启时其检索 query 取「当前会话最新一条
         // 用户消息」，命中片段每轮都变，且它是 volatile 里体量最大的一段；放在前面会连带
@@ -218,9 +218,9 @@ extension AgentRunService {
         // 铁律**无条件**注入——它防的是「回复文本里声称已派发/已关闭」的假执行，与是否
         // 有存活子代理无关，故不能跟着清单一起被条件带上。清单来自 SubagentRuntimeRegistry
         // （跨轮次/跨重启存活），无子代理时只注入铁律。
-        // 这一段是 volatile 里变化最频繁的（每次 dispatch_subagent / close_subagent 都变），
+        // 这一段是 volatile 里变化最频繁的（每次 dispatch-subagent / close-subagent 都变），
         // 放最末使变化只损失自身，不打掉前面的记忆/环境段。
-        // 铁律文案取自 SubAgentGuide.ironRule —— 它同时是引擎 skill_load 后重排易变段时的
+        // 铁律文案取自 SubAgentGuide.ironRule —— 它同时是引擎 skill-load 后重排易变段时的
         // 切分点，两侧共用同一常量（此处不得内联复制字面量，否则重排会失步）。
         let liveSubagentRecords = SubagentRuntimeRegistry.shared.allRecords(for: sessionID)
         var subagentTail = SubAgentGuide.ironRule
@@ -240,7 +240,7 @@ extension AgentRunService {
     /// 长期记忆注入段：向量检索可用时注入相关片段（省 词元），否则全文兜底（现状行为）。
     /// - 检索 query 用「当前会话最新一条用户消息」：它最贴近用户此刻意图，比多句拼接更稳定
     ///   （拼接会引入历史噪音，embedding 对长 query 的召回精度反而下降），成本也最低。
-    /// - 注入片段时附「完整记忆可用 memory_get 查询」，缓解「模型看不到未召回全文」的副作用。
+    /// - 注入片段时附「完整记忆可用 memory-get 查询」，缓解「模型看不到未召回全文」的副作用。
     /// - 检索无命中时回落全文：不注入会让模型完全失去长期记忆，属功能退化。
     private func longTermMemorySection(fs: FileSystemManager, sessionID: UUID) async -> String? {
         // 向量检索可用（用户开了向量开关 + embedding 端点探测成功）→ 片段注入

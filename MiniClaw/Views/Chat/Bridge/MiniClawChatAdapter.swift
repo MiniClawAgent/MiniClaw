@@ -207,8 +207,8 @@ enum MiniClawChatAdapter {
         }
 
         for event in message.toolCalls {
-            // [ask_user] 历史重建：入参里的问题 + 结果里的答案 → 卡片载荷。
-            if event.name == "ask_user" {
+            // [ask-user] 历史重建：入参里的问题 + 结果里的答案 → 卡片载荷。
+            if event.name == "ask-user" {
                 if let payload = Self.questionPayloadJSON(arguments: event.arguments, result: event.resultText) {
                     let block = AssistantBlock(id: event.id,
                                                kind: .question(callId: event.callID ?? event.id.uuidString),
@@ -413,7 +413,7 @@ enum MiniClawChatAdapter {
     /// 工具名 + 参数 → Kit 块类型(10 种 kind 映射),关联值填入真实操作名/路径/命令,
     /// 让工具卡显示真实操作名称(而非笼统的 "Browser action"/"Shell command")。
     /// 纯函数（无状态依赖）→ nonisolated：服务层（ToolExecution）也可调用。
-    /// 把 ask_user 的入参与结果合并成卡片载荷 JSON（历史回放用）。
+    /// 把 ask-user 的入参与结果合并成卡片载荷 JSON（历史回放用）。
     nonisolated static func questionPayloadJSON(arguments: String, result: String) -> String? {
         struct RawArgs: Decodable { let questions: [UserQuestion] }
         struct RawResult: Decodable {
@@ -453,27 +453,27 @@ enum MiniClawChatAdapter {
             return ""
         }
         switch name {
-        case "ask_user":
+        case "ask-user":
             // 流式期也要认：否则它会落到 default，显示成 "Shell command"（真机 01:54 复现）。
             return .question(callId: "")
-        case "dispatch_subagent":
+        case "dispatch-subagent":
             return .subagentTool(action: pick("focus", "task"))
-        case "close_subagent":
+        case "close-subagent":
             return .subagentTool(action: pick("subagent_id", "subagentID", "id"))
-        case "shell_execute":
+        case "shell-execute":
             return .shellTool(command: pick("command", "cmd", "code", "script", "expression"))
-        case "file_read":
+        case "file-read":
             return .fileReadTool(path: pick("path", "file", "file_path", "filename"))
-        case "file_write":
+        case "file-write":
             return .fileWriteTool(path: pick("path", "file", "file_path", "filename"))
-        case "file_edit":
+        case "file-edit":
             return .fileEditTool(path: pick("path", "file", "file_path", "filename"))
-        case "browser", "miniclaw_browser_use":
+        case "browser", "miniclaw-browser-use":
             let action = pick("action", "query", "search", "url", "link", "href")
             return .browserTool(action: action)
-        case "apple_image":
+        case "apple-image":
             return .readImageTool(path: pick("path", "file", "file_path", "filename"))
-        case "memory_write", "memory_get":
+        case "memory-write", "memory-get":
             return .memoryTool(action: pick("action", "key", "topic", "subject"))
         default:
             return .shellTool(command: pick("command", "cmd"))

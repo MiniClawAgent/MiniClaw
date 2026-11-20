@@ -8,13 +8,13 @@ enum WebSearchPlugin {
     static let officialBaseURL = "https://api.deepseek.com"
 }
 
-/// `web_search`：DeepSeek 联网搜索（`POST /v1/tools/search`）。
+/// `web-search`：DeepSeek 联网搜索（`POST /v1/tools/search`）。
 ///
 /// ## 为什么是「系统级内置工具」而不是 .mpk shell 插件
 /// - 该接口是 DeepSeek 官方 JSON API，需要 Bearer Key 与结构化响应解析；
 ///   `.mpk` 的 shell 后端只能起子进程、无法安全持有 Key，也不适合解析 JSON。
 /// - 归入独立插件包 `com.miniclaw.builtin.websearch`（可与其它插件分别启停）；
-///   包内 `tools/web_search.json` 只做声明，schema/执行在 Swift 侧单一真相源。
+///   包内 `tools/web-search.json` 只做声明，schema/执行在 Swift 侧单一真相源。
 ///
 /// ## 凭据（插件设置优先）
 /// 用户在「插件 → 联网搜索 → 设置」里填的 Key 走独立 Keychain 槽位；
@@ -25,12 +25,12 @@ enum WebSearchPlugin {
 /// 服务端按**成功请求次数**计费；默认不返回正文，正文按「单条上限 / 总预算」截断，
 /// 避免一次搜索把上下文撑爆。以上参数均可在插件设置里调整。
 struct WebSearchTool: AgentTool {
-    let name = "web_search"
+    let name = "web-search"
 
     let schema = ToolSchema(
         type: "function",
         function: ToolSchema.FunctionDef(
-            name: "web_search",
+            name: "web-search",
             description: String(localized: "web_search_tool_desc"),
             parameters: JSONSchema(
                 type: "object",

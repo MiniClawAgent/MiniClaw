@@ -1,6 +1,6 @@
 import Foundation
 
-/// skill_load（P0-1 渐进式技能加载 — 强注入 cache-safe 变体）
+/// skill-load（P0-1 渐进式技能加载 — 强注入 cache-safe 变体）
 ///
 /// system 稳定段只常驻各启用技能的 name + description 元数据（见 `SkillManager.enabledSkillMetadata()`）。
 /// 模型据此判断某技能与当前任务相关时，主动调用本工具把该技能标记为「本会话已加载」。
@@ -12,7 +12,7 @@ import Foundation
 ///   因此对 KV 缓存命中率零影响，且模型遵循强度更高（在 system 内）、不怕上下文压缩。
 /// - 本工具只返回一句短确认；真正的正文由引擎从 `SkillManager.loadedSkillBodies(for:)` 读入易变段。
 struct SkillLoadTool: AgentTool {
-    let name = "skill_load"
+    let name = "skill-load"
     let currentSessionID: UUID?
 
     init(currentSessionID: UUID? = nil) {
@@ -23,7 +23,7 @@ struct SkillLoadTool: AgentTool {
         ToolSchema(
             type: "function",
             function: ToolSchema.FunctionDef(
-                name: "skill_load",
+                name: "skill-load",
                 description: String(localized: "skill_load_tool_desc"),
                 parameters: JSONSchema(
                     type: "object",

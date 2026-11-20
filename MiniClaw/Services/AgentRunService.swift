@@ -49,7 +49,7 @@ final class AgentRunService {
         toolRouter.register(MiniClawDebugTool(currentSessionID: sessionID))
         // 4.4 渐进式技能加载工具（按需读入技能正文，避免每轮全量注入）
         toolRouter.register(SkillLoadTool(currentSessionID: sessionID))
-        // 4.5 子代理结果分页读取（dispatch_subagent 只回有界预览，本工具读完整回答）
+        // 4.5 子代理结果分页读取（dispatch-subagent 只回有界预览，本工具读完整回答）
         toolRouter.register(ReadSubagentResultTool(currentSessionID: sessionID))
         // 4.5b 插件管理（AI 自主安装/启停；install 受通用页确认开关守卫）
         toolRouter.register(PluginTool(currentSessionID: sessionID))
@@ -203,7 +203,7 @@ final class AgentRunService {
             let supported: Bool
             switch kind {
             case .image:    supported = endpoint.supportsImageInput
-            // 文档不再作为独立输入模态：统一经 read_document 工具读取，不入原生请求体。
+            // 文档不再作为独立输入模态：统一经 read-document 工具读取，不入原生请求体。
             case .document: supported = false
             case .audio:    supported = endpoint.supportsAudioInput
             case .video:    supported = endpoint.supportsVideoInput
@@ -630,7 +630,7 @@ final class AgentRunService {
 
     /// 会话级 system stable 快照：首轮构建一次并缓存；同会话后续轮次（恢复/重试）复用 stable，
     /// volatile（时间戳/挂载列表）每轮重生成。
-    /// 目的：会话中记忆变化（agent 用 memory_write 写记忆 / 退出会话后的记忆总结）不会改写
+    /// 目的：会话中记忆变化（agent 用 memory-write 写记忆 / 退出会话后的记忆总结）不会改写
     /// 本会话的 system 前缀 → 各家提示词缓存（Anthropic 断点 / DeepSeek 自动前缀）不被破坏。
     /// extraSkillName 非 nil（技能注入）时强制重建（技能内容进入 stable）。
     /// 服务层持有缓存（原 ChatView @State 迁入）：类实例跨调用存活，UI 重建不丢缓存。

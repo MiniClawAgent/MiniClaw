@@ -317,7 +317,7 @@ struct ReasoningSegment: Codable, Identifiable, Equatable {
 /// [2026-09-15 缓存治本] 「易变段快照」拼进请求体的**唯一构造点**。
 ///
 /// 发送侧（`AgentRunService+Run.startRun` 落盘快照）与轮内增量（`AgentLoopEngine` 在
-/// `skill_load` 后追加）都从这里取文本，保证同一段快照在任何位置逐字节一致——
+/// `skill-load` 后追加）都从这里取文本，保证同一段快照在任何位置逐字节一致——
 /// 前缀缓存只认字节，任何"两处各拼一遍"的分叉都会重新打断嵌套。
 enum APIContextSuffix {
     /// 把易变段包成可直接追加到消息末尾的后缀（含"这不是用户指令"的显式标注）。

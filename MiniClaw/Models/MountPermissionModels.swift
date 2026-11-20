@@ -18,7 +18,7 @@ struct MountPoint: Identifiable, Codable {
 /// 权限配置
 ///
 /// 注：bluetooth / nfc / camera / notifications 四个字段已删除——它们都曾是
-/// 「只有声明、从不写回」的假状态，AI 通过 `miniclaw_config` 读到的是恒为
+/// 「只有声明、从不写回」的假状态，AI 通过 `miniclaw-config` 读到的是恒为
 /// `.notDetermined` 的脏数据，开启写入后还会把假值持久化。其中通知的真实
 /// 状态走 `PermissionManager.notificationAuthorized` 独立通道（设置-权限页使用），
 /// 相机则无任何授权查询代码（拍照由 UIImagePickerController 系统侧处理）。

@@ -8,7 +8,7 @@ import PDFKit
 /// ① iSH guest（shell）视角：`/var/MiniClaw/sessions/<uuid>/<子目录>`；
 /// ② Swift file 工具视角：`/var/MiniClaw/<子目录>`（会话隔离由 sessionID **隐式**完成，
 ///   路径里没有 `sessions/<uuid>` 这一段）。
-/// 模型看到 `shell_execute` 的 `[env] cwd`（guest 视角）后，拿它去拼 `file_read` 的路径 →
+/// 模型看到 `shell-execute` 的 `[env] cwd`（guest 视角）后，拿它去拼 `file-read` 的路径 →
 /// 首段 `sessions` 不在会话独享白名单（只有 workspace/attachments/browser/offloads）→
 /// 落到共享分支解析成 `Documents/MiniClaw/sessions/<uuid>/…` → 必然「文件未找到」。
 /// 故把约定写进工具描述，让模型一上手就有正确坐标。
@@ -17,14 +17,14 @@ enum FileToolPaths {
 }
 
 struct FileReadTool: AgentTool {
-    let name = "file_read"
+    let name = "file-read"
     /// 当前会话 ID：注入后该工具读取的文件走本会话的隔离命名空间
     /// /var/MiniClaw/{workspace,attachments,browser,offloads}，与其他会话互不污染。
     let currentSessionID: UUID?
     let schema = ToolSchema(
         type: "function",
         function: ToolSchema.FunctionDef(
-            name: "file_read",
+            name: "file-read",
             description: String(localized: "file_read_tool_desc") + FileToolPaths.conventionNote,
             parameters: JSONSchema(
                 type: "object",
@@ -66,13 +66,13 @@ struct FileReadTool: AgentTool {
 // MARK: - List Directory Tool
 
 struct ListDirTool: AgentTool {
-    let name = "list_dir"
+    let name = "list-dir"
     /// 当前会话 ID：注入后列出的目录走本会话的隔离命名空间。
     let currentSessionID: UUID?
     let schema = ToolSchema(
         type: "function",
         function: ToolSchema.FunctionDef(
-            name: "list_dir",
+            name: "list-dir",
             description: String(localized: "list_dir_tool_desc") + FileToolPaths.conventionNote,
             parameters: JSONSchema(
                 type: "object",
@@ -109,13 +109,13 @@ struct ListDirTool: AgentTool {
 
 struct FileWriteTool: AgentTool {
     var resumePolicy: ResumePolicy { .requiresUserConfirmation }
-    let name = "file_write"
+    let name = "file-write"
     /// 当前会话 ID：注入后该工具写入的文件走本会话的隔离命名空间。
     let currentSessionID: UUID?
     let schema = ToolSchema(
         type: "function",
         function: ToolSchema.FunctionDef(
-            name: "file_write",
+            name: "file-write",
             description: String(localized: "file_write_tool_desc") + FileToolPaths.conventionNote,
             parameters: JSONSchema(
                 type: "object",
@@ -156,13 +156,13 @@ struct FileWriteTool: AgentTool {
 
 struct FileEditTool: AgentTool {
     var resumePolicy: ResumePolicy { .requiresUserConfirmation }
-    let name = "file_edit"
+    let name = "file-edit"
     /// 当前会话 ID：注入后该工具编辑的文件走本会话的隔离命名空间。
     let currentSessionID: UUID?
     let schema = ToolSchema(
         type: "function",
         function: ToolSchema.FunctionDef(
-            name: "file_edit",
+            name: "file-edit",
             description: String(localized: "file_edit_tool_desc") + FileToolPaths.conventionNote,
             parameters: JSONSchema(
                 type: "object",

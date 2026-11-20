@@ -51,7 +51,7 @@ final class SessionReviewService: @unchecked Sendable {
 
         guard let input else { return }
 
-        // 构建受限 Agent（仅 memory_write / memory_get）
+        // 构建受限 Agent（仅 memory-write / memory-get）
         let toolRouter = ToolRouter()
         toolRouter.register(MemoryWriteTool(bypassConfirmation: true))
         toolRouter.register(MemoryGetTool())
@@ -70,7 +70,7 @@ final class SessionReviewService: @unchecked Sendable {
 
         let instruction = """
         请按以下步骤完成：
-        1. 先调用 memory_get 了解已有记忆，避免重复写入。
+        1. 先调用 memory-get 了解已有记忆，避免重复写入。
         2. 阅读上面的对话，按 system prompt 的「写入分级规则」沉淀记忆：
            - 仅长期价值内容写入 long_term：用户明确要求记住的事项、跨会话稳定的偏好/习惯/项目约定/技术决策、反复出现的行为模式、待跟进事项。
            - 单次搜索/浏览/查询、临时任务、当天问答、过程性进展，一律写入 daily，严禁写进 long_term。
@@ -97,7 +97,7 @@ final class SessionReviewService: @unchecked Sendable {
     // MARK: - 辅助
 
     private static let reviewSystemPrompt = """
-    你是 MiniClaw 的记忆沉淀助手。你只能通过 memory_write 写入记忆、通过 memory_get 检索记忆，不能使用其它任何工具。
+    你是 MiniClaw 的记忆沉淀助手。你只能通过 memory-write 写入记忆、通过 memory-get 检索记忆，不能使用其它任何工具。
     你的任务：阅读对话，把值得长期保留的内容写入记忆，并输出一句中文会话摘要。
 
     【写入分级规则 —— 必须严格遵守】

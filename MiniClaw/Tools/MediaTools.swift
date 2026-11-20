@@ -8,13 +8,13 @@ import Vision
 /// 工具名归 `apple-` 前缀族：与 `apple-vision` 同为本文件的图片能力，
 /// 都走 Apple 框架（UIKit / Vision）。会话 ID 用于解析会话隔离路径。
 struct ReadImageTool: AgentTool {
-    let name = "apple_image"
+    let name = "apple-image"
     /// 当前会话 ID：注入后读取的图片走本会话的隔离命名空间。
     let currentSessionID: UUID?
     let schema = ToolSchema(
         type: "function",
         function: ToolSchema.FunctionDef(
-            name: "apple_image",
+            name: "apple-image",
             description: String(localized: "apple_image_tool_desc"),
             parameters: JSONSchema(
                 type: "object",
@@ -85,12 +85,12 @@ struct ReadImageTool: AgentTool {
 /// 原名 `vision_analyze`：改用 `apple-` 前缀族命名，与其余 Apple 框架能力一致，
 /// 并随之迁进 `builtinFactories`（工具会出现在插件列表，可受插件开关控制）。
 struct VisionAnalyzeTool: AgentTool {
-    let name = "apple_vision"
+    let name = "apple-vision"
     let currentSessionID: UUID?
     let schema = ToolSchema(
         type: "function",
         function: ToolSchema.FunctionDef(
-            name: "apple_vision",
+            name: "apple-vision",
             description: String(localized: "apple_vision_tool_desc"),
             parameters: JSONSchema(
                 type: "object",

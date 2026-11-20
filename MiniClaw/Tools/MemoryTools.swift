@@ -6,7 +6,7 @@ struct MemoryWriteTool: AgentTool {
     /// 复盘分身等后台 Agent 使用免确认实例，避免触发（当前仅元数据的）确认策略。
     private let bypassConfirmation: Bool
     var resumePolicy: ResumePolicy { bypassConfirmation ? .retryable : .requiresUserConfirmation }
-    let name = "memory_write"
+    let name = "memory-write"
 
     init(bypassConfirmation: Bool = false) {
         self.bypassConfirmation = bypassConfirmation
@@ -15,7 +15,7 @@ struct MemoryWriteTool: AgentTool {
     let schema = ToolSchema(
         type: "function",
         function: ToolSchema.FunctionDef(
-            name: "memory_write",
+            name: "memory-write",
             description: String(localized: "memory_write_tool_desc"),
             parameters: JSONSchema(
                 type: "object",
@@ -99,11 +99,11 @@ struct MemoryWriteTool: AgentTool {
 // MARK: - Memory Get Tool
 
 struct MemoryGetTool: AgentTool {
-    let name = "memory_get"
+    let name = "memory-get"
     let schema = ToolSchema(
         type: "function",
         function: ToolSchema.FunctionDef(
-            name: "memory_get",
+            name: "memory-get",
             description: String(localized: "memory_search_tool_desc"),
             parameters: JSONSchema(
                 type: "object",
@@ -119,7 +119,7 @@ struct MemoryGetTool: AgentTool {
     func execute(_ parameters: [String: Any]) async throws -> ToolResult {
         // 设置快照：后台线程不裸读 SettingsStore（2026-08-13 竞争修复）。
         let settings = await SettingsStore.shared.snapshot()
-        // 记忆总开关：关闭时禁止检索记忆（与 memory_write 一致）。
+        // 记忆总开关：关闭时禁止检索记忆（与 memory-write 一致）。
         guard settings.memory.isEnabled else {
             return ToolResult(success: false, text: String(localized: "err_memory_disabled_search"))
         }

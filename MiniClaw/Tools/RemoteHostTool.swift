@@ -18,11 +18,11 @@ import Network
 /// - 手动路径仍可用：直接传 host=IP（如 Tailscale 的 100.x 固定地址）。
 ///
 /// 职责切分：`setup` 不自己执行 apk/keygen 等长任务——输出精确命令清单交 AI
-/// 用 `shell_execute` 跑（iSH 模拟下可能数分钟，塞进工具超时既危险又无进度）。
+/// 用 `shell-execute` 跑（iSH 模拟下可能数分钟，塞进工具超时既危险又无进度）。
 struct RemoteHostTool: AgentTool {
-    /// 远程执行有设备外副作用：与 shell_execute 同样走执行前确认。
+    /// 远程执行有设备外副作用：与 shell-execute 同样走执行前确认。
     var resumePolicy: ResumePolicy { .requiresUserConfirmation }
-    let name = "remote_host"
+    let name = "remote-host"
 
     private static let configFileName = "remote-hosts.json"
     private static let defaultKeyPath = "~/.ssh/miniclaw"
@@ -35,7 +35,7 @@ struct RemoteHostTool: AgentTool {
     let schema = ToolSchema(
         type: "function",
         function: ToolSchema.FunctionDef(
-            name: "remote_host",
+            name: "remote-host",
             description: String(localized: "remote_host_tool_desc"),
             parameters: JSONSchema(
                 type: "object",
@@ -100,7 +100,7 @@ struct RemoteHostTool: AgentTool {
         }
     }
 
-    // MARK: - action: setup（自检 + 引导；执行交给 shell_execute）
+    // MARK: - action: setup（自检 + 引导；执行交给 shell-execute）
 
     private func setupAction(os: String?) async -> ToolResult {
         // 一次性自检：openssh 是否已装、密钥是否已生成、公钥内容
@@ -120,7 +120,7 @@ struct RemoteHostTool: AgentTool {
 
         // 未就绪：输出「一键安装」组合命令——含 apk 残留锁清理（真机实测：
         // iSH 首启偶发 apk 进程残留占锁，"Unable to lock database"）、安装、
-        // 密钥生成、自检回显，AI 一次 shell_execute 即可完成，无需多轮往返。
+        // 密钥生成、自检回显，AI 一次 shell-execute 即可完成，无需多轮往返。
         guard sshInstalled, keyExists else {
             lines.append(String(localized: "remote_host_setup_combo"))
             lines.append(String(localized: "remote_host_setup_run_first"))
@@ -734,7 +734,7 @@ struct RemoteHostTool: AgentTool {
         return v4 + v6
     }
 
-    // MARK: - 本地执行（iSH 通道，与 shell_execute 同一运行时）
+    // MARK: - 本地执行（iSH 通道，与 shell-execute 同一运行时）
 
     private func runLocal(_ command: String, timeout: TimeInterval) async -> (stdout: String, stderr: String, exitCode: Int32)? {
         do {

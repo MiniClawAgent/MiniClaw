@@ -12,7 +12,7 @@ struct ToolCallCardView: View {
 
     /// 是否为本卡片专属的下载进度显示
     private var isMyDownload: Bool {
-        guard event.name == "browser" || event.name == "miniclaw_browser_use" else { return false }
+        guard event.name == "browser" || event.name == "miniclaw-browser-use" else { return false }
         // 仅「fetch」action 才是下载
         return event.arguments.contains("\"fetch\"")
     }
@@ -69,21 +69,21 @@ struct ToolCallCardView: View {
             return (toolSymbol(for: name), activity)
         }
         switch name {
-        case "file_read":
+        case "file-read":
             if args.contains("path") {
                 let path = extractJSONField(args, field: "path") ?? ""
                 let filename = URL(fileURLWithPath: path).lastPathComponent
                 return ("doc.text", filename.isEmpty ? String(localized: "read_file") : String(format: String(localized: "read"), filename))
             }
             return ("doc.text", String(localized: "read_file"))
-        case "file_write":
+        case "file-write":
             if args.contains("path") {
                 let path = extractJSONField(args, field: "path") ?? ""
                 let filename = URL(fileURLWithPath: path).lastPathComponent
                 return ("square.and.pencil", filename.isEmpty ? String(localized: "write_file") : String(format: String(localized: "write_to"), filename))
             }
             return ("square.and.pencil", String(localized: "write_file"))
-        case "file_edit": return ("pencil.and.outline", String(localized: "edit_file"))
+        case "file-edit": return ("pencil.and.outline", String(localized: "edit_file"))
         case "browser", "miniclaw_browser-use":
             if let activity, !activity.isEmpty {
                 return ("globe", activity)
@@ -111,62 +111,62 @@ struct ToolCallCardView: View {
             case "wait_for_dom_stable": return ("hourglass", String(localized: "waiting_for_page_to_load"))
             default: return ("globe", String(localized: "process_web_content"))
             }
-        case "shell_execute": return ("terminal", String(localized: "run_command"))
-        case "memory_write": return ("brain.head.profile", String(localized: "write_to_memory"))
-        case "memory_get": return ("magnifyingglass", String(localized: "search_memory"))
-        case "apple_image": return ("photo", String(localized: "apple_image"))
-        case "apple_vision": return ("viewfinder", String(localized: "apple_vision"))
-        case "apple_calendar": return ("calendar", String(localized: "calendar_actions"))
-        case "apple_reminders": return ("checklist", String(localized: "reminders"))
-        case "apple_speak": return ("speaker.wave.2", String(localized: "read_aloud"))
-        case "apple_speech": return ("mic", String(localized: "speech_recognition"))
-        case "apple_contacts": return ("person.crop.circle", String(localized: "contacts_actions"))
-        case "apple_media": return ("music.note", String(localized: "media_playback"))
-        case "apple_clipboard": return ("doc.on.clipboard", String(localized: "clipboard_actions"))
-        case "apple_device": return ("iphone", String(localized: "device_info"))
-        case "apple_nlp": return ("text.alignleft", String(localized: "text_analysis"))
-        case "apple_open": return ("arrow.up.forward.app", String(localized: "open_link"))
-        case "open_in_safari": return ("safari", String(localized: "open_in_safari"))
-        case "apple_notification": return ("bell", String(localized: "send_notification"))
-        case "apple_location": return ("location", String(localized: "location_services"))
-        case "apple_maps": return ("map", String(localized: "map_search"))
-        case "miniclaw_config": return ("gearshape", String(localized: "configuration_management"))
-        case "sessions_cli": return ("bubble.left.and.bubble.right", String(localized: "session_management"))
-        case "miniclaw_debug": return ("ladybug", String(localized: "debug_info"))
-        case "miniclaw_plugin": return ("puzzlepiece.extension", String(localized: "plugin_management"))
+        case "shell-execute": return ("terminal", String(localized: "run_command"))
+        case "memory-write": return ("brain.head.profile", String(localized: "write_to_memory"))
+        case "memory-get": return ("magnifyingglass", String(localized: "search_memory"))
+        case "apple-image": return ("photo", String(localized: "apple-image"))
+        case "apple-vision": return ("viewfinder", String(localized: "apple-vision"))
+        case "apple-calendar": return ("calendar", String(localized: "calendar_actions"))
+        case "apple-reminders": return ("checklist", String(localized: "reminders"))
+        case "apple-speak": return ("speaker.wave.2", String(localized: "read_aloud"))
+        case "apple-speech": return ("mic", String(localized: "speech_recognition"))
+        case "apple-contacts": return ("person.crop.circle", String(localized: "contacts_actions"))
+        case "apple-media": return ("music.note", String(localized: "media_playback"))
+        case "apple-clipboard": return ("doc.on.clipboard", String(localized: "clipboard_actions"))
+        case "apple-device": return ("iphone", String(localized: "device_info"))
+        case "apple-nlp": return ("text.alignleft", String(localized: "text_analysis"))
+        case "apple-open": return ("arrow.up.forward.app", String(localized: "open_link"))
+        case "open-in-safari": return ("safari", String(localized: "open-in-safari"))
+        case "apple-notification": return ("bell", String(localized: "send_notification"))
+        case "apple-location": return ("location", String(localized: "location_services"))
+        case "apple-maps": return ("map", String(localized: "map_search"))
+        case "miniclaw-config": return ("gearshape", String(localized: "configuration_management"))
+        case "sessions-cli": return ("bubble.left.and.bubble.right", String(localized: "session_management"))
+        case "miniclaw-debug": return ("ladybug", String(localized: "debug_info"))
+        case "miniclaw-plugin": return ("puzzlepiece.extension", String(localized: "plugin_management"))
         default: return ("wrench.and.screwdriver", name.replacingOccurrences(of: "_", with: " "))
         }
     }
 
     private func toolSymbol(for name: String) -> String {
         switch name {
-        case "file_read": return "doc.text"
-        case "file_write": return "square.and.pencil"
-        case "file_edit": return "pencil.and.outline"
+        case "file-read": return "doc.text"
+        case "file-write": return "square.and.pencil"
+        case "file-edit": return "pencil.and.outline"
         case "browser", "miniclaw_browser-use": return "globe"
-        case "shell_execute": return "terminal"
-        case "memory_write": return "brain.head.profile"
-        case "memory_get": return "magnifyingglass"
-        case "apple_image": return "photo"
-        case "apple_vision": return "viewfinder"
-        case "apple_calendar": return "calendar"
-        case "apple_reminders": return "checklist"
-        case "apple_speak": return "speaker.wave.2"
-        case "apple_speech": return "mic"
-        case "apple_contacts": return "person.crop.circle"
-        case "apple_media": return "music.note"
-        case "apple_clipboard": return "doc.on.clipboard"
-        case "apple_device": return "iphone"
-        case "apple_nlp": return "text.alignleft"
-        case "apple_open": return "arrow.up.forward.app"
-        case "open_in_safari": return "safari"
-        case "apple_notification": return "bell"
-        case "apple_location": return "location"
-        case "apple_maps": return "map"
-        case "miniclaw_config": return "gearshape"
-        case "sessions_cli": return ("bubble.left.and.bubble.right")
-        case "miniclaw_debug": return "ladybug"
-        case "miniclaw_plugin": return "puzzlepiece.extension"
+        case "shell-execute": return "terminal"
+        case "memory-write": return "brain.head.profile"
+        case "memory-get": return "magnifyingglass"
+        case "apple-image": return "photo"
+        case "apple-vision": return "viewfinder"
+        case "apple-calendar": return "calendar"
+        case "apple-reminders": return "checklist"
+        case "apple-speak": return "speaker.wave.2"
+        case "apple-speech": return "mic"
+        case "apple-contacts": return "person.crop.circle"
+        case "apple-media": return "music.note"
+        case "apple-clipboard": return "doc.on.clipboard"
+        case "apple-device": return "iphone"
+        case "apple-nlp": return "text.alignleft"
+        case "apple-open": return "arrow.up.forward.app"
+        case "open-in-safari": return "safari"
+        case "apple-notification": return "bell"
+        case "apple-location": return "location"
+        case "apple-maps": return "map"
+        case "miniclaw-config": return "gearshape"
+        case "sessions-cli": return ("bubble.left.and.bubble.right")
+        case "miniclaw-debug": return "ladybug"
+        case "miniclaw-plugin": return "puzzlepiece.extension"
         default: return "wrench.and.screwdriver"
         }
     }

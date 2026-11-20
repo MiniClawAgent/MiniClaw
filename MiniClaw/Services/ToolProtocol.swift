@@ -28,7 +28,7 @@ protocol AgentTool {
     /// MiniClaw 注入到模型参数中的本地活动描述字段。
     /// 远端协议工具可覆盖为不会与服务端 schema 冲突的保留名。
     var activityParameterName: String { get }
-    /// 单次执行超时（秒），nil = 不限时长。默认 120；长时编排工具（如 dispatch_subagent）
+    /// 单次执行超时（秒），nil = 不限时长。默认 120；长时编排工具（如 dispatch-subagent）
     /// 覆盖为 nil——子代理整轮回复可达分钟级，120s 竞速会误杀正常任务。
     var executionTimeout: TimeInterval? { get }
 }
@@ -165,13 +165,14 @@ final class ToolRouter {
         tools[Self.canonical(tool.name)] = tool
     }
 
-    /// 工具名规范形式：一律 `lower_snake_case`。
+    /// 工具名规范形式：一律 `kebab-case`（连字符）。
     ///
-    /// [2026-11-15 命名统一] 历史遗留的连字符名（`apple-open`、`open-in-safari` 等）已全部
-    /// 改为下划线。这里做一次规范映射，使**历史会话里的旧调用名、旧插件清单**仍然能用，
-    /// 不会因为改名而失效。
+    /// [2026-11-20 命名统一·连字符] 所有工具名统一为连字符形式；下划线视为历史写法，
+    /// 在这里一次性映射成连字符（不保留双写）。
     static func canonical(_ name: String) -> String {
-        name.replacingOccurrences(of: "-", with: "_")
+        // [2026-11-20 统一为连字符] 全量工具名统一用 `-`。
+        // ⚠️ 这是唯一规范：生成名、注册名、校验名都必须经过这里，不得各自造规则。
+        name.replacingOccurrences(of: "_", with: "-")
     }
 
     /// 工具名是否已被占用（内置/已注册）：tool 插件注册时的重名冲突判定。
@@ -240,7 +241,7 @@ final class ToolRouter {
     /// 只有**未注册**的工具才回落默认 120s。
     /// 旧实现 `tools[name]?.executionTimeout ?? 120` 会被可选链扁平化——
     /// 「工具存在但显式返回 nil」与「工具不存在」变成同一个 nil 后再被 `?? 120` 吞掉，
-    /// 导致 `dispatch_subagent` 的「不限时」与 `shell_execute` 的 900s 全部失效。
+    /// 导致 `dispatch-subagent` 的「不限时」与 `shell-execute` 的 900s 全部失效。
     func executionTimeout(for name: String) -> TimeInterval? {
         guard let tool = tools[Self.canonical(name)] else { return 120 }
         return tool.executionTimeout
@@ -256,12 +257,12 @@ final class EngineBox: @unchecked Sendable {
     init(_ engine: AgentLoopEngine?) { self.engine = engine }
 }
 
-/// 引擎保留工具（dispatch_subagent / close_subagent）经 ToolRouter 统一执行时，
+/// 引擎保留工具（dispatch-subagent / close-subagent）经 ToolRouter 统一执行时，
 /// 由 `AgentLoopEngine.executeTool` 以 TaskLocal 注入**当前执行引擎**——
 /// 同一 router 实例被父子引擎共享，工具体据此解析到自己所属的引擎（深度/会话状态才正确）。
 enum ToolEngineScope {
     @TaskLocal static var box: EngineBox? = nil
-    /// 当前工具调用 id（`ask_user` 用它把自己的块换成问答卡）。
+    /// 当前工具调用 id（`ask-user` 用它把自己的块换成问答卡）。
     @TaskLocal static var callID: String? = nil
     static var engine: AgentLoopEngine? { box?.engine }
 }

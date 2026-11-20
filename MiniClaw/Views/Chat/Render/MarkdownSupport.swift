@@ -1206,7 +1206,7 @@ final class MarkdownNSRenderer: @unchecked Sendable {
     }
 
     ///
-    /// file_write returns a singly-encoded
+    /// file-write returns a singly-encoded
     /// miniclaw_url (e.g. `miniclaw://workspace/GitHub%E7%83%AD….md`). When the model
     private func normalizeLinkURL(from destination: String) -> URL? {
         let fallback = URL(string: destination)

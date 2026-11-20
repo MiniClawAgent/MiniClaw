@@ -4,7 +4,7 @@ import Foundation
 /// Agent 循环引擎的纯逻辑工具（2026-08 提取：与引擎实例状态解耦，可独立单测）。
 enum AgentLoopHelpers {
 
-    /// 子代理树最大深度（P2-4）：深度达到该值的子代理不再获得 dispatch_subagent 工具，
+    /// 子代理树最大深度（P2-4）：深度达到该值的子代理不再获得 dispatch-subagent 工具，
     /// 从而在允许"子代理再派子代理"的同时给出硬性递归上界。
     static let maxSubagentDepth: Int = 2
 

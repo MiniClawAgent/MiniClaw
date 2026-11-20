@@ -4,7 +4,7 @@ import SwiftUI
 ///
 /// 2026-11-16 唐唐定的形态：
 /// - 提问不内嵌在消息流里，用居中弹窗（类似系统授权框）；
-/// - 会话里只保留一条 `ask_user` 工具指示器；
+/// - 会话里只保留一条 `ask-user` 工具指示器；
 /// - 一次一题、右上角进度；操作只有「跳过」；答完弹窗消失；
 /// - 5 分钟不答由 broker 超时按跳过处理。
 struct AskUserDialog: View {
@@ -198,7 +198,7 @@ struct AskUserDialog: View {
     }
 }
 
-/// 工具详情里的 `ask_user` 记录：只列「问题 → 回答」，不展示原始 JSON。
+/// 工具详情里的 `ask-user` 记录：只列「问题 → 回答」，不展示原始 JSON。
 struct AskUserSummarySheet: View {
     let content: String
 

@@ -14,10 +14,10 @@ public enum AssistantBlockKind: Equatable {
     case browserTool(action: String)
     case readImageTool(path: String)
     case memoryTool(action: String)
-    /// 子代理调用（dispatch_subagent / close_subagent）：action = 展示用摘要
+    /// 子代理调用（dispatch-subagent / close-subagent）：action = 展示用摘要
     /// （派发取 focus/task 摘要，关闭取 subagent_id）。
     case subagentTool(action: String)
-    /// AI 向用户提问的卡片（`ask_user`）。callId 用于和等待中的请求配对。
+    /// AI 向用户提问的卡片（`ask-user`）。callId 用于和等待中的请求配对。
     case question(callId: String)
     case info
     /// 文件引用(块级):url = 已规范化的 miniclaw:// 源,content = 展示文件名

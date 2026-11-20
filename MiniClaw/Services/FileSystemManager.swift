@@ -599,7 +599,7 @@ final class FileSystemManager: @unchecked Sendable {
     // MARK: - File Operations
 
     /// 读取文本文件。
-    /// - `paged: true`（file_read 工具路径）启用对模型友好的完整协议：
+    /// - `paged: true`（file-read 工具路径）启用对模型友好的完整协议：
     ///   二进制文件 → 十六进制预览（非报错）；80 000 字符硬上限 + 智能截断；
     ///   元数据头 `[路径 | 字节 | 行数 | 显示行区间(+截断/续读提示)]`（2026-09-05）。
     /// - `paged: false`（默认，内部路径如记忆读取）行为与旧版一致。
@@ -745,7 +745,7 @@ final class FileSystemManager: @unchecked Sendable {
         if normalized == "/var/MiniClaw/mounts" {
             return MountStore.shared.list().filter { $0.isMounted }.map { $0.name }.sorted()
         }
-        // 与 file_read / file_write / delete 同源：走严格解析（强制 /var/MiniClaw/ 前缀、
+        // 与 file-read / file-write / delete 同源：走严格解析（强制 /var/MiniClaw/ 前缀、
         // 拒绝 .. 与跨会话越界）。此前走 lenient 版 resolvePath，会放行任意绝对路径，
         // 与工具描述「路径必须为 /var/MiniClaw/...」的对外契约不符。
         // 注：挂载子路径 /var/MiniClaw/mounts/<name>/... 由 resolveAgentPath
@@ -1005,7 +1005,7 @@ final class FileSystemManager: @unchecked Sendable {
 
     /// 将浏览器工具（screenshot/fetch）返回的 `miniclaw://browser/xxx` 内部链接
     /// 归一化为 `/var/MiniClaw/...` 绝对路径，使其能被 apple-image / apple-vision /
-    /// read_document 等文件工具直接消费（二者协议不互通是此前的 bug 来源）。
+    /// read-document 等文件工具直接消费（二者协议不互通是此前的 bug 来源）。
     /// 非 miniclaw:// 路径原样返回。
     static func normalizeMiniClawURL(_ path: String) -> String {
         guard path.hasPrefix("miniclaw://") else { return path }

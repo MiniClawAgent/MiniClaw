@@ -1,16 +1,16 @@
 import Foundation
 
-// MARK: - miniclaw_config Tool（对齐 spec 9.2）
+// MARK: - miniclaw-config Tool（对齐 spec 9.2）
 
-/// 让 Agent 通过 Tool Protocol 读写运行时配置，等价于 spec 的 `miniclaw_config` 工具。
+/// 让 Agent 通过 Tool Protocol 读写运行时配置，等价于 spec 的 `miniclaw-config` 工具。
 /// 子命令：get / set / add / audit-list / audit-revert / list-topics / topic-help
 struct ConfigTool: AgentTool {
-    let name = "miniclaw_config"
+    let name = "miniclaw-config"
 
     let schema = ToolSchema(
         type: "function",
         function: ToolSchema.FunctionDef(
-            name: "miniclaw_config",
+            name: "miniclaw-config",
             description: String(localized: "config_tool_desc"),
             parameters: JSONSchema(
                 type: "object",

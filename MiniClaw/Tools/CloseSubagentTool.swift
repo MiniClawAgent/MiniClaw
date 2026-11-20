@@ -1,6 +1,6 @@
 import Foundation
 
-// MARK: - 子代理编排工具（dispatch_subagent / close_subagent）
+// MARK: - 子代理编排工具（dispatch-subagent / close-subagent）
 //
 // 2026-09-09 工具派发统一：二者此前由 AgentLoopEngine 手工注入 schema + executeTool
 // 拦截执行，游离在 ToolRouter 之外——schema 缺 activity 参数注入、执行绕过
@@ -10,9 +10,9 @@ import Foundation
 // 工具体经 ToolEngineScope（TaskLocal）解析**当前执行引擎**回呼——
 // 同一 router 实例被父子引擎共享，固定 weak 引用会解析到错误引擎。
 
-/// `dispatch_subagent`：派发子代理（单任务 / tasks 并行 / 复用已有子代理续接）。
+/// `dispatch-subagent`：派发子代理（单任务 / tasks 并行 / 复用已有子代理续接）。
 final class DispatchSubagentTool: AgentTool {
-    static let toolName = "dispatch_subagent"
+    static let toolName = "dispatch-subagent"
     var name: String { Self.toolName }
 
     /// 子代理整轮回复可达分钟级，不受 120s 工具超时约束（与旧拦截路径行为一致）。
@@ -72,11 +72,11 @@ final class DispatchSubagentTool: AgentTool {
     }
 }
 
-/// `close_subagent` 工具：关闭不再需要的子代理（释放其会话、头像与上下文）。
+/// `close-subagent` 工具：关闭不再需要的子代理（释放其会话、头像与上下文）。
 /// 支持**批量**：`subagent_ids` 数组一次关闭多个（与并行派发对称，2026-09-06）；
 /// 单个关闭仍走 `subagent_id`。二者可混用，执行层按顺序逐个关闭并汇总结果。
 final class CloseSubagentTool: AgentTool {
-    static let toolName = "close_subagent"
+    static let toolName = "close-subagent"
     var name: String { Self.toolName }
 
     var schema: ToolSchema {

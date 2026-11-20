@@ -537,13 +537,13 @@ struct ToolLiveSheet: View {
         case .question:
             return ""
         case .shellTool(let cmd):
-            return "shell_execute(\(truncateParam(cmd)))"
+            return "shell-execute(\(truncateParam(cmd)))"
         case .fileReadTool(let path):
-            return "file_read(\(truncateParam(path)))"
+            return "file-read(\(truncateParam(path)))"
         case .fileWriteTool(let path):
-            return "file_write(\(truncateParam(path)))"
+            return "file-write(\(truncateParam(path)))"
         case .fileEditTool(let path):
-            return "file_edit(\(truncateParam(path)))"
+            return "file-edit(\(truncateParam(path)))"
         case .browserTool(let action):
             return "browser_use(\(truncateParam(action)))"
         case .readImageTool(let path):

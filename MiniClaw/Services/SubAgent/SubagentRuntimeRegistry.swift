@@ -91,7 +91,7 @@ final class SubagentRuntimeRegistry: @unchecked Sendable {
     }
 
     /// 仅更新「已存在」的记录（close 竞态防护）：runSubagent 尾处理调用——
-    /// 若该子代理已被 close_subagent 删除，则不重建（防止「关闭后记录复活」）。
+    /// 若该子代理已被 close-subagent 删除，则不重建（防止「关闭后记录复活」）。
     func updateIfPresent(sessionID: UUID, record: SubagentRuntimeRecord) {
         lock.lock()
         guard store[sessionID]?[record.id] != nil else {
@@ -103,7 +103,7 @@ final class SubagentRuntimeRegistry: @unchecked Sendable {
         persist(sessionID: sessionID)
     }
 
-    /// 移除单个子代理记录（close_subagent / 用户长按删除时调用，防止「关闭后又被复用」）。
+    /// 移除单个子代理记录（close-subagent / 用户长按删除时调用，防止「关闭后又被复用」）。
     func remove(sessionID: UUID, subagentID: UUID) {
         lock.lock()
         store[sessionID]?[subagentID] = nil

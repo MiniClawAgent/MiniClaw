@@ -5,11 +5,11 @@ import NaturalLanguage
 import UserNotifications
 
 struct AppleNotificationTool: AgentTool {
-    let name = "apple_notification"
+    let name = "apple-notification"
     let schema = ToolSchema(
         type: "function",
         function: ToolSchema.FunctionDef(
-            name: "apple_notification",
+            name: "apple-notification",
             description: String(localized: "send_local_notification"),
             parameters: JSONSchema(
                 type: "object",
@@ -48,11 +48,11 @@ struct AppleNotificationTool: AgentTool {
 // MARK: - 14. apple-open (UIKit UIApplication)
 
 struct AppleOpenTool: AgentTool {
-    let name = "apple_open"
+    let name = "apple-open"
     let schema = ToolSchema(
         type: "function",
         function: ToolSchema.FunctionDef(
-            name: "apple_open",
+            name: "apple-open",
             description: String(localized: "apple_open_tool_desc"),
             parameters: JSONSchema(
                 type: "object",
@@ -86,11 +86,11 @@ struct AppleOpenTool: AgentTool {
 // MARK: - 14b. open-in-safari (显式外部 Safari 打开)
 
 struct SafariOpenTool: AgentTool {
-    let name = "open_in_safari"
+    let name = "open-in-safari"
     let schema = ToolSchema(
         type: "function",
         function: ToolSchema.FunctionDef(
-            name: "open_in_safari",
+            name: "open-in-safari",
             description: String(localized: "safari_open_tool_desc"),
             parameters: JSONSchema(
                 type: "object",
@@ -132,11 +132,11 @@ struct SafariOpenTool: AgentTool {
 // MARK: - 18. apple-speak (AVSpeechSynthesizer)
 
 struct AppleSpeakTool: AgentTool {
-    let name = "apple_speak"
+    let name = "apple-speak"
     let schema = ToolSchema(
         type: "function",
         function: ToolSchema.FunctionDef(
-            name: "apple_speak",
+            name: "apple-speak",
             description: String(localized: "tts_tool_desc"),
             parameters: JSONSchema(
                 type: "object",

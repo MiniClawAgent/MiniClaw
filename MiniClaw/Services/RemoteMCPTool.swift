@@ -218,7 +218,7 @@ struct RemoteMCPTool: AgentTool, @unchecked Sendable {
         let key = serverDefinitionKey(server)
         let tool = sanitize(toolName, maxLength: 22)
         let hash = stableHash("\(key):\(toolName)")
-        return "mcp__\(serverName)_\(key.prefix(8))__\(tool)_\(hash)"
+        return "mcp--\(serverName)-\(key.prefix(8))--\(tool)-\(hash)"
     }
 
     /// 服务器**定义**的稳定键（8 位十六进制 FNV-1a）。
@@ -252,8 +252,8 @@ struct RemoteMCPTool: AgentTool, @unchecked Sendable {
         result = result.trimmingCharacters(in: CharacterSet(charactersIn: "_-"))
         if result.isEmpty { result = "server" }
         if let first = result.unicodeScalars.first,
-           !CharacterSet.letters.contains(first), first != "_" {
-            result = "_" + result
+           !CharacterSet.letters.contains(first), first != "-" {
+            result = "-" + result
         }
         return String(result.prefix(maxLength))
     }

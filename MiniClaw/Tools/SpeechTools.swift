@@ -31,7 +31,7 @@ private struct SpeechOutcome: Sendable {
 /// 麦克风模式默认 10 秒、封顶 60 秒：语音识别按音频时长计费/配额，
 /// 且工具调用是同步阻塞的，不该让一次调用把会话挂死。
 struct AppleSpeechTool: AgentTool {
-    let name = "apple_speech"
+    let name = "apple-speech"
     /// [2026-09-13 路径统一] 当前会话 ID：会话独享目录（attachments/workspace/browser/offloads）
     /// 必须按它解析才能落到本会话目录；其余写法一律走 `FileSystemManager.resolveAgentPath`
     ///（强制 `/var/MiniClaw/` 前缀 + 拒绝目录穿越）。
@@ -44,7 +44,7 @@ struct AppleSpeechTool: AgentTool {
     let schema = ToolSchema(
         type: "function",
         function: ToolSchema.FunctionDef(
-            name: "apple_speech",
+            name: "apple-speech",
             description: String(localized: "stt_tool_desc"),
             parameters: JSONSchema(
                 type: "object",

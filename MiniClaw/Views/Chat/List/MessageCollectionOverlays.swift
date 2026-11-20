@@ -17,7 +17,7 @@ struct SheetOverlayView: View {
         Color.clear
             .frame(width: 0,height: 0)
             .sheet(item: $toolPresenter.sheetData) { data in
-                // [2026-11-16 23:05] ask_user 的记录只展示「问题 → 回答」，
+                // [2026-11-16 23:05] ask-user 的记录只展示「问题 → 回答」，
                 // 不再把工具入参 JSON 摊给用户看。
                 if case .question = data.block.kind {
                     AskUserSummarySheet(content: data.block.content)

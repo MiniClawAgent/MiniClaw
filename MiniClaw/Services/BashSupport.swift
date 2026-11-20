@@ -3,7 +3,7 @@ import Foundation
 // MARK: - Bash 可用性管理（自研，按需安装 + 退避）
 //
 // 背景：执行器是 busybox ash（iSH Alpine）；智能体命令常含 bash 语法。
-// 本组件在 Swift 层探测/安装 bash，供 shell_execute 在 BashismDetector 命中时
+// 本组件在 Swift 层探测/安装 bash，供 shell-execute 在 BashismDetector 命中时
 // 用 `bash -lc` 包装执行（命令执行前决策，无重复副作用）。
 // 约束：安装独立预算 60s；失败 30 分钟冷却；累计 3 次失败后放弃（不反复骚扰网络）。
 

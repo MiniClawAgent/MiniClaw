@@ -3,12 +3,12 @@ import UIKit
 import PDFKit
 
 struct ReadDocumentTool: AgentTool {
-    let name = "read_document"
+    let name = "read-document"
     let currentSessionID: UUID?
     let schema = ToolSchema(
         type: "function",
         function: ToolSchema.FunctionDef(
-            name: "read_document",
+            name: "read-document",
             description: String(localized: "read_document_tool_desc"),
             parameters: JSONSchema(
                 type: "object",

@@ -30,11 +30,11 @@ import UserNotifications
 // MARK: - 12. apple-nlp (NaturalLanguage)
 
 struct AppleNLPTool: AgentTool {
-    let name = "apple_nlp"
+    let name = "apple-nlp"
     let schema = ToolSchema(
         type: "function",
         function: ToolSchema.FunctionDef(
-            name: "apple_nlp",
+            name: "apple-nlp",
             description: String(localized: "nlp_tool_desc"),
             parameters: JSONSchema(
                 type: "object",

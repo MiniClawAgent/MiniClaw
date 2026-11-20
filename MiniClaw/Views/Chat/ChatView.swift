@@ -54,7 +54,7 @@ struct ChatView: View {
     /// 后续 词元 / 工具事件不再抢回滚动控制，直到用户主动发送消息或重新进入会话。
     @State private var shouldAutoFollow: Bool = true
     @FocusState private var isInputFocused: Bool
-    /// ask_user：提问以授权弹窗呈现，会话里只留工具指示器。
+    /// ask-user：提问以授权弹窗呈现，会话里只留工具指示器。
     @ObservedObject private var askUserBroker = AskUserBroker.shared
     /// 悬浮层总高度(2026-08-11 重写):onGeometryChange 测整个 chatOverlay 真实内容高度
     /// (排队消息 + 子代理头像 + 附件提示 + 输入栏),不含键盘。键盘展开/收起不改该值,
@@ -519,7 +519,7 @@ struct ChatView: View {
     /// 把用户选中的附件迁入当前会话的 `attachments/` 目录，返回会话相对路径（"attachments/<name>"）。
     /// - 直接沿用选图/选文件时**已生成的文件名**（自带 UUID 前缀、保证不重名），把共享
     ///   `attachments/` 里的副本**移动**进会话目录，**不再二次重命名**。
-    ///   这样 hint 注入的名字、磁盘落盘的名字、工具（apple-vision / apple-image / read_document）
+    ///   这样 hint 注入的名字、磁盘落盘的名字、工具（apple-vision / apple-image / read-document）
     ///   解析的名字三方完全一致，避免「路径对、文件名对不上」导致工具调用失败。
     /// - 会话目录由 SessionFileRouter 管理，删除会话时整个目录树（含 attachments）一并清理；
     /// - 移动失败回退为「复制 + 沿用原名」，仍失败则回退为该附件的原始绝对路径（向后兼容旧数据展示）。
@@ -982,7 +982,7 @@ struct ChatView: View {
         .overlay(alignment: .bottom) {
             chatOverlay
         }
-        // [2026-11-16 23:00] ask_user 改为授权式弹窗（不挤压会话高度）。
+        // [2026-11-16 23:00] ask-user 改为授权式弹窗（不挤压会话高度）。
         .overlay {
             if let active = askUserBroker.active, active.sessionID == session.id {
                 AskUserDialog(callId: active.callId, request: active.request)
@@ -1521,7 +1521,7 @@ struct ChatView: View {
         }
     }
 
-    /// 统一关闭入口（确认弹窗确认后调用）：与 智能体侧 close_subagent 同一条
+    /// 统一关闭入口（确认弹窗确认后调用）：与 智能体侧 close-subagent 同一条
     /// SubagentLifecycle.close 路径（取消运行中引擎 → 移除复用记录 → 移除卡片与对话 →
     /// 释放浏览器上下文）。
     private func closeSubagent(_ sub: SubagentCard) {
@@ -1643,7 +1643,7 @@ struct ChatView: View {
         // 对于因模型不支持而被丢弃的附件，在用户消息中注入路径提示，
         // 让 智能体自行通过工具读取（模仿端侧「让 智能体自己找工具读文件」的模式）：
         // - 图片 → apple-vision 工具（Apple Vision 端侧分析）
-        // - 其它文件 → read_document 工具（txt/md/json/pdf 等）
+        // - 其它文件 → read-document 工具（txt/md/json/pdf 等）
         // 路径统一用 /var/MiniClaw/... 形式，与文件工具的 resolveAgentPath 约定一致，
         // 否则工具会因路径前缀不对而读取失败。
         var enrichedInput = userInput

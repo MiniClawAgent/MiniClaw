@@ -46,14 +46,14 @@ private struct ReminderDraft: Sendable {
 /// - **不做子任务**：iOS 的 EventKit 无公开 API 读写提醒的父子关系。
 /// - 与日历共用 `EventKitAuthGate` 与 `RecurrenceSpec`，重复规则参数完全一致。
 struct AppleRemindersTool: AgentTool {
-    let name = "apple_reminders"
+    let name = "apple-reminders"
     /// 会真实改动用户数据，重试前必须经用户确认。
     let resumePolicy: ResumePolicy = .requiresUserConfirmation
 
     let schema = ToolSchema(
         type: "function",
         function: ToolSchema.FunctionDef(
-            name: "apple_reminders",
+            name: "apple-reminders",
             description: String(localized: "reminders_tool_desc"),
             parameters: JSONSchema(
                 type: "object",

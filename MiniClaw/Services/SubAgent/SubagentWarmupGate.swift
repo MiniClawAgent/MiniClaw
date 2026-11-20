@@ -19,7 +19,7 @@ import QuartzCore
 /// 所有子任务，而等待者挂在**不可取消**的 `withCheckedContinuation` 上；
 /// 一旦预热者在 2.5s 内失败/被停（`relinquishLead` 又不放行等待者），
 /// 超时分支虽然先返回，group 仍要等那个永不 resume 的等待者 ⇒ `enter()` 永不返回
-/// ⇒ `dispatch_subagent` 挂死整个会话主循环（只能杀 App）。
+/// ⇒ `dispatch-subagent` 挂死整个会话主循环（只能杀 App）。
 /// 现改为：等待者登记进 `WaiterRegistry`，由**超时任务直接 resume**（而不是与它竞速），
 /// `relinquishLead` / `markWarm` 都会显式放行；不再使用 `withTaskGroup`。
 actor SubagentWarmupGate {

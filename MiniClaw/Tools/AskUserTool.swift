@@ -1,13 +1,13 @@
 import Foundation
 
-/// `ask_user`：AI 遇到只有用户能决定的事（选项、确认、缺失信息）时向用户提问。
+/// `ask-user`：AI 遇到只有用户能决定的事（选项、确认、缺失信息）时向用户提问。
 ///
 /// 行为（P0，按唐唐 2026-11-16 决策）：
 /// - **阻塞等待**：工具挂起，直到用户提交 / 跳过 / 超时（10 分钟） / 被取消；
 /// - 一次最多 4 个问题、每题最多 6 个选项；同会话同时只允许 1 个待答；
 /// - 子代理**禁止**调用（它的问题必须写进最终结果，由父级来问）。
 struct AskUserTool: AgentTool {
-    let name = "ask_user"
+    let name = "ask-user"
     let currentSessionID: UUID?
 
     init(currentSessionID: UUID? = nil) {
@@ -17,7 +17,7 @@ struct AskUserTool: AgentTool {
     let schema = ToolSchema(
         type: "function",
         function: ToolSchema.FunctionDef(
-            name: "ask_user",
+            name: "ask-user",
             description: String(localized: "ask_user_tool_desc"),
             parameters: JSONSchema(
                 type: "object",

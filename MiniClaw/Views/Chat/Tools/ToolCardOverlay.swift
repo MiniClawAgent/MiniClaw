@@ -52,7 +52,7 @@ struct ToolCardOverlay: View {
                             // 滑动即「一张卡片切换到另一张卡片」，而非连体内容。
                             Group {
                                 if case .question = toolBlocks[i].kind {
-                                    // [2026-11-16 23:08] ask_user 的详情只展示「问题 → 回答」，
+                                    // [2026-11-16 23:08] ask-user 的详情只展示「问题 → 回答」，
                                     // 不再把工具入参 JSON 摊开。
                                     AskUserSummarySheet(content: toolBlocks[i].content)
                                 } else {

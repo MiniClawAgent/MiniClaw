@@ -11,7 +11,7 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
     private var systemStable: String = ""
     private var systemVolatile: String = ""
     /// system 易变段的「基础部分」（来自 ChatView：动态挂载列表 + 时间戳环境段）。
-    /// 与「本会话已加载技能正文」分离存放，便于 rebuildVolatile() 在 skill_load 后增量重算易变段，
+    /// 与「本会话已加载技能正文」分离存放，便于 rebuildVolatile() 在 skill-load 后增量重算易变段，
     /// 而不必重新走 ChatView.buildSystemPrompt（后者含磁盘 IO 与挂载扫描）。
     private var baseVolatile: String = ""
     /// [2026-09-15 缓存治本] 已经**发给过模型**的易变段快照文本。
@@ -19,7 +19,7 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
     /// 快照落点分两处，且都必须保证「请求序列 = 上一轮 + 尾巴」这个前缀缓存前提：
     /// 1. 本轮开局：快照由 `run()` 拼进本轮 user 消息正文尾部（并经 `onTurnAPISuffixComposed`
     ///    由主会话落盘、下一轮逐字回放），这里记下它的值；
-    /// 2. 轮内变化（`skill_load` 后正文进入易变段）：**在消息流末尾追加一条新的快照消息**，
+    /// 2. 轮内变化（`skill-load` 后正文进入易变段）：**在消息流末尾追加一条新的快照消息**，
     ///    绝不改写已有字节——改写会让本轮已发出的前缀全部作废。
     /// 轮内变化不落盘：下一轮的快照会重新包含已加载技能正文（`loadedSkillBodies` 按会话累积）。
     private var lastDeliveredVolatile: String = ""
@@ -64,7 +64,7 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
         return (exec, true)
     }
 
-    /// 供工具（`ask_user`）把自己的块换成问答卡：按 callID 取当前执行上下文。
+    /// 供工具（`ask-user`）把自己的块换成问答卡：按 callID 取当前执行上下文。
     func blockForToolCall(_ callID: String) -> AssistantBlock? {
         pendingToolExecutionsLock.lock()
         defer { pendingToolExecutionsLock.unlock() }
@@ -224,7 +224,7 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
     var onInterrupted: (() -> Void)?
     /// 子代理生命周期事件回调，驱动会话页上方圆形图标。
     var onSubagentEvent: ((SubagentEvent) -> Void)?
-    /// 本引擎剔除的工具名集合（子代理剔除 dispatch_subagent 防止自我递归）。
+    /// 本引擎剔除的工具名集合（子代理剔除 dispatch-subagent 防止自我递归）。
     private var toolNameExclusions: Set<String> = []
     /// 当前活跃的子代理引擎引用（用户取消父循环时一并取消子代理）。
     /// P2-4 起支持并行派发，故改为数组：一次 dispatch 可能同时跑多个子代理。
@@ -239,7 +239,7 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
     private var subagentRoutingPlan: ModelRoutingPlan?
     /// 本引擎在子代理树中的深度：主引擎 = 0，其派出的子代理 = 1，依此类推（P2-4 多层编排）。
     private(set) var subagentDepth: Int = 0
-    /// 单次 dispatch_subagent 允许并行派发的子代理数量上限（默认 4，设置 → 智能体 → 子代理 可调 1-4）。
+    /// 单次 dispatch-subagent 允许并行派发的子代理数量上限（默认 4，设置 → 智能体 → 子代理 可调 1-4）。
     /// 引擎每轮回复重建（见 run() 注释），init 时在主线程快照设置值，避免后台线程裸读
     /// SettingsStore 与设置页写竞争（2026-08-14 崩溃修复：后台读 + 主线程写 → COW 悬垂）。
     private let subagentMaxConcurrentSnapshot: Int
@@ -341,7 +341,7 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
 
     /// 重算 system 易变段 = 基础易变段（ChatView 传入的挂载列表 + 时间戳）+ 本会话已加载技能正文
     /// （技能正文插在尾部「子代理段」**之前**，见下）。
-    /// 已加载技能正文由 `SkillManager` 按会话隔离维护，随 `skill_load` 调用累积。
+    /// 已加载技能正文由 `SkillManager` 按会话隔离维护，随 `skill-load` 调用累积。
     ///
     /// [2026-09-15 缓存治本] 本函数**只做纯计算**，不再改写任何已发出的消息字节。
     /// 旧实现把结果写进 system 的 `volatileSuffix`，由适配器把易变段临时拼到请求末尾；
@@ -377,7 +377,7 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
 
     /// 轮内易变段变化 → **在消息流末尾追加**一条新的快照消息（纯追加，绝不改写已有字节）。
     ///
-    /// 触发场景：`skill_load` 之后技能正文进入易变段，而本轮开局落盘的那份快照不含它。
+    /// 触发场景：`skill-load` 之后技能正文进入易变段，而本轮开局落盘的那份快照不含它。
     /// 旧实现直接改写 system 的 `volatileSuffix`（因为它本来就被临时拼在末尾，所以"就地改写"看着无害）；
     /// 现在快照已经是**已发出字节的一部分**，改写等于把本轮所有请求的前缀作废 ⇒ 必须追加。
     /// 追加位置在整批工具消息之后，不影响 `assistant(tool_calls) → tool…` 的紧邻性。
@@ -649,7 +649,7 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
     // MARK: - 主循环
 
     /// 构造本引擎的工具清单（ToolSchema 即 OpenAI tools 线格式，直接透传）。
-    /// 剔除本引擎禁止的工具名（子代理剔除 dispatch_subagent 防止自我递归），
+    /// 剔除本引擎禁止的工具名（子代理剔除 dispatch-subagent 防止自我递归），
     /// 并在父引擎上注入子代理调度工具，让模型可以主动派发子代理。
     /// 抽成方法是为了让 run() 里的「发送前上下文估算」也能算上工具定义开销。
     private func buildToolSchemas() -> [ToolSchema] {
@@ -1042,7 +1042,7 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
             var invalidToolCalls: [ToolCall] = []
             for tc in collectedToolCalls {
                 let n = tc.function.name.trimmingCharacters(in: .whitespacesAndNewlines)
-                // dispatch/close_subagent 已随工具派发统一注册进 router（2026-09-09），
+                // dispatch/close-subagent 已随工具派发统一注册进 router（2026-09-09），
                 // registeredNames.contains 即可判定；保留名字比对仅为兼容旧检查点重放。
                 // [2026-11-20] 兜底：历史上发出去过带连字符的工具名（见 RemoteMCPTool.sanitize 的注释），
                 // 校验时统一规范化，避免旧会话/缓存里的调用被判成"未知工具"。
@@ -1186,8 +1186,8 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
 
             // ─── Runaway 防护（工具空转断路器）───
             // 说明:单轮回复不再设总墙钟上限。
-            // 长任务(多轮 browser/file_write/shell 等)是合法场景,总墙钟只会误伤(真实案例:
-            // 生成招标文件 8 轮 browser + 10 轮 file_write 被 300s 硬砍)。
+            // 长任务(多轮 browser/file-write/shell 等)是合法场景,总墙钟只会误伤(真实案例:
+            // 生成招标文件 8 轮 browser + 10 轮 file-write 被 300s 硬砍)。
             // 防挂死职责由更精确的机制各自承担:
             //   - LLM 网络挂起 → URLSession 30s/120s 超时 + 引擎重试链(2 次 + fallback,累计 ~7 分钟封顶);
             //   - 工具卡死 → 各工具自带超时(browser 20s / shell 120s 等);
@@ -1218,7 +1218,7 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
                 emitInterrupted()
                 return
             }
-            // skill_load 可能在本批次内改变了本会话已加载技能集合：刷新易变段。
+            // skill-load 可能在本批次内改变了本会话已加载技能集合：刷新易变段。
             // [2026-09-15 缓存治本] 这里**只做重算**；真正的"让下一步请求看到新正文"由下方
             // 整批工具消息落盘后的 `deliverVolatileDeltaIfNeeded()` 以追加方式完成
             // （此处若 append 会把 user 消息夹进 tool_calls 与其结果之间 → 端点 400）。
@@ -1308,7 +1308,7 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
                 Self.enforceToolImageBudget(messages: &messages)
             }
 
-            // [2026-09-15 缓存治本] 易变段轮内变化（skill_load 注入技能正文）→ 在**整批工具消息之后**
+            // [2026-09-15 缓存治本] 易变段轮内变化（skill-load 注入技能正文）→ 在**整批工具消息之后**
             // 末尾追加快照消息。位置必须在这里：夹在 `assistant(tool_calls)` 与其 `tool` 结果之间会被
             // 端点判 400（同上一条纪律），而**改写**已有字节则会让本轮已发出的前缀全部作废。
             // 备注排在整批 tool 消息之后（P0-3），随后补上本轮检查点（P0-4）。
@@ -2168,8 +2168,8 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
             return ToolResult(success: false, text: String(localized: "err_tool_call_no_name"))
         }
         // [ToolForensics] 取证（唐唐 2026-09-05，只进 Xcode 控制台不进 App 日志）：
-        // 覆盖 shell_execute 与两个子代理编排工具。
-        if rawName == "shell_execute" || rawName == Self.subagentToolName || rawName == Self.closeSubagentToolName {
+        // 覆盖 shell-execute 与两个子代理编排工具。
+        if rawName == "shell-execute" || rawName == Self.subagentToolName || rawName == Self.closeSubagentToolName {
             NSLog("[ToolForensics] name=%@ callID=%@ rawArgs=%@", rawName, tc.id, tc.function.arguments)
         }
         // 预检查：若 name 不在已注册工具列表中，立即返回错误并提示具体名称
@@ -2244,7 +2244,7 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
             emitToolExecutionBegin(exec)
         }
 
-        // ── 带超时可取消的工具执行：默认单工具 120s，长时编排工具（dispatch_subagent）不限时 ──
+        // ── 带超时可取消的工具执行：默认单工具 120s，长时编排工具（dispatch-subagent）不限时 ──
         // 工具与超时竞速 + 用户取消/暂停三方竞争，任一触发立即返回。
         // [Fix 2026-08-11 并发工具崩溃] execTask 按 callID 注册进 ToolTaskBag
         // （NSLock 保护），确保 pause/cancel 能取消真正的工作（枚举全部 in-flight）。
@@ -2276,7 +2276,7 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
                 )
             }
             do {
-                // 引擎作用域：引擎保留工具（dispatch/close_subagent）经 ToolEngineScope
+                // 引擎作用域：引擎保留工具（dispatch/close-subagent）经 ToolEngineScope
                 // 解析当前执行引擎（router 被父子引擎共享，不能靠固定 weak 引用）。
                 // 浏览器作用域：子代理引擎用自身 subID（独立浏览器上下文），主引擎回落父会话。
                 let browserScope = self.isSubagentEngine ? self.sessionID : nil
@@ -2352,7 +2352,7 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
     /// 支持三种形态：
     /// 1. **单任务**（`task`）：串行执行，行为与既有版本一致。
     /// 2. **并行多任务**（`tasks` 数组，P2-4）：同时派多个互不依赖的子代理，全部完成后合并结果回传。
-    /// 3. **多层**（P2-4）：深度未达 `maxSubagentDepth` 的子代理仍持有 dispatch_subagent，可继续往下派。
+    /// 3. **多层**（P2-4）：深度未达 `maxSubagentDepth` 的子代理仍持有 dispatch-subagent，可继续往下派。
     ///
     /// 支持**复用同一子代理**：若 `subagent_id` 命中已存在的子代理，则把新任务
     /// 作为下一轮 user 消息接续其已有上下文（保留历史），而非新建。
@@ -2376,7 +2376,7 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
 
         let parentSessionID = self.sessionID ?? UUID()
 
-        // 复用标识兜底解析（2026-09-10）：清单只展示 8 位短码、close_subagent 也按短码解析，
+        // 复用标识兜底解析（2026-09-10）：清单只展示 8 位短码、close-subagent 也按短码解析，
         // 而 dispatch 的 subagent_id 原先只认完整 UUID（解析失败即静默新建）——三处口径
         // 不一致导致「照抄短码续派 = 新建子代理」，模型观察到"返回的 id 是全新的"。
         // 统一走与 close 同一套前缀规则（Registry 单一事实源）。
@@ -2668,7 +2668,7 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
 
         let cancelled = await child.state.isCancelled()
         // 落盘最新历史（剔除 system），供下次复用接续上下文；终态状态一并写入（清单展示用）。
-        // 用 updateIfPresent：若期间该子代理已被 close_subagent 关闭（记录已删），不重建——
+        // 用 updateIfPresent：若期间该子代理已被 close-subagent 关闭（记录已删），不重建——
         // 防止「关闭后记录复活」竞态（关闭的语义 = 彻底移除，终态不得把它带回来）。
         let updatedHistory = child.messages.filter { $0.role != "system" }
         SubagentRuntimeRegistry.shared.updateIfPresent(sessionID: parentSessionID, record: SubagentRuntimeRecord(
@@ -2682,7 +2682,7 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
     }
 
     /// 构造一个子代理子引擎（方案 C：不长期持有活实例，复用前重建并用历史续接上下文）。
-    /// P2-4：按深度决定是否继续放行 dispatch_subagent，实现受控的多层编排。
+    /// P2-4：按深度决定是否继续放行 dispatch-subagent，实现受控的多层编排。
     /// profile：子代理角色名（nil/未知 → general）。人设来自 profile 正文（完整系统提示词），
     /// 机制约束（深度/聚焦/自包含总结）由 subagentEngineSuffix 拼接。
     private func makeSubagentChild(subID: UUID, focus: String?, routingPlan: ModelRoutingPlan, profileName: String?) -> AgentLoopEngine {

@@ -2,7 +2,7 @@ import Foundation
 
 /// 子代理生命周期管理（关闭等跨组件操作收口）。
 /// 按用户纪律归入 `Services/SubAgent/` 文件夹：子代理相关的配置与方法统一在此维护。
-/// 被 `close_subagent` 工具（引擎保留工具）与 UI 长按删除共用，两条路径行为一致。
+/// 被 `close-subagent` 工具（引擎保留工具）与 UI 长按删除共用，两条路径行为一致。
 enum SubagentLifecycle {
 
     /// 关闭一个子代理：取消运行中的引擎 → 移除复用记录（防「关闭后又复用」）→

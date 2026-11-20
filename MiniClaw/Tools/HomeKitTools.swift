@@ -452,7 +452,7 @@ private enum HomeKitNames {
 /// - **不新建/删除家庭、房间与配件**：配对与结构变更属于 Home App 的职责，误操作代价高。
 /// - **不增删改自动化规则**：`trigger` 只执行已有场景，不碰 Home 的自动化配置。
 struct AppleHomeKitTool: AgentTool {
-    let name = "apple_homekit"
+    let name = "apple-homekit"
     /// 发起调用的会话：能力授权请求需按会话记账（见 `ToolConfirmationBridge.ensureCapability`）。
     let currentSessionID: UUID?
 
@@ -466,7 +466,7 @@ struct AppleHomeKitTool: AgentTool {
     let schema = ToolSchema(
         type: "function",
         function: ToolSchema.FunctionDef(
-            name: "apple_homekit",
+            name: "apple-homekit",
             description: String(localized: "homekit_tool_desc"),
             parameters: JSONSchema(
                 type: "object",

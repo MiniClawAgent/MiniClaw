@@ -2,7 +2,7 @@ import Foundation
 
 /// AI 向用户提问（选择题 / 征求意见）的载荷。
 ///
-/// 一份 `UserQuestionRequest` 对应一次 `ask_user` 工具调用：
+/// 一份 `UserQuestionRequest` 对应一次 `ask-user` 工具调用：
 /// 问题列表 + 用户答案 + 状态。它既用于运行期（卡片交互），
 /// 也用于历史回放（由 `ToolCallEvent.arguments/resultText` 还原）。
 struct UserQuestionOption: Codable, Hashable, Identifiable {

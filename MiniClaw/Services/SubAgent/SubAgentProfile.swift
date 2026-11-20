@@ -13,7 +13,7 @@ import Foundation
 /// ```
 /// 文件放 `MiniClawRoot/subagent-profiles/`，用户可自建/编辑；内置样例随 App 同步。
 struct SubAgentProfile: Identifiable, Equatable {
-    /// 文件名（不含 .md），同时也是 dispatch_subagent 的 `profile` 参数值。
+    /// 文件名（不含 .md），同时也是 dispatch-subagent 的 `profile` 参数值。
     let name: String
     /// frontmatter `name`（显示名，子代理卡片/UI 展示用）。
     let displayName: String

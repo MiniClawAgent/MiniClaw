@@ -43,7 +43,7 @@ private enum PhotoPayload: Sendable {
 ///   视频会明确告知，而不是静默返回一张封面图冒充。
 /// - **删除照片**：破坏性且不可撤销，与「敏感操作需用户确认」的取向冲突。
 struct ApplePhotosTool: AgentTool {
-    let name = "apple_photos"
+    let name = "apple-photos"
     /// 当前会话 ID：`get` 导出的图片落在本会话的隔离命名空间
     /// `/var/MiniClaw/attachments/photos/`，与其他会话互不污染。
     let currentSessionID: UUID?
@@ -53,7 +53,7 @@ struct ApplePhotosTool: AgentTool {
     let schema = ToolSchema(
         type: "function",
         function: ToolSchema.FunctionDef(
-            name: "apple_photos",
+            name: "apple-photos",
             description: String(localized: "photos_tool_desc"),
             parameters: JSONSchema(
                 type: "object",

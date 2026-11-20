@@ -193,15 +193,15 @@ struct ToolCapsuleView: View {
     private var toolClip: String {
         let toolName: String
         switch block.kind {
-        case .shellTool: toolName = "shell_execute"
-        case .fileReadTool: toolName = "file_read"
-        case .fileWriteTool: toolName = "file_write"
-        case .fileEditTool: toolName = "file_edit"
+        case .shellTool: toolName = "shell-execute"
+        case .fileReadTool: toolName = "file-read"
+        case .fileWriteTool: toolName = "file-write"
+        case .fileEditTool: toolName = "file-edit"
         case .browserTool: toolName = "browser_use"
         case .readImageTool: toolName = "read_image"
         case .memoryTool: toolName = "memory"
         case .subagentTool: toolName = "subagent"
-        case .question: toolName = "ask_user"
+        case .question: toolName = "ask-user"
         case .text, .thinking, .info: toolName = "unknown"
         case .file: toolName = "file"
         }

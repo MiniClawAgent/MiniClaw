@@ -23,14 +23,14 @@ enum SubAgentGuide {
     /// 故不能跟着下面的存活清单一起被条件带上。
     ///
     /// 它同时是该「子代理段」的**起始标记**：`AgentLoopEngine.rebuildVolatile()` 在
-    /// `skill_load` 之后重排易变段时按它把技能正文插到本段之前，使子代理段（含
-    /// `close_subagent` 要用的短码）恒定保持在易变段最末。
+    /// `skill-load` 之后重排易变段时按它把技能正文插到本段之前，使子代理段（含
+    /// `close-subagent` 要用的短码）恒定保持在易变段最末。
     /// 构造侧与重排侧**共用此常量**——任何一侧都不得自行复制字面量，否则两侧失步。
-    static let ironRule = "**子代理操作铁律：** 派发子代理**只能**通过 `dispatch_subagent` 工具；关闭子代理**只能**通过 `close_subagent` 工具。在回复文本中声称「已派发/已关闭」**不会产生任何实际效果**——没有对应工具调用，子代理不会被创建或关闭。"
+    static let ironRule = "**子代理操作铁律：** 派发子代理**只能**通过 `dispatch-subagent` 工具；关闭子代理**只能**通过 `close-subagent` 工具。在回复文本中声称「已派发/已关闭」**不会产生任何实际效果**——没有对应工具调用，子代理不会被创建或关闭。"
 
     /// 「当前会话的子代理」清单段（A 方案：注入易变段，缓存断点之后）。
     /// 让主 智能体每轮都「看见」本会话已存在的子代理（身份 + 角色 + 聚焦 + 状态 + 最近任务），
-    /// 从而真实复用（续派同一 subagent_id）与按需关闭（close_subagent），而非每轮盲派新建。
+    /// 从而真实复用（续派同一 subagent_id）与按需关闭（close-subagent），而非每轮盲派新建。
     /// 记录来自 SubagentRuntimeRegistry（跨轮次/跨重启存活）；无子代理时返回 nil（不注入）。
     static func liveSubagentsSection(records: [SubagentRuntimeRecord]) -> String? {
         guard !records.isEmpty else { return nil }
@@ -52,7 +52,7 @@ enum SubAgentGuide {
         }
         return """
         ### 当前会话的子代理
-        以下子代理已存在，可复用（dispatch_subagent 传 subagent_id 续派）或关闭（close_subagent）；id 支持列表中的 8 位短码：
+        以下子代理已存在，可复用（dispatch-subagent 传 subagent_id 续派）或关闭（close-subagent）；id 支持列表中的 8 位短码：
         \(lines.joined(separator: "\n"))
         """
     }

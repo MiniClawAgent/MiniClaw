@@ -46,7 +46,7 @@ struct DefaultSettings: Codable, Equatable {
     /// 允许 AI 控制家庭配件（apple-homekit 的 set / trigger）。
     /// 默认关闭：会真实改变家中设备状态（开锁、开灯、调温），副作用直接作用于物理世界。
     var homeControlEnabled: Bool = false
-    /// AI 安装插件（miniclaw_plugin 的 install）前是否需要用户确认。
+    /// AI 安装插件（miniclaw-plugin 的 install）前是否需要用户确认。
     /// 默认开启：AI 安装插件 = 改变自身能力集，弹窗过一道人审；关闭则直接安装。
     var aiPluginInstallRequiresConfirmation: Bool = true
 
@@ -96,7 +96,7 @@ struct AppSettings: Codable {
     var sync: SyncConfig = SyncConfig()
     /// 子代理用户控制（设置 → 智能体 → 子代理）。
     var subagent: SubAgentSettings = SubAgentSettings()
-    /// 联网搜索（web_search 插件）配置；API Key 走 Keychain，不落盘在此。
+    /// 联网搜索（web-search 插件）配置；API Key 走 Keychain，不落盘在此。
     var webSearch: WebSearchSettings = WebSearchSettings()
     /// 技能启用状态：`true`=启用（注入 system prompt），`false`=禁用。
     /// 键为技能 frontmatter 的 name；缺失视为启用（技能格式无启用概念，默认全启用）。
@@ -153,7 +153,7 @@ struct SubAgentSettings: Codable {
     var thinking: String = "follow"
 }
 
-/// 联网搜索（web_search 插件）用户配置。
+/// 联网搜索（web-search 插件）用户配置。
 /// API Key 不在此结构内——单独存 Keychain（`APIKeyStore` 的 webSearch 槽位），避免明文落盘。
 struct WebSearchSettings: Codable, Equatable {
     /// 自定义 Base URL；留空时依次回退「DeepSeek 服务商配置」「DeepSeek 官方地址」。

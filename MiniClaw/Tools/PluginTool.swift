@@ -12,11 +12,11 @@ import Foundation
 // - 同名 id 重复导入跳过（不覆盖内置/已有插件，防误删语义与手动导入一致）。
 
 struct PluginTool: AgentTool {
-    let name = "miniclaw_plugin"
+    let name = "miniclaw-plugin"
     let schema = ToolSchema(
         type: "function",
         function: ToolSchema.FunctionDef(
-            name: "miniclaw_plugin",
+            name: "miniclaw-plugin",
             description: String(localized: "miniclaw_plugin_tool_desc"),
             parameters: JSONSchema(
                 type: "object",

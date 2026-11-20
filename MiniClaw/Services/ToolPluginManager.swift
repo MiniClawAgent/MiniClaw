@@ -16,7 +16,7 @@ struct ToolDefinition: Codable {
     /// 参数 JSON Schema（对象），原样下发给模型。
     var parameters: JSONSchema = JSONSchema(type: "object")
     /// shell 命令模板：在会话沙箱 shell 中执行，参数 JSON 经 stdin 传入。
-    /// POSIX sh 语法（BusyBox ash）；执行复用 shell_execute 同一运行时与安全面。
+    /// POSIX sh 语法（BusyBox ash）；执行复用 shell-execute 同一运行时与安全面。
     var command: String = ""
     /// 执行超时（秒），缺省 120（与工具调用铁律一致）。
     var timeout: Int = 120
@@ -62,7 +62,7 @@ struct ToolDefinition: Codable {
 }
 
 /// 声明式 shell 工具：把 `ToolDefinition` 适配为 AgentTool 挂进 ToolRouter。
-/// 执行复用 shell_execute 的运行时与会话隔离；参数 JSON 经 heredoc（单引号定界符，
+/// 执行复用 shell-execute 的运行时与会话隔离；参数 JSON 经 heredoc（单引号定界符，
 /// 内容零展开零转义）从 stdin 传入命令；stdout/stderr 即结果，隐私掩码/超限
 /// offloads/cwd 标注与内置 shell 同口径。
 struct DeclarativeShellTool: AgentTool {
@@ -107,13 +107,13 @@ struct DeclarativeShellTool: AgentTool {
                 workingDirectory: nil,
                 timeout: TimeInterval(definition.timeout),
                 // 2026-09-05：接过程流 reporter——插件 shell 工具的执行输出
-                // 与 shell_execute 同口径实时写入工具快照（此前 onLine: nil 全丢）。
+                // 与 shell-execute 同口径实时写入工具快照（此前 onLine: nil 全丢）。
                 onLine: { line, _ in ToolProgressScope.reporter?(line) },
                 sessionID: currentSessionID
             )
             let output = result.stdout + (result.stderr.isEmpty ? "" : "\n[stderr]\n\(result.stderr)")
             let full = output.isEmpty ? String(localized: "no_output") : output
-            // 隐私掩码与超限转存：与 shell_execute 同口径（同一份设置快照）。
+            // 隐私掩码与超限转存：与 shell-execute 同口径（同一份设置快照）。
             var text = full
             if settings.envvarsPrivacyMode {
                 for v in settings.envvars where !v.value.isEmpty {
@@ -176,8 +176,8 @@ final class ToolPluginManager {
     /// schema/执行逻辑仍是 Swift 侧单一真相源，包只承载「归属 + 启停」。
     /// 未列出的 builtin 声明按非法项跳过并日志。
     private static let builtinFactories: [String: (UUID?) -> AgentTool] = [
-        "memory_write": { _ in MemoryWriteTool() },
-        "memory_get": { _ in MemoryGetTool() },
+        "memory-write": { _ in MemoryWriteTool() },
+        "memory-get": { _ in MemoryGetTool() },
         "apple-clipboard": { _ in AppleClipboardTool() },
         "apple-device": { _ in AppleDeviceTool() },
         "apple-nlp": { _ in AppleNLPTool() },
@@ -185,7 +185,7 @@ final class ToolPluginManager {
         "apple-open": { _ in AppleOpenTool() },
         "open-in-safari": { _ in SafariOpenTool() },
         "apple-speak": { _ in AppleSpeakTool() },
-        "miniclaw_config": { _ in ConfigTool() },
+        "miniclaw-config": { _ in ConfigTool() },
         "miniclaw-model-use": { _ in MiniClawModelUseTool() },
         // 2026-08-31 新增：健康与定位。二者都是 iOS 原生能力，无法用 shell 后端表达。
         // 2026-09-18：健康/家庭都要吃会话 id —— 能力授权弹窗按会话记账（见 ensureCapability）。
@@ -214,7 +214,7 @@ final class ToolPluginManager {
         // 2026-09-07 新增：远程主机控制（iSH SSH 通道；setup 引导 / connect 锁定参数 / exec 执行）。
         "remote-host": { _ in RemoteHostTool() },
         // 2026-11-12 新增：DeepSeek 联网搜索（Search API，复用 DeepSeek 服务商 Key）。
-        "web_search": { _ in WebSearchTool() },
+        "web-search": { _ in WebSearchTool() },
     ]
 
     /// 已启用插件的全部工具实例（shell 与 builtin 后端统一产出；非法项跳过并日志）。
@@ -228,7 +228,7 @@ final class ToolPluginManager {
             // 兜底：内置能力全量提供；但记忆工具仍受记忆总开关约束（单一真相源，
             // 总开关关闭时绝不注册记忆工具——否则与「设置-记忆」的语义打架）。
             return Self.builtinFactories.keys.sorted().compactMap { name in
-                if (name == "memory_write" || name == "memory_get") && !Self.memoryToolsEnabled() {
+                if (name == "memory-write" || name == "memory-get") && !Self.memoryToolsEnabled() {
                     return nil
                 }
                 return Self.builtinFactories[name]?(sessionID)

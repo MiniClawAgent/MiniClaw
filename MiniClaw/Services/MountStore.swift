@@ -9,7 +9,7 @@ import Foundation
 /// - Agent 访问 `/var/MiniClaw/mounts/<name>/...` 时，`FileSystemManager` 调用
 ///   `resolveExternalURL(mountName:subPath:)` 解析 bookmark 得到外部真实 URL 再读取；
 /// - 挂载默认**只读**（由 `MountPoint.isWritable = false`）；用户可在「设置 → 挂载」中为每个挂载
-///   显式开启「允许写入」，开启后 Agent 可通过 `file_write` / `file_edit` 把内容写到外部真实文件夹
+///   显式开启「允许写入」，开启后 Agent 可通过 `file-write` / `file-edit` 把内容写到外部真实文件夹
 ///   （写入经 `FileSystemManager.validateWrite` 校验该挂载 `isWritable` 且在授权范围内）。
 final class MountStore: @unchecked Sendable {
     static let shared = MountStore()
@@ -150,7 +150,7 @@ final class MountStore: @unchecked Sendable {
         }
     }
 
-    /// 允许 / 禁止 Agent 写入该挂载（默认禁止）。开启后 Agent 可经 file_write / file_edit 写入外部真实文件夹。
+    /// 允许 / 禁止 Agent 写入该挂载（默认禁止）。开启后 Agent 可经 file-write / file-edit 写入外部真实文件夹。
     func setWritable(id: UUID, _ writable: Bool) {
         queue.sync {
             loadLocked()

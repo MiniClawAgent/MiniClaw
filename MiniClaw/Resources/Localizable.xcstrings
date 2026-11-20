@@ -1496,25 +1496,25 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "\n\n> Full long-term memory can be queried with the memory_get tool (scope: \"long_term\")."
+            "value": "\n\n> Full long-term memory can be queried with the memory-get tool (scope: \"long_term\")."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "\n\n> 長期メモリ全体は memory_get ツールで照会できます（scope: \"long_term\"）。"
+            "value": "\n\n> 長期メモリ全体は memory-get ツールで照会できます（scope: \"long_term\"）。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "\n\n> 전체 장기 메모리는 memory_get 도구로 조회할 수 있습니다(scope: \"long_term\")."
+            "value": "\n\n> 전체 장기 메모리는 memory-get 도구로 조회할 수 있습니다(scope: \"long_term\")."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "\n\n> 完整长期记忆可用 memory_get 工具查询（scope: \"long_term\"）。"
+            "value": "\n\n> 完整长期记忆可用 memory-get 工具查询（scope: \"long_term\"）。"
           }
         }
       }
@@ -2969,7 +2969,7 @@
         }
       }
     },
-    "apple_image": {
+    "apple-image": {
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -3346,7 +3346,7 @@
         }
       }
     },
-    "apple_vision": {
+    "apple-vision": {
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -4106,25 +4106,25 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "\nAsk the user with `ask_user` only when the decision is genuinely theirs (which file, which option, what value) or when an ambiguity cannot be resolved by inspecting files, logs or the web.\nDo NOT ask for facts you can find yourself; do NOT ask for confirmation of ordinary steps.\nRules: at most 4 questions per call; at most 6 options each; put the recommended option first and append (Recommended) to its label; keep questions short and concrete.\nIf the user already said \"decide yourself / don't ask\", do not call it. A skipped answer means: continue with your best judgment and state the assumption in your reply.\nSubagents cannot ask the user; if a subagent needs a decision, it must report the question in its final result so the parent can ask."
+            "value": "\nAsk the user with `ask-user` only when the decision is genuinely theirs (which file, which option, what value) or when an ambiguity cannot be resolved by inspecting files, logs or the web.\nDo NOT ask for facts you can find yourself; do NOT ask for confirmation of ordinary steps.\nRules: at most 4 questions per call; at most 6 options each; put the recommended option first and append (Recommended) to its label; keep questions short and concrete.\nIf the user already said \"decide yourself / don't ask\", do not call it. A skipped answer means: continue with your best judgment and state the assumption in your reply.\nSubagents cannot ask the user; if a subagent needs a decision, it must report the question in its final result so the parent can ask."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "\nユーザー自身の決定（どのファイル／どの案／どの値）や、ファイル・ログ・Web の調査では解消できない曖昧さがある場合にのみ `ask_user` を使います。\n自分で調べられる事実や、通常の手順の確認は質問しません。\n1 回につき最大 4 問、各問の選択肢は最大 6 個。推奨の選択肢を先頭に置き、ラベルに（推奨）と付けます。\n「自分で決めて」と言われた場合は呼び出しません。スキップされた場合は最善の判断で続行し、仮定を明記します。\n子エージェントはユーザーに質問できません。必要な決定は最終結果に含めて親に渡します。"
+            "value": "\nユーザー自身の決定（どのファイル／どの案／どの値）や、ファイル・ログ・Web の調査では解消できない曖昧さがある場合にのみ `ask-user` を使います。\n自分で調べられる事実や、通常の手順の確認は質問しません。\n1 回につき最大 4 問、各問の選択肢は最大 6 個。推奨の選択肢を先頭に置き、ラベルに（推奨）と付けます。\n「自分で決めて」と言われた場合は呼び出しません。スキップされた場合は最善の判断で続行し、仮定を明記します。\n子エージェントはユーザーに質問できません。必要な決定は最終結果に含めて親に渡します。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "\n사용자가 직접 결정해야 하는 일(어떤 파일/어떤 안/어떤 값)이나 파일·로그·웹으로 해소할 수 없는 모호함이 있을 때만 `ask_user` 를 사용합니다.\n스스로 확인할 수 있는 사실이나 일반적인 단계 확인은 묻지 않습니다.\n호출당 최대 4개 질문, 질문당 최대 6개 선택지. 추천 항목을 첫 번째에 두고 라벨에 (추천)을 붙입니다.\n\"알아서 결정해\"라고 했다면 호출하지 않습니다. 건너뛴 답은 최선의 판단으로 계속하고 가정을 밝힙니다.\n하위 에이전트는 사용자에게 질문할 수 없으며, 필요한 결정은 최종 결과에 담아 상위에 전달합니다."
+            "value": "\n사용자가 직접 결정해야 하는 일(어떤 파일/어떤 안/어떤 값)이나 파일·로그·웹으로 해소할 수 없는 모호함이 있을 때만 `ask-user` 를 사용합니다.\n스스로 확인할 수 있는 사실이나 일반적인 단계 확인은 묻지 않습니다.\n호출당 최대 4개 질문, 질문당 최대 6개 선택지. 추천 항목을 첫 번째에 두고 라벨에 (추천)을 붙입니다.\n\"알아서 결정해\"라고 했다면 호출하지 않습니다. 건너뛴 답은 최선의 판단으로 계속하고 가정을 밝힙니다.\n하위 에이전트는 사용자에게 질문할 수 없으며, 필요한 결정은 최종 결과에 담아 상위에 전달합니다."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "\n只有在**决定权确实属于用户**（选哪个文件、哪个方案、填什么值），或歧义**无法通过查文件/日志/网页消除**时，才用 `ask_user` 提问。\n能自己查清的事实不要问；普通步骤不要问是否继续。\n纪律：一次最多 4 个问题、每题最多 6 个选项；推荐项放第一个并在标签里写（推荐）；问题要短、要具体。\n用户说过\"你自己决定/别问我\"时不要调用。用户跳过某题 = 按你最佳判断继续，并在回复里说明你的假设。\n子代理不能直接问用户；子代理需要决定时，必须把问题写进最终结果，由父级来问。"
+            "value": "\n只有在**决定权确实属于用户**（选哪个文件、哪个方案、填什么值），或歧义**无法通过查文件/日志/网页消除**时，才用 `ask-user` 提问。\n能自己查清的事实不要问；普通步骤不要问是否继续。\n纪律：一次最多 4 个问题、每题最多 6 个选项；推荐项放第一个并在标签里写（推荐）；问题要短、要具体。\n用户说过\"你自己决定/别问我\"时不要调用。用户跳过某题 = 按你最佳判断继续，并在回复里说明你的假设。\n子代理不能直接问用户；子代理需要决定时，必须把问题写进最终结果，由父级来问。"
           }
         }
       }
@@ -10747,25 +10747,25 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Runtime configuration read/write tool (equivalent to miniclaw_config). Subcommands: get (read), set (write), add (add item), audit-list (view change history), audit-revert (roll back), list-topics (list domains), topic-help (view domain fields). Paths look like topic.field or topic.<id>.field (array domains are located by UUID). Sensitive fields (apiKey) are write-only and cannot be read back."
+            "value": "Runtime configuration read/write tool (equivalent to miniclaw-config). Subcommands: get (read), set (write), add (add item), audit-list (view change history), audit-revert (roll back), list-topics (list domains), topic-help (view domain fields). Paths look like topic.field or topic.<id>.field (array domains are located by UUID). Sensitive fields (apiKey) are write-only and cannot be read back."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "実行時設定の読み書きツール（miniclaw_config と同等）。サブコマンド：get（読み取り）、set（書き込み）、add（項目追加）、audit-list（変更履歴表示）、audit-revert（ロールバック）、list-topics（ドメイン一覧）、topic-help（ドメインのフィールド表示）。パスは topic.field または topic.<id>.field の形式（配列ドメインは UUID で特定）。機密フィールド（apiKey）は書き込み専用で読み返しできません。"
+            "value": "実行時設定の読み書きツール（miniclaw-config と同等）。サブコマンド：get（読み取り）、set（書き込み）、add（項目追加）、audit-list（変更履歴表示）、audit-revert（ロールバック）、list-topics（ドメイン一覧）、topic-help（ドメインのフィールド表示）。パスは topic.field または topic.<id>.field の形式（配列ドメインは UUID で特定）。機密フィールド（apiKey）は書き込み専用で読み返しできません。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "런타임 설정 읽기/쓰기 도구(miniclaw_config와 동등). 하위 명령: get(읽기), set(쓰기), add(항목 추가), audit-list(변경 이력 조회), audit-revert(롤백), list-topics(도메인 나열), topic-help(도메인 필드 보기). 경로는 topic.field 또는 topic.<id>.field 형식(배열 도메인은 UUID로 지정). 민감 필드(apiKey)는 쓰기 전용이며 다시 읽을 수 없습니다."
+            "value": "런타임 설정 읽기/쓰기 도구(miniclaw-config와 동등). 하위 명령: get(읽기), set(쓰기), add(항목 추가), audit-list(변경 이력 조회), audit-revert(롤백), list-topics(도메인 나열), topic-help(도메인 필드 보기). 경로는 topic.field 또는 topic.<id>.field 형식(배열 도메인은 UUID로 지정). 민감 필드(apiKey)는 쓰기 전용이며 다시 읽을 수 없습니다."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "运行时配置读写工具（等价于 miniclaw_config 工具）。子命令：get 读取、set 写入、add 新增子项、audit-list 查看变更历史、audit-revert 回滚、list-topics 列出域、topic-help 查看域字段。路径形如 topic.field 或 topic.<id>.field（数组域按 UUID 定位）。敏感字段（apiKey）只写不可回读。"
+            "value": "运行时配置读写工具（等价于 miniclaw-config 工具）。子命令：get 读取、set 写入、add 新增子项、audit-list 查看变更历史、audit-revert 回滚、list-topics 列出域、topic-help 查看域字段。路径形如 topic.field 或 topic.<id>.field（数组域按 UUID 定位）。敏感字段（apiKey）只写不可回读。"
           }
         }
       }
@@ -13299,25 +13299,25 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Cannot read this file as text (extension: '%@'). read_document currently supports plain text/code/Markdown/JSON/CSV/XML/HTML and PDF."
+            "value": "Cannot read this file as text (extension: '%@'). read-document currently supports plain text/code/Markdown/JSON/CSV/XML/HTML and PDF."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "このファイルはテキストとして読めません（拡張子：'%@'）。read_document は現在プレーンテキスト/コード/Markdown/JSON/CSV/XML/HTML と PDF に対応しています。"
+            "value": "このファイルはテキストとして読めません（拡張子：'%@'）。read-document は現在プレーンテキスト/コード/Markdown/JSON/CSV/XML/HTML と PDF に対応しています。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "이 파일은 텍스트로 읽을 수 없습니다(확장자: '%@'). read_document는 현재 일반 텍스트/코드/Markdown/JSON/CSV/XML/HTML과 PDF를 지원합니다."
+            "value": "이 파일은 텍스트로 읽을 수 없습니다(확장자: '%@'). read-document는 현재 일반 텍스트/코드/Markdown/JSON/CSV/XML/HTML과 PDF를 지원합니다."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "无法以文本方式读取该文件（扩展名：'%@'）。read_document 当前支持纯文本/代码/Markdown/JSON/CSV/XML/HTML 与 PDF。"
+            "value": "无法以文本方式读取该文件（扩展名：'%@'）。read-document 当前支持纯文本/代码/Markdown/JSON/CSV/XML/HTML 与 PDF。"
           }
         }
       }
@@ -13328,25 +13328,25 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Cannot extract text from %@ yet (Office documents are compressed binaries and there is no on-device unzip library). Export the file to PDF or TXT and re-send it, then read it with read_document."
+            "value": "Cannot extract text from %@ yet (Office documents are compressed binaries and there is no on-device unzip library). Export the file to PDF or TXT and re-send it, then read it with read-document."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "まだ %@ からテキストを抽出できません（Office 文書は圧縮バイナリで、端末内に解凍ライブラリがありません）。ファイルを PDF か TXT にエクスポートして再送し、read_document でお読みください。"
+            "value": "まだ %@ からテキストを抽出できません（Office 文書は圧縮バイナリで、端末内に解凍ライブラリがありません）。ファイルを PDF か TXT にエクスポートして再送し、read-document でお読みください。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "아직 %@에서 텍스트를 추출할 수 없습니다(Office 문서는 압축 바이너리이며 기기에 압축 해제 라이브러리가 없음). 파일을 PDF나 TXT로 내보내 다시 보낸 후 read_document로 읽으세요."
+            "value": "아직 %@에서 텍스트를 추출할 수 없습니다(Office 문서는 압축 바이너리이며 기기에 압축 해제 라이브러리가 없음). 파일을 PDF나 TXT로 내보내 다시 보낸 후 read-document로 읽으세요."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "暂不支持直接抽取 %@ 的文本内容（Office 文档为压缩二进制，端侧无内置解压库）。请先将文件导出为 PDF 或 TXT 后重新发送，再用 read_document 读取。"
+            "value": "暂不支持直接抽取 %@ 的文本内容（Office 文档为压缩二进制，端侧无内置解压库）。请先将文件导出为 PDF 或 TXT 后重新发送，再用 read-document 读取。"
           }
         }
       }
@@ -17332,25 +17332,25 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Available variables (reference in shell_execute commands with $VAR or ${VAR}; values are injected locally and securely, so secrets need no plaintext):\n"
+            "value": "Available variables (reference in shell-execute commands with $VAR or ${VAR}; values are injected locally and securely, so secrets need no plaintext):\n"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "利用可能な変数（shell_execute コマンド内で $VAR または ${VAR} で参照。値はローカルで安全に注入されるため、機密情報を平文で書く必要はありません）：\n"
+            "value": "利用可能な変数（shell-execute コマンド内で $VAR または ${VAR} で参照。値はローカルで安全に注入されるため、機密情報を平文で書く必要はありません）：\n"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "사용 가능한 변수(shell_execute 명령에서 $VAR 또는 ${VAR}로 참조. 값은 로컬에서 안전하게 주입되므로 시크릿을 평문으로 쓸 필요 없음):\n"
+            "value": "사용 가능한 변수(shell-execute 명령에서 $VAR 또는 ${VAR}로 참조. 값은 로컬에서 안전하게 주입되므로 시크릿을 평문으로 쓸 필요 없음):\n"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "可用变量（在 shell_execute 命令中用 $VAR 或 ${VAR} 引用，值由本地安全注入，机密无需明文）：\n"
+            "value": "可用变量（在 shell-execute 命令中用 $VAR 或 ${VAR} 引用，值由本地安全注入，机密无需明文）：\n"
           }
         }
       }
@@ -17738,25 +17738,25 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Error: close_subagent requires a valid subagent_id (from dispatch_subagent result or the current session's subagent list)."
+            "value": "Error: close-subagent requires a valid subagent_id (from dispatch-subagent result or the current session's subagent list)."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "Error: close_subagent には有効な subagent_id が必要です（dispatch_subagent の結果または現在のセッションのサブエージェント一覧から）。"
+            "value": "Error: close-subagent には有効な subagent_id が必要です（dispatch-subagent の結果または現在のセッションのサブエージェント一覧から）。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "Error: close_subagent에는 유효한 subagent_id가 필요합니다(dispatch_subagent 결과 또는 현재 세션의 서브에이전트 목록에서)."
+            "value": "Error: close-subagent에는 유효한 subagent_id가 필요합니다(dispatch-subagent 결과 또는 현재 세션의 서브에이전트 목록에서)."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "Error: close_subagent 需要有效的 subagent_id（来自 dispatch_subagent 返回结果或当前会话的子代理清单）。"
+            "value": "Error: close-subagent 需要有效的 subagent_id（来自 dispatch-subagent 返回结果或当前会话的子代理清单）。"
           }
         }
       }
@@ -17941,25 +17941,25 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Error: dispatch_subagent is missing the required task parameter (subtask description) and no valid tasks array was provided."
+            "value": "Error: dispatch-subagent is missing the required task parameter (subtask description) and no valid tasks array was provided."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "Error: dispatch_subagent には必須パラメータ task（サブタスクの説明）がなく、有効な tasks 配列も提供されていません。"
+            "value": "Error: dispatch-subagent には必須パラメータ task（サブタスクの説明）がなく、有効な tasks 配列も提供されていません。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "Error: dispatch_subagent에 필수 매개변수 task(하위 작업 설명)가 없고 유효한 tasks 배열도 제공되지 않았습니다."
+            "value": "Error: dispatch-subagent에 필수 매개변수 task(하위 작업 설명)가 없고 유효한 tasks 배열도 제공되지 않았습니다."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "Error: dispatch_subagent 缺少必填参数 task（子任务描述），也未提供有效的 tasks 数组。"
+            "value": "Error: dispatch-subagent 缺少必填参数 task（子任务描述），也未提供有效的 tasks 数组。"
           }
         }
       }
@@ -17970,25 +17970,25 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "old_string must not be empty. Use file_write to create or overwrite files."
+            "value": "old_string must not be empty. Use file-write to create or overwrite files."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "old_string を空にすることはできません。作成・上書きは file_write を使用してください。"
+            "value": "old_string を空にすることはできません。作成・上書きは file-write を使用してください。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "old_string은 비워둘 수 없습니다. 생성·덮어쓰기는 file_write를 사용하세요."
+            "value": "old_string은 비워둘 수 없습니다. 생성·덮어쓰기는 file-write를 사용하세요."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "old_string 不能为空：创建或覆盖文件请用 file_write"
+            "value": "old_string 不能为空：创建或覆盖文件请用 file-write"
           }
         }
       }
@@ -18028,25 +18028,25 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "old_string not found (including fuzzy match). Use file_read to view current contents first.\\nFile preview:\\n%@"
+            "value": "old_string not found (including fuzzy match). Use file-read to view current contents first.\\nFile preview:\\n%@"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "old_string が見つかりません（ファジーマッチ含む）。先に file_read で現在の内容を確認してください。\\nファイルプレビュー：\\n%@"
+            "value": "old_string が見つかりません（ファジーマッチ含む）。先に file-read で現在の内容を確認してください。\\nファイルプレビュー：\\n%@"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "old_string을 찾을 수 없습니다(퍼지 매칭 포함). 먼저 file_read로 현재 내용을 확인하세요.\\n파일 미리보기:\\n%@"
+            "value": "old_string을 찾을 수 없습니다(퍼지 매칭 포함). 먼저 file-read로 현재 내용을 확인하세요.\\n파일 미리보기:\\n%@"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "old_string 未命中（含模糊匹配）。请先用 file_read 查看当前内容再编辑。\\n文件预览：\\n%1$@"
+            "value": "old_string 未命中（含模糊匹配）。请先用 file-read 查看当前内容再编辑。\\n文件预览：\\n%1$@"
           }
         }
       }
@@ -18057,25 +18057,25 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "File not found: %@. Use file_write to create new files."
+            "value": "File not found: %@. Use file-write to create new files."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "ファイルが見つかりません: %@。新規作成は file_write を使用してください。"
+            "value": "ファイルが見つかりません: %@。新規作成は file-write を使用してください。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "파일을 찾을 수 없음: %@. 새 파일 생성은 file_write를 사용하세요."
+            "value": "파일을 찾을 수 없음: %@. 새 파일 생성은 file-write를 사용하세요."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "文件不存在：%@。创建新文件请用 file_write"
+            "value": "文件不存在：%@。创建新文件请用 file-write"
           }
         }
       }
@@ -19565,25 +19565,25 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Error: read_subagent_result requires a valid subagent_id (from dispatch_subagent result)."
+            "value": "Error: read_subagent_result requires a valid subagent_id (from dispatch-subagent result)."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "Error: read_subagent_result には有効な subagent_id が必要です（dispatch_subagent の結果から）。"
+            "value": "Error: read_subagent_result には有効な subagent_id が必要です（dispatch-subagent の結果から）。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "Error: read_subagent_result에는 유효한 subagent_id가 필요합니다(dispatch_subagent 결과에서)."
+            "value": "Error: read_subagent_result에는 유효한 subagent_id가 필요합니다(dispatch-subagent 결과에서)."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "Error: read_subagent_result 需要有效的 subagent_id（来自 dispatch_subagent 返回结果）。"
+            "value": "Error: read_subagent_result 需要有效的 subagent_id（来自 dispatch-subagent 返回结果）。"
           }
         }
       }
@@ -19884,25 +19884,25 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "skill_load requires the name parameter (the skill to load)."
+            "value": "skill-load requires the name parameter (the skill to load)."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "skill_load には name パラメータ（読み込むスキル名）が必要です。"
+            "value": "skill-load には name パラメータ（読み込むスキル名）が必要です。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "skill_load에는 name 매개변수(로드할 스킬 이름)가 필요합니다."
+            "value": "skill-load에는 name 매개변수(로드할 스킬 이름)가 필요합니다."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "skill_load 需要 name 参数（要加载的技能名）。"
+            "value": "skill-load 需要 name 参数（要加载的技能名）。"
           }
         }
       }
@@ -19913,25 +19913,25 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Error: the subagent is not allowed to call close_subagent. Hand the closing request to the parent agent."
+            "value": "Error: the subagent is not allowed to call close-subagent. Hand the closing request to the parent agent."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "Error: サブエージェントは close_subagent を呼び出せません。閉じる要望は親エージェントに伝えてください。"
+            "value": "Error: サブエージェントは close-subagent を呼び出せません。閉じる要望は親エージェントに伝えてください。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "Error: 서브에이전트는 close_subagent를 호출할 수 없습니다. 종료 요청을 부모 에이전트에 전달하세요."
+            "value": "Error: 서브에이전트는 close-subagent를 호출할 수 없습니다. 종료 요청을 부모 에이전트에 전달하세요."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "Error: 子代理无权调用 close_subagent。请把关闭需求交给父代理处理。"
+            "value": "Error: 子代理无权调用 close-subagent。请把关闭需求交给父代理处理。"
           }
         }
       }
@@ -21711,25 +21711,25 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Exact string replacement (old_string → new_string). Only modifies existing text files; write-directory restrictions are the same as file_write (including external mounts with \"Allow write\" enabled in Settings→Mounts). The path must be an absolute /var/MiniClaw/... path."
+            "value": "Exact string replacement (old_string → new_string). Only modifies existing text files; write-directory restrictions are the same as file-write (including external mounts with \"Allow write\" enabled in Settings→Mounts). The path must be an absolute /var/MiniClaw/... path."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "正確な文字列置換（old_string → new_string）。既存のテキストファイルのみ修正対象。書き込みディレクトリの制限は file_write と同じ（「設定 → マウント」で「書き込み許可」を有効にした外部マウントを含む）。パスは /var/MiniClaw/... の絶対パスである必要があります。"
+            "value": "正確な文字列置換（old_string → new_string）。既存のテキストファイルのみ修正対象。書き込みディレクトリの制限は file-write と同じ（「設定 → マウント」で「書き込み許可」を有効にした外部マウントを含む）。パスは /var/MiniClaw/... の絶対パスである必要があります。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "정확한 문자열 치환(old_string → new_string). 기존 텍스트 파일만 수정합니다. 쓰기 디렉터리 제한은 file_write와 동일합니다('설정 → 마운트'에서 '쓰기 허용'을 켠 외부 마운트 포함). 경로는 /var/MiniClaw/... 절대 경로여야 합니다."
+            "value": "정확한 문자열 치환(old_string → new_string). 기존 텍스트 파일만 수정합니다. 쓰기 디렉터리 제한은 file-write와 동일합니다('설정 → 마운트'에서 '쓰기 허용'을 켠 외부 마운트 포함). 경로는 /var/MiniClaw/... 절대 경로여야 합니다."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "精确字符串替换（old_string → new_string）。仅修改已存在的文本文件；写入目录限制与 file_write 相同（含已在「设置 → 挂载」开启「允许写入」的外部挂载文件夹）。路径必须为 /var/MiniClaw/... 绝对路径。"
+            "value": "精确字符串替换（old_string → new_string）。仅修改已存在的文本文件；写入目录限制与 file-write 相同（含已在「设置 → 挂载」开启「允许写入」的外部挂载文件夹）。路径必须为 /var/MiniClaw/... 绝对路径。"
           }
         }
       }
@@ -21914,25 +21914,25 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "\n\nPath convention: this tool's root is `/var/MiniClaw` (e.g. `/var/MiniClaw/workspace/a.txt`, `/var/MiniClaw/offloads/b.txt`); paths do **not** contain a `sessions/<uuid>` segment (session isolation is implicit). The `/var/MiniClaw/sessions/<uuid>` shown in shell_execute's `[env] cwd` is the shell's own view — do not use it with this tool."
+            "value": "\n\nPath convention: this tool's root is `/var/MiniClaw` (e.g. `/var/MiniClaw/workspace/a.txt`, `/var/MiniClaw/offloads/b.txt`); paths do **not** contain a `sessions/<uuid>` segment (session isolation is implicit). The `/var/MiniClaw/sessions/<uuid>` shown in shell-execute's `[env] cwd` is the shell's own view — do not use it with this tool."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "\n\nパスの約束：本ツールのルートは `/var/MiniClaw`（例：`/var/MiniClaw/workspace/a.txt`、`/var/MiniClaw/offloads/b.txt`）で、パスに `sessions/<uuid>` セグメントは**含まれません**（セッション分離は自動）。shell_execute の `[env] cwd` が示す `/var/MiniClaw/sessions/<uuid>` は shell 側の視点であり、本ツールでは使わないでください。"
+            "value": "\n\nパスの約束：本ツールのルートは `/var/MiniClaw`（例：`/var/MiniClaw/workspace/a.txt`、`/var/MiniClaw/offloads/b.txt`）で、パスに `sessions/<uuid>` セグメントは**含まれません**（セッション分離は自動）。shell-execute の `[env] cwd` が示す `/var/MiniClaw/sessions/<uuid>` は shell 側の視点であり、本ツールでは使わないでください。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "\n\n경로 규칙: 이 도구의 루트는 `/var/MiniClaw`이며(예: `/var/MiniClaw/workspace/a.txt`, `/var/MiniClaw/offloads/b.txt`), 경로에 `sessions/<uuid>` 세그먼트가 **포함되지 않습니다**(세션 격리는 자동). shell_execute의 `[env] cwd`가 보여주는 `/var/MiniClaw/sessions/<uuid>`는 shell 관점이므로 이 도구에서는 사용하지 마세요."
+            "value": "\n\n경로 규칙: 이 도구의 루트는 `/var/MiniClaw`이며(예: `/var/MiniClaw/workspace/a.txt`, `/var/MiniClaw/offloads/b.txt`), 경로에 `sessions/<uuid>` 세그먼트가 **포함되지 않습니다**(세션 격리는 자동). shell-execute의 `[env] cwd`가 보여주는 `/var/MiniClaw/sessions/<uuid>`는 shell 관점이므로 이 도구에서는 사용하지 마세요."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "\n\n路径约定：本工具的路径根是 `/var/MiniClaw`，例如 `/var/MiniClaw/workspace/a.txt`、`/var/MiniClaw/offloads/b.txt`；路径中**不含** `sessions/<uuid>` 段（会话隔离自动完成）。shell_execute 的 `[env] cwd` 报出的 `/var/MiniClaw/sessions/<uuid>` 只是 shell 视角，不要用于本工具。"
+            "value": "\n\n路径约定：本工具的路径根是 `/var/MiniClaw`，例如 `/var/MiniClaw/workspace/a.txt`、`/var/MiniClaw/offloads/b.txt`；路径中**不含** `sessions/<uuid>` 段（会话隔离自动完成）。shell-execute 的 `[env] cwd` 报出的 `/var/MiniClaw/sessions/<uuid>` 只是 shell 视角，不要用于本工具。"
           }
         }
       }
@@ -21943,25 +21943,25 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Create or overwrite a text file; supports append/create_dirs. Can only write to attachments/workspace/shared/skills and external mounts with \"Allow write\" enabled in Settings→Mounts (paths like /var/MiniClaw/mounts/<name>/...); mounts without write are read-only and writes are rejected. Prefer file_edit for modifying existing files. The path must be an absolute /var/MiniClaw/... path."
+            "value": "Create or overwrite a text file; supports append/create_dirs. Can only write to attachments/workspace/shared/skills and external mounts with \"Allow write\" enabled in Settings→Mounts (paths like /var/MiniClaw/mounts/<name>/...); mounts without write are read-only and writes are rejected. Prefer file-edit for modifying existing files. The path must be an absolute /var/MiniClaw/... path."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "テキストファイルを作成または上書きします。append/create_dirs に対応。書き込み先は attachments/workspace/shared/skills、および「設定 → マウント」で「書き込み許可」を有効にした外部マウントフォルダ（/var/MiniClaw/mounts/<name>/... 形式のパス）のみ。書き込み未許可のマウントは読み取り専用で、書き込みは拒否されます。既存ファイルの変更は file_edit を推奨。パスは /var/MiniClaw/... の絶対パスである必要があります。"
+            "value": "テキストファイルを作成または上書きします。append/create_dirs に対応。書き込み先は attachments/workspace/shared/skills、および「設定 → マウント」で「書き込み許可」を有効にした外部マウントフォルダ（/var/MiniClaw/mounts/<name>/... 形式のパス）のみ。書き込み未許可のマウントは読み取り専用で、書き込みは拒否されます。既存ファイルの変更は file-edit を推奨。パスは /var/MiniClaw/... の絶対パスである必要があります。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "텍스트 파일을 생성하거나 덮어씁니다. append/create_dirs 지원. 쓰기 가능한 곳은 attachments/workspace/shared/skills와 '설정 → 마운트'에서 '쓰기 허용'을 켠 외부 마운트 폴더(/var/MiniClaw/mounts/<이름>/... 형식)뿐입니다. 쓰기가 허용되지 않은 마운트는 읽기 전용이며 쓰기는 거부됩니다. 기존 파일 수정은 file_edit 권장. 경로는 /var/MiniClaw/... 절대 경로여야 합니다."
+            "value": "텍스트 파일을 생성하거나 덮어씁니다. append/create_dirs 지원. 쓰기 가능한 곳은 attachments/workspace/shared/skills와 '설정 → 마운트'에서 '쓰기 허용'을 켠 외부 마운트 폴더(/var/MiniClaw/mounts/<이름>/... 형식)뿐입니다. 쓰기가 허용되지 않은 마운트는 읽기 전용이며 쓰기는 거부됩니다. 기존 파일 수정은 file-edit 권장. 경로는 /var/MiniClaw/... 절대 경로여야 합니다."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "创建或覆写文本文件，支持 append/create_dirs。仅可写 attachments/workspace/shared/skills，以及已在「设置 → 挂载」中开启「允许写入」的外部挂载文件夹（路径形如 /var/MiniClaw/mounts/<名称>/…）；未开启写入的挂载为只读，写入会被拒绝。修改已有文件优先使用 file_edit。路径必须为 /var/MiniClaw/... 绝对路径。"
+            "value": "创建或覆写文本文件，支持 append/create_dirs。仅可写 attachments/workspace/shared/skills，以及已在「设置 → 挂载」中开启「允许写入」的外部挂载文件夹（路径形如 /var/MiniClaw/mounts/<名称>/…）；未开启写入的挂载为只读，写入会被拒绝。修改已有文件优先使用 file-edit。路径必须为 /var/MiniClaw/... 绝对路径。"
           }
         }
       }
@@ -22030,25 +22030,25 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "[File] The user attached %d file(s) (%@), but the current model cannot read them directly. Use the read_document tool to understand the user's intent. File paths: \"%@\""
+            "value": "[File] The user attached %d file(s) (%@), but the current model cannot read them directly. Use the read-document tool to understand the user's intent. File paths: \"%@\""
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "[ファイル] ユーザーが %d 件のファイル（%@）を添付しましたが、現在のモデルは直接読み取りに対応していません。read_document ツールで内容を確認してください。ファイルパス：\"%@\""
+            "value": "[ファイル] ユーザーが %d 件のファイル（%@）を添付しましたが、現在のモデルは直接読み取りに対応していません。read-document ツールで内容を確認してください。ファイルパス：\"%@\""
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "[파일] 사용자가 파일 %d개(%@)를 첨부했지만 현재 모델은 직접 읽기를 지원하지 않습니다. read_document 도구로 내용을 확인하세요. 파일 경로: \"%@\""
+            "value": "[파일] 사용자가 파일 %d개(%@)를 첨부했지만 현재 모델은 직접 읽기를 지원하지 않습니다. read-document 도구로 내용을 확인하세요. 파일 경로: \"%@\""
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "[文件] 用户附件了 %d 个文件 (%@)，但当前模型不支持直接读取。请使用 read_document 工具读取这些文件的内容来理解用户意图。文件路径：\"%@\""
+            "value": "[文件] 用户附件了 %d 个文件 (%@)，但当前模型不支持直接读取。请使用 read-document 工具读取这些文件的内容来理解用户意图。文件路径：\"%@\""
           }
         }
       }
@@ -22639,7 +22639,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Output too long (%1$lld bytes); auto-offloaded to offloads/.\nFull path for file_read: `/var/MiniClaw/offloads/%2$@` (do NOT add a sessions/<uuid> segment).\nYou can also open it via the Markdown link miniclaw://offloads/%2$@."
+            "value": "Output too long (%1$lld bytes); auto-offloaded to offloads/.\nFull path for file-read: `/var/MiniClaw/offloads/%2$@` (do NOT add a sessions/<uuid> segment).\nYou can also open it via the Markdown link miniclaw://offloads/%2$@."
           }
         },
         "ja": {
@@ -22657,7 +22657,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "输出过长（%1$lld 字节），已自动转存至 offloads/。\n用 file_read 读取的完整路径是 `/var/MiniClaw/offloads/%2$@`（不要带 sessions/<uuid> 段）。\n也可通过 Markdown 链接打开 miniclaw://offloads/%2$@。"
+            "value": "输出过长（%1$lld 字节），已自动转存至 offloads/。\n用 file-read 读取的完整路径是 `/var/MiniClaw/offloads/%2$@`（不要带 sessions/<uuid> 段）。\n也可通过 Markdown 链接打开 miniclaw://offloads/%2$@。"
           }
         }
       }
@@ -28382,25 +28382,25 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "List directory contents (read-only, non-recursive). Lists any subdirectory under /var/MiniClaw/, including external folders mounted in Settings→Mounts (paths like /var/MiniClaw/mounts/<name>/). Returns file/subdirectory names, one per line. Reading mounted content does NOT depend on shell/iSH: use list_dir to see what is mounted, then file_read for specific files. The path must be an absolute /var/MiniClaw/... path."
+            "value": "List directory contents (read-only, non-recursive). Lists any subdirectory under /var/MiniClaw/, including external folders mounted in Settings→Mounts (paths like /var/MiniClaw/mounts/<name>/). Returns file/subdirectory names, one per line. Reading mounted content does NOT depend on shell/iSH: use list-dir to see what is mounted, then file-read for specific files. The path must be an absolute /var/MiniClaw/... path."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "ディレクトリ内容の一覧表示（読み取り専用、非再帰）。/var/MiniClaw/ 配下の任意のサブディレクトリを一覧でき、「設定 → マウント」でマウントした外部フォルダ（/var/MiniClaw/mounts/<name>/ 形式のパス）も含みます。ファイル名/サブディレクトリ名を 1 行ずつ返します。マウント内容の読み取りは shell/iSH に**依存しません**：先に list_dir でマウント内容を確認し、file_read で具体ファイルを読みます。パスは /var/MiniClaw/... の絶対パスである必要があります。"
+            "value": "ディレクトリ内容の一覧表示（読み取り専用、非再帰）。/var/MiniClaw/ 配下の任意のサブディレクトリを一覧でき、「設定 → マウント」でマウントした外部フォルダ（/var/MiniClaw/mounts/<name>/ 形式のパス）も含みます。ファイル名/サブディレクトリ名を 1 行ずつ返します。マウント内容の読み取りは shell/iSH に**依存しません**：先に list-dir でマウント内容を確認し、file-read で具体ファイルを読みます。パスは /var/MiniClaw/... の絶対パスである必要があります。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "디렉터리 내용 나열(읽기 전용, 비재귀). /var/MiniClaw/ 아래 임의의 하위 디렉터리와 '설정 → 마운트'에서 마운트한 외부 폴더(/var/MiniClaw/mounts/<이름>/ 형식)를 나열할 수 있습니다. 파일/하위 디렉터리 이름을 한 줄에 하나씩 반환합니다. 마운트 내용 읽기는 shell/iSH에 **의존하지 않습니다**: 먼저 list_dir로 마운트 내용을 확인하고 file_read로 파일을 읽으세요. 경로는 /var/MiniClaw/... 절대 경로여야 합니다."
+            "value": "디렉터리 내용 나열(읽기 전용, 비재귀). /var/MiniClaw/ 아래 임의의 하위 디렉터리와 '설정 → 마운트'에서 마운트한 외부 폴더(/var/MiniClaw/mounts/<이름>/ 형식)를 나열할 수 있습니다. 파일/하위 디렉터리 이름을 한 줄에 하나씩 반환합니다. 마운트 내용 읽기는 shell/iSH에 **의존하지 않습니다**: 먼저 list-dir로 마운트 내용을 확인하고 file-read로 파일을 읽으세요. 경로는 /var/MiniClaw/... 절대 경로여야 합니다."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "列出目录内容（只读，不递归）。可列出 /var/MiniClaw/ 下任意子目录，包括「设置→挂载」中挂载的外部文件夹（路径形如 /var/MiniClaw/mounts/<name>/）。返回该目录下的文件名/子目录名（每行一个）。读取挂载内容**不依赖 shell/iSH**：先 list_dir 看挂载里有什么，再用 file_read 读具体文件。路径必须为 /var/MiniClaw/... 绝对路径。"
+            "value": "列出目录内容（只读，不递归）。可列出 /var/MiniClaw/ 下任意子目录，包括「设置→挂载」中挂载的外部文件夹（路径形如 /var/MiniClaw/mounts/<name>/）。返回该目录下的文件名/子目录名（每行一个）。读取挂载内容**不依赖 shell/iSH**：先 list-dir 看挂载里有什么，再用 file-read 读具体文件。路径必须为 /var/MiniClaw/... 绝对路径。"
           }
         }
       }
@@ -30560,25 +30560,25 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "\n\n(Note: this request contains %ld subtasks, exceeding the per-call parallel limit of %ld; the last %ld were not executed. Issue another dispatch_subagent.)"
+            "value": "\n\n(Note: this request contains %ld subtasks, exceeding the per-call parallel limit of %ld; the last %ld were not executed. Issue another dispatch-subagent.)"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "\n\n（注意：このリクエストには %ld 個のサブタスクが含まれており、1 回の並列上限 %ld を超えたため、末尾 %ld 個は実行されませんでした。dispatch_subagent を再度発行してください。）"
+            "value": "\n\n（注意：このリクエストには %ld 個のサブタスクが含まれており、1 回の並列上限 %ld を超えたため、末尾 %ld 個は実行されませんでした。dispatch-subagent を再度発行してください。）"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "\n\n(참고: 이 요청에는 %ld개의 하위 작업이 포함되어 1회 병렬 한도 %ld를 초과, 마지막 %ld개는 실행되지 않았습니다. dispatch_subagent를 다시 발행하세요.)"
+            "value": "\n\n(참고: 이 요청에는 %ld개의 하위 작업이 포함되어 1회 병렬 한도 %ld를 초과, 마지막 %ld개는 실행되지 않았습니다. dispatch-subagent를 다시 발행하세요.)"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "\n\n（注意：本次请求包含 %ld 个子任务，超出单次并行上限 %ld，后 %ld 个未执行，请再发起一次 dispatch_subagent。）"
+            "value": "\n\n（注意：本次请求包含 %ld 个子任务，超出单次并行上限 %ld，后 %ld 个未执行，请再发起一次 dispatch-subagent。）"
           }
         }
       }
@@ -30850,25 +30850,25 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Error: subagent depth limit reached (%ld levels); cannot dispatch further subagents. Complete the task at this level; do not call dispatch_subagent."
+            "value": "Error: subagent depth limit reached (%ld levels); cannot dispatch further subagents. Complete the task at this level; do not call dispatch-subagent."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "Error: サブエージェントの深度上限に達しました（%ld 層）、これ以上 dispatch できません。この層で直接タスクを完了させてください。dispatch_subagent を呼び出さないでください。"
+            "value": "Error: サブエージェントの深度上限に達しました（%ld 層）、これ以上 dispatch できません。この層で直接タスクを完了させてください。dispatch-subagent を呼び出さないでください。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "Error: 서브에이전트 깊이 한도 도달(%ld층), 더 dispatch할 수 없습니다. 이 계층에서 직접 작업을 완료하세요. dispatch_subagent를 호출하지 마세요."
+            "value": "Error: 서브에이전트 깊이 한도 도달(%ld층), 더 dispatch할 수 없습니다. 이 계층에서 직접 작업을 완료하세요. dispatch-subagent를 호출하지 마세요."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "Error: 子代理深度已达上限（%ld 层），无法继续派发子代理。请直接在本层完成任务，不要调用 dispatch_subagent。"
+            "value": "Error: 子代理深度已达上限（%ld 层），无法继续派发子代理。请直接在本层完成任务，不要调用 dispatch-subagent。"
           }
         }
       }
@@ -30879,25 +30879,25 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "- You are at subagent depth %ld (max %ld). If the subtask can still be split into independent parts, you may call dispatch_subagent to dispatch further down (use the tasks array to fan out in parallel), but only when truly necessary."
+            "value": "- You are at subagent depth %ld (max %ld). If the subtask can still be split into independent parts, you may call dispatch-subagent to dispatch further down (use the tasks array to fan out in parallel), but only when truly necessary."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "- 現在のサブエージェント深度は %ld（上限 %ld 层）。サブタスクがまだ独立した部分に分割できる場合は、dispatch_subagent でさらに下位へ dispatch できます（tasks 配列で一括並列も可）が、本当に必要なときのみにしてください。"
+            "value": "- 現在のサブエージェント深度は %ld（上限 %ld 层）。サブタスクがまだ独立した部分に分割できる場合は、dispatch-subagent でさらに下位へ dispatch できます（tasks 配列で一括並列も可）が、本当に必要なときのみにしてください。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "- 현재 서브에이전트 깊이 %ld(최대 %ld층). 하위 작업을 여전히 독립적인 부분으로 나눌 수 있다면 dispatch_subagent로 하위 dispatch 가능(tasks 배열로 일괄 병렬 가능)하지만, 정말 필요할 때만 하세요."
+            "value": "- 현재 서브에이전트 깊이 %ld(최대 %ld층). 하위 작업을 여전히 독립적인 부분으로 나눌 수 있다면 dispatch-subagent로 하위 dispatch 가능(tasks 배열로 일괄 병렬 가능)하지만, 정말 필요할 때만 하세요."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "- 你当前处于子代理层级 %ld（上限 %ld 层）。若子任务仍可继续拆分成互不依赖的部分，你可以调用 dispatch_subagent 继续向下派发（可用 tasks 数组一次并行派多个），但只在确有必要时这么做。"
+            "value": "- 你当前处于子代理层级 %ld（上限 %ld 层）。若子任务仍可继续拆分成互不依赖的部分，你可以调用 dispatch-subagent 继续向下派发（可用 tasks 数组一次并行派多个），但只在确有必要时这么做。"
           }
         }
       }
@@ -30908,25 +30908,25 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "- You are at the deepest subagent level (%ld/%ld); do not try to call dispatch_subagent — complete the task yourself."
+            "value": "- You are at the deepest subagent level (%ld/%ld); do not try to call dispatch-subagent — complete the task yourself."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "- あなたはサブエージェントの最深度（%ld/%ld）にいます。dispatch_subagent を呼び出そうとせず、自分でタスクを完了してください。"
+            "value": "- あなたはサブエージェントの最深度（%ld/%ld）にいます。dispatch-subagent を呼び出そうとせず、自分でタスクを完了してください。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "- 현재 서브에이전트 최하위 깊이(%ld/%ld)입니다. dispatch_subagent를 호출하지 말고 직접 작업을 완료하세요."
+            "value": "- 현재 서브에이전트 최하위 깊이(%ld/%ld)입니다. dispatch-subagent를 호출하지 말고 직접 작업을 완료하세요."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "- 你已处于子代理最深层级（%ld/%ld），不要尝试调用 dispatch_subagent，你必须自己完成任务。"
+            "value": "- 你已处于子代理最深层级（%ld/%ld），不要尝试调用 dispatch-subagent，你必须自己完成任务。"
           }
         }
       }
@@ -33953,25 +33953,25 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "## Memory System\n- The only long-term memory file: `memory/MEMORY.md` (inside the app sandbox, read/written via memory_write)\n- To save long-term memory, call `memory_write` with `target: \"long_term\"`\n  - Append one entry: default `mode: \"append\"` (or explicit), pass `content`\n  - Full rewrite: `mode: \"replace\"`, pass `content`\n  - **Edit a specific line** (e.g. append a sibling item after an existing fact): `mode: \"edit\"`, pass `old_string` (text to replace) and `new_string` (replacement)\n- To save today's procedural memory, call `memory_write` with `target: \"daily\"`; `mode: \"append\"` (default, pass content) or `mode: \"edit\"` (pass old_string/new_string)\n- Search memory with `memory_get`; `scope: \"long_term\"` searches MEMORY.md only, `daily` only today, `all` searches all memory\n- `GLOBAL.md` lives under rules/ — it is the global rules file and must not be used as memory or a write target\n- ⚠️ Memory **must only** be modified via `memory_write`; using `file_edit` / `file_write` on `memory/` is forbidden (rejected by the write gate)\n- View/edit long-term memory: Settings → Memory → Long-term Memory\n- View daily memory: Settings → Memory → Daily Memory"
+            "value": "## Memory System\n- The only long-term memory file: `memory/MEMORY.md` (inside the app sandbox, read/written via memory-write)\n- To save long-term memory, call `memory-write` with `target: \"long_term\"`\n  - Append one entry: default `mode: \"append\"` (or explicit), pass `content`\n  - Full rewrite: `mode: \"replace\"`, pass `content`\n  - **Edit a specific line** (e.g. append a sibling item after an existing fact): `mode: \"edit\"`, pass `old_string` (text to replace) and `new_string` (replacement)\n- To save today's procedural memory, call `memory-write` with `target: \"daily\"`; `mode: \"append\"` (default, pass content) or `mode: \"edit\"` (pass old_string/new_string)\n- Search memory with `memory-get`; `scope: \"long_term\"` searches MEMORY.md only, `daily` only today, `all` searches all memory\n- `GLOBAL.md` lives under rules/ — it is the global rules file and must not be used as memory or a write target\n- ⚠️ Memory **must only** be modified via `memory-write`; using `file-edit` / `file-write` on `memory/` is forbidden (rejected by the write gate)\n- View/edit long-term memory: Settings → Memory → Long-term Memory\n- View daily memory: Settings → Memory → Daily Memory"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "## メモリシステム\n- 長期メモリの唯一のファイル：`memory/MEMORY.md`（App サンドボックス内、memory_write で読み書き）\n- 長期メモリを保存するには `memory_write` を呼び出し、必ず `target: \"long_term\"` を指定\n  - 1 件追記：デフォルトの `mode: \"append\"`（または明示）、`content` を渡す\n  - 全体書き換え：`mode: \"replace\"`、`content` を渡す\n  - **特定行の定点修正**（既存の事実に並列項目を追記するなど）：`mode: \"edit\"`、`old_string`（置換対象の原文）と `new_string`（置換後のテキスト）を渡す\n- 今日の経過メモリを保存するには `memory_write` を `target: \"daily\"` で呼び出す；`mode: \"append\"`（デフォルト、content を渡す）または `mode: \"edit\"`（old_string/new_string を渡す）\n- `memory_get` でメモリを検索；`scope: \"long_term\"` は MEMORY.md のみ、`daily` は今日のみ、`all` は全メモリを検索\n- `GLOBAL.md` は rules/ 配下のグローバルルールファイルであり、メモリや書き込み先として使用禁止\n- ⚠️ メモリの変更は**`memory_write` のみ**；`memory/` ディレクトリへの `file_edit` / `file_write` は禁止（書き込みゲートで拒否されます）\n- 長期メモリの閲覧/編集：設定 → メモリ → 長期メモリ\n- デイリーメモリの閲覧：設定 → メモリ → デイリーメモリ"
+            "value": "## メモリシステム\n- 長期メモリの唯一のファイル：`memory/MEMORY.md`（App サンドボックス内、memory-write で読み書き）\n- 長期メモリを保存するには `memory-write` を呼び出し、必ず `target: \"long_term\"` を指定\n  - 1 件追記：デフォルトの `mode: \"append\"`（または明示）、`content` を渡す\n  - 全体書き換え：`mode: \"replace\"`、`content` を渡す\n  - **特定行の定点修正**（既存の事実に並列項目を追記するなど）：`mode: \"edit\"`、`old_string`（置換対象の原文）と `new_string`（置換後のテキスト）を渡す\n- 今日の経過メモリを保存するには `memory-write` を `target: \"daily\"` で呼び出す；`mode: \"append\"`（デフォルト、content を渡す）または `mode: \"edit\"`（old_string/new_string を渡す）\n- `memory-get` でメモリを検索；`scope: \"long_term\"` は MEMORY.md のみ、`daily` は今日のみ、`all` は全メモリを検索\n- `GLOBAL.md` は rules/ 配下のグローバルルールファイルであり、メモリや書き込み先として使用禁止\n- ⚠️ メモリの変更は**`memory-write` のみ**；`memory/` ディレクトリへの `file-edit` / `file-write` は禁止（書き込みゲートで拒否されます）\n- 長期メモリの閲覧/編集：設定 → メモリ → 長期メモリ\n- デイリーメモリの閲覧：設定 → メモリ → デイリーメモリ"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "## 메모리 시스템\n- 장기 메모리의 유일한 파일: `memory/MEMORY.md`(App 샌드박스 내, memory_write로 읽기/쓰기)\n- 장기 메모리를 저장하려면 `memory_write`를 호출하고 반드시 `target: \"long_term\"`을 지정\n  - 한 건 추가: 기본 `mode: \"append\"`(또는 명시), `content` 전달\n  - 전체 재작성: `mode: \"replace\"`, `content` 전달\n  - **특정 줄 수정**(기존 사실 뒤에 병렬 항목 추가 등): `mode: \"edit\"`, `old_string`(대체될 원문)과 `new_string`(대체 텍스트) 전달\n- 오늘의 경과 메모리를 저장하려면 `memory_write`를 `target: \"daily\"`로 호출; `mode: \"append\"`(기본, content 전달) 또는 `mode: \"edit\"`(old_string/new_string 전달)\n- `memory_get`으로 메모리 검색; `scope: \"long_term\"`은 MEMORY.md만, `daily`는 오늘만, `all`은 전체 메모리 검색\n- `GLOBAL.md`는 rules/ 아래의 전역 규칙 파일이며 메모리나 쓰기 대상으로 사용 금지\n- ⚠️ 메모리 수정은 **`memory_write`로만** 가능; `memory/` 디렉터리에 `file_edit` / `file_write` 사용 금지(쓰기 게이트에서 거부됨)\n- 장기 메모리 보기/편집: 설정 → 메모리 → 장기 메모리\n- 데일리 메모리 보기: 설정 → 메모리 → 데일리 메모리"
+            "value": "## 메모리 시스템\n- 장기 메모리의 유일한 파일: `memory/MEMORY.md`(App 샌드박스 내, memory-write로 읽기/쓰기)\n- 장기 메모리를 저장하려면 `memory-write`를 호출하고 반드시 `target: \"long_term\"`을 지정\n  - 한 건 추가: 기본 `mode: \"append\"`(또는 명시), `content` 전달\n  - 전체 재작성: `mode: \"replace\"`, `content` 전달\n  - **특정 줄 수정**(기존 사실 뒤에 병렬 항목 추가 등): `mode: \"edit\"`, `old_string`(대체될 원문)과 `new_string`(대체 텍스트) 전달\n- 오늘의 경과 메모리를 저장하려면 `memory-write`를 `target: \"daily\"`로 호출; `mode: \"append\"`(기본, content 전달) 또는 `mode: \"edit\"`(old_string/new_string 전달)\n- `memory-get`으로 메모리 검색; `scope: \"long_term\"`은 MEMORY.md만, `daily`는 오늘만, `all`은 전체 메모리 검색\n- `GLOBAL.md`는 rules/ 아래의 전역 규칙 파일이며 메모리나 쓰기 대상으로 사용 금지\n- ⚠️ 메모리 수정은 **`memory-write`로만** 가능; `memory/` 디렉터리에 `file-edit` / `file-write` 사용 금지(쓰기 게이트에서 거부됨)\n- 장기 메모리 보기/편집: 설정 → 메모리 → 장기 메모리\n- 데일리 메모리 보기: 설정 → 메모리 → 데일리 메모리"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "## 记忆系统\n- 长期记忆唯一文件：`memory/MEMORY.md`（App 沙盒内，由 memory_write 读写）\n- 保存长期记忆时调用 `memory_write`，必须指定 `target: \"long_term\"`\n  - 追加一条：默认 `mode: \"append\"`（或显式），传 `content`\n  - 整体重写：`mode: \"replace\"`，传 `content`\n  - **定点修改某一行**（例如在已有事实后追加并列项）：`mode: \"edit\"`，传 `old_string`（要被替换的原文）和 `new_string`（替换后的文本）\n- 保存今日过程性记忆时调用 `memory_write`，指定 `target: \"daily\"`；`mode: \"append\"`（默认，传 content）或 `mode: \"edit\"`（传 old_string/new_string）\n- 用 `memory_get` 搜索记忆；`scope: \"long_term\"` 只搜索 MEMORY.md，`daily` 只搜索今日，`all` 搜索全部记忆\n- `GLOBAL.md` 位于 rules/，是全局规则文件，禁止用作记忆或写入目标\n- ⚠️ 修改记忆**只能**用 `memory_write`；禁止对 `memory/` 目录使用 `file_edit` / `file_write`（会被写入门禁拒绝）\n- 查看和编辑长期记忆：设置 → 记忆 → 长期记忆\n- 查看每日记忆：设置 → 记忆 → 每日记忆"
+            "value": "## 记忆系统\n- 长期记忆唯一文件：`memory/MEMORY.md`（App 沙盒内，由 memory-write 读写）\n- 保存长期记忆时调用 `memory-write`，必须指定 `target: \"long_term\"`\n  - 追加一条：默认 `mode: \"append\"`（或显式），传 `content`\n  - 整体重写：`mode: \"replace\"`，传 `content`\n  - **定点修改某一行**（例如在已有事实后追加并列项）：`mode: \"edit\"`，传 `old_string`（要被替换的原文）和 `new_string`（替换后的文本）\n- 保存今日过程性记忆时调用 `memory-write`，指定 `target: \"daily\"`；`mode: \"append\"`（默认，传 content）或 `mode: \"edit\"`（传 old_string/new_string）\n- 用 `memory-get` 搜索记忆；`scope: \"long_term\"` 只搜索 MEMORY.md，`daily` 只搜索今日，`all` 搜索全部记忆\n- `GLOBAL.md` 位于 rules/，是全局规则文件，禁止用作记忆或写入目标\n- ⚠️ 修改记忆**只能**用 `memory-write`；禁止对 `memory/` 目录使用 `file-edit` / `file-write`（会被写入门禁拒绝）\n- 查看和编辑长期记忆：设置 → 记忆 → 长期记忆\n- 查看每日记忆：设置 → 记忆 → 每日记忆"
           }
         }
       }
@@ -34011,25 +34011,25 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Write or modify memory. With target=long_term, only write memory/MEMORY.md (inside the app sandbox); with target=daily, write today's YYYY-MM-DD.md. mode=append adds (default); mode=replace overwrites entirely; mode=edit replaces old_string with new_string (targeted line edit). Never write long-term memory into GLOBAL.md; GLOBAL.md is the rules file. Do not record passwords, API Keys, or other sensitive info. Do not modify files under memory/ with file_edit/file_write."
+            "value": "Write or modify memory. With target=long_term, only write memory/MEMORY.md (inside the app sandbox); with target=daily, write today's YYYY-MM-DD.md. mode=append adds (default); mode=replace overwrites entirely; mode=edit replaces old_string with new_string (targeted line edit). Never write long-term memory into GLOBAL.md; GLOBAL.md is the rules file. Do not record passwords, API Keys, or other sensitive info. Do not modify files under memory/ with file-edit/file-write."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "メモリの書き込み/変更。target=long_term は memory/MEMORY.md（App サンドボックス内）のみ書き込み、target=daily は今日の YYYY-MM-DD.md に書き込みます。mode=append は追記（デフォルト）、mode=replace は全体上書き、mode=edit は old_string を new_string に置換（特定行の定点修正）。長期メモリを GLOBAL.md に書き込んではいけません。GLOBAL.md はルールファイルです。パスワードや API Key などの機密情報は記録しないでください。memory/ 配下のファイルを file_edit/file_write で変更することは禁止です。"
+            "value": "メモリの書き込み/変更。target=long_term は memory/MEMORY.md（App サンドボックス内）のみ書き込み、target=daily は今日の YYYY-MM-DD.md に書き込みます。mode=append は追記（デフォルト）、mode=replace は全体上書き、mode=edit は old_string を new_string に置換（特定行の定点修正）。長期メモリを GLOBAL.md に書き込んではいけません。GLOBAL.md はルールファイルです。パスワードや API Key などの機密情報は記録しないでください。memory/ 配下のファイルを file-edit/file-write で変更することは禁止です。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "메모리 쓰기/수정. target=long_term은 memory/MEMORY.md(App 샌드박스 내)만 기록, target=daily는 오늘의 YYYY-MM-DD.md에 기록. mode=append는 추가(기본), mode=replace는 전체 덮어쓰기, mode=edit은 old_string을 new_string으로 치환(특정 줄 수정). 장기 메모리를 GLOBAL.md에 쓰지 마세요. GLOBAL.md는 규칙 파일입니다. 비밀번호, API Key 등 민감 정보를 기록하지 마세요. memory/ 아래 파일을 file_edit/file_write로 수정하는 것은 금지됩니다."
+            "value": "메모리 쓰기/수정. target=long_term은 memory/MEMORY.md(App 샌드박스 내)만 기록, target=daily는 오늘의 YYYY-MM-DD.md에 기록. mode=append는 추가(기본), mode=replace는 전체 덮어쓰기, mode=edit은 old_string을 new_string으로 치환(특정 줄 수정). 장기 메모리를 GLOBAL.md에 쓰지 마세요. GLOBAL.md는 규칙 파일입니다. 비밀번호, API Key 등 민감 정보를 기록하지 마세요. memory/ 아래 파일을 file-edit/file-write로 수정하는 것은 금지됩니다."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "写入或修改记忆。target=long_term 时只写 memory/MEMORY.md（App 沙盒内）；target=daily 时写今日 YYYY-MM-DD.md。mode=append 追加（默认）；mode=replace 整体覆盖；mode=edit 把 old_string 替换为 new_string（定点修改某一行）。不得把长期记忆写入 GLOBAL.md；GLOBAL.md 是规则文件。不记录密码、API Key 等敏感信息。禁止用 file_edit/file_write 修改 memory/ 下的文件。"
+            "value": "写入或修改记忆。target=long_term 时只写 memory/MEMORY.md（App 沙盒内）；target=daily 时写今日 YYYY-MM-DD.md。mode=append 追加（默认）；mode=replace 整体覆盖；mode=edit 把 old_string 替换为 new_string（定点修改某一行）。不得把长期记忆写入 GLOBAL.md；GLOBAL.md 是规则文件。不记录密码、API Key 等敏感信息。禁止用 file-edit/file-write 修改 memory/ 下的文件。"
           }
         }
       }
@@ -40301,7 +40301,7 @@
         }
       }
     },
-    "open_in_safari": {
+    "open-in-safari": {
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -41235,25 +41235,25 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Required: the subagent id from the dispatch_subagent result."
+            "value": "Required: the subagent id from the dispatch-subagent result."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "必須：dispatch_subagent の結果に含まれるサブエージェント id。"
+            "value": "必須：dispatch-subagent の結果に含まれるサブエージェント id。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "필수: dispatch_subagent 결과에 포함된 서브에이전트 id."
+            "value": "필수: dispatch-subagent 결과에 포함된 서브에이전트 id."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "必填：dispatch_subagent 返回结果里的子代理 id。"
+            "value": "必填：dispatch-subagent 返回结果里的子代理 id。"
           }
         }
       }
@@ -41264,25 +41264,25 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Required: the subagent id to close (from dispatch_subagent result or the current session's subagent list). Closing removes its conversation and avatar, frees context, and cannot be reused.; use the subagent_ids array to close several at once; use the subagent_ids array to close several at once"
+            "value": "Required: the subagent id to close (from dispatch-subagent result or the current session's subagent list). Closing removes its conversation and avatar, frees context, and cannot be reused.; use the subagent_ids array to close several at once; use the subagent_ids array to close several at once"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "必須：閉じるサブエージェントの id（dispatch_subagent の結果または「現在のセッションのサブエージェント」一覧から）。閉じると会話とアバターが削除され、コンテキストが解放され、再利用できません。; 複数同時クローズは subagent_ids 配列を使用; 複数同時クローズは subagent_ids 配列を使用"
+            "value": "必須：閉じるサブエージェントの id（dispatch-subagent の結果または「現在のセッションのサブエージェント」一覧から）。閉じると会話とアバターが削除され、コンテキストが解放され、再利用できません。; 複数同時クローズは subagent_ids 配列を使用; 複数同時クローズは subagent_ids 配列を使用"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "필수: 닫을 서브에이전트 id(dispatch_subagent 결과 또는 '현재 세션의 서브에이전트' 목록에서). 닫으면 대화와 아바타가 제거되고 컨텍스트가 해제되며 재사용할 수 없습니다.; 여러 개 닫기는 subagent_ids 배열 사용; 여러 개 닫기는 subagent_ids 배열 사용"
+            "value": "필수: 닫을 서브에이전트 id(dispatch-subagent 결과 또는 '현재 세션의 서브에이전트' 목록에서). 닫으면 대화와 아바타가 제거되고 컨텍스트가 해제되며 재사용할 수 없습니다.; 여러 개 닫기는 subagent_ids 배열 사용; 여러 개 닫기는 subagent_ids 배열 사용"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "必填：要关闭的子代理 id（来自 dispatch_subagent 返回结果或「当前会话的子代理」清单）。关闭后其会话与头像移除、上下文释放，不可再复用。；批量关闭改用 subagent_ids 数组；批量关闭改用 subagent_ids 数组"
+            "value": "必填：要关闭的子代理 id（来自 dispatch-subagent 返回结果或「当前会话的子代理」清单）。关闭后其会话与头像移除、上下文释放，不可再复用。；批量关闭改用 subagent_ids 数组；批量关闭改用 subagent_ids 数组"
           }
         }
       }
@@ -44077,25 +44077,25 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Optional: pass the id from the previous dispatch_subagent result to dispatch the new task to the SAME subagent (it keeps its previous context). Omit to create a new subagent."
+            "value": "Optional: pass the id from the previous dispatch-subagent result to dispatch the new task to the SAME subagent (it keeps its previous context). Omit to create a new subagent."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "任意：前回の dispatch_subagent の結果に含まれる id を渡すと、新タスクを【同一】サブエージェントに dispatch します（以前のコンテキストを保持）。省略時は新規作成します。"
+            "value": "任意：前回の dispatch-subagent の結果に含まれる id を渡すと、新タスクを【同一】サブエージェントに dispatch します（以前のコンテキストを保持）。省略時は新規作成します。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "선택: 이전 dispatch_subagent 결과에 포함된 id를 전달하면 새 작업을 [동일] 서브에이전트에 dispatch합니다(이전 컨텍스트 유지). 생략하면 새로 생성합니다."
+            "value": "선택: 이전 dispatch-subagent 결과에 포함된 id를 전달하면 새 작업을 [동일] 서브에이전트에 dispatch합니다(이전 컨텍스트 유지). 생략하면 새로 생성합니다."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "可选：传入上一轮 dispatch_subagent 返回结果里给出的 id，即可把新任务派发给【同一个】子代理（它保留之前的上下文）。不传则新建一个子代理。"
+            "value": "可选：传入上一轮 dispatch-subagent 返回结果里给出的 id，即可把新任务派发给【同一个】子代理（它保留之前的上下文）。不传则新建一个子代理。"
           }
         }
       }
@@ -48369,25 +48369,25 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Page through a subagent's complete final answer by subagent_id (dispatch_subagent returns only a bounded preview). Use it when you need the full content of a subagent result (long text, full report, detailed list); use offset paging to read the entire answer."
+            "value": "Page through a subagent's complete final answer by subagent_id (dispatch-subagent returns only a bounded preview). Use it when you need the full content of a subagent result (long text, full report, detailed list); use offset paging to read the entire answer."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "subagent_id を指定してサブエージェントの完全な最終回答をページ送りで読み取ります（dispatch_subagent は有界プレビューのみ返却）。サブエージェント結果の全文（長文、レポート全文、詳細リスト）が必要なときに使用し、offset ページングで全体を読み切れます。"
+            "value": "subagent_id を指定してサブエージェントの完全な最終回答をページ送りで読み取ります（dispatch-subagent は有界プレビューのみ返却）。サブエージェント結果の全文（長文、レポート全文、詳細リスト）が必要なときに使用し、offset ページングで全体を読み切れます。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "subagent_id로 서브에이전트의 완전한 최종 답변을 페이지 단위로 읽습니다(dispatch_subagent는 유한한 미리보기만 반환). 서브에이전트 결과의 전체 내용(긴 글, 전체 보고서, 상세 목록)이 필요할 때 사용하며 offset 페이징으로 전체를 읽을 수 있습니다."
+            "value": "subagent_id로 서브에이전트의 완전한 최종 답변을 페이지 단위로 읽습니다(dispatch-subagent는 유한한 미리보기만 반환). 서브에이전트 결과의 전체 내용(긴 글, 전체 보고서, 상세 목록)이 필요할 때 사용하며 offset 페이징으로 전체를 읽을 수 있습니다."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "按 subagent_id 分页读取某个子代理的完整最终回答（dispatch_subagent 只返回有界预览）。当需要子代理结果的完整内容（长文、报告全文、详细清单）时使用；offset 翻页可读完整个回答。"
+            "value": "按 subagent_id 分页读取某个子代理的完整最终回答（dispatch-subagent 只返回有界预览）。当需要子代理结果的完整内容（长文、报告全文、详细清单）时使用；offset 翻页可读完整个回答。"
           }
         }
       }
@@ -50660,25 +50660,25 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Environment not ready. Run this one-liner via shell_execute (auto-cleans stale apk locks + installs openssh + generates the key + self-checks):\nrm -f /lib/apk/db/lock 2>/dev/null; apk add openssh-client >/dev/null 2>&1; ssh-keygen -t ed25519 -f ~/.ssh/miniclaw -N \"\" -C miniclaw >/dev/null 2>&1; echo \"ssh=$(which ssh 2>/dev/null || echo MISSING) key=$(test -f ~/.ssh/miniclaw && echo OK || echo MISSING)\"\nThen call action=setup again to confirm."
+            "value": "Environment not ready. Run this one-liner via shell-execute (auto-cleans stale apk locks + installs openssh + generates the key + self-checks):\nrm -f /lib/apk/db/lock 2>/dev/null; apk add openssh-client >/dev/null 2>&1; ssh-keygen -t ed25519 -f ~/.ssh/miniclaw -N \"\" -C miniclaw >/dev/null 2>&1; echo \"ssh=$(which ssh 2>/dev/null || echo MISSING) key=$(test -f ~/.ssh/miniclaw && echo OK || echo MISSING)\"\nThen call action=setup again to confirm."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "環境が未整備です。shell_execute でこの 1 行を実行（apk の残ロック解除 + openssh 導入 + 鍵生成 + 自己点検）：\nrm -f /lib/apk/db/lock 2>/dev/null; apk add openssh-client >/dev/null 2>&1; ssh-keygen -t ed25519 -f ~/.ssh/miniclaw -N \"\" -C miniclaw >/dev/null 2>&1; echo \"ssh=$(which ssh 2>/dev/null || echo MISSING) key=$(test -f ~/.ssh/miniclaw && echo OK || echo MISSING)\"\n実行後、再度 action=setup を呼び出して確認してください。"
+            "value": "環境が未整備です。shell-execute でこの 1 行を実行（apk の残ロック解除 + openssh 導入 + 鍵生成 + 自己点検）：\nrm -f /lib/apk/db/lock 2>/dev/null; apk add openssh-client >/dev/null 2>&1; ssh-keygen -t ed25519 -f ~/.ssh/miniclaw -N \"\" -C miniclaw >/dev/null 2>&1; echo \"ssh=$(which ssh 2>/dev/null || echo MISSING) key=$(test -f ~/.ssh/miniclaw && echo OK || echo MISSING)\"\n実行後、再度 action=setup を呼び出して確認してください。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "환경이 준비되지 않았습니다. shell_execute로 이 한 줄을 실행하세요(apk 잔여 잠금 정리 + openssh 설치 + 키 생성 + 자가 점검):\nrm -f /lib/apk/db/lock 2>/dev/null; apk add openssh-client >/dev/null 2>&1; ssh-keygen -t ed25519 -f ~/.ssh/miniclaw -N \"\" -C miniclaw >/dev/null 2>&1; echo \"ssh=$(which ssh 2>/dev/null || echo MISSING) key=$(test -f ~/.ssh/miniclaw && echo OK || echo MISSING)\"\n실행 후 action=setup을 다시 호출해 확인하세요."
+            "value": "환경이 준비되지 않았습니다. shell-execute로 이 한 줄을 실행하세요(apk 잔여 잠금 정리 + openssh 설치 + 키 생성 + 자가 점검):\nrm -f /lib/apk/db/lock 2>/dev/null; apk add openssh-client >/dev/null 2>&1; ssh-keygen -t ed25519 -f ~/.ssh/miniclaw -N \"\" -C miniclaw >/dev/null 2>&1; echo \"ssh=$(which ssh 2>/dev/null || echo MISSING) key=$(test -f ~/.ssh/miniclaw && echo OK || echo MISSING)\"\n실행 후 action=setup을 다시 호출해 확인하세요."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "环境未就绪。用 shell_execute 执行下面这条一键安装命令（自动清理 apk 残留锁 + 安装 openssh + 生成密钥 + 自检回显）：\nrm -f /lib/apk/db/lock 2>/dev/null; apk add openssh-client >/dev/null 2>&1; ssh-keygen -t ed25519 -f ~/.ssh/miniclaw -N \"\" -C miniclaw >/dev/null 2>&1; echo \"ssh=$(which ssh 2>/dev/null || echo MISSING) key=$(test -f ~/.ssh/miniclaw && echo OK || echo MISSING)\"\n执行完重新调用 action=setup 确认。"
+            "value": "环境未就绪。用 shell-execute 执行下面这条一键安装命令（自动清理 apk 残留锁 + 安装 openssh + 生成密钥 + 自检回显）：\nrm -f /lib/apk/db/lock 2>/dev/null; apk add openssh-client >/dev/null 2>&1; ssh-keygen -t ed25519 -f ~/.ssh/miniclaw -N \"\" -C miniclaw >/dev/null 2>&1; echo \"ssh=$(which ssh 2>/dev/null || echo MISSING) key=$(test -f ~/.ssh/miniclaw && echo OK || echo MISSING)\"\n执行完重新调用 action=setup 确认。"
           }
         }
       }
@@ -50747,25 +50747,25 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Environment not ready: run the commands above via shell_execute, then call action=setup again to confirm."
+            "value": "Environment not ready: run the commands above via shell-execute, then call action=setup again to confirm."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "環境が未整備です。上記コマンドを shell_execute で実行後、再度 action=setup を呼び出して確認してください。"
+            "value": "環境が未整備です。上記コマンドを shell-execute で実行後、再度 action=setup を呼び出して確認してください。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "환경이 준비되지 않았습니다. 위 명령을 shell_execute로 실행한 후 action=setup을 다시 호출하세요."
+            "value": "환경이 준비되지 않았습니다. 위 명령을 shell-execute로 실행한 후 action=setup을 다시 호출하세요."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "环境未就绪：先用 shell_execute 执行上面的命令，完成后重新调用 action=setup 确认。"
+            "value": "环境未就绪：先用 shell-execute 执行上面的命令，完成后重新调用 action=setup 确认。"
           }
         }
       }
@@ -55438,25 +55438,25 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "## Loaded skill body (loaded this session via skill_load; strictly follow its workflow and output format)\n"
+            "value": "## Loaded skill body (loaded this session via skill-load; strictly follow its workflow and output format)\n"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "## 読み込んだスキル本文（本セッションで skill_load により読み込み。ワークフローと出力形式に厳密に従うこと）\n"
+            "value": "## 読み込んだスキル本文（本セッションで skill-load により読み込み。ワークフローと出力形式に厳密に従うこと）\n"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "## 로드된 스킬 본문(이 세션에서 skill_load로 로드. 워크플로와 출력 형식을 엄격히 따를 것)\n"
+            "value": "## 로드된 스킬 본문(이 세션에서 skill-load로 로드. 워크플로와 출력 형식을 엄격히 따를 것)\n"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "## 已加载技能正文（本会话通过 skill_load 加载，请严格遵循其工作流与输出格式）\n"
+            "value": "## 已加载技能正文（本会话通过 skill-load 加载，请严格遵循其工作流与输出格式）\n"
           }
         }
       }
@@ -55960,25 +55960,25 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "\n\n(To use one of these skills, call the `skill_load` tool to load its full body.)"
+            "value": "\n\n(To use one of these skills, call the `skill-load` tool to load its full body.)"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "\n\n（これらのスキルを使用するには、`skill_load` ツールで本文を読み込んでください。）"
+            "value": "\n\n（これらのスキルを使用するには、`skill-load` ツールで本文を読み込んでください。）"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "\n\n(이 스킬을 사용하려면 `skill_load` 도구로 전체 본문을 로드하세요.)"
+            "value": "\n\n(이 스킬을 사용하려면 `skill-load` 도구로 전체 본문을 로드하세요.)"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "\n\n（如需使用其中某个技能，请调用 `skill_load` 工具加载其完整正文。）"
+            "value": "\n\n（如需使用其中某个技能，请调用 `skill-load` 工具加载其完整正文。）"
           }
         }
       }
@@ -58454,25 +58454,25 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "## Subagent Usage Guide\n\nWhen a task meets any of the following conditions, **prefer** calling `dispatch_subagent` to dispatch subagents for parallel/independent handling instead of doing it all yourself:\n\n- The task requires **multi-round verification or multi-source comparison** (e.g. \"compare X and Y / which is better\");\n- The task **splits into independent chunks** (e.g. \"research A, B and C separately\") — dispatch them in one call via the `tasks` array;\n- The task would **occupy a lot of context** (long-form writing, bulk material organization) — isolating it in a subagent keeps the main context focused;\n- The user explicitly asks for \"thorough research / careful comparison / detailed planning / a full report\".\n\nRules:\n- Pick the best role via the `profile` parameter (see the role list below); omit it for the default \"General Assistant\".\n- Each subagent works independently with tools and returns a self-contained summary; call `read_subagent_result` to page through full content.\n- Subagents nest at most 2 levels; no more than 4 run globally at once — when the cap is hit, wait per the returned hint or finish it yourself.\n- **Reuse**: every subagent has a stable `subagent_id` (see the \"session subagents\" list below). For follow-up work related to one, re-dispatch **the same** subagent via `dispatch_subagent`'s `subagent_id` (it keeps its role and context) — don't create a new one each time; subagents are durable working partners, not one-shot tools.\n- **Close**: when a subagent's task is fully done and no longer needed, call `close_subagent` — its session and avatar are removed and context released; a closed subagent can't be reused (dispatch a new one if needed).\n- Don't dispatch subagents for **simple tasks** — they carry overhead and are only worth it for the complex cases above."
+            "value": "## Subagent Usage Guide\n\nWhen a task meets any of the following conditions, **prefer** calling `dispatch-subagent` to dispatch subagents for parallel/independent handling instead of doing it all yourself:\n\n- The task requires **multi-round verification or multi-source comparison** (e.g. \"compare X and Y / which is better\");\n- The task **splits into independent chunks** (e.g. \"research A, B and C separately\") — dispatch them in one call via the `tasks` array;\n- The task would **occupy a lot of context** (long-form writing, bulk material organization) — isolating it in a subagent keeps the main context focused;\n- The user explicitly asks for \"thorough research / careful comparison / detailed planning / a full report\".\n\nRules:\n- Pick the best role via the `profile` parameter (see the role list below); omit it for the default \"General Assistant\".\n- Each subagent works independently with tools and returns a self-contained summary; call `read_subagent_result` to page through full content.\n- Subagents nest at most 2 levels; no more than 4 run globally at once — when the cap is hit, wait per the returned hint or finish it yourself.\n- **Reuse**: every subagent has a stable `subagent_id` (see the \"session subagents\" list below). For follow-up work related to one, re-dispatch **the same** subagent via `dispatch-subagent`'s `subagent_id` (it keeps its role and context) — don't create a new one each time; subagents are durable working partners, not one-shot tools.\n- **Close**: when a subagent's task is fully done and no longer needed, call `close-subagent` — its session and avatar are removed and context released; a closed subagent can't be reused (dispatch a new one if needed).\n- Don't dispatch subagents for **simple tasks** — they carry overhead and are only worth it for the complex cases above."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "## サブエージェント使用ガイド\n\nタスクが以下のいずれかに当てはまる場合は、自分で順に処理するのではなく、**優先的に** `dispatch_subagent` でサブエージェントを並列/独立dispatchしてください：\n\n- **多回合の検証や複数ソースの比較**が必要（例：「X と Y の違い/どちらが良いか調べて」）；\n- タスクが**互いに独立した塊に分割できる**（例：「A・B・C をそれぞれ調査」）—— `tasks` 配列で一括並列 dispatch；\n- タスクが**大量のコンテキストを占有する**（長文執筆・大量資料の整理など）——サブエージェントに隔離するとメインコンテキストに集中できます；\n- ユーザーが「しっかり調べて / 詳しく比較して / 詳細に計画して / 完全なレポートを書いて」と明示的に要求している。\n\nルール：\n- `profile` パラメータで最適なロールを選択（下記ロール一覧参照）；省略時はデフォルト「汎用アシスタント」。\n- 各サブエージェントは独立してツールを使いタスクを完了し、自己完結した要約を返します。全文が必要な場合は `read_subagent_result` でページ送りしてください。\n- サブエージェントは最大 2 階層までネスト可能、グローバルで同時実行は 4 個まで。上限に達したら戻り値のヒントに従って待つか自分で完了してください。\n- **再利用**：各サブエージェントには安定した `subagent_id` があります（下記「現在のセッションのサブエージェント」一覧参照）。続くタスクが既存のサブエージェントに関連する場合は、`dispatch_subagent` の `subagent_id` で**同じ**サブエージェントに継続dispatchしてください（ロールとコンテキストが保持されます）。毎回新規作成しないでください——サブエージェントは持続的に対話できる独立したパートナーであり、使い捨てツールではありません。\n- **クローズ**：サブエージェントのタスクが完全に完了し今後不要な場合は `close_subagent` で閉じてください——セッションとアバターが削除され、コンテキストが解放されます。閉じた後は再利用できません（必要なら再dispatchで新規作成）。\n- 簡単なタスクにはサブエージェントを**dispatchしないでください**——オーバーヘッドがあり、上記の複雑なケースでのみ価値があります。"
+            "value": "## サブエージェント使用ガイド\n\nタスクが以下のいずれかに当てはまる場合は、自分で順に処理するのではなく、**優先的に** `dispatch-subagent` でサブエージェントを並列/独立dispatchしてください：\n\n- **多回合の検証や複数ソースの比較**が必要（例：「X と Y の違い/どちらが良いか調べて」）；\n- タスクが**互いに独立した塊に分割できる**（例：「A・B・C をそれぞれ調査」）—— `tasks` 配列で一括並列 dispatch；\n- タスクが**大量のコンテキストを占有する**（長文執筆・大量資料の整理など）——サブエージェントに隔離するとメインコンテキストに集中できます；\n- ユーザーが「しっかり調べて / 詳しく比較して / 詳細に計画して / 完全なレポートを書いて」と明示的に要求している。\n\nルール：\n- `profile` パラメータで最適なロールを選択（下記ロール一覧参照）；省略時はデフォルト「汎用アシスタント」。\n- 各サブエージェントは独立してツールを使いタスクを完了し、自己完結した要約を返します。全文が必要な場合は `read_subagent_result` でページ送りしてください。\n- サブエージェントは最大 2 階層までネスト可能、グローバルで同時実行は 4 個まで。上限に達したら戻り値のヒントに従って待つか自分で完了してください。\n- **再利用**：各サブエージェントには安定した `subagent_id` があります（下記「現在のセッションのサブエージェント」一覧参照）。続くタスクが既存のサブエージェントに関連する場合は、`dispatch-subagent` の `subagent_id` で**同じ**サブエージェントに継続dispatchしてください（ロールとコンテキストが保持されます）。毎回新規作成しないでください——サブエージェントは持続的に対話できる独立したパートナーであり、使い捨てツールではありません。\n- **クローズ**：サブエージェントのタスクが完全に完了し今後不要な場合は `close-subagent` で閉じてください——セッションとアバターが削除され、コンテキストが解放されます。閉じた後は再利用できません（必要なら再dispatchで新規作成）。\n- 簡単なタスクにはサブエージェントを**dispatchしないでください**——オーバーヘッドがあり、上記の複雑なケースでのみ価値があります。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "## 서브에이전트 사용 가이드\n\n작업이 다음 중 하나에 해당하면, 직접 하나씩 처리하는 것보다 **`dispatch_subagent`로 서브에이전트를 병렬/독립 dispatch하는 것을 우선**하세요：\n\n- **여러 차례 검증, 다중 소스 비교**가 필요한 작업(예: \"X와 Y의 차이/어느 쪽이 나은지 조사해 줘\")；\n- 작업이 **서로 독립적인 단위로 나뉘는** 경우(예: \"A, B, C를 각각 조사해 줘\")—— `tasks` 배열로 한 번에 병렬 dispatch；\n- 작업이 **많은 컨텍스트를 차지하는** 경우(장문 작성, 대량 자료 정리 등)——서브에이전트로 격리하면 메인 컨텍스트에 집중할 수 있습니다；\n- 사용자가 \"철저히 조사 / 꼼꼼히 비교 / 상세히 계획 / 완전한 보고서 작성\"을 명시적으로 요청한 경우。\n\n규칙：\n- `profile` 매개변수로 가장 적합한 역할을 선택하세요(아래 역할 목록 참조)；생략하면 기본「범용 어시스턴트」를 사용합니다.\n- 각 서브에이전트는 독립적으로 도구를 사용해 작업을 완료하고 자기완결형 요약을 반환합니다. 전체 내용이 필요하면 `read_subagent_result`로 페이지 단위로 읽으세요.\n- 서브에이전트는 최대 2계층까지 중첩 가능, 전역 동시 실행은 4개 이하입니다. 한도에 도달하면 반환 안내에 따라 기다리거나 직접 완료하세요.\n- **재사용**：각 서브에이전트에는 안정적인 `subagent_id`가 있습니다(아래 \"현재 세션의 서브에이전트\" 목록 참조). 후속 작업이 기존 서브에이전트와 관련되면 `dispatch_subagent`의 `subagent_id` 매개변수로 **같은** 서브에이전트에 이어서 dispatch하세요(역할과 컨텍스트가 유지됩니다). 매번 새로 만들지 마세요——서브에이전트는 지속적으로 대화할 수 있는 독립적 작업 파트너이지 일회용 도구가 아닙니다.\n- **종료**：서브에이전트의 작업이 완전히 끝나고 더 이상 필요 없으면 `close_subagent`로 닫으세요——세션과 아바타가 함께 제거되고 컨텍스트가 해제됩니다. 닫힌 후에는 재사용할 수 없습니다(필요하면 새로 dispatch하세요).\n- 간단한 작업에는 서브에이전트를 **dispatch하지 마세요**——오버헤드가 있으며 위의 복잡한 시나리오에서만 가치가 있습니다."
+            "value": "## 서브에이전트 사용 가이드\n\n작업이 다음 중 하나에 해당하면, 직접 하나씩 처리하는 것보다 **`dispatch-subagent`로 서브에이전트를 병렬/독립 dispatch하는 것을 우선**하세요：\n\n- **여러 차례 검증, 다중 소스 비교**가 필요한 작업(예: \"X와 Y의 차이/어느 쪽이 나은지 조사해 줘\")；\n- 작업이 **서로 독립적인 단위로 나뉘는** 경우(예: \"A, B, C를 각각 조사해 줘\")—— `tasks` 배열로 한 번에 병렬 dispatch；\n- 작업이 **많은 컨텍스트를 차지하는** 경우(장문 작성, 대량 자료 정리 등)——서브에이전트로 격리하면 메인 컨텍스트에 집중할 수 있습니다；\n- 사용자가 \"철저히 조사 / 꼼꼼히 비교 / 상세히 계획 / 완전한 보고서 작성\"을 명시적으로 요청한 경우。\n\n규칙：\n- `profile` 매개변수로 가장 적합한 역할을 선택하세요(아래 역할 목록 참조)；생략하면 기본「범용 어시스턴트」를 사용합니다.\n- 각 서브에이전트는 독립적으로 도구를 사용해 작업을 완료하고 자기완결형 요약을 반환합니다. 전체 내용이 필요하면 `read_subagent_result`로 페이지 단위로 읽으세요.\n- 서브에이전트는 최대 2계층까지 중첩 가능, 전역 동시 실행은 4개 이하입니다. 한도에 도달하면 반환 안내에 따라 기다리거나 직접 완료하세요.\n- **재사용**：각 서브에이전트에는 안정적인 `subagent_id`가 있습니다(아래 \"현재 세션의 서브에이전트\" 목록 참조). 후속 작업이 기존 서브에이전트와 관련되면 `dispatch-subagent`의 `subagent_id` 매개변수로 **같은** 서브에이전트에 이어서 dispatch하세요(역할과 컨텍스트가 유지됩니다). 매번 새로 만들지 마세요——서브에이전트는 지속적으로 대화할 수 있는 독립적 작업 파트너이지 일회용 도구가 아닙니다.\n- **종료**：서브에이전트의 작업이 완전히 끝나고 더 이상 필요 없으면 `close-subagent`로 닫으세요——세션과 아바타가 함께 제거되고 컨텍스트가 해제됩니다. 닫힌 후에는 재사용할 수 없습니다(필요하면 새로 dispatch하세요).\n- 간단한 작업에는 서브에이전트를 **dispatch하지 마세요**——오버헤드가 있으며 위의 복잡한 시나리오에서만 가치가 있습니다."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "## 子代理使用指南\n\n当任务满足以下任一条件时，**优先**调用 `dispatch_subagent` 派发子代理并行/独立处理，而不是自己一步步做完：\n\n- 任务需要**多轮查证、多来源对比**（如\"帮我查一下 X 和 Y 的区别/哪个好\"）；\n- 任务可以**拆成互不依赖的几块**（如\"分别调研 A、B、C 三件事\"）——用 `tasks` 数组一次并行派发；\n- 任务会**占据大量上下文**（如长文写作、长篇资料整理），隔离到子代理可保持主上下文聚焦；\n- 用户明确要求\"认真研究 / 仔细对比 / 详细规划 / 写一份完整报告\"。\n\n规则：\n- 通过 `profile` 参数选择最合适的角色（见下方角色列表）；不传则用默认「通用助手」。\n- 每个子代理会独立使用工具完成任务并返回自包含总结；需要完整内容时调用 `read_subagent_result` 分页读取。\n- 子代理最多嵌套 2 层、全局同时运行不超过 4 个；达到上限时按返回提示等待或自行完成。\n- **复用**：每个子代理都有稳定的 `subagent_id`（见下方「当前会话的子代理」清单）。后续任务若与某子代理相关，用 `dispatch_subagent` 的 `subagent_id` 参数续派**同一个**子代理（它保留之前的角色与上下文），不要每次都新建——子代理是可持续对话的独立工作伙伴，不是一次性工具。\n- **关闭**：某子代理的任务已彻底完成、后续不再需要时，调用 `close_subagent` 关闭它——其会话与头像将一并移除，释放上下文；关闭后不可再复用（如再需要，重新派发新建即可）。\n- 简单任务**不要**派发子代理——它有额外开销，只有上述复杂场景才值得。"
+            "value": "## 子代理使用指南\n\n当任务满足以下任一条件时，**优先**调用 `dispatch-subagent` 派发子代理并行/独立处理，而不是自己一步步做完：\n\n- 任务需要**多轮查证、多来源对比**（如\"帮我查一下 X 和 Y 的区别/哪个好\"）；\n- 任务可以**拆成互不依赖的几块**（如\"分别调研 A、B、C 三件事\"）——用 `tasks` 数组一次并行派发；\n- 任务会**占据大量上下文**（如长文写作、长篇资料整理），隔离到子代理可保持主上下文聚焦；\n- 用户明确要求\"认真研究 / 仔细对比 / 详细规划 / 写一份完整报告\"。\n\n规则：\n- 通过 `profile` 参数选择最合适的角色（见下方角色列表）；不传则用默认「通用助手」。\n- 每个子代理会独立使用工具完成任务并返回自包含总结；需要完整内容时调用 `read_subagent_result` 分页读取。\n- 子代理最多嵌套 2 层、全局同时运行不超过 4 个；达到上限时按返回提示等待或自行完成。\n- **复用**：每个子代理都有稳定的 `subagent_id`（见下方「当前会话的子代理」清单）。后续任务若与某子代理相关，用 `dispatch-subagent` 的 `subagent_id` 参数续派**同一个**子代理（它保留之前的角色与上下文），不要每次都新建——子代理是可持续对话的独立工作伙伴，不是一次性工具。\n- **关闭**：某子代理的任务已彻底完成、后续不再需要时，调用 `close-subagent` 关闭它——其会话与头像将一并移除，释放上下文；关闭后不可再复用（如再需要，重新派发新建即可）。\n- 简单任务**不要**派发子代理——它有额外开销，只有上述复杂场景才值得。"
           }
         }
       }
@@ -64541,7 +64541,7 @@
         }
       }
     },
-    "web_search": {
+    "web-search": {
       "extractionState": "manual",
       "localizations": {
         "en": {

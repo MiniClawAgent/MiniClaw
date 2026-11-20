@@ -9,7 +9,7 @@ struct SubagentTaskSpec {
         let profile: String?
         let reuseID: UUID?
         /// 模型原始传入的复用标识（可能是 8 位短码，未必是合法 UUID）。
-        /// 2026-09-10 新增：清单与 close_subagent 都以 8 位短码展示/解析，
+        /// 2026-09-10 新增：清单与 close-subagent 都以 8 位短码展示/解析，
         /// dispatch 侧原先只认完整 UUID，模型照抄短码续派会静默新建子代理
         /// （子代理常驻测试实证）。保留原串，由引擎按同一套前缀规则兜底解析。
         let reuseToken: String?
@@ -37,10 +37,10 @@ struct SubagentRunResult {
         var rendered: String { String(format: String(localized: "loop_subagent_prefix"), name, id.uuidString, body) }
     }
 
-/// dispatch_subagent 参数解析（顶层函数入口）。
+/// dispatch-subagent 参数解析（顶层函数入口）。
 enum AgentSubagentParsing {
 
-    /// 解析 dispatch_subagent 参数为子任务列表：优先读 `tasks` 数组（对象或纯字符串元素），
+    /// 解析 dispatch-subagent 参数为子任务列表：优先读 `tasks` 数组（对象或纯字符串元素），
     /// 无 tasks 时回落到顶层 `task` / `query` 单任务。
     static func parseSubagentSpecs(from args: [String: Any]) -> [SubagentTaskSpec] {
         func uuid(_ any: Any?) -> UUID? {

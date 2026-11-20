@@ -7,7 +7,7 @@ enum ModelGroupPurpose {
     case secondary
     case speechInput
     case speechOutput
-    /// 子代理委派池（P1-3）：dispatch_subagent 派生的子引擎专用。
+    /// 子代理委派池（P1-3）：dispatch-subagent 派生的子引擎专用。
     case subagent
 }
 
@@ -33,7 +33,7 @@ struct ModelRouteEndpoint {
     /// 输入模态能力（文本/图片/音频/视频）：来自模型配置（用户可改，默认取模型目录）。
     /// 发送链路据此过滤附件——不支持的模态不随请求发送，避免服务端 4xx。
     /// 文本为通用基线（supportsTextInput 恒为 true）；文档不再作为独立输入模态，
-    /// 文档类附件统一经 read_document 工具读取，不入原生请求体。
+    /// 文档类附件统一经 read-document 工具读取，不入原生请求体。
     let supportsImageInput: Bool
     let supportsAudioInput: Bool
     let supportsVideoInput: Bool

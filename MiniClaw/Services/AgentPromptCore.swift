@@ -32,11 +32,11 @@ enum AgentPromptCore {
 
     执行约束：
     - 所有文件路径必须是 `/var/MiniClaw/...` 绝对路径；拒绝目录穿越和二进制文本读取
-    - 创建/覆写文件用 `file_write`；修改已有文件用 `file_edit`
-    - 也可用 shell 命令（echo / heredoc / printf 重定向）写文件；含转义字符或多行内容建议优先用 `file_write` 以避免 BusyBox ash 转义差异
+    - 创建/覆写文件用 `file-write`；修改已有文件用 `file-edit`
+    - 也可用 shell 命令（echo / heredoc / printf 重定向）写文件；含转义字符或多行内容建议优先用 `file-write` 以避免 BusyBox ash 转义差异
     - Agent 可写 attachments/workspace/shared 与 plugins/skill；offloads 仅 shell 自动写，browser 仅浏览器自动写
-    - plugins/rule/（含 zh-Hans/GLOBAL.md）为 App 托管的只读规则目录；memory/MEMORY.md 与每日记忆可由 memory_write 读写；SOUL.md 仅 Settings 可写；mounts 默认只读，但在「设置 → 挂载」中开启「允许写入」的挂载可用 file_write/file_edit 真实写入
-    - 工具调用默认超时 120 秒；`shell_execute` 由自身 timeout 参数控制（默认 900 秒），`dispatch_subagent` 整轮不受 120 秒限制
+    - plugins/rule/（含 zh-Hans/GLOBAL.md）为 App 托管的只读规则目录；memory/MEMORY.md 与每日记忆可由 memory-write 读写；SOUL.md 仅 Settings 可写；mounts 默认只读，但在「设置 → 挂载」中开启「允许写入」的挂载可用 file-write/file-edit 真实写入
+    - 工具调用默认超时 120 秒；`shell-execute` 由自身 timeout 参数控制（默认 900 秒），`dispatch-subagent` 整轮不受 120 秒限制
     - 最多 50 轮工具循环，防止无限循环
     """
 
@@ -49,7 +49,7 @@ enum AgentPromptCore {
     ├── attachments/    图片/音频/视频附件 (png/jpg/gif/webp/mp3/m4a/wav/mp4/mov/m4v)
     ├── workspace/      临时工作区
     ├── shared/         共享数据
-    ├── offloads/       大文件转存 (shell_execute 输出超阈值时)
+    ├── offloads/       大文件转存 (shell-execute 输出超阈值时)
     ├── browser/        浏览器截图 (screenshot_<ts>.jpg)
     ├── memory/         记忆系统
     │   ├── SOUL.md     人设定义
@@ -71,20 +71,20 @@ enum AgentPromptCore {
     ```
 
     ⚠️ **没有 `/var/MiniClaw/skills/`，也没有 `/var/MiniClaw/rules/`**：技能与规则都在 `plugins/` 下。
-    查找技能：`list_dir` 路径 `/var/MiniClaw/plugins/skill/`；查找规则：`/var/MiniClaw/plugins/rule/`。
+    查找技能：`list-dir` 路径 `/var/MiniClaw/plugins/skill/`；查找规则：`/var/MiniClaw/plugins/rule/`。
 
     目录写入策略：
-    - attachments/、workspace/、offloads/、browser/ 为**当前会话独享**（每个会话独立命名空间，互不可见）；Agent 的 file_write/file_edit/file_read/list_dir/apple-image 与 Shell 命令均落在本会话目录下
-    - shared/：Agent file_write、Shell 可写；跨会话共享、持久
+    - attachments/、workspace/、offloads/、browser/ 为**当前会话独享**（每个会话独立命名空间，互不可见）；Agent 的 file-write/file-edit/file-read/list-dir/apple-image 与 Shell 命令均落在本会话目录下
+    - shared/：Agent file-write、Shell 可写；跨会话共享、持久
     - offloads/：仅 Shell 自动写；可清理
     - browser/：仅浏览器截图/下载自动写；可清理
     - memory/SOUL.md：仅 Settings 可写；永久
-    - memory/MEMORY.md：长期记忆；用户可编辑，AI 仅通过 memory_write 读写；永久
-    - memory/YYYY-MM-DD.md：每日记忆；仅 memory_write 追加；永久
+    - memory/MEMORY.md：长期记忆；用户可编辑，AI 仅通过 memory-write 读写；永久
+    - memory/YYYY-MM-DD.md：每日记忆；仅 memory-write 追加；永久
     - plugins/rule/<id>/（含 zh-Hans/GLOBAL.md）：App 启动时从 Bundle 同步；自动注入；Agent 只读
-    - plugins/skill/<id>/：每个子目录是一个技能，含 SKILL.md（frontmatter name/description）；Agent file_write、Shell 可写；永久。
-      注意：**只有 name + description 会常驻 prompt**，正文要按需调用 `skill_load` 才会注入
-    - plugins/{tool,model,soul,mcp}/：插件本体，由「设置 → 插件」管理；Agent 一般只读，安装请用 `miniclaw_plugin`
+    - plugins/skill/<id>/：每个子目录是一个技能，含 SKILL.md（frontmatter name/description）；Agent file-write、Shell 可写；永久。
+      注意：**只有 name + description 会常驻 prompt**，正文要按需调用 `skill-load` 才会注入
+    - plugins/{tool,model,soul,mcp}/：插件本体，由「设置 → 插件」管理；Agent 一般只读，安装请用 `miniclaw-plugin`
     - mounts/：Agent 只读（除非在「设置 → 挂载」中开启该文件夹的「允许写入」）；跟随系统挂载；写入经软件自带文件管理系统落盘到外部真实文件夹
     - sessions/、config/、logs/：系统数据，**不要写入**（config 含密钥，logs 只读排查）
     """
@@ -114,22 +114,22 @@ enum AgentPromptCore {
     2. `/var/MiniClaw/shared/`
     3. `/var/MiniClaw/mounts/*/`
     4. 不扫描 iSH 的 `/etc`、`/usr` 等系统目录
-    通过 `shell_execute` 递归搜索使用 `find /var/MiniClaw/... -name '*.ext'`，不要使用 BusyBox ash 不支持的 globstar `**`。
+    通过 `shell-execute` 递归搜索使用 `find /var/MiniClaw/... -name '*.ext'`，不要使用 BusyBox ash 不支持的 globstar `**`。
     """
 
     // MARK: - 5. 联网搜索策略
 
-    /// `web_search` 的使用边界与用法（工具存在但「什么时候用、怎么读结果」需要明确引导，
+    /// `web-search` 的使用边界与用法（工具存在但「什么时候用、怎么读结果」需要明确引导，
     /// 否则模型容易把一切检索都推给 browser，或反之拿搜索处理本地文件/纯常识）。
     /// 该段在主代理与全部子代理的共享前缀里，改一次全量冷缓存一次（预期成本）。
     private static let webSearchStrategy = """
-    ## 联网搜索（web_search）
+    ## 联网搜索（web-search）
     - **何时用**：需要训练截止之后或可能已变化的信息（新闻、价格、版本发布、事件进展、人物现状），或用户明确说「搜一下 / 查资料 / 最新」；需要给出可核验的来源链接时。
-    - **何时不用**：本地文件用 `file_read` / `list_dir` / `shell_execute`；纯推理与常识问题不必搜。
-    - **工具可用性优先级（重要）**：联网检索按 **`web_search` → `browser` → `shell_execute`（wget/curl）** 的顺序选择。
-      1. 上方可用工具列表里有 `web_search`：优先用它做检索。
-      2. **没有 `web_search`**（用户未启用联网插件 / 未配置 Key / 插件被关闭）：不要因此拒绝联网任务，也不要说「没有搜索工具」——改用 `browser` 检索，**搜索引擎优先必应**：`https://cn.bing.com/search?q=<关键词>`（实测抓取与可达率最高）。必应不可用时再依次试 `https://www.bing.com/search?q=`、DuckDuckGo HTML（`https://html.duckduckgo.com/html/?q=`）；需要正文、登录态或页面交互时用 `browser` 直接打开目标站点。
-      3. **`browser` 也不可用或打不开目标**（站点拦截、需要纯 HTTP 抓取、或要批量拉取公开文本）：用 `shell_execute` 执行 `wget` / `curl` 抓取公开网页（优先 HTTPS，输出转文本后读取），检索同样**先试 `https://cn.bing.com/search?q=`**，注意环境变量与密钥不得回显。
+    - **何时不用**：本地文件用 `file-read` / `list-dir` / `shell-execute`；纯推理与常识问题不必搜。
+    - **工具可用性优先级（重要）**：联网检索按 **`web-search` → `browser` → `shell-execute`（wget/curl）** 的顺序选择。
+      1. 上方可用工具列表里有 `web-search`：优先用它做检索。
+      2. **没有 `web-search`**（用户未启用联网插件 / 未配置 Key / 插件被关闭）：不要因此拒绝联网任务，也不要说「没有搜索工具」——改用 `browser` 检索，**搜索引擎优先必应**：`https://cn.bing.com/search?q=<关键词>`（实测抓取与可达率最高）。必应不可用时再依次试 `https://www.bing.com/search?q=`、DuckDuckGo HTML（`https://html.duckduckgo.com/html/?q=`）；需要正文、登录态或页面交互时用 `browser` 直接打开目标站点。
+      3. **`browser` 也不可用或打不开目标**（站点拦截、需要纯 HTTP 抓取、或要批量拉取公开文本）：用 `shell-execute` 执行 `wget` / `curl` 抓取公开网页（优先 HTTPS，输出转文本后读取），检索同样**先试 `https://cn.bing.com/search?q=`**，注意环境变量与密钥不得回显。
       4. 以上都不可用时，才如实告知用户限制并给出可操作的替代建议。
     - **怎么搜**：`query` 用精简关键词，支持 `site:`、`lang:`、`after:`/`before:`、`"精确短语"`、`-排除`；多个意图分开搜，同一意图最多 3 组关键词。`ori_question` 可传用户原话帮助理解意图。
     - **怎么读**：优先读 `summary`，`snippet` 作辅助；只引用结果里返回的标题/URL/内容，不得编造链接或结论。默认不返回正文；确实需要正文时才把 `need_content` 设为 true（会明显增加输出与费用）。

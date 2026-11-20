@@ -253,7 +253,7 @@ final class SkillManager {
     // MARK: - 注入（供 system prompt 使用）
 
     /// 返回所有「已启用」技能的 name + description（frontmatter 元数据）拼接文本。
-    /// 仅用于触发判定，正文按需由 `skill_load` 工具懒加载，避免每轮全量注入全部技能正文撑爆上下文。
+    /// 仅用于触发判定，正文按需由 `skill-load` 工具懒加载，避免每轮全量注入全部技能正文撑爆上下文。
     /// 线程治理（2026-08-09）：每轮 prompt 构建的主线程读盘移后台（detached 纯读盘，
     /// 不捕获 self；enabled 状态主线程快照为值拷贝传入）。
     func enabledSkillMetadata() async -> String {
@@ -276,11 +276,11 @@ final class SkillManager {
     }
 
     /// 懒加载缓存：技能正文按 name 缓存（正文为不可变内容，跨会话复用安全），
-    /// 由 `skill_load` 工具命中，避免重复读盘与每轮全量注入。
+    /// 由 `skill-load` 工具命中，避免重复读盘与每轮全量注入。
     private var skillBodyCache: [String: String] = [:]
 
     /// 懒加载指定技能的完整 SKILL.md 正文（含 frontmatter）。
-    /// 命中缓存直接返回；未命中则后台读盘、回主线程写缓存。供 `skill_load` 工具按需注入。
+    /// 命中缓存直接返回；未命中则后台读盘、回主线程写缓存。供 `skill-load` 工具按需注入。
     /// 线程治理（2026-08-09）：未命中路径不再主线程同步读盘。
     func loadSkillBody(named name: String) async -> String? {
         if let cached = skillBodyCache[name] {
@@ -293,7 +293,7 @@ final class SkillManager {
 
     // MARK: - 渐进式加载：本会话已加载技能（强注入-cache-safe 变体）
 
-    /// 每个会话已通过 `skill_load` 加载的技能名集合（内存态，App 生命周期内有效；重启后清空，模型可重新 skill_load）。
+    /// 每个会话已通过 `skill-load` 加载的技能名集合（内存态，App 生命周期内有效；重启后清空，模型可重新 skill-load）。
     /// 由 `SkillLoadTool` 写入，由 `AgentLoopEngine` 在拼 system 易变段时读取，
     /// 把已加载技能正文注入「缓存断点之后」的易变段——不污染缓存前缀，命中率零影响。
     private var loadedSkillNamesBySession: [UUID: Set<String>] = [:]
