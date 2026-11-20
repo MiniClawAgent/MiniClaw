@@ -36,6 +36,9 @@ extension MessageCollectionView.Coordinator {
                             // This is the key symptom line:
                             AppLogger.shared.warning("[SnapQueue] ⚠️ STREAM-END left pending (still suspendedFlag) — content in DB, UI frozen until suspend-resume (or next openSession clears it)", category: "ChatList.SnapQueue")
                         }
+                        // [2026-11-20] 无论挂起与否，终态都要把最后一条的高度按**最终内容**重测一次，
+                        // 否则末行永远停在流式早期的矮高度（真机：cellH=1143 / textNeed=1210）。
+                        self.remeasureLastAssistantBlocks(reason: "stream-end")
                         return
                     }
                     self.flushStreamingLayout()
@@ -91,6 +94,28 @@ extension MessageCollectionView.Coordinator {
             pendingStreamingLayout?.cancel()
             pendingStreamingLayout = nil
             doFlushStreamingLayout()
+        }
+
+        /// 流结束后**强制重测**最后一条 AI 回复的所有块。
+        ///
+        /// [2026-11-20 文字被截断] 真机日志：流式期间 cell 一路欠高
+        /// （`UNDER-HEIGHT cellH=1143 textNeed=1210`），流结束那刻 `STREAM-END` 因
+        /// `suspendedFlag=true` 不 flush，随后 settle 只补了快照、**没有重测高度**，
+        /// 于是最后几个字的行高永远停在流式早期的值 ⇒ 末行被裁，只能重进会话才恢复。
+        func remeasureLastAssistantBlocks(reason: String) {
+            guard let vm, let layout = viewController?.messageListLayout,
+                  let cv = viewController?.collectionView,
+                  let lastAI = vm.messages.last(where: { $0.role == .assistant }) else { return }
+            var idxs: [Int] = []
+            for b in lastAI.blocks {
+                if let i = itemToIndex[.assistantBlock(lastAI.id, b.id)] { idxs.append(i) }
+            }
+            guard !idxs.isEmpty else { return }
+            for i in idxs { layout.invalidateHeight(at: i, memo: .withMemo) }
+            seedHeights(.indices(idxs), rows: prevSnapshotIds, messages: vm.messages, width: cv.bounds.width)
+            layout.invalidateLayout()
+            AppLogger.shared.info("[Heights] stream-end remeasure rows=\(idxs.count) reason=\(reason)", category: "ChatList.Heights")
+            applySnapshot(messages: vm.messages, caller: "remeasure(\(reason))")
         }
 
         func doFlushStreamingLayout() {
