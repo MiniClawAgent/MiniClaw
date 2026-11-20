@@ -15,33 +15,68 @@ enum ChatInlineToolBadges {
 
 /// 叠在思考指示器后面的工具圆点：最多 3 个，其余折成 +N；点任意一点打开工具详情卡片。
 struct ToolBadgeCluster: View {
+    enum Mode {
+        /// 思考折叠时：工具平铺成一排，每个圆点代表一个工具。
+        case flat
+        /// 思考展开时：只留一个球，点开看本段全部工具。
+        case single
+    }
+
     let blocks: [AssistantBlock]
+    let mode: Mode
     @Binding var detailBlock: AssistantBlock?
 
     /// 与思考胶囊同高（胶囊 = 13pt 字 + 上下各 10 内边距 ≈ 36）。
     private let diameter: CGFloat = 36
+    /// 平铺时最多展示的个数，超出折成 +N（避免一行排到屏幕外）。
+    private let flatLimit = 6
 
-    private var shown: [AssistantBlock] { Array(blocks.prefix(3)) }
+    private var shown: [AssistantBlock] {
+        mode == .single ? Array(blocks.prefix(1)) : Array(blocks.prefix(flatLimit))
+    }
 
     var body: some View {
-        HStack(spacing: -10) {
-            ForEach(shown) { b in
-                badge(b)
-            }
-            if blocks.count > 3 {
-                Text("+\(blocks.count - 3)")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(.secondary)
-                    .padding(.leading, 14)
+        HStack(spacing: 6) {
+            if mode == .single {
+                singleBall
+            } else {
+                ForEach(shown) { b in
+                    badge(b, opens: b)
+                }
+                if blocks.count > flatLimit {
+                    Text("+\(blocks.count - flatLimit)")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                }
             }
         }
-        .contentShape(Rectangle())
-        .onTapGesture { detailBlock = blocks.last }
         .accessibilityLabel(Text("\(blocks.count) 个工具"))
     }
 
+    /// 展开态的唯一球：图标取"多工具"语义，点开定位到第一个工具，可左右翻。
+    private var singleBall: some View {
+        Circle()
+            .fill(Color(uiColor: .secondarySystemBackground))
+            .frame(width: diameter, height: diameter)
+            .overlay(
+                Image(systemName: "square.stack.3d.up.fill")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(Color.secondary)
+            )
+            .overlay(Circle().strokeBorder(Color.secondary.opacity(0.35), lineWidth: 1))
+            .overlay(alignment: .topTrailing) {
+                if blocks.contains(where: Self.isLive) {
+                    Circle().fill(Color.accentColor)
+                        .frame(width: 8, height: 8)
+                        .offset(x: 1, y: -1)
+                }
+            }
+            .contentShape(Circle())
+            .onTapGesture { detailBlock = blocks.first }
+    }
+
     @ViewBuilder
-    private func badge(_ b: AssistantBlock) -> some View {
+    private func badge(_ b: AssistantBlock, opens: AssistantBlock) -> some View {
         let tint = color(for: b)
         let isLive = Self.isLive(b)
         Circle()
@@ -60,6 +95,15 @@ struct ToolBadgeCluster: View {
                         .offset(x: 1, y: -1)
                 }
             }
+            .contentShape(Circle())
+            .onTapGesture { detailBlock = opens }
+    }
+
+    private static func isLive(_ b: AssistantBlock) -> Bool {
+        switch b.toolStatus {
+        case .running, .streaming: return true
+        default: return false
+        }
     }
 
     /// 沿用各工具原本的图标（与 `ToolCapsuleView` 的 icon 参数同源）。
@@ -75,13 +119,6 @@ struct ToolBadgeCluster: View {
         case .subagentTool: return "person.2.fill"
         case .memoryTool: return "brain.head.profile"
         default: return "wrench.and.screwdriver"
-        }
-    }
-
-    private static func isLive(_ b: AssistantBlock) -> Bool {
-        switch b.toolStatus {
-        case .running, .streaming: return true
-        default: return false
         }
     }
 
@@ -698,7 +735,9 @@ struct AssistantBlockView: View {
                     isStreaming: isActiveMessage && message.blocks.last?.id == block.id
                 )
                 if ChatInlineToolBadges.isEnabled, !toolBlocks.isEmpty {
-                    ToolBadgeCluster(blocks: toolBlocks, detailBlock: $detailBlock)
+                    ToolBadgeCluster(blocks: toolBlocks,
+                                     mode: block.isThinkingExpanded ? .single : .flat,
+                                     detailBlock: $detailBlock)
                 }
                 Spacer(minLength: 0)
             }

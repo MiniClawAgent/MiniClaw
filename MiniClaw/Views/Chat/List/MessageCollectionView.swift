@@ -24,7 +24,7 @@ private struct BridgedAssistantHeader: View {
                let detail = detailBlock {
                 let toolBlocks = message.blocks.filter { $0.toolStatus != nil }
                 if !toolBlocks.isEmpty {
-                    ToolBadgeCluster(blocks: toolBlocks, detailBlock: detail)
+                    ToolBadgeCluster(blocks: toolBlocks, mode: .flat, detailBlock: detail)
                         .padding(.leading, 2)
                 }
             }
