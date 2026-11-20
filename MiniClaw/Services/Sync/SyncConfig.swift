@@ -2,7 +2,9 @@ import Foundation
 
 /// 同步配置常量。对齐 SyncV2Bootstrap。
 enum SyncConstants {
-    /// CloudKit Container ID（对齐 Apple Developer Portal 注册的 container）
+    /// CloudKit Container ID（对齐 Apple Developer Portal 注册的 container）。
+    /// ⚠️ 开源后请替换成**你自己的** container（`iCloud.com.<你的TeamID>.MiniClaw`），
+    /// 否则 iCloud 同步会因无权访问而失败；不需要同步可忽略。
     static let cloudKitContainerID = "iCloud.com.LZ84D5PQ38.MiniClaw"
 
     /// CloudKit Shared Zone 名称（所有同步数据共享一个 zone，对齐 ）

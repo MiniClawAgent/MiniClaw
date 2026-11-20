@@ -11,7 +11,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 METHOD="${1:-development}"
-TEAM="${DEVELOPMENT_TEAM:-LZ84D5PQ38}"
+TEAM="${DEVELOPMENT_TEAM:?请先设置 DEVELOPMENT_TEAM 环境变量（你的 Apple 开发者团队 ID）}"
 # 派生目录与纪律定案一致：固定复用 ~/.miniclaw-build（增量构建，产物不进工程树）。
 # 可用 MINICLAW_DERIVED_DATA 覆盖。
 DERIVED_DATA="${MINICLAW_DERIVED_DATA:-$HOME/.miniclaw-build}"

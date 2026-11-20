@@ -104,7 +104,7 @@ targets:
       # 分享收件箱核心：与 ShareExtension 双编（扩展不可链接主 App 代码）
       - path: Shared
       # BundledPlugins：**逐文件资源**而非整目录 folder reference——
-      # folder reference 在 Xcode 增量构建时不保证拷贝目录内新增文件（唐唐实测：
+      # folder reference 在 Xcode 增量构建时不保证拷贝目录内新增文件（TopFlow实测：
       # 新增内置包在插件列表消失）。新增/移除内置 .mpk 时必须同步增删下列条目。
       - path: MiniClaw/Resources/BundledPlugins/com.miniclaw.builtin.skill.plugin-creator.mpk
         buildPhase: resources
@@ -116,7 +116,7 @@ targets:
         buildPhase: resources
       - path: MiniClaw/Resources/BundledPlugins/com.miniclaw.builtin.apigateway.mpk
         buildPhase: resources
-      # 2026-09-01 唐唐拍板：模型能力数据完全交给用户自制的 model 插件包承载，
+      # 2026-09-01 TopFlow拍板：模型能力数据完全交给用户自制的 model 插件包承载，
       # 内置厂商预设包（openai/openrouter/anthropic/gemini/grok/qwen/xiaomi/zhipu/deepseek）
       # 已全部移除，不再为厂商模型数据兜底；apigateway 仅保留协议网关模板（无厂商数据）。
       # 拉取的模型 ID 匹配用户插件 providers.json 的 models 声明，未匹配即无能力信息。
