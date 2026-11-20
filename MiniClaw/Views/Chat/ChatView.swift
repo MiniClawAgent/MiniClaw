@@ -885,6 +885,14 @@ struct ChatView: View {
                 thinkingLevels: availableThinkingLevels,
                 focused: $isInputFocused
             )
+            // [2026-11-20] 输入框外下方：AI 生成内容提示（合规要求）。
+            Text(String(localized: "ai_generated_disclaimer"))
+                .font(.system(size: 10))
+                .foregroundStyle(.tertiary)
+                .frame(maxWidth: .infinity, alignment: .center)
+                .padding(.top, 2)
+                .padding(.bottom, 4)
+                .allowsHitTesting(false)
             // zIndex：斜杠菜单覆盖层从输入栏向上溢出（覆盖消息与浮动条），
             // 重叠区兄弟绘制顺序未定义 → 显式抬高输入栏层级，保证菜单压住头像条。
             .zIndex(1)
