@@ -175,13 +175,25 @@ struct DeveloperOptionsView: View {
             }
 
             Section {
+                if dumpFiles.isEmpty {
+                    Text("还没有转储。开启上面的开关后，发一条消息就会生成。")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
                 ForEach(dumpFiles, id: \.name) { f in
-                    HStack {
-                        Text(f.name).font(.system(size: 12, design: .monospaced))
-                        Spacer()
-                        Text(ByteCountFormatter.string(fromByteCount: Int64(f.size), countStyle: .file))
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
+                    NavigationLink {
+                        PromptDumpDetailView(fileName: f.name)
+                    } label: {
+                        HStack {
+                            Text(f.name).font(.system(size: 12, design: .monospaced))
+                            Spacer()
+                            Text(ByteCountFormatter.string(fromByteCount: Int64(f.size), countStyle: .file))
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundStyle(.tertiary)
+                        }
                     }
                 }
                 Button(role: .destructive) {
@@ -262,5 +274,38 @@ enum PromptDumpStore {
                 try? fm.removeItem(at: directory.appendingPathComponent(old.name))
             }
         }
+    }
+}
+
+// MARK: - 提示词转储详情
+
+/// 查看单份提示词转储：等宽字体、可滚动、可选中复制。
+struct PromptDumpDetailView: View {
+    let fileName: String
+    @State private var text: String = ""
+
+    var body: some View {
+        ScrollView {
+            Text(text.isEmpty ? "（空文件）" : text)
+                .font(.system(size: 11, design: .monospaced))
+                .textSelection(.enabled)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(14)
+        }
+        .navigationTitle(fileName)
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                ShareLink(item: text) {
+                    Image(systemName: "square.and.arrow.up")
+                }
+            }
+        }
+        .onAppear(perform: load)
+    }
+
+    private func load() {
+        let url = PromptDumpStore.directory.appendingPathComponent(fileName)
+        text = (try? String(contentsOf: url, encoding: .utf8)) ?? ""
     }
 }
