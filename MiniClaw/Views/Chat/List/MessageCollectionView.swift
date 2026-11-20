@@ -959,10 +959,19 @@ extension MessageCollectionView {
                     let was = self.lastSuspendedValue
                     self.lastSuspendedValue = now
                     guard was,!now else { return }
-                    // Flush REGARDLESS
-                    guard self.pendingSnapshotFlag else { return }
-                    AppLogger.shared.info("[SnapQueue] suspend-resume flush applied (pendingSnapshotFlag=true, isProcessing=\(vm.isProcessing))", category: "ChatList.SnapQueue")
-                    self.flushPendingSnapshotIfNeeded(caller: "suspend-resume")
+                    // [2026-11-20 15:17] 不能只认 pendingSnapshotFlag：
+                    // 挂起期间若**只有正文变长、块数没变**（典型：最后一大段文字流式写入），
+                    // bind4b 的块数订阅不触发、bind1 被挂起跳过 ⇒ 没人置这个标记，
+                    // 流结束时的救援与松手后的 flush 全部空跑 ⇒ UI 停在截断处，直到重进会话
+                    //（真机日志 15:10:19：pendingSnapshotFlag=false 而 suspendedFlag=true）。
+                    if self.pendingSnapshotFlag {
+                        AppLogger.shared.info("[SnapQueue] suspend-resume flush applied (pending, isProcessing=\(vm.isProcessing))", category: "ChatList.SnapQueue")
+                        self.flushPendingSnapshotIfNeeded(caller: "suspend-resume")
+                    } else if vm.isProcessing == false, let msgs = self.vm?.messages {
+                        // 流已结束但没有 pending：说明挂起窗口内漏掉的正是正文内容，补一次。
+                        AppLogger.shared.info("[SnapQueue] suspend-resume flush (post-stream, no pending flag) — 补正文", category: "ChatList.SnapQueue")
+                        self.applySnapshot(messages: msgs, caller: "suspend-resume(post-stream)")
+                    }
                 }
             suspendResumeSub?.store(in: &subscriptions)
 
@@ -980,10 +989,13 @@ extension MessageCollectionView {
             vm.onStreamingUIUpdatesResumed = { [weak self] in
                 guard let self else { return }
                 let work = {
-                    // Flush regardless
-                    guard self.pendingSnapshotFlag else { return }
-                    AppLogger.shared.info("[SnapQueue] suspend-resume flush (pendingSnapshotFlag=true, isProcessing=\(self.vm?.isProcessing == true))", category: "ChatList.SnapQueue")
-                    self.flushPendingSnapshotIfNeeded(caller: "suspend-resume")
+                    if self.pendingSnapshotFlag {
+                        AppLogger.shared.info("[SnapQueue] suspend-resume flush (pending, isProcessing=\(self.vm?.isProcessing == true))", category: "ChatList.SnapQueue")
+                        self.flushPendingSnapshotIfNeeded(caller: "suspend-resume")
+                    } else if self.vm?.isProcessing == false, let msgs = self.vm?.messages {
+                        AppLogger.shared.info("[SnapQueue] suspend-resume flush (post-stream, no pending flag) — 补正文", category: "ChatList.SnapQueue")
+                        self.applySnapshot(messages: msgs, caller: "suspend-resume(post-stream)")
+                    }
                 }
                 if Thread.isMainThread { work() } else { DispatchQueue.main.async(execute: work) }
             }
