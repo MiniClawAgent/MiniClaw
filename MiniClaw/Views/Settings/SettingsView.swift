@@ -188,9 +188,6 @@ struct SettingsView: View {
 
     private var footer: some View {
         VStack(spacing: 6) {
-            Text(versionString)
-                .font(.footnote)
-                .foregroundStyle(.tertiary)
             Text("湘ICP备2023018958号-16A")
                 .font(.caption2)
                 .foregroundStyle(.tertiary)

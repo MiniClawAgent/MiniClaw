@@ -405,6 +405,11 @@ struct ThinkingBlockView: View {
     @ObservedObject var block: AssistantBlock
     let isStreaming: Bool
 
+    /// 折叠 = 半圆矩形（圆角取高度一半）；展开 = 常规 12 圆角。
+    private var cornerShape: RoundedRectangle {
+        RoundedRectangle(cornerRadius: block.isThinkingExpanded ? 12 : 18, style: .continuous)
+    }
+
     private var expandedBinding: Binding<Bool> {
         Binding(
             get: { block.isThinkingExpanded },
@@ -512,11 +517,13 @@ struct ThinkingBlockView: View {
         // 2026-09-02 唐唐反馈：结束态 0.15 在浅背景上几乎不可见（思考中灰底→结束"背景消失"的断裂感）。
         // 2026-09-02 唐唐定稿：恒定不透明灰（与工具指示器底一致，思考中/结束不切换）；
         // 完成态仅由最外层边框变绿表达。
+        // [2026-11-20 唐唐] 折叠态改为「半圆矩形」：圆角 = 高度的一半（36/2 = 18），
+        // 两端是半圆；展开后正文需要正常段落排布，圆角回落 12。
         .background(Color(UIColor.systemGray6))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .clipShape(cornerShape)
         // 2026-09-02 唐唐定稿：思考中边框不变（蓝），完成后边框改绿。
         .overlay(
-            RoundedRectangle(cornerRadius: 12)
+            cornerShape
                 .stroke(isStreaming ? Color.blue.opacity(0.15) : Color.green, lineWidth: 0.5)
         )
         // [Stage 1 · §6.3.2 A9] 此处原有 `.task(id: block.id) { … }`，其闭包体内**只有注释**、
