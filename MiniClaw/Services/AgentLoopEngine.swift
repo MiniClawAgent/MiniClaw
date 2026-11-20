@@ -2167,7 +2167,7 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
             AppLogger.shared.error(String(format: String(localized: "loop_empty_fn_rejected"), tc.id), category: "Agent", subsystem: "ToolRouter")
             return ToolResult(success: false, text: String(localized: "err_tool_call_no_name"))
         }
-        // [ToolForensics] 取证（唐唐 2026-09-05，只进 Xcode 控制台不进 App 日志）：
+        // [ToolForensics] 取证（TopFlow 2026-09-05，只进 Xcode 控制台不进 App 日志）：
         // 覆盖 shell-execute 与两个子代理编排工具。
         if rawName == "shell-execute" || rawName == Self.subagentToolName || rawName == Self.closeSubagentToolName {
             NSLog("[ToolForensics] name=%@ callID=%@ rawArgs=%@", rawName, tc.id, tc.function.arguments)
@@ -2556,7 +2556,7 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
         } else {
             subID = UUID()
             // 会话页胶囊卡/详情页名称只保留任务名称，不带「子代理·」前缀
-            // （唐唐 2026-09-05 要求；结果文本由 loop_subagent_prefix 自带 [子代理 …] 标签）。
+            // （TopFlow 2026-09-05 要求；结果文本由 loop_subagent_prefix 自带 [子代理 …] 标签）。
             subName = (spec.focus?.isEmpty == false) ? spec.focus! : String(localized: "subagents")
             baseFocus = spec.focus
             baseHistory = []

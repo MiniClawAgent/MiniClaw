@@ -300,7 +300,7 @@ extension AgentRunService {
             let after = String(t[range.upperBound...]).trimmingCharacters(in: .whitespaces)
             if !after.isEmpty, after.count < t.count { t = after }
         }
-        // [2026-09-14 唐唐指定：提示词 8→10 字，硬兜底 8→12 字]
+        // [2026-09-14 TopFlow指定：提示词 8→10 字，硬兜底 8→12 字]
         // 两者的**刻意差值**：prompt 要 10 字，硬上限给到 12 字 —— 模型偶尔多写一两个字时
         // 不必立刻砍（砍在词中间会读不通），只有明显越界才截断。这是"模型不守 prompt 字数
         // 约束时的最终兜底"。

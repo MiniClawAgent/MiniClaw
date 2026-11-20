@@ -70,7 +70,7 @@ struct BrowserTool: AgentTool {
         let tabIDRaw = parameters["tab_id"]
         let tabID: String? = (tabIDRaw as? String) ?? (tabIDRaw as? Int).map(String.init)
 
-        // [2026-09-14 唐唐 · 遵守度观测探针] **只读、不参与任何决策**，用来验证快照里那条
+        // [2026-09-14 TopFlow · 遵守度观测探针] **只读、不参与任何决策**，用来验证快照里那条
         // 「工具选择决策优先级」规则到底有没有被遵守。判据：navigate/fetch 选中的主机
         // 是否落在快照的「可用」列表里（`isSearchEngine=1` 且 host 是 google ⇒ 未遵守的典型）。
         // 按 §11：不影响功能的诊断探针直接加，不单独征求许可。
@@ -248,11 +248,11 @@ struct BrowserTool: AgentTool {
 
     /// 按统一策略 `SearchEnginePolicy`（用户偏好 > 地区先验 > 可达性事实）解析搜索 URL。
     ///
-    /// [2026-09-14 唐唐] 原为**硬编码百度**（`https://www.baidu.com/s?wd=…`），
+    /// [2026-09-14 TopFlow] 原为**硬编码百度**（`https://www.baidu.com/s?wd=…`），
     /// 完全忽略用户在「浏览器设置 → 搜索引擎」里的选择 ⇒ 智能体与地址栏各说各话。
     /// 现与地址栏搜索**共用同一套策略**：用户显式选定优先；「自动」/未设置时按
     /// 地区先验 + 代理信号解析。**注意 `google` 永远留在候选表内**（策略只排序、不过滤），
-    /// 因为用户完全可能挂代理让 Google 可用（唐唐明确：不能一刀切不让访问）。
+    /// 因为用户完全可能挂代理让 Google 可用（TopFlow明确：不能一刀切不让访问）。
     private func makeSearchURL(query: String, engineSetting: String?) -> String? {
         SearchEnginePolicy
             .preferred(rawSetting: engineSetting)

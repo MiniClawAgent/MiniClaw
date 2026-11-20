@@ -689,7 +689,7 @@ extension MessageCollectionView {
                     guard let self else { return }
                     if let block {
                         let toolBlocks = message.blocks.filter { $0.toolStatus != nil }
-                        // 2026-09-01 唐唐拍板：工具卡片浮层改为独立 UIWindow 呈现层
+                        // 2026-09-01 TopFlow拍板：工具卡片浮层改为独立 UIWindow 呈现层
                         //（ToolCardWindowPresenter），**不再触碰会话页的宿主视图**——
                         // 原全屏 sheet 与 0×0 锚点宿主两条路都会影响消息列表布局/滑动。
                         ToolCardWindowPresenter.shared.present(

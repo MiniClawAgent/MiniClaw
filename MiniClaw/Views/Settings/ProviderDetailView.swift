@@ -531,7 +531,7 @@ struct ProviderDetailView: View {
                 else if let m = json["error"] as? String { serverMsg = m }
                 else if let m = json["message"] as? String { serverMsg = m }
             }
-            // 2026-09-01 唐唐拍板：不再回退内置模型目录（已删除）。
+            // 2026-09-01 TopFlow拍板：不再回退内置模型目录（已删除）。
             // 「Anthropic 兼容」代理普遍只代理 /v1/messages 而未实现 /v1/models，
             // 此处拉取失败属预期——用户可改用下方「添加自定义模型」手填模型 ID。
             let msg = String(format: String(localized: "failed_to_fetch_models_http_1_2"), String(status), serverMsg.isEmpty ? "" : "： \(serverMsg)")

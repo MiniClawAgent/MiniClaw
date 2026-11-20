@@ -2,7 +2,7 @@ import SwiftUI
 
 // MARK: - 工具卡片浮层（方案 B：会话页内嵌卡片，替代全屏 sheet）
 //
-// 唐唐 2026-09-01 拍板的呈现形态：
+// TopFlow 2026-09-01 拍板的呈现形态：
 // - 卡片高度 = 屏高 60%，**不透明实体卡**（实色底 + 圆角 + 投影），位置固定不随消息滚动
 // - **左右滑动**切换上/下一个工具指示器卡片：TabView(.page) 分页，两侧露出相邻卡片
 // 边缘（peek），一眼可见可滑动；底部圆点分页指示
@@ -46,7 +46,7 @@ struct ToolCardOverlay: View {
                 VStack(spacing: 14) {
                     TabView(selection: $pageIdx) {
                         ForEach(toolBlocks.indices, id: \.self) { i in
-                            // 2026-09-01 唐唐拍板：每个工具快照 = **独立卡片**——
+                            // 2026-09-01 TopFlow拍板：每个工具快照 = **独立卡片**——
                             // 卡宽 < 页宽（页内左右 24 边距），页间自然形成卡间隔；
                             // 圆角/描边/投影/底色挂在**卡片级**（不是 TabView 级），
                             // 滑动即「一张卡片切换到另一张卡片」，而非连体内容。
@@ -73,20 +73,20 @@ struct ToolCardOverlay: View {
                             }
                             .frame(height: cardHeight)
                             // 背景必须在 clipShape 之前：先画底色再裁圆角——
-                            // 顺序反了会让直角背景从圆角外露出（唐唐真机截图）。
+                            // 顺序反了会让直角背景从圆角外露出（TopFlow真机截图）。
                             .background(Color(UIColor.systemGray5))
                             .clipShape(RoundedRectangle(cornerRadius: 20))
                             .overlay(
                                 RoundedRectangle(cornerRadius: 20)
                                     .stroke(Color(.separator).opacity(0.8), lineWidth: 1)
                             )
-                            // 唐唐 2026-09-02：加居中环绕型投影（y 偏移 0，与首页浮动
+                            // TopFlow 2026-09-02：加居中环绕型投影（y 偏移 0，与首页浮动
                             // 按钮同款风格）。半径 10 < 页间隔 24，只会形成柔和光晕、
                             // 不会像旧 28pt 向下投影那样在两卡缝隙里积成死黑带。
                             .shadow(color: .black.opacity(0.3), radius: 10, y: 0)
                             // TabView(.page) 的分页滚动视图会裁剪页内容——四周留空必须
                             // 足够让阴影**自然衰减到不可见**（高斯衰减在 1×radius 处仍有
-                            // ~13% 可见强度，等于半径就裁会切出硬边界，2026-09-02 唐唐
+                            // ~13% 可见强度，等于半径就裁会切出硬边界，2026-09-02 TopFlow
                             // 截图）。上下 24 与左右对齐，衰减在边界前已归零。
                             .padding(.vertical, 24)
                             .padding(.horizontal, 24)
@@ -122,7 +122,7 @@ struct ToolCardOverlay: View {
     // MARK: - 分页指示
 
     private var pageDots: some View {
-        // 工具执行过多时圆点会满行溢出（2026-09-07 唐唐反馈）——窗口化：
+        // 工具执行过多时圆点会满行溢出（2026-09-07 TopFlow反馈）——窗口化：
         // 只显示当前页附近的最多 9 枚，两端以省略号提示还有更多页。
         let n = toolBlocks.count
         let maxDots = 9

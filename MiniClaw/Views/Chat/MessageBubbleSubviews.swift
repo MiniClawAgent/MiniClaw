@@ -120,7 +120,7 @@ struct AssistantStatusRow: View {
             }
             .padding(.top, 2)
         } else if isStreaming {
-            // 2026-09-05 唐唐定稿：与主会话统一——黄色圆内绿色呼吸点 +「回复中」。
+            // 2026-09-05 TopFlow定稿：与主会话统一——黄色圆内绿色呼吸点 +「回复中」。
             HStack(spacing: 5) {
                 ZStack {
                     Circle()

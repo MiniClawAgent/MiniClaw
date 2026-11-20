@@ -24,7 +24,7 @@ struct MCPServerConfig: Identifiable, Codable, Hashable, Sendable {
     /// 来源插件（manifest.id）：由 mcp 配置包导入的 server 记录来源，
     /// 删除该插件时连带删除其导入的 server；手动添加的为 nil。
     var sourcePlugin: String? = nil
-    /// 认证需求（唐唐 2026-09-01：mcp 插件必须声明认证方式）：
+    /// 认证需求（TopFlow 2026-09-01：mcp 插件必须声明认证方式）：
     /// servers.json 条目的 auth 字段（"oauth"）导入时落到此标记；
     /// true 时列表显示「认证」按钮，走 MCP OAuth 2.1 授权流程。
     var requiresAuthorization: Bool? = false

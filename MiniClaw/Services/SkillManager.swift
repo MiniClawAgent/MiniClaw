@@ -62,7 +62,7 @@ final class SkillManager {
             let displayName = manifest.name.isEmpty ? fm.name : manifest.name
             guard !displayName.isEmpty else { continue }
             let isBuiltin = bundled.contains(dir.lastPathComponent)
-            // 产品规则（2026-08-27 唐唐）：**用户导入的插件默认关闭**，内置插件沿用清单声明；
+            // 产品规则（2026-08-27 TopFlow）：**用户导入的插件默认关闭**，内置插件沿用清单声明；
             // 用户手动开/关过的持久化状态始终优先于缺省值。
             let fallbackEnabled = isBuiltin ? manifest.enabledByDefault : false
             let isOn = enabled[displayName] ?? fallbackEnabled
@@ -116,7 +116,7 @@ final class SkillManager {
     }
 
     /// 设置插件启用状态并持久化。
-    /// **soul 互斥语义（唐唐 2026-08-28 确认）**：soul 插件是排他单选——启用某个 soul
+    /// **soul 互斥语义（TopFlow 2026-08-28 确认）**：soul 插件是排他单选——启用某个 soul
     /// 插件时，同类型其他 soul 插件立即停用，并应用该插件的人格（覆盖 memory/SOUL.md）。
     /// **来源切换与内置草稿**：内置生效时启用第三方 → 当前 SOUL.md 备份为内置草稿
     /// （SOUL.builtin.md）再应用第三方；启用内置 → 恢复草稿（无草稿用出厂模板）。
@@ -140,7 +140,7 @@ final class SkillManager {
                     // 内置判定走 Bundle manifest（目录名=插件 id），不做 name 字符串耦合。
                     soulIsBuiltin = builtinIds.contains(dir.lastPathComponent)
                 } else if !builtinIds.contains(dir.lastPathComponent) {
-                    // 排他仅停用其他第三方 soul。内置人格是恒可用底座（唐唐 2026-09-02：
+                    // 排他仅停用其他第三方 soul。内置人格是恒可用底座（TopFlow 2026-09-02：
                     // 默认人格开关已移除），不写 false——旧逻辑写 false 会残留
                     // 「未装第三方却显示默认人格已停用」的假象（soul 实际生效由
                     // activePlugin + SOUL.md 文件决定，states 不参与）。
@@ -177,7 +177,7 @@ final class SkillManager {
     }
 
     /// 清除内置人格的显式停用记录（回落缺省启用）——旧排他逻辑会把内置写成 false，
-    /// 残留「未装第三方人格却显示默认人格已停用」的假象（2026-09-02 唐唐报告）。
+    /// 残留「未装第三方人格却显示默认人格已停用」的假象（2026-09-02 TopFlow报告）。
     private func clearBuiltinSoulDisabledState() {
         let builtinIds = fs.bundledPluginIds()
         var states = SettingsStore.shared.settings.skillEnabledStates
@@ -584,7 +584,7 @@ final class SkillManager {
                     result.skipped.append(dirName)
                     continue
                 }
-                // 同 id 升级（唐唐 2026-09-01）：新包版本高于已安装 → 原地替换（启用状态/
+                // 同 id 升级（TopFlow 2026-09-01）：新包版本高于已安装 → 原地替换（启用状态/
                 // 供应商配置/密钥全保留——用户数据不在插件目录内）；版本相同 → 跳过；
                 // 更低 → 拒绝（降级需先删除插件再手动导入）。
                 let oldVer = Self.pluginVersion(from: dest.appendingPathComponent("plugin.json"))
@@ -642,7 +642,7 @@ final class SkillManager {
                     continue
                 }
                 result.imported.append(dirName)
-                // soul 类型：导入即默认应用（唐唐 2026-09-02：装了第三方人格就默认用它）——
+                // soul 类型：导入即默认应用（TopFlow 2026-09-02：装了第三方人格就默认用它）——
                 // 走 setEnabled 排他停用其他 soul，内置 SOUL.md 自动备份为草稿；
                 // 切回内置 = 灵魂设置页重置或删除该插件。
                 if parsed.type == "soul" {

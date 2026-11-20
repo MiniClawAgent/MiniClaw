@@ -42,7 +42,7 @@ struct AboutView: View {
         return "v\(version) (Build \(build))"
     }
 
-    /// 图标连点计数：满 10 次解锁开发者选项，且**不弹任何提示**（唐唐要求）。
+    /// 图标连点计数：满 10 次解锁开发者选项，且**不弹任何提示**（TopFlow要求）。
     private func handleIconTap() {
         guard !devOptionsEnabled else { return }
         iconTapCount += 1
@@ -53,7 +53,7 @@ struct AboutView: View {
     }
 
     /// 关于页顶部图标的边长与圆角。
-    /// **关键约定（2026-09-12 唐唐要求）**：图标一律从包内现读（`AppIconProvider`），
+    /// **关键约定（2026-09-12 TopFlow要求）**：图标一律从包内现读（`AppIconProvider`），
     /// 圆角**由我们自己裁** —— 包内图标是方形不透明图（圆角由系统在桌面侧裁），
     /// 不自己裁就是一张方图。两者刻意解耦：**以后换成任何新 App 图标，这里自动显示新图标，
     /// 且始终按同一 iOS 图标比例裁角**，无需改这里任何一行。
@@ -68,7 +68,7 @@ struct AboutView: View {
                 HStack {
                     Spacer()
                     VStack(spacing: 12) {
-                        // 顶部图标 = 真实 App 图标（2026-09-12 唐唐要求：读包内图标，
+                        // 顶部图标 = 真实 App 图标（2026-09-12 TopFlow要求：读包内图标，
                         // 以后换图标这里自动跟着变）。72pt ≈ iOS 图标圆角比例 0.2237。
                         if let icon = AppIconProvider.current {
                             Image(uiImage: icon)
@@ -76,7 +76,7 @@ struct AboutView: View {
                                 .scaledToFit()
                                 .frame(width: aboutIconSide, height: aboutIconSide)
                                 .clipShape(RoundedRectangle(cornerRadius: aboutIconRadius, style: .continuous))
-                                // 2026-09-15 唐唐要求：描边颜色**对齐聊天页工具指示器**
+                                // 2026-09-15 TopFlow要求：描边颜色**对齐聊天页工具指示器**
                                 // （`ChatColors.toolBorder` = separator@50%，见 AssistantBlockView）。
                                 // 粗细取 1pt —— 图标 72pt 是工具胶囊（36pt）的两倍，同值 0.5pt 观感只有一半。
                                 // 圆角矩形参数与上方 clipShape 完全相同，描边才与外轮廓严丝合缝。

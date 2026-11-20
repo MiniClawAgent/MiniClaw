@@ -239,7 +239,7 @@ struct HomeView: View {
             UnavailablePlaceholder(title: String(localized: "rootfs_management_unavailable"), message: String(localized: "the_current_build_does_not_include_the_ish_runtime"))
             #endif
         }
-        // [2026-11-20 唐唐] 设置页改为全屏呈现（不再用弹出式 sheet）。
+        // [2026-11-20 TopFlow] 设置页改为全屏呈现（不再用弹出式 sheet）。
         .fullScreenCover(isPresented: $appState.showSettings) {
             NavigationStack {
                 SettingsView()
@@ -590,7 +590,7 @@ struct HomeView: View {
                     .fontWeight(.semibold)
                     .foregroundStyle(foreground)
             }
-            // 唐唐 2026-09-02：阴影不做 y 轴偏移（下坠感别扭），居中环绕。
+            // TopFlow 2026-09-02：阴影不做 y 轴偏移（下坠感别扭），居中环绕。
             .shadow(color: shadow, radius: 8, y: 0)
     }
 
@@ -672,7 +672,7 @@ struct HomeView: View {
     // MARK: - Toolbar Views
 
     private var settingsButton: some View {
-        // 系统格式：label 仅放 SF Symbol，尺寸/点击区/着色由系统统一渲染（唐唐定稿）。
+        // 系统格式：label 仅放 SF Symbol，尺寸/点击区/着色由系统统一渲染（TopFlow定稿）。
         Button(action: { appState.showSettings = true }) {
             Image(systemName: "gearshape.fill")
         }
@@ -858,7 +858,7 @@ struct HomeView: View {
     }
 }
 
-/// 会话行卡片化（唐唐 2026-09-02：主题背景下通栏白条太生硬）。
+/// 会话行卡片化（TopFlow 2026-09-02：主题背景下通栏白条太生硬）。
 /// ⚠️ 修饰顺序铁律（2026-09-02 模拟器截图实测）：材质/描边**紧贴内容**，
 /// 透明边距在 background **之后**——顺序反了材质会铺满 padding 区，
 /// 相邻卡片直接贴合（第一版翻车根因）。参数已模拟器截图验证。
@@ -873,7 +873,7 @@ fileprivate extension View {
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
                     .stroke(Color.primary.opacity(0.08), lineWidth: 0.5)
             )
-            // 唐唐 2026-09-02 微调：左右 12→8，上下 6→4
+            // TopFlow 2026-09-02 微调：左右 12→8，上下 6→4
             // （相邻行间隙 12→8pt，紧凑但不贴连）。
             .padding(.horizontal, 8)
             .padding(.vertical, 4)

@@ -252,7 +252,7 @@ struct ToolCallCardView: View {
             }
         }
         .background(pillBackground)
-        // 2026-09-02 唐唐拍板：与主会话工具指示器统一——固定矩形圆角 12
+        // 2026-09-02 TopFlow拍板：与主会话工具指示器统一——固定矩形圆角 12
         // （主会话 AssistantBlockView 同款；原折叠态 Capsule 半圆废弃）。
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         .overlay(

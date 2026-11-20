@@ -49,7 +49,7 @@ struct ThemePackageDecl: Codable {
 }
 
 /// 背景主题包管理器：选用状态持久化 + 背景图加载（ImageIO downsampling + NSCache）。
-/// 语义（唐唐 2026-08-30 定稿）：
+/// 语义（TopFlow 2026-08-30 定稿）：
 /// - 插件提供背景预设，用户在外观页显式选用，排他生效（同一时刻一个主题）；
 /// - **未选用任何主题时返回 nil，三页保持系统默认背景**（默认视觉零变化）；
 /// - 包内零代码：仅图片 + 声明式 theme.json。
@@ -116,7 +116,7 @@ final class ThemeManager: ObservableObject, @unchecked Sendable {
 
     /// 主题在包内的图片完整路径。
     /// **fileName = 相对包根的路径**（如 "assets/bg.jpg"）——theme.json 声明即路径，
-    /// 管理器不再隐式拼接目录（唐唐真机日志实锤：曾双拼 assets/assets 导致解码失败）。
+    /// 管理器不再隐式拼接目录（TopFlow真机日志实锤：曾双拼 assets/assets 导致解码失败）。
     func imageURL(pluginID: String, fileName: String) -> URL {
         FileSystemManager.shared.pluginTypeDir("theme")
             .appendingPathComponent(pluginID)

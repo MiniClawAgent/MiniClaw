@@ -110,7 +110,7 @@ private final class HomeKitHub: NSObject, HMHomeManagerDelegate {
     }
 
     /// 授权状态变化同样是"已就绪"的定论。
-    /// **实测纠正（2026-09-18，唐唐报告）**：上文原注释称「未授予 HomeKit 权限时 `didUpdateHomes`
+    /// **实测纠正（2026-09-18，TopFlow报告）**：上文原注释称「未授予 HomeKit 权限时 `didUpdateHomes`
     /// 同样会触发（只是 homes 为空）」——**不成立**。用户点「不允许」时该回调可能永不触发，
     /// 仅靠它会让所有等待者**永久挂起**（界面表现为一直转圈）。故这里一并唤醒。
     nonisolated func homeManager(_ manager: HMHomeManager,

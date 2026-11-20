@@ -361,7 +361,7 @@ final class PermissionManager: @unchecked Sendable {
         let completed = await HealthKitAuthGate.shared.request(read: AppleHealthKitTool.readableTypes, share: [])
         // ⚠️ **不能把 `completed` 当成"已授权"**：它只表示授权流程正常结束，
         // 用户点「不允许」时同样是 true。旧代码 `completed ? .authorized : .denied` 正是
-        // 「明明拒绝、却显示已授权」的根因（唐唐 2026-09-18 报告）。
+        // 「明明拒绝、却显示已授权」的根因（TopFlow 2026-09-18 报告）。
         //
         // 而 HealthKit 的**读授权在 iOS 上不可探测**：系统对只读类型 `authorizationStatus(for:)`
         // 恒返回 `.sharingDenied`，以防"用授权状态反推用户健康状况"的侧信道。

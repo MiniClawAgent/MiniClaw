@@ -674,7 +674,7 @@ struct ChatView: View {
                 // 「更新动画」（首次进入时的反复淡入即由此累积而成）。详见 onAppear 说明。
                 .transaction { $0.animation = nil }
         }
-        // [2026-09-11 唐唐拍板] 右上角**完全照首页同款做法**（HomeView.swift:205）：
+        // [2026-09-11 TopFlow拍板] 右上角**完全照首页同款做法**（HomeView.swift:205）：
         // 单个系统 ToolbarItem(.topBarTrailing) + Menu，label 仅放 `Image(systemName:)`，
         // 无自绘底 / 无 frame / 无 fixedSize / 无 sharedBackgroundVisibility——
         // 玻璃底、尺寸、位置全交系统原生渲染（首页一直如此且从未错位/变色）。
@@ -740,7 +740,7 @@ struct ChatView: View {
                 .minimumScaleFactor(0.7)
                 .onTapGesture { showModelManagement = true }
         }
-        // [2026-09-12 唐唐拍板改回居中] 去掉 09-11 的「定宽 260pt + leading」——那套的
+        // [2026-09-12 TopFlow拍板改回居中] 去掉 09-11 的「定宽 260pt + leading」——那套的
         // 目的是让标题靠左以避开超宽挪位，但视觉上标题就不在中间了。
         // 现恢复原样：**不加任何宽度约束**，交给系统把 principal 居中
         //（09-11 记录过：柔性 .frame(maxWidth:) 会被 UIKit titleView 撑满可用区导致左锚定，
@@ -760,7 +760,7 @@ struct ChatView: View {
                 return localizedDefault(session.title)
             }
             let trimmed = first.trimmingCharacters(in: .whitespacesAndNewlines)
-            // [2026-09-12 唐唐拍板改回] 只对**占位标题**截断：正文取原样，超过 8 字才补省略号。
+            // [2026-09-12 TopFlow拍板改回] 只对**占位标题**截断：正文取原样，超过 8 字才补省略号。
             // 09-11 曾把「占位标题」与「正式标题」两分支统一收口到 8 字，副作用是
             // AI 自动命名 / 用户手动改名的正式标题也被砍到 8 字——本条撤销该副作用，
             // 正式标题回到完整显示（与更早的实现一致）。
@@ -1483,7 +1483,7 @@ struct ChatView: View {
         return window.bounds
     }
 
-    /// 输入框上方悬浮的子代理胶囊卡（唐唐 2026-09-05 定稿）：
+    /// 输入框上方悬浮的子代理胶囊卡（TopFlow 2026-09-05 定稿）：
     /// 每个子代理一张胶囊卡（紫色首字母圆头像 + 名称），背景与排队消息一致（ultraThinMaterial 实心圆角框），
     /// 高度对齐排队消息行；长度随子代理数量自然增长（超出宽度横向滚动）。
     /// 状态边框对齐工具指示器：已完成=绿色、出错=红色、已取消=灰色、运行中=无边框。
@@ -1500,7 +1500,7 @@ struct ChatView: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 6)
         }
-        // 长按关闭二次确认（唐唐 2026-09-05 要求）：确认才走统一关闭路径。
+        // 长按关闭二次确认（TopFlow 2026-09-05 要求）：确认才走统一关闭路径。
         .confirmationDialog(
             String(localized: "subagent_close_confirm_title"),
             isPresented: Binding(
@@ -1538,7 +1538,7 @@ struct ChatView: View {
     }
 
     /// 单张子代理胶囊卡。
-    /// 样式（唐唐 2026-09-12 定稿）：**背景恒为卡片常规实底**（去掉完成态的绿底，
+    /// 样式（TopFlow 2026-09-12 定稿）：**背景恒为卡片常规实底**（去掉完成态的绿底，
     /// 底色与排队消息卡同系）；**状态一律用「思考指示器同款 0.5pt 描边圈」表达**——
     /// 已完成=绿、出错/已中断=红、已取消=灰、运行中=无圈。
     /// 高度对齐思考指示器（`ReasoningBlockView`：内容高 + 上下各 10 ≈ 36pt）：本卡
@@ -1563,7 +1563,7 @@ struct ChatView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
-        // 实底背景（唐唐 2026-09-05 定稿，pill 卡做法）：
+        // 实底背景（TopFlow 2026-09-05 定稿，pill 卡做法）：
         // 不用 ultraThinMaterial 实时模糊——悬浮条 3 层 blur 在列表滚动时每帧重采样，
         // 是「回到会话页翻历史整页抖动」的根因。底色恒为常规实底，不再随状态变绿。
         .background(Color(UIColor.systemGray6))

@@ -252,7 +252,7 @@ extension MessageCollectionView.Coordinator {
                     for block in sortedBlocks {
                         newRows.append(.assistantBlock(message.id,block.id))
                     }
-                    // 2026-09-05 唐唐要求：**每一条** AI 回复都持久显示状态行（已完成/已停止/
+                    // 2026-09-05 TopFlow要求：**每一条** AI 回复都持久显示状态行（已完成/已停止/
                     // 已中断 + 耗时），不再只显示最后一条。
                     // [Stage 1 · §6.3.1 A19] 原判据是六路析取
                     // `isLastAssistant || role == .assistant || error != nil
@@ -339,7 +339,7 @@ extension MessageCollectionView.Coordinator {
             //
             snapshotMessages = messages
 
-            // [2026-09-11 唐唐补充] 最终回复（loop 末轮）**后面不接任何指示器**，
+            // [2026-09-11 TopFlow补充] 最终回复（loop 末轮）**后面不接任何指示器**，
             // 借不到「指示器出现」的节律 → 改在「整轮结束」（isProcessing 由 true→
             // false）时对最后一个文本块失效重测，避免最终回复少字/少行。
             // 必须放在早退之前：终态那次 item 身份集合通常不变（footer 还是同一个
@@ -362,7 +362,7 @@ extension MessageCollectionView.Coordinator {
             // （理由见段 0 注释：先迁移读到的是旧键，后迁移读到的是被播种改写过的键）。
             // 此处只保留 `snapshotLayout` 供下方 apply 前后的 offset 补偿使用。
 
-            // [2026-09-11 唐唐思路] loop 结构决定「回复之后必接思考/工具指示器」——
+            // [2026-09-11 TopFlow思路] loop 结构决定「回复之后必接思考/工具指示器」——
             // 指示器出现的那一刻 = 上一段文本块已定型（后面不可能再长字）。
             // 利用这个天然节律：在 dataSource.apply **之前**先把上一段文本块的索引高度
             // 作废并重测，让补齐发生在「新指示器渲染之前」——视觉顺序变成

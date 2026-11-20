@@ -3,8 +3,8 @@ import SwiftUI
 // MARK: - Appearance Settings
 
 /// 外观设置：仅保留背景主题（theme 插件选用）。外观模式与代码块主题已移除，
-/// 均默认跟随系统（唐唐 2026-09-05 决定）。
-/// 背景主题为双列封面卡片网格（唐唐 2026-09-05 定稿）：矩形封面 + 左下角主题名 +
+/// 均默认跟随系统（TopFlow 2026-09-05 决定）。
+/// 背景主题为双列封面卡片网格（TopFlow 2026-09-05 定稿）：矩形封面 + 左下角主题名 +
 /// 名字下方渐变阴影遮罩；选中态 = 一圈边框 + 右上角绿色勾。
 struct AppearanceSettingsView: View {
     /// 订阅主题管理器：选用/清除背景主题时刷新选中勾与主题列表。
@@ -20,7 +20,7 @@ struct AppearanceSettingsView: View {
         .navigationBarTitleDisplayMode(.inline)
     }
 
-    // MARK: - 背景主题（theme 插件，唐唐 2026-08-30 定稿 / 09-05 重做卡片网格）
+    // MARK: - 背景主题（theme 插件，TopFlow 2026-08-30 定稿 / 09-05 重做卡片网格）
 
     /// 「系统默认」恒为首张卡片：清除选用即回退。
     private var backgroundThemeSection: some View {

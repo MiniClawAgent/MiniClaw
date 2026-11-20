@@ -37,7 +37,7 @@ struct PermissionsSettingsView: View {
     var body: some View {
         Form {
             // 「控制」区：**只放二级入口**，所有开关都收进各自的二级页
-            // （2026-09-18 唐唐要求：控制项严格进二级菜单，不在本页散落开关）。
+            // （2026-09-18 TopFlow要求：控制项严格进二级菜单，不在本页散落开关）。
             Section {
                 NavigationLink(String(localized: "background")) {
                     BackgroundSettingsView()
@@ -288,7 +288,7 @@ struct PermissionBadgeView: View {
     let state: PermissionState
 
     // `.unknown`（系统不公开结论 —— 目前只有 HealthKit 读授权）**不渲染任何徽标**：
-    // 既不虚报"已授权"，也不误报"未授权"（2026-09-18 唐唐要求）。
+    // 既不虚报"已授权"，也不误报"未授权"（2026-09-18 TopFlow要求）。
     @ViewBuilder
     var body: some View {
         if state != .unknown {

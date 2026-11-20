@@ -2,7 +2,7 @@ import Foundation
 
 // MARK: - 插件管理工具（AI 自主安装/启停插件）
 //
-// 唐唐 2026-09-01 拍板的 AI 自主闭环：AI 可用 plugin-creator 技能打包 .mpk 后，
+// TopFlow 2026-09-01 拍板的 AI 自主闭环：AI 可用 plugin-creator 技能打包 .mpk 后，
 // 通过本工具自主安装并启用，无需用户在插件页手动操作。
 //
 // 安全边界（用户可控制）：

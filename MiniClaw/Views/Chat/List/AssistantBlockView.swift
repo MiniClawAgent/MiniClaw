@@ -3,7 +3,7 @@ import Combine
 
 
 /// 工具行是否折叠成「思考指示器后面的小圆点」。
-/// 2026-11-20 唐唐：一次思考可能连跑多个工具，每个工具占一行会把排版撑得很空。
+/// 2026-11-20 TopFlow：一次思考可能连跑多个工具，每个工具占一行会把排版撑得很空。
 /// 默认开启；关闭即回到「每个工具一行」的旧形态（回退开关）。
 enum ChatInlineToolBadges {
     static let defaultsKey = "chat.inlineToolBadges"
@@ -527,14 +527,14 @@ struct ThinkingBlockView: View {
                 }
             }
         }
-        // 2026-09-02 唐唐反馈：结束态 0.15 在浅背景上几乎不可见（思考中灰底→结束"背景消失"的断裂感）。
-        // 2026-09-02 唐唐定稿：恒定不透明灰（与工具指示器底一致，思考中/结束不切换）；
+        // 2026-09-02 TopFlow反馈：结束态 0.15 在浅背景上几乎不可见（思考中灰底→结束"背景消失"的断裂感）。
+        // 2026-09-02 TopFlow定稿：恒定不透明灰（与工具指示器底一致，思考中/结束不切换）；
         // 完成态仅由最外层边框变绿表达。
-        // [2026-11-20 唐唐] 折叠态改为「半圆矩形」：圆角 = 高度的一半（36/2 = 18），
+        // [2026-11-20 TopFlow] 折叠态改为「半圆矩形」：圆角 = 高度的一半（36/2 = 18），
         // 两端是半圆；展开后正文需要正常段落排布，圆角回落 12。
         .background(Color(UIColor.systemGray6))
         .clipShape(cornerShape)
-        // 2026-09-02 唐唐定稿：思考中边框不变（蓝），完成后边框改绿。
+        // 2026-09-02 TopFlow定稿：思考中边框不变（蓝），完成后边框改绿。
         .overlay(
             cornerShape
                 .stroke(isStreaming ? Color.blue.opacity(0.15) : Color.green, lineWidth: 0.5)
@@ -764,7 +764,7 @@ struct AssistantBlockView: View {
                     )
             }
         case .thinking:
-            // [2026-11-20 唐唐] 只挂**本轮思考之后**的工具：此前用整条消息的全部工具，
+            // [2026-11-20 TopFlow] 只挂**本轮思考之后**的工具：此前用整条消息的全部工具，
             // 导致每一轮思考后面都重复挂着同一批（失败的搜索球在每一行都出现）。
             // 切分规则：从本思考块之后开始，遇到下一个思考块就停。
             let toolBlocks = toolsAfterThinking(block, in: message)

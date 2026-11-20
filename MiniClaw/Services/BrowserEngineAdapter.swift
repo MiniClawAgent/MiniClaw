@@ -394,7 +394,7 @@ final class BrowserEngineAdapter: ObservableObject {
                             isLoading: tab.manager.isLoading)
                 }
                 self.activeIndex = tabs.firstIndex(where: { $0.id == selected }) ?? 0
-                // 2026-09-02 唐唐：AI 完成即脱手——UI 指示排除 15s 宽限期
+                // 2026-09-02 TopFlow：AI 完成即脱手——UI 指示排除 15s 宽限期
                 //（isAgentBrowsing 含宽限，是 tab 预留语义而非操作中语义）。
                 self.isAgentOperating = self.pool.isAgentActivelyOperating
             }

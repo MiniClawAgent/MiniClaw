@@ -131,7 +131,7 @@ final class LLMClient: @unchecked Sendable {
         onComplete: @escaping (Result<Void, Error>) -> Void
     ) -> URLSessionDataTask? {
         // 全部供应商经工厂分发到各自适配器(OpenAI 兼容族/Anthropic/Gemini)。
-        // [2026-09-14 唐唐 · 思考档位观测] 此前线上**没有任何"本轮实际发送了什么档位"的记录**，
+        // [2026-09-14 TopFlow · 思考档位观测] 此前线上**没有任何"本轮实际发送了什么档位"的记录**，
         // 思维控制是否生效只能靠代码推断（审查结论之一）。每轮请求一行，与 [Cache] 指纹同量级；
         // `effort=nil` 也要打（= 该轮未发推理参数，本身就是一个需要看见的状态）。
         AppLogger.shared.info(

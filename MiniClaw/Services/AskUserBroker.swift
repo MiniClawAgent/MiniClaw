@@ -29,7 +29,7 @@ final class AskUserBroker: ObservableObject {
     @Published private(set) var pending: [String: UserQuestionRequest] = [:]
 
     /// 当前**需要弹出授权窗**的提问（每个会话最多一条）。
-    /// 2026-11-16 唐唐定的形态：提问不再内嵌在消息流里（会挤压高度），
+    /// 2026-11-16 TopFlow定的形态：提问不再内嵌在消息流里（会挤压高度），
     /// 改成类似授权弹窗的居中对话框；会话里只保留一条工具指示器。
     @Published private(set) var active: ActiveQuestion?
 

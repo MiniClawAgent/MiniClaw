@@ -84,7 +84,7 @@ final class MarkdownRenderCache {
     // 无附件块的 attributed 较小（纯文本+样式），256 条 ≈ 数 MB 内存，可接受。
     private let limit = 1024
 
-    // [缓存观测 2026-09-10] 唐唐要求：缓存写入/读取命中必须全部可见于设备日志，
+    // [缓存观测 2026-09-10] TopFlow要求：缓存写入/读取命中必须全部可见于设备日志，
     // 用于判定「回看不稳」到底是没读缓存、缓存被破坏还是时机不对。
     // 策略：STORE/MISS 全打（每个内容 key 一生各一次，量可控）；HIT 同 key 1s 节流。
     private static let cacheLogger = AppLogger(category: "RenderCache")
@@ -851,7 +851,7 @@ struct MarkdownView: UIViewRepresentable {
             }
             }
         }
-        // [每轮落盘 2026-09-10] 唐唐要求：AI 每轮循环的正文在**全量渲染落地瞬间**
+        // [每轮落盘 2026-09-10] TopFlow要求：AI 每轮循环的正文在**全量渲染落地瞬间**
         // 即写入进程级缓存（key=markdown+字号，内容敏感不存在陈旧），此后的测量/
         // 回看/预填充直接命中，与任何可能落后的中间快照彻底解耦。附件块不缓存
         //（附件实例与消息身份耦合，2026-09-09 回退教训）；带 plainSuffix 的流式
@@ -2117,7 +2117,7 @@ struct MarkdownView: UIViewRepresentable {
             }
         }
 
-        /// 流式渲染/测量统一节流窗（唐唐定 2026-09-10：250ms → 150ms）。
+        /// 流式渲染/测量统一节流窗（TopFlow定 2026-09-10：250ms → 150ms）。
         /// 全库节流判定与追赶排期必须引用本常量，禁止散落字面量。
         static let streamThrottleWindow: CFTimeInterval = 0.15
         var lastRenderedWidth: CGFloat = -1

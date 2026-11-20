@@ -994,7 +994,7 @@ public final class MessageListLayout: UICollectionViewLayout {
                 ctx.contentOffsetAdjustment = CGPoint(x: 0,y: delta)
             } else if !cv.isTracking,!cv.isDecelerating {
                 // [Fix 2026-09-14 「内容往上顶、盖住上方工具指示器」] **删掉视口内 cell 的 +delta 补偿**。
-                // 真机描述（唐唐）：拖动正在流式的消息时，「思考指示器停在原地，而内容往上顶、
+                // 真机描述（TopFlow）：拖动正在流式的消息时，「思考指示器停在原地，而内容往上顶、
                 // 文字冲到工具指示器上面」；而**正确形态是"横线处锚定、向下展开"**。
                 // 原因：`contentOffsetAdjustment = +delta` 的语义是"把可见内容**整体上移** delta"。
                 // 而**视口内**的 cell 变高时它的**顶边并没有动** —— 下方内容自然被推下就够了；
@@ -1193,7 +1193,7 @@ public final class MessageListLayout: UICollectionViewLayout {
     #endif
 
     /// 进程级存储（方案 C）——跨 Layout 实例、跨会话存活。
-    /// [缓存观测 2026-09-10] 唐唐要求 memo 读写全量可见于日志：STORE/MISS 全打
+    /// [缓存观测 2026-09-10] TopFlow要求 memo 读写全量可见于日志：STORE/MISS 全打
     /// （每 key 每次播种/配置各一次，量可控），HIT 同 key 1s 节流。
     private static let memoLogger = AppLogger(category: "RenderCache")
     private nonisolated(unsafe) static var memoHitLogAt: [String: CFAbsoluteTime] = [:]

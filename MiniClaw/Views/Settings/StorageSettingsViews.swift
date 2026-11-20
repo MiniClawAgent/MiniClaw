@@ -54,7 +54,7 @@ struct StorageSettingsView: View {
                         Text(String(localized: "storage_overview"))
                             .font(.headline)
                         Spacer()
-                        // 已使用合计后面直接跟具体占用（2026-09-06 唐唐要求）
+                        // 已使用合计后面直接跟具体占用（2026-09-06 TopFlow要求）
                         Text(String(localized: "storage_used_total") + " " + fmt(overview.total))
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
@@ -207,7 +207,7 @@ struct StorageSettingsView: View {
         .clipShape(RoundedRectangle(cornerRadius: 7))
     }
 
-    /// 图例：色点 + 标签 + 具体占用（2026-09-06 唐唐要求标签后带数值）。
+    /// 图例：色点 + 标签 + 具体占用（2026-09-06 TopFlow要求标签后带数值）。
     private var storageLegend: some View {
         // 标签后追加数值（如「浏览器缓存 10.5 MB」），最小列宽相应放宽避免折行。
         LazyVGrid(columns: [GridItem(.adaptive(minimum: 140), alignment: .leading)], alignment: .leading, spacing: 6) {

@@ -2,7 +2,7 @@ import Foundation
 
 // MARK: - 插件模型目录（模型能力数据 + 厂商行为声明的单一事实来源）
 //
-// 2026-09-01 起，厂商适配器零数据零兜底（唐唐拍板），model 插件包的 providers.json
+// 2026-09-01 起，厂商适配器零数据零兜底（TopFlow拍板），model 插件包的 providers.json
 // 承载两类声明，本类型聚合查询：
 // - `models`：模型能力数据（`modelCapabilities(providerType:modelID:)` 精确匹配，
 //   匹配不到返回 nil，调用方按默认值处理；不兜底、不猜测）

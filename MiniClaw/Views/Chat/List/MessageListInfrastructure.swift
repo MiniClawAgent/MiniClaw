@@ -140,7 +140,7 @@ public final class MessageListViewController: UIViewController {
         // [2026-09-13 撤销·勿重犯] 曾把 CV 底边**缩短 34pt**（钉在 `view.bottomAnchor` − 常量），
         // 目的是避开「cell 底边落入 CV 最后 34pt 时被 UIKit 授予安全区，宿主自 sizing 把它计进高度」
         // 造成的 ±34 污染。**已撤销**，因为它付出了不该付的代价：
-        //   ① 底部 34pt 不再被 CV 覆盖 ⇒ **小横条区域重新露出容器背景**（这是唐唐此前特意去掉的）；
+        //   ① 底部 34pt 不再被 CV 覆盖 ⇒ **小横条区域重新露出容器背景**（这是TopFlow此前特意去掉的）；
         //   ② 因此改变了键盘顶起时内容上推的距离。
         // 现恢复 CV **全幅铺到底**（原行为），污染改由 **cell 内部**把安全区归零来解决
         // （见 `SelfSizingCell.safeAreaInsets`），不再触碰 CV 几何。
@@ -631,7 +631,7 @@ class SelfSizingCell: UICollectionViewCell {
     /// 底部安全区，而 `UIHostingConfiguration` 的宿主自 sizing 会**把它原样计进 cell 高度**
     /// （真机实证 `[JITTER] delta ≡ cvSafeB`，20/20 条严格同值）⇒ 相邻块凭空多出间距、且随滚动位置变化。
     ///
-    /// 曾用「把 CV 底边上移 34pt」来规避，但代价是**小横条区域露出容器背景**（唐唐此前特意去掉的）
+    /// 曾用「把 CV 底边上移 34pt」来规避，但代价是**小横条区域露出容器背景**（TopFlow此前特意去掉的）
     /// 且改变了键盘顶起距离 ⇒ 已撤销。此处改从**入口**切断：cell 内容本就不该为窗口安全区预留空间
     /// （底部留白由 CV 的 `contentInset.bottom` 统一负责）。若 UIKit 不采纳此覆写也不会更差 ——
     /// 回到与覆写前完全相同的行为。

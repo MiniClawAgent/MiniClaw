@@ -342,7 +342,7 @@ extension AgentRunService {
         let regionCode = locale.region?.identifier ?? String(localized: "unknown")
         let calendarIdentifier = String(describing: calendar.identifier)
 
-        // [2026-09-14] 曾按唐唐要求在此加过「工具选择决策优先级」规则（观察模型遵守度），
+        // [2026-09-14] 曾按TopFlow要求在此加过「工具选择决策优先级」规则（观察模型遵守度），
         // 实测后**已撤回**：规则属"概率性引导"，与可达性探测（1a）无关。细节见
         // `研究报告-搜索引擎选源方案` §4.7。
         return """

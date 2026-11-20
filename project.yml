@@ -22,7 +22,7 @@ settings:
     # (此处 "-Wl,-w" 与下方 iSH 静态库),YAML 后者覆盖前者,抑制警告那条实际未生效。
     CODE_SIGN_STYLE: Automatic
     # 2026-08-13:固化团队 ID(命令行 Archive/CI 签名必需;Xcode 界面 Archive 不依赖此项)。
-    DEVELOPMENT_TEAM: LZ84D5PQ38
+    DEVELOPMENT_TEAM: ""
     # --- iSH (AArch64 / asbestos) integration ---
     # C/ObjC preprocessor flags (must match how the static libs were built)
     GCC_PREPROCESSOR_DEFINITIONS:

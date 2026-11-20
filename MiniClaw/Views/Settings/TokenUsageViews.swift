@@ -196,7 +196,7 @@ struct SessionTokenUsageView: View {
     var body: some View {
         NavigationStack {
             List {
-                // 缓存分类置顶（2026-09-12 唐唐要求）：第一行命中率用「存储概览」同款分段横条，
+                // 缓存分类置顶（2026-09-12 TopFlow要求）：第一行命中率用「存储概览」同款分段横条，
                 // 第二/三行缓存读取/写入沿用文字行。
                 if let d = data {
                     cacheSection(d)

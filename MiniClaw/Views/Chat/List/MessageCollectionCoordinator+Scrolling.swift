@@ -1277,7 +1277,7 @@ extension MessageCollectionView.Coordinator {
 // MARK: - [Stage 0] 程序化手势替代（LayoutHarness）
 //
 // **动机（2026-09-16 实机确认）**：真机手势**无法**经 Xcode MCP 驱动 ——
-// `DeviceInteractionStartWorkspaceSession` 对 `唐唐的iPhone 16Pro` 直接报
+// `DeviceInteractionStartWorkspaceSession` 对 `TopFlow的iPhone 16Pro` 直接报
 // "Cannot select specified device"，只返回模拟器列表。而本计划每道门禁都要求
 // 「同一组手势、**连续 3 次**」，全靠人工既慢又不可重复。
 // 故提供这套一次性、DEBUG-only 的滚动序列，把「进入会话 → 滚几屏 → 回顶 → 到底 → 回顶」

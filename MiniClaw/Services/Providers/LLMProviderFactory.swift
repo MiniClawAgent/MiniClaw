@@ -60,7 +60,7 @@ enum LLMProviderFactory {
         }
     }
 
-    /// 模型能力查询入口(2026-09-01 唐唐拍板:模型数据完全由 model 插件包承载,
+    /// 模型能力查询入口(2026-09-01 TopFlow拍板:模型数据完全由 model 插件包承载,
     /// 适配器不再内嵌 builtinModels,也不做启发式猜测兜底):
     /// 拉取到的模型 ID 在用户已安装插件的 providers.json 声明中精确匹配;
     /// 匹配不到返回 nil,调用方按默认值处理(contextWindow=0 / deepThinking=false)。

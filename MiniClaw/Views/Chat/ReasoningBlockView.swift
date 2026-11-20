@@ -26,7 +26,7 @@ struct ReasoningBlockView: View {
                 onUserToggle?()
                 onToggle?()
             } label: {
-                // 2026-09-02 唐唐拍板：与主会话 ThinkingBlockView 同款——
+                // 2026-09-02 TopFlow拍板：与主会话 ThinkingBlockView 同款——
                 // 图标 wand.and.stars(13 semibold)；去掉 Spacer，折叠态宽度随内容
                 // 自适应（不再通栏长条）；字段顺序 图标/标题/字数/菊花/chevron 对齐主会话。
                 HStack(spacing: 6) {

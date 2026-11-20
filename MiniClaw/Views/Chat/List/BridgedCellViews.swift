@@ -175,7 +175,7 @@ struct BridgedAssistantFooter: View {
     @ObservedObject var bridge: CellStateBridge
     var maxWidth: CGFloat
 
-    /// 回复中指示器（唐唐 2026-09-06 调整）：绿色圆内黄色呼吸点 +「回复中」。
+    /// 回复中指示器（TopFlow 2026-09-06 调整）：绿色圆内黄色呼吸点 +「回复中」。
     /// 外圈 12pt 与其余状态行的 caption SF Symbol（已完成/已停止圆图标）视觉等大；
     /// 呼吸点用透明度呼吸（0.2 ↔ 1）。
     @State private var replyBreathing = false
@@ -203,7 +203,7 @@ struct BridgedAssistantFooter: View {
     }
 
     /// 终态状态行（已完成/已停止/已中断 + 耗时后缀）。
-    /// 水平 12pt：与消息正文块（工具/文本块同衬距）对齐（唐唐 2026-09-05）。
+    /// 水平 12pt：与消息正文块（工具/文本块同衬距）对齐（TopFlow 2026-09-05）。
     private func statusRow(icon: String, color: Color, key: LocalizedStringKey) -> some View {
         HStack(spacing: 5) {
             Image(systemName: icon)
@@ -275,7 +275,7 @@ struct BridgedAssistantFooter: View {
             }
 
             if bridge.canResume && message.error == nil {
-                // [2026-11-16 唐唐] 与「已完成」同款状态行：同样的高度/宽度/图标字号/衬距。
+                // [2026-11-16 TopFlow] 与「已完成」同款状态行：同样的高度/宽度/图标字号/衬距。
                 // 右侧「继续」按钮已移除——继续动作统一由输入框的发送键承担
                 //（ChatInputBar: 暂停 + 空输入 = 继续；有输入 = 入队发送）。
                 statusRow(icon: "pause.circle.fill", color: .orange, key: "pause_resume_hint")

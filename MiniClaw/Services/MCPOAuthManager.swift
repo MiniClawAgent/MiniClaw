@@ -9,7 +9,7 @@ import UIKit
 // MARK: - MCP OAuth 2.1（RFC 6749 授权码流 + PKCE 7636 + 动态客户端注册 7591 + 受保护资源发现 9728 + resource indicator 8707）
 //
 // 授权页宿主 = **SFSafariViewController**（系统 Safari 视图，非 WebView，App 进程
-// 拿不到页面内容——2026-09-02 唐唐拍板：OAuth 不走 WebView，审核合规）。
+// 拿不到页面内容——2026-09-02 TopFlow拍板：OAuth 不走 WebView，审核合规）。
 //
 // 回调用 **http loopback 127.0.0.1:18231/callback**（ARDOT 实测接受的 redirect_uri）：
 // 授权完成时浏览器真实导航到 loopback，由**本地 NWListener 监听**接收授权码并回一个
@@ -262,7 +262,7 @@ final class MCPOAuthManager: NSObject, ObservableObject, SFSafariViewControllerD
         guard let meta = serverMeta else { throw MCPOAuthError.missingMetadata }
         AppLogger.shared.info("[MCP-OAuth] authorize=\(meta.authorizationEndpoint) token=\(meta.tokenEndpoint) register=\(meta.registrationEndpoint ?? "无")")
 
-        // 2. 动态客户端注册（RFC 7591）。唐唐 2026-09-02：注册失败不再静默回落
+        // 2. 动态客户端注册（RFC 7591）。TopFlow 2026-09-02：注册失败不再静默回落
         // 硬编码 client_id——未知客户端会在授权确认时被服务器 400（ARDOT 实测）。
         var clientID: String
         var clientSecret: String?

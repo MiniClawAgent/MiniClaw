@@ -3,7 +3,7 @@ import SwiftUI
 /// 背景主题挂载组件：按槽位渲染当前主题的背景图；
 /// 未选用主题时渲染系统默认背景（视觉与现状完全一致）。
 ///
-/// 裁切（唐唐 2026-08-30 拍板）：
+/// 裁切（TopFlow 2026-08-30 拍板）：
 /// - `.aspectRatio(contentMode: .fill)` 等比填满 + 居中裁切 + ignoresSafeArea；
 ///   iPad 分屏/横竖屏切换由 GeometryReader 自适应，无需设备特判；
 /// - 解码用 ImageIO downsampling（按容器尺寸 × 屏幕缩放），不做全分辨率解码；
@@ -44,7 +44,7 @@ struct ThemeBackground: View {
                             }
                         }
                 } else {
-                    // 未选用主题：回退与该页面原生列表背景一致的颜色（唐唐反馈：
+                    // 未选用主题：回退与该页面原生列表背景一致的颜色（TopFlow反馈：
                     // 设置页 inset grouped 的原生背景是 systemGroupedBackground 浅灰，
                     // 行白卡靠它才有分组边界——回退纯白会让边界消失）。
                     fallbackColor.ignoresSafeArea()

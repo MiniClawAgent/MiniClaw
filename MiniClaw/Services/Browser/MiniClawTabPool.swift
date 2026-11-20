@@ -221,7 +221,7 @@ public final class MiniClawTabPool: ObservableObject {
     @Published public var isBrowserLoading: Bool = false
 
     /// ⚠️ 含完成后 15s 宽限期（inUse 的 tab 预留语义）——**不可直接用作 UI 的
-    /// 「AI 正在操作」指示**（唐唐 2026-09-02：AI 拿到结果就应脱手，宽限期内
+    /// 「AI 正在操作」指示**（TopFlow 2026-09-02：AI 拿到结果就应脱手，宽限期内
     /// 不得显示 AI 操作覆盖层）。UI 指示用 `isAgentActivelyOperating`。
     public var isAgentBrowsing: Bool {
         tabs.contains { $0.inUse }

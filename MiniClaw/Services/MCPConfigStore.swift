@@ -112,7 +112,7 @@ final class MCPConfigStore: ObservableObject {
             AppLogger.shared.info("[MCP] \(server.name): 刷新成功, 工具 \(tools.count) 个")
             updateDiscovery(id: id, toolCount: tools.count, error: nil)
         } catch {
-            // 2026-09-01 唐唐拍板：401 时优先尝试 OAuth refresh_token 换新重试一次；
+            // 2026-09-01 TopFlow拍板：401 时优先尝试 OAuth refresh_token 换新重试一次；
             // 仍失败且需要 OAuth 授权 → 标记 requiresAuthorization（列表显示「认证」按钮）。
             if isMCPUnauthorizedError(error),
                let refreshed = try? await MCPOAuthManager.shared.refreshToken(serverID: id) {
@@ -230,7 +230,7 @@ final class MCPConfigStore: ObservableObject {
                         "[MCPImport] 包内出现明文 Bearer 令牌（server=\(displayName)）——已存入 Keychain；建议改写为 \"Authorization\": \"Bearer ${ENV_NAME}\" 引用环境变量",
                         category: "MCP", subsystem: "Import")
                 }
-                // 2026-09-01 唐唐拍板：mcp 插件 servers.json 必须声明认证方式——
+                // 2026-09-01 TopFlow拍板：mcp 插件 servers.json 必须声明认证方式——
                 // "auth": "oauth" 落到 requiresAuthorization（列表显示「认证」按钮，
                 // 走 MCP OAuth 2.1 授权流程）；bearer/缺省 = 静态令牌。
                 let requiresAuth = (entry["auth"] as? String)?.lowercased() == "oauth"

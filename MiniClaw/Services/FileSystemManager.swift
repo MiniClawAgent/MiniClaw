@@ -426,7 +426,7 @@ final class FileSystemManager: @unchecked Sendable {
         return candidates.sorted { $0.path.count < $1.path.count }.first
     }
 
-    // MARK: - 旧布局清退（2026-08-27 唐唐决策：App 未上架，历史沙盒数据一律不做兼容）
+    // MARK: - 旧布局清退（2026-08-27 TopFlow决策：App 未上架，历史沙盒数据一律不做兼容）
 
     /// 统一 `plugins/<type>/` 布局引入前，旧根下曾存在 skills / subagent-profiles / rules 物理目录。
     /// 未上架 = 不做任何旧数据迁移与读取兼容：检测到即**整树删除**（含全部旧格式内容），

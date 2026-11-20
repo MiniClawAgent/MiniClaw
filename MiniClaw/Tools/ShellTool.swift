@@ -38,7 +38,7 @@ struct ShellExecuteTool: AgentTool {
         // 空命令守卫（2026-09-05）：模型偶发吐出缺 command 的垃圾调用（MiMo 派发子代理时实测），
         // 空命令进 iSH 只会产生一条 0.0s 的失败卡+多余工具往返。直接给明确失败文案，不进执行链。
         guard !rawCommand.isEmpty else {
-            // [ToolForensics] 取证（唐唐 2026-09-05，只进 Xcode 控制台）：记录解析后的
+            // [ToolForensics] 取证（TopFlow 2026-09-05，只进 Xcode 控制台）：记录解析后的
             // 完整参数字典，与引擎侧 rawArgs 对照——区分 {} / 空串 / 命令放错字段。
             NSLog("[ToolForensics] shell EMPTY command; parsedParams=%@", parameters as NSDictionary)
             return ToolResult(

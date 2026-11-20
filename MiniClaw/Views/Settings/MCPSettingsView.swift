@@ -61,7 +61,7 @@ struct MCPSettingsView: View {
                     }
                 }
 
-                // 2026-09-01 唐唐拍板：需要 OAuth 授权的 server 在列表下方
+                // 2026-09-01 TopFlow拍板：需要 OAuth 授权的 server 在列表下方
                 // 显示「认证」按钮，点击进入授权流程（SFSafariViewController + loopback）。
                 if let pending = store.servers.first(where: { needsAuthorization($0) }) {
                     Button {
@@ -88,7 +88,7 @@ struct MCPSettingsView: View {
                         ProgressView()
                             .controlSize(.small)
                     } else {
-                        // 2026-09-01 唐唐拍板：刷新收进标题行最右，一键刷新全部远端服务器。
+                        // 2026-09-01 TopFlow拍板：刷新收进标题行最右，一键刷新全部远端服务器。
                         Button {
                             refreshAll()
                         } label: {
@@ -108,7 +108,7 @@ struct MCPSettingsView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                // 2026-09-01 唐唐拍板：入口收敛到右上角 + 菜单（添加/导出/从文本导入）；
+                // 2026-09-01 TopFlow拍板：入口收敛到右上角 + 菜单（添加/导出/从文本导入）；
                 // CLAUDE DESKTOP 兼容独立区块移除，导出/导入功能保留在菜单里。
                 Menu {
                     Button {
@@ -144,7 +144,7 @@ struct MCPSettingsView: View {
                 }
             }
         }
-        // MCP OAuth 授权页已移除 sheet 挂载（2026-09-02 唐唐拍板：审核不允许 OAuth 走
+        // MCP OAuth 授权页已移除 sheet 挂载（2026-09-02 TopFlow拍板：审核不允许 OAuth 走
         // WebView，现为 SFSafariViewController + loopback；授权由 MCPOAuthManager 直接触发）。
         .confirmationDialog(
             String(localized: "delete_mcp_server_confirm"),
@@ -245,7 +245,7 @@ struct MCPSettingsView: View {
     }
 
     /// 删除 MCP server；若该 server 由 mcp 插件导入（sourcePlugin 非空），
-    /// 连带删除对应插件——插件删除会连带其导入的全部 server（对称语义，唐唐 2026-08-28）。
+    /// 连带删除对应插件——插件删除会连带其导入的全部 server（对称语义，TopFlow 2026-08-28）。
     private func removeServerWithPlugin(_ server: MCPServerConfig) {
         let source = server.sourcePlugin
         store.remove(id: server.id)
@@ -254,7 +254,7 @@ struct MCPSettingsView: View {
         }
     }
 
-    /// 唐唐 2026-09-02 排版定稿：名称 + 连接状态图标（icon-only），下行 = 工具数 + 检查时间；
+    /// TopFlow 2026-09-02 排版定稿：名称 + 连接状态图标（icon-only），下行 = 工具数 + 检查时间；
     /// 服务器地址行移除（地址在编辑页可见），行内仅保留错误详情。列表更紧凑。
     private func serverRow(_ server: MCPServerConfig) -> some View {
         HStack(alignment: .center, spacing: 12) {
@@ -314,7 +314,7 @@ struct MCPSettingsView: View {
                 )
             )
             .labelsHidden()
-            // 2026-09-01 唐唐拍板：行内刷新钮移除——刷新统一收进列表标题行最右。
+            // 2026-09-01 TopFlow拍板：行内刷新钮移除——刷新统一收进列表标题行最右。
         }
         .padding(.vertical, 5)
     }
@@ -358,7 +358,7 @@ struct MCPSettingsView: View {
     }
 
     /// 启动 MCP OAuth 2.1 授权（发现 → DCR → 系统 Safari 视图授权 → Token 入 Keychain）。
-    /// 唐唐 2026-09-02：认证成功后**自动启用并连接**该 MCP 服务（工具列表刷新 = 建立连接），
+    /// TopFlow 2026-09-02：认证成功后**自动启用并连接**该 MCP 服务（工具列表刷新 = 建立连接），
     /// 即使 server 此前被停用也恢复启用——认证的语义就是"我要用这个服务"。
     private func startAuthorization(for server: MCPServerConfig) {
         Task {

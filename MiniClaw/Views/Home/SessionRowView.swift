@@ -63,7 +63,7 @@ struct SessionRowView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        // 唐唐 2026-09-02：垂直 8（文字不贴卡片底），水平 10（内容离卡片左右边缘 10pt）。
+        // TopFlow 2026-09-02：垂直 8（文字不贴卡片底），水平 10（内容离卡片左右边缘 10pt）。
         .padding(.vertical, 8)
         .padding(.horizontal, 10)
         .background(
@@ -144,7 +144,7 @@ struct SessionRowView: View {
     /// 按会话 ID 确定性取兜底色（保证可复现、同一会话始终同色，且不同会话尽量分散）。
     private static func fallbackSessionIconColor(for id: UUID) -> Color {
         // ⚠️ 不可用 String.hashValue——Swift 的 hashValue 每次进程启动随机化种子，
-        // 同一字符串每次启动结果都不同（唐唐反馈：兜底色每次打开 App 重排）。
+        // 同一字符串每次启动结果都不同（TopFlow反馈：兜底色每次打开 App 重排）。
         // 改用 UUID 的稳定 16 字节（id.uuid）做多项式哈希，跨启动确定性一致。
         var sum = 0
         withUnsafeBytes(of: id.uuid) { raw in

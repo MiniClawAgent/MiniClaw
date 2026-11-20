@@ -1742,23 +1742,18 @@
 				LastUpgradeCheck = 1600;
 				TargetAttributes = {
 					00748F0CC1AF8714C28315509BC206BE = {
-						DevelopmentTeam = LZ84D5PQ38;
 						ProvisioningStyle = Automatic;
 					};
 					31CC72D179BF69DBCDBAE869BE87C394 = {
-						DevelopmentTeam = LZ84D5PQ38;
 						ProvisioningStyle = Automatic;
 					};
 					414D06EE94F4A91BA0004774ADEC576A = {
-						DevelopmentTeam = LZ84D5PQ38;
 						ProvisioningStyle = Automatic;
 					};
 					5369EABFE7D129BEE467500E8AB1E622 = {
-						DevelopmentTeam = LZ84D5PQ38;
 						ProvisioningStyle = Automatic;
 					};
 					BC8E54DAD1385DDDCB753F1261509089 = {
-						DevelopmentTeam = LZ84D5PQ38;
 						ProvisioningStyle = Automatic;
 						TestTargetID = 00748F0CC1AF8714C28315509BC206BE;
 					};
@@ -2345,7 +2340,7 @@
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 12;
-				DEVELOPMENT_TEAM = LZ84D5PQ38;
+				DEVELOPMENT_TEAM = "";
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"GUEST_ARM64=1",
 					"ENGINE_ASBESTOS=1",
@@ -2413,7 +2408,7 @@
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 12;
-				DEVELOPMENT_TEAM = LZ84D5PQ38;
+				DEVELOPMENT_TEAM = "";
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"GUEST_ARM64=1",
 					"ENGINE_ASBESTOS=1",

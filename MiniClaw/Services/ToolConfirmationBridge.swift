@@ -7,7 +7,7 @@ import SwiftUI
 /// 1. **持久层**：用户在设置里手动打开对应开关（AI 无法自行开启 —— 未注册进 ConfigTool，
 ///    否则 AI 能给自己授权，"需要用户同意"就形同虚设）；
 /// 2. **会话层**：开关未开时，AI 可在**真实存在的用户会话**内经授权弹窗征得同意，
-///    **仅对该会话有效**、不写设置（与唐唐 2026-09-18 的决定一致）。
+///    **仅对该会话有效**、不写设置（与TopFlow 2026-09-18 的决定一致）。
 enum AICapability: String, CaseIterable {
     case healthRead
     case healthWrite
