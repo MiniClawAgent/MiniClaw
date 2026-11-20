@@ -28,7 +28,10 @@ final class TaskPipController: NSObject {
     /// PiP 窗口内容尺寸：长条形——宽度 = 屏幕最大宽度，高度 = 两行文字高度（标题 + 进度）。
     /// 系统会按比例 clamp 悬浮窗实际宽度，高度随比例等比缩放，始终是细长条。
     private static func pipContentSize() -> CGSize {
-        CGSize(width: UIScreen.main.bounds.width, height: 60)
+        // [2026-11-20] 原来是「屏宽 × 60」≈ 6.7:1 的细长条，系统按视频比例显示时会被压扁、
+        // 标题被切（真机截图）。改成标准 16:9 横向，PiP 窗口按原比例呈现，不再变形。
+        let w = UIScreen.main.bounds.width
+        return CGSize(width: w, height: (w * 9.0 / 16.0).rounded())
     }
     /// 启动重试上限(与调研项目同量级)
     private static let maximumStartAttempts = 8
@@ -423,17 +426,17 @@ final class TaskPipController: NSObject {
         iconView.contentMode = .scaleAspectFit
         iconView.tintColor = .white
         iconView.backgroundColor = UIColor.systemBlue.withAlphaComponent(0.35)
-        iconView.layer.cornerRadius = 8
+        iconView.layer.cornerRadius = 12
         iconView.clipsToBounds = true
         iconView.translatesAutoresizingMaskIntoConstraints = false
 
-        titleLabel.font = .systemFont(ofSize: 15, weight: .semibold)
+        titleLabel.font = .systemFont(ofSize: 17, weight: .semibold)
         titleLabel.textColor = .white
-        titleLabel.numberOfLines = 1
+        titleLabel.numberOfLines = 2
         titleLabel.lineBreakMode = .byTruncatingTail
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
 
-        progressLabel.font = .systemFont(ofSize: 13)
+        progressLabel.font = .systemFont(ofSize: 14)
         progressLabel.textColor = UIColor.white.withAlphaComponent(0.85)
         progressLabel.numberOfLines = 1
         progressLabel.lineBreakMode = .byTruncatingTail
@@ -444,19 +447,18 @@ final class TaskPipController: NSObject {
         panel.addSubview(progressLabel)
 
         NSLayoutConstraint.activate([
-            iconView.leadingAnchor.constraint(equalTo: panel.leadingAnchor, constant: 12),
+        iconView.leadingAnchor.constraint(equalTo: panel.leadingAnchor, constant: 20),
             iconView.centerYAnchor.constraint(equalTo: panel.centerYAnchor),
-            iconView.widthAnchor.constraint(equalToConstant: 32),
-            iconView.heightAnchor.constraint(equalToConstant: 32),
+            iconView.widthAnchor.constraint(equalToConstant: 44),
+            iconView.heightAnchor.constraint(equalToConstant: 44),
 
-            titleLabel.leadingAnchor.constraint(equalTo: iconView.trailingAnchor, constant: 10),
-            titleLabel.trailingAnchor.constraint(lessThanOrEqualTo: panel.trailingAnchor, constant: -12),
-            titleLabel.topAnchor.constraint(equalTo: panel.topAnchor, constant: 9),
+            titleLabel.leadingAnchor.constraint(equalTo: iconView.trailingAnchor, constant: 14),
+            titleLabel.trailingAnchor.constraint(lessThanOrEqualTo: panel.trailingAnchor, constant: -20),
+            titleLabel.centerYAnchor.constraint(equalTo: panel.centerYAnchor, constant: -10),
 
             progressLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
-            progressLabel.trailingAnchor.constraint(lessThanOrEqualTo: panel.trailingAnchor, constant: -12),
-            progressLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 3),
-            progressLabel.bottomAnchor.constraint(lessThanOrEqualTo: panel.bottomAnchor, constant: -9),
+            progressLabel.trailingAnchor.constraint(lessThanOrEqualTo: panel.trailingAnchor, constant: -20),
+            progressLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 6),
         ])
         return panel
     }
@@ -465,7 +467,21 @@ final class TaskPipController: NSObject {
         titleLabel.text = title
         progressLabel.text = progress
         currentIcon = icon
-        iconView.image = UIImage(systemName: icon)
+        // [2026-11-20] 优先用 App 图标（与系统 PiP 的观感一致），拿不到再退回工具符号。
+        iconView.image = Self.appIconImage() ?? UIImage(systemName: icon)
+        iconView.contentMode = .scaleAspectFit
+        // App 图标自带底色，不再叠蓝色背景；符号才需要底色。
+        iconView.backgroundColor = Self.appIconImage() == nil
+            ? UIColor.systemBlue.withAlphaComponent(0.35) : .clear
+    }
+
+    /// 从 Info.plist 的 CFBundleIcons 里取应用图标（PiP 面板左侧展示品牌标识）。
+    private static func appIconImage() -> UIImage? {
+        guard let icons = Bundle.main.infoDictionary?["CFBundleIcons"] as? [String: Any],
+              let primary = icons["CFBundlePrimaryIcon"] as? [String: Any],
+              let files = primary["CFBundleIconFiles"] as? [String],
+              let name = files.last else { return nil }
+        return UIImage(named: name)
     }
 
     // MARK: - 启动重试链(照搬调研结论)
