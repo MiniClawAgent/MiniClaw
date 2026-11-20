@@ -1327,6 +1327,17 @@ final class MarkdownTextView: UITextView,UIGestureRecognizerDelegate {
         }
         let delta = newHeight-previousHeight
 
+        // [2026-11-20 列表来回跳/正文被截断] 复用 cell 时 `bounds.width` 会短暂等于旧值，
+        // 宽度一变就会多/少折一行（真机 831 ↔ 852.3，差一行）。此时若采纳**变矮**，
+        // 正文当场被裁；下一帧宽度恢复又变高 ⇒ 列表来回跳。
+        // 规则：宽度不一致时只允许"变高"，不允许"变矮"；待宽度稳定后再走正常流程。
+        let widthChanged = lastSizedWidth > 1 && abs(measureWidth - lastSizedWidth) > 1
+        if delta < 0, widthChanged {
+            cellSizeLogger.info("[CellSize] SKIP-SHRINK widthChanged measureW=\(String(format: "%.1f", measureWidth)) lastW=\(String(format: "%.1f", lastSizedWidth)) newH=\(String(format: "%.1f", newHeight)) prevH=\(String(format: "%.1f", previousHeight))")
+            scheduleTrailingMeasure(after: 0.1)
+            return
+        }
+
         // [Fix 2026-09-14] 冻结期（手势/减速中）**只拒绝收缩、放行增长** —— 这是本子系统的既定原则，
         // 原实现把它做成了"入口整段拦截"，导致"内容变长"也被否定（→ 溢出重叠，见函数上方说明）。
         // 现在只在**结果处**拒绝收缩；变高照常采纳并上报（内容事实必须尊重；
