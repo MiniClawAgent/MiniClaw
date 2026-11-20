@@ -1346,8 +1346,15 @@ final class MarkdownTextView: UITextView,UIGestureRecognizerDelegate {
         // 以及下方 `isDeferred` 分支里所有关于"放行/拒绝"的历史分支，最终都收敛到这一个 if。
         // 改它之前必须先读 `MessageListLayout.shouldInvalidateLayout` 里 `deferSelfSizing` 分支的
         // `liveShrink −160pt` 事故注释：冻结期一旦允许收缩，拖动中会看到 cell 当场缩下去、下方内容上跳。
+        // [2026-11-20 拖动期空白] 冻结期"只拒收缩"针对的是**同一段内容**在屏上变矮；
+        // 但 cell 复用时内容已经换成另一块（指纹不同），沿用旧的高个子只会留一片空白，
+        // 松手重测才消失（真机 16:25 截图：两个思考行之间的大块空白）。
+        // 判据：指纹变了 ⇒ 这是"换内容"而不是"内容缩水" ⇒ 允许立即收敛。
+        let contentReplaced = lastSizedStorageFingerprint == 0
+            || ContentFingerprint.of(textStorage.string) != lastSizedStorageFingerprint
         if (findCollectionView()?.collectionViewLayout as? MessageListLayout)?.deferSelfSizing == true,
-           delta < 0 {
+           delta < 0,
+           !contentReplaced {
             armDeferredRemeasure()
             return
         }
