@@ -8,6 +8,8 @@ import SwiftUI
 /// 水平内边距 14、垂直内边距 18、副标题单行。
 struct SettingsView: View {
     @EnvironmentObject private var appState: AppState
+    /// 全屏呈现后没有下滑关闭手势，必须提供显式关闭入口。
+    @Environment(\.dismiss) private var dismiss
     /// 打开外部链接（备案号跳工信部 ICP 备案查询网站）。
     @Environment(\.openURL) private var openURL
 
@@ -90,6 +92,18 @@ struct SettingsView: View {
         .scrollContentBackground(.hidden)
         .background(ThemeBackground(slot: .settings))
         .navigationTitle(String(localized: "settings"))
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                Button {
+                    dismiss()
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 15, weight: .semibold))
+                }
+                .accessibilityLabel(Text(String(localized: "close")))
+            }
+        }
         .navigationBarTitleDisplayMode(.inline)
         .navigationDestination(isPresented: $navigateToGroups) { GroupsSettingsView() }
         .navigationDestination(isPresented: $navigateToProviders) { ProviderSettingsView() }
@@ -174,9 +188,6 @@ struct SettingsView: View {
 
     private var footer: some View {
         VStack(spacing: 6) {
-            Text("settings_footer_tagline")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
             Text(versionString)
                 .font(.footnote)
                 .foregroundStyle(.tertiary)

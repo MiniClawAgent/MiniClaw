@@ -239,7 +239,8 @@ struct HomeView: View {
             UnavailablePlaceholder(title: String(localized: "rootfs_management_unavailable"), message: String(localized: "the_current_build_does_not_include_the_ish_runtime"))
             #endif
         }
-        .sheet(isPresented: $appState.showSettings) {
+        // [2026-11-20 唐唐] 设置页改为全屏呈现（不再用弹出式 sheet）。
+        .fullScreenCover(isPresented: $appState.showSettings) {
             NavigationStack {
                 SettingsView()
             }
