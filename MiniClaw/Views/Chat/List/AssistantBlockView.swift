@@ -750,9 +750,12 @@ struct AssistantBlockView: View {
                     block: block,
                     isStreaming: isActiveMessage && message.blocks.last?.id == block.id
                 )
-                // 思考胶囊是主体信息，优先级最高且不参与压缩；工具球排在它后面，
-                // 数量再多也不能把胶囊挤变形。
-                .fixedSize(horizontal: true, vertical: false)
+                // 折叠时才锁定宽度（胶囊按内容收缩、不被工具球挤压）；
+                // 展开时正文必须占满可用宽度并换行，否则会被 fixedSize 撑成"一行超宽"，
+                // 整段文字被推出屏幕（真机 16:17 截图）。
+                .fixedSize(horizontal: !block.isThinkingExpanded, vertical: false)
+                .frame(maxWidth: block.isThinkingExpanded ? .infinity : nil,
+                       alignment: .leading)
                 .layoutPriority(1)
                 if ChatInlineToolBadges.isEnabled, !toolBlocks.isEmpty {
                     ToolBadgeCluster(blocks: toolBlocks,
