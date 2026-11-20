@@ -65,6 +65,9 @@ extension MessageCollectionView {
         /// contentInset.bottom — it reads this base and adds overflowH.
         public var baseBottomInset: CGFloat = 0
 
+        /// 上一次补刷时看到的 streamSkipGeneration。
+        var lastSkipGen: Int = 0
+
         private var keyboardDismissPan: UIPanGestureRecognizer?
 
         /// 键盘展开时：禁用列表自身的拖动，改由本手势接管——
@@ -981,10 +984,11 @@ extension MessageCollectionView {
                     if self.pendingSnapshotFlag {
                         AppLogger.shared.info("[SnapQueue] suspend-resume flush applied (pending, isProcessing=\(vm.isProcessing))", category: "ChatList.SnapQueue")
                         self.flushPendingSnapshotIfNeeded(caller: "suspend-resume")
-                    } else if vm.isProcessing == false, let msgs = self.vm?.messages {
-                        // 流已结束但没有 pending：说明挂起窗口内漏掉的正是正文内容，补一次。
-                        AppLogger.shared.info("[SnapQueue] suspend-resume flush (post-stream, no pending flag) — 补正文", category: "ChatList.SnapQueue")
-                        self.applySnapshot(messages: msgs, caller: "suspend-resume(post-stream)")
+                    } else if vm.streamSkipGeneration != self.lastSkipGen, let msgs = self.vm?.messages {
+                        // 只有挂起期间**确实**跳过过刷新才补：否则每次滚动都会整页重排。
+                        self.lastSkipGen = vm.streamSkipGeneration
+                        AppLogger.shared.info("[SnapQueue] suspend-resume flush (skipped \(vm.streamSkipGeneration) 次) — 补正文", category: "ChatList.SnapQueue")
+                        self.applySnapshot(messages: msgs, caller: "suspend-resume(skipped)")
                     }
                 }
             suspendResumeSub?.store(in: &subscriptions)
@@ -1006,9 +1010,11 @@ extension MessageCollectionView {
                     if self.pendingSnapshotFlag {
                         AppLogger.shared.info("[SnapQueue] suspend-resume flush (pending, isProcessing=\(self.vm?.isProcessing == true))", category: "ChatList.SnapQueue")
                         self.flushPendingSnapshotIfNeeded(caller: "suspend-resume")
-                    } else if self.vm?.isProcessing == false, let msgs = self.vm?.messages {
-                        AppLogger.shared.info("[SnapQueue] suspend-resume flush (post-stream, no pending flag) — 补正文", category: "ChatList.SnapQueue")
-                        self.applySnapshot(messages: msgs, caller: "suspend-resume(post-stream)")
+                    } else if let vm = self.vm, vm.streamSkipGeneration != self.lastSkipGen,
+                              let msgs = self.vm?.messages {
+                        self.lastSkipGen = vm.streamSkipGeneration
+                        AppLogger.shared.info("[SnapQueue] suspend-resume flush (skipped \(vm.streamSkipGeneration) 次) — 补正文", category: "ChatList.SnapQueue")
+                        self.applySnapshot(messages: msgs, caller: "suspend-resume(skipped)")
                     }
                 }
                 if Thread.isMainThread { work() } else { DispatchQueue.main.async(execute: work) }

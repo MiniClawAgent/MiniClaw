@@ -266,6 +266,7 @@ final class MiniClawChatBridge: ObservableObject {
         // 其他状态（isProcessing 等）在方法开头已同步，不受影响。
         if vm.streamingUIUpdatesSuspended {
             suspendedSkipHappened = true
+            vm.streamSkipGeneration &+= 1
             return
         }
 

@@ -18,26 +18,71 @@ struct ToolBadgeCluster: View {
     let blocks: [AssistantBlock]
     @Binding var detailBlock: AssistantBlock?
 
+    /// 与思考胶囊同高（胶囊 = 13pt 字 + 上下各 10 内边距 ≈ 36）。
+    private let diameter: CGFloat = 36
+
     private var shown: [AssistantBlock] { Array(blocks.prefix(3)) }
 
     var body: some View {
-        HStack(spacing: -7) {
+        HStack(spacing: -10) {
             ForEach(shown) { b in
-                Circle()
-                    .fill(color(for: b))
-                    .frame(width: 18, height: 18)
-                    .overlay(Circle().strokeBorder(Color(uiColor: .systemBackground), lineWidth: 1.5))
+                badge(b)
             }
             if blocks.count > 3 {
                 Text("+\(blocks.count - 3)")
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(.system(size: 11, weight: .semibold))
                     .foregroundStyle(.secondary)
-                    .padding(.leading, 11)
+                    .padding(.leading, 14)
             }
         }
         .contentShape(Rectangle())
         .onTapGesture { detailBlock = blocks.last }
         .accessibilityLabel(Text("\(blocks.count) 个工具"))
+    }
+
+    @ViewBuilder
+    private func badge(_ b: AssistantBlock) -> some View {
+        let tint = color(for: b)
+        let isLive = Self.isLive(b)
+        Circle()
+            .fill(Color(uiColor: .secondarySystemBackground))
+            .frame(width: diameter, height: diameter)
+            .overlay(
+                Image(systemName: Self.icon(for: b.kind))
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(tint)
+            )
+            .overlay(Circle().strokeBorder(tint.opacity(0.45), lineWidth: 1))
+            .overlay(alignment: .topTrailing) {
+                if isLive {
+                    Circle().fill(Color.accentColor)
+                        .frame(width: 8, height: 8)
+                        .offset(x: 1, y: -1)
+                }
+            }
+    }
+
+    /// 沿用各工具原本的图标（与 `ToolCapsuleView` 的 icon 参数同源）。
+    static func icon(for kind: AssistantBlockKind) -> String {
+        switch kind {
+        case .question: return "questionmark.circle"
+        case .shellTool: return "terminal"
+        case .fileReadTool: return "doc.text"
+        case .fileWriteTool: return "doc.text.fill"
+        case .fileEditTool: return "square.and.pencil"
+        case .browserTool: return "globe"
+        case .readImageTool: return "photo"
+        case .subagentTool: return "person.2.fill"
+        case .memoryTool: return "brain.head.profile"
+        default: return "wrench.and.screwdriver"
+        }
+    }
+
+    private static func isLive(_ b: AssistantBlock) -> Bool {
+        switch b.toolStatus {
+        case .running, .streaming: return true
+        default: return false
+        }
     }
 
     private func color(for b: AssistantBlock) -> Color {

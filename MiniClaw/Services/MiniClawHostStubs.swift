@@ -322,6 +322,9 @@ public final class MessageListModel: ObservableObject {
     @Published public var isNearBottom = false
     @Published public var isLoadingSession = false
     @Published public var streamingUIUpdatesSuspended = false
+    /// 挂起期间**真的**被跳过的刷新次数。列表侧据此判断"恢复时要不要补刷"，
+    /// 避免每次挂起→恢复都无条件 applySnapshot（那会造成整页反复重排）。
+    public var streamSkipGeneration: Int = 0
     @Published public var autoRetryAttempt = 0
     @Published public var autoRetryCountdown = 0
     @Published public var isCompacting = false
