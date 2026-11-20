@@ -339,6 +339,19 @@ public final class AssistantBlock: Identifiable,ObservableObject {
         self.toolUseId = toolUseId
     }
 
+    /// 从工具入参里取 `activity`（模型给的"人话标题"，如「安装 Python3 运行时」）。
+    ///
+    /// [2026-11-20] 这个值此前只在 `toolDescription` 运行时解析：一旦块被重建（退出会话再回来），
+    /// 标题就会掉回 `Shell command` 这类兜底文案。把它抽出来，供重建路径写入 `toolSummary`。
+    public static func activitySummary(from arguments: String?) -> String? {
+        guard let arguments,
+              let data = arguments.data(using: .utf8),
+              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let act = obj["activity"] as? String,
+              !act.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
+        return act
+    }
+
     public var toolDescription: String {
         // 2026-08-10 用户要求:所有工具指示器显示具体操作名称。
         // 工具调用参数 JSON 里有 activity 字段(引擎专用于 UI 展示,熔断签名忽略它),

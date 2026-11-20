@@ -103,6 +103,7 @@ final class ToolExecution: @unchecked Sendable {
         // 注意 `argsJSON`（锁保护字段）已同步落定，子代理转发读 exec.argsJSON 不受影响。
         Task { @MainActor [block, name] in
             block.toolInputArgs = argsJSON
+            if let act = AssistantBlock.activitySummary(from: argsJSON) { block.toolSummary = act }
             block.kind = MiniClawChatAdapter.toolKind(name, arguments: argsJSON)
             // 2026-09-05 修复：终端视图以 content 作为「输出」渲染（含 ToolLiveSheet 黑框）。
             // 此前把参数 JSON 写进 content，导致执行期间终端显示的是参数回显而非真实输出。
@@ -175,6 +176,7 @@ final class ToolExecution: @unchecked Sendable {
         wasInterrupted = event.wasInterrupted
         position = event.position
         block.toolInputArgs = event.arguments
+        block.toolSummary = AssistantBlock.activitySummary(from: event.arguments)
         block.kind = MiniClawChatAdapter.toolKind(event.name, arguments: event.arguments)
         block.content = event.resultText
         block.toolDuration = event.duration ?? 0

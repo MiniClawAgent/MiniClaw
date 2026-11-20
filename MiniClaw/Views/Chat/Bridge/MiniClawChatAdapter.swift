@@ -231,6 +231,9 @@ enum MiniClawChatAdapter {
             let block = AssistantBlock(id: event.id, kind: toolKind(event.name, arguments: event.arguments), content: event.resultText)
             block.toolUseId = event.callID ?? event.id.uuidString
             block.toolInputArgs = event.arguments
+            // [2026-11-20] 重建时把模型给的 activity 落到 toolSummary：
+            // 否则标题只能靠 toolDescription 现场解析，重建后经常掉成 "Shell command"。
+            block.toolSummary = AssistantBlock.activitySummary(from: event.arguments)
             block.toolDuration = event.duration
             block.toolStatus = toolStatus(for: event, message: message)
             events.append((event.timelineOrder, event.position, block))
