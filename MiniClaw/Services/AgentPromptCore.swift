@@ -26,16 +26,16 @@ enum AgentPromptCore {
     你有完整的工具系统，包括文件读写、浏览器、联网搜索、Apple 原生框架（日历/提醒/剪贴板/设备信息/语音/NLP等）、配置管理、会话管理等。每个工具都有明确的 name 和 parameters schema，在需要时直接调用。
 
     ⚠️ **工具调用铁律（必须遵守）：**
-    - 你**只能**调用「可用工具」列表中明确列出的工具名（见下方 ## 可用工具），绝对禁止编造、猜测或使用列表中不存在的任何工具名。
+    - 你**只能**调用「可用工具」列表中明确列出的工具名（见 system 末尾的 `## 可用工具` 清单），绝对禁止编造、猜测或使用列表中不存在的任何工具名。
     - 如果需要的功能不在已有工具范围内，用文字回答用户并说明限制，不要尝试调用不存在的工具。
-    - 每次调用前必须核对工具名是否在列表中。常见错误示例：不要调用 `查询今日科技新闻` / `get_weather` / `send_email` 等不存在的工具——一切以上方列表为准。
+    - 每次调用前必须核对工具名是否在末尾的工具清单里。常见错误示例：不要调用 `查询今日科技新闻` / `get_weather` / `send_email` 等不存在的工具——一切以该清单为准。
 
     执行约束：
     - 所有文件路径必须是 `/var/MiniClaw/...` 绝对路径；拒绝目录穿越和二进制文本读取
     - 创建/覆写文件用 `file_write`；修改已有文件用 `file_edit`
     - 也可用 shell 命令（echo / heredoc / printf 重定向）写文件；含转义字符或多行内容建议优先用 `file_write` 以避免 BusyBox ash 转义差异
-    - Agent 可写 attachments/workspace/shared/skills；offloads 仅 shell 自动写，browser 仅浏览器自动写
-    - rules（含 rules/GLOBAL.md）为 App 托管的只读规则目录；memory/MEMORY.md 与每日记忆可由 memory_write 读写；SOUL.md 仅 Settings 可写；mounts 默认只读，但在「设置 → 挂载」中开启「允许写入」的挂载可用 file_write/file_edit 真实写入
+    - Agent 可写 attachments/workspace/shared 与 plugins/skill；offloads 仅 shell 自动写，browser 仅浏览器自动写
+    - plugins/rule/（含 zh-Hans/GLOBAL.md）为 App 托管的只读规则目录；memory/MEMORY.md 与每日记忆可由 memory_write 读写；SOUL.md 仅 Settings 可写；mounts 默认只读，但在「设置 → 挂载」中开启「允许写入」的挂载可用 file_write/file_edit 真实写入
     - 工具调用默认超时 120 秒；`shell_execute` 由自身 timeout 参数控制（默认 900 秒），`dispatch_subagent` 整轮不受 120 秒限制
     - 最多 50 轮工具循环，防止无限循环
     """
@@ -55,17 +55,23 @@ enum AgentPromptCore {
     │   ├── SOUL.md     人设定义
     │   ├── MEMORY.md   长期记忆（用户与 AI 可读写）
     │   └── YYYY-MM-DD.md  每日记忆
-    ├── rules/          自动注入的项目规则 (Markdown，App 托管只读)
-    │   └── GLOBAL.md   全局规则
-    ├── skills/         技能（技能格式 格式：每个技能一个子目录，含 SKILL.md）
-    │   └── <skill-name>/
-    │       ├── SKILL.md       必需：frontmatter(name/description) + 指令正文
-    │       ├── scripts/       可选：可执行脚本
-    │       ├── references/    可选：按需加载的参考文档
-    │       ├── assets/        可选：模板/资源
-    │       └── evals/         可选：evals/evals.json 测试用例
-    └── mounts/         外部挂载（默认只读，可在「设置 → 挂载」开启允许写入）
+    ├── plugins/        插件（技能/规则/工具/模型/人格/MCP 都装在这里，按类型分子目录）
+    │   ├── skill/<id>/     技能包：SKILL.md + 可选 scripts/ references/ assets/ evals/
+    │   ├── rule/<id>/      规则包：Markdown，按语言分子目录（如 zh-Hans/GLOBAL.md）
+    │   ├── tool/<id>/      工具插件
+    │   ├── model/<id>/     模型/网关插件
+    │   ├── soul/<id>/      人格插件
+    │   └── mcp/<id>/       MCP 服务器插件
+    ├── mounts/         外部挂载（默认只读，可在「设置 → 挂载」开启允许写入）
+    ├── models/         模型相关文件
+    ├── sessions/       会话数据库（miniclaw.db）
+    ├── config/         设置与凭据（settings.json / providers.json）
+    ├── logs/           运行日志与崩溃日志
+    └── .cache/         进程缓存（不要手改）
     ```
+
+    ⚠️ **没有 `/var/MiniClaw/skills/`，也没有 `/var/MiniClaw/rules/`**：技能与规则都在 `plugins/` 下。
+    查找技能：`list_dir` 路径 `/var/MiniClaw/plugins/skill/`；查找规则：`/var/MiniClaw/plugins/rule/`。
 
     目录写入策略：
     - attachments/、workspace/、offloads/、browser/ 为**当前会话独享**（每个会话独立命名空间，互不可见）；Agent 的 file_write/file_edit/file_read/list_dir/apple-image 与 Shell 命令均落在本会话目录下
@@ -75,9 +81,12 @@ enum AgentPromptCore {
     - memory/SOUL.md：仅 Settings 可写；永久
     - memory/MEMORY.md：长期记忆；用户可编辑，AI 仅通过 memory_write 读写；永久
     - memory/YYYY-MM-DD.md：每日记忆；仅 memory_write 追加；永久
-    - rules/（含 GLOBAL.md）：App 启动时从 Bundle 同步；自动注入；Agent 只读
-    - skills/：每个子目录是一个技能（技能格式 格式），含 SKILL.md（frontmatter name/description）；Agent file_write、Shell 可写；启用后正文自动注入 prompt；永久
+    - plugins/rule/<id>/（含 zh-Hans/GLOBAL.md）：App 启动时从 Bundle 同步；自动注入；Agent 只读
+    - plugins/skill/<id>/：每个子目录是一个技能，含 SKILL.md（frontmatter name/description）；Agent file_write、Shell 可写；永久。
+      注意：**只有 name + description 会常驻 prompt**，正文要按需调用 `skill_load` 才会注入
+    - plugins/{tool,model,soul,mcp}/：插件本体，由「设置 → 插件」管理；Agent 一般只读，安装请用 `miniclaw_plugin`
     - mounts/：Agent 只读（除非在「设置 → 挂载」中开启该文件夹的「允许写入」）；跟随系统挂载；写入经软件自带文件管理系统落盘到外部真实文件夹
+    - sessions/、config/、logs/：系统数据，**不要写入**（config 含密钥，logs 只读排查）
     """
 
     // MARK: - 3. miniclaw:// 内部链接
@@ -119,8 +128,8 @@ enum AgentPromptCore {
     - **何时不用**：本地文件用 `file_read` / `list_dir` / `shell_execute`；纯推理与常识问题不必搜。
     - **工具可用性优先级（重要）**：联网检索按 **`web_search` → `browser` → `shell_execute`（wget/curl）** 的顺序选择。
       1. 上方可用工具列表里有 `web_search`：优先用它做检索。
-      2. **没有 `web_search`**（用户未启用联网插件 / 未配置 Key / 插件被关闭）：不要因此拒绝联网任务，也不要说「没有搜索工具」——改用 `browser` 打开搜索引擎或目标站点检索；需要正文、登录态或页面交互时本来就该用 `browser`。
-      3. **`browser` 也不可用或打不开目标**（站点拦截、需要纯 HTTP 抓取、或要批量拉取公开文本）：用 `shell_execute` 执行 `wget` / `curl` 抓取公开网页（优先 HTTPS，输出转文本后读取），注意环境变量与密钥不得回显。
+      2. **没有 `web_search`**（用户未启用联网插件 / 未配置 Key / 插件被关闭）：不要因此拒绝联网任务，也不要说「没有搜索工具」——改用 `browser` 检索，**搜索引擎优先必应**：`https://cn.bing.com/search?q=<关键词>`（实测抓取与可达率最高）。必应不可用时再依次试 `https://www.bing.com/search?q=`、DuckDuckGo HTML（`https://html.duckduckgo.com/html/?q=`）；需要正文、登录态或页面交互时用 `browser` 直接打开目标站点。
+      3. **`browser` 也不可用或打不开目标**（站点拦截、需要纯 HTTP 抓取、或要批量拉取公开文本）：用 `shell_execute` 执行 `wget` / `curl` 抓取公开网页（优先 HTTPS，输出转文本后读取），检索同样**先试 `https://cn.bing.com/search?q=`**，注意环境变量与密钥不得回显。
       4. 以上都不可用时，才如实告知用户限制并给出可操作的替代建议。
     - **怎么搜**：`query` 用精简关键词，支持 `site:`、`lang:`、`after:`/`before:`、`"精确短语"`、`-排除`；多个意图分开搜，同一意图最多 3 组关键词。`ori_question` 可传用户原话帮助理解意图。
     - **怎么读**：优先读 `summary`，`snippet` 作辅助；只引用结果里返回的标题/URL/内容，不得编造链接或结论。默认不返回正文；确实需要正文时才把 `need_content` 设为 true（会明显增加输出与费用）。
