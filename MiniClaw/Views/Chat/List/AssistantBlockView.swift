@@ -405,9 +405,10 @@ struct ThinkingBlockView: View {
     @ObservedObject var block: AssistantBlock
     let isStreaming: Bool
 
-    /// 折叠 = 半圆矩形（圆角取高度一半）；展开 = 常规 12 圆角。
+    /// 折叠/展开统一用同一个圆角（18 = 折叠高度的半圆），
+    /// 展开后不应回落到旧的 12，否则两种形态看起来不是一套组件。
     private var cornerShape: RoundedRectangle {
-        RoundedRectangle(cornerRadius: block.isThinkingExpanded ? 12 : 18, style: .continuous)
+        RoundedRectangle(cornerRadius: 18, style: .continuous)
     }
 
     private var expandedBinding: Binding<Bool> {
