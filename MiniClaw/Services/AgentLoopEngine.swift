@@ -1044,7 +1044,10 @@ final class AgentLoopEngine: ObservableObject, @unchecked Sendable {
                 let n = tc.function.name.trimmingCharacters(in: .whitespacesAndNewlines)
                 // dispatch/close_subagent 已随工具派发统一注册进 router（2026-09-09），
                 // registeredNames.contains 即可判定；保留名字比对仅为兼容旧检查点重放。
-                if !n.isEmpty && (registeredNames.contains(n) || n == Self.subagentToolName || n == Self.closeSubagentToolName) {
+                // [2026-11-20] 兜底：历史上发出去过带连字符的工具名（见 RemoteMCPTool.sanitize 的注释），
+                // 校验时统一规范化，避免旧会话/缓存里的调用被判成"未知工具"。
+                let canonical = ToolRouter.canonical(n)
+                if !n.isEmpty && (registeredNames.contains(canonical) || canonical == Self.subagentToolName || canonical == Self.closeSubagentToolName) {
                     validToolCalls.append(tc)
                 } else {
                     invalidToolCalls.append(tc)
