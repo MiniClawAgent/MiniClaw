@@ -42,6 +42,8 @@ struct MiniClawApp: App {
         // 启用状态在主线程先快照（SettingsStore 后台裸读竞态防护，2026-08-14 崩溃修复同款约束）。
         let subagentEnabledStates = SettingsStore.shared.settings.skillEnabledStates
         let subagentBuiltinIds = FileSystemManager.shared.bundledPluginIds()
+        // [2026-11-20] 构建标记：用于确认设备上跑的到底是哪一版（MCP 命名修复 v2）。
+        AppLogger.shared.info("[Build] MCPNaming=v2", category: "App")
         FileSystemManager.shared.syncBundledResourcesInBackground()
         Task {
             await FileSystemManager.shared.waitForBundledSync()
