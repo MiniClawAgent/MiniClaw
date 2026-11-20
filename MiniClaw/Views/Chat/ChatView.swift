@@ -885,14 +885,7 @@ struct ChatView: View {
                 thinkingLevels: availableThinkingLevels,
                 focused: $isInputFocused
             )
-            // [2026-11-20] 输入框外下方：AI 生成内容提示（合规要求）。
-            Text(String(localized: "ai_generated_disclaimer"))
-                .font(.system(size: 10))
-                .foregroundStyle(.tertiary)
-                .frame(maxWidth: .infinity, alignment: .center)
-                .padding(.top, 2)
-                .padding(.bottom, 4)
-                .allowsHitTesting(false)
+
             // zIndex：斜杠菜单覆盖层从输入栏向上溢出（覆盖消息与浮动条），
             // 重叠区兄弟绘制顺序未定义 → 显式抬高输入栏层级，保证菜单压住头像条。
             .zIndex(1)
@@ -902,6 +895,16 @@ struct ChatView: View {
             // （日志 03:25:14–17 连续四次 61 ↔ 214），inset 跟着 103 ↔ 256 抖 ⇒ 抬起量算错。
             // 改为读**本地尺寸**，并对"单次跳变过大"的值要求连续两次一致才采纳：
             // 正常输入栏 61pt，语音面板展开约 214pt —— 只有真正稳定下来才算数。
+            // [2026-11-20] 合规提示：**叠加**在输入框下方，不参与 VStack 布局。
+            // 之前放进 VStack 会把输入框整体顶高（底部对齐 ⇒ 新增一行 ∝ 输入框上移），
+            // 连带 inset 变化导致消息抬起高度不一致。
+            .overlay(alignment: .bottom) {
+                Text(String(localized: "ai_generated_disclaimer"))
+                    .font(.system(size: 10))
+                    .foregroundStyle(.tertiary)
+                    .offset(y: 16)          // 落在输入框下方的安全区里
+                    .allowsHitTesting(false)
+            }
             .onGeometryChange(for: CGSize.self) { proxy in
                 proxy.size
             } action: { size in
