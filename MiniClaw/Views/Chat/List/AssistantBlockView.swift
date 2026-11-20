@@ -28,8 +28,8 @@ struct ToolBadgeCluster: View {
 
     /// 与思考胶囊同高（胶囊 = 13pt 字 + 上下各 10 内边距 ≈ 36）。
     private let diameter: CGFloat = 36
-    /// 平铺时最多展示的个数，超出折成 +N（避免一行排到屏幕外）。
-    private let flatLimit = 6
+    /// 平铺时最多展示的个数；超出的部分折成一个**数字球**（不占用额外宽度）。
+    private let flatLimit = 3
 
     private var shown: [AssistantBlock] {
         mode == .single ? Array(blocks.prefix(1)) : Array(blocks.prefix(flatLimit))
@@ -44,13 +44,29 @@ struct ToolBadgeCluster: View {
                     badge(b, opens: b)
                 }
                 if blocks.count > flatLimit {
-                    Text("+\(blocks.count - flatLimit)")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(.secondary)
+                    overflowBall
                 }
             }
         }
         .accessibilityLabel(Text("\(blocks.count) 个工具"))
+    }
+
+    /// 溢出球：与工具球同尺寸，用数字表示还有几个；点开定位到第 4 个工具起。
+    private var overflowBall: some View {
+        let remaining = blocks.count - flatLimit
+        let target = blocks[flatLimit]
+        return Circle()
+            .fill(Color(uiColor: .secondarySystemBackground))
+            .frame(width: diameter, height: diameter)
+            .overlay(
+                Text("+\(remaining)")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
+            )
+            .overlay(Circle().strokeBorder(Color.secondary.opacity(0.35), lineWidth: 1))
+            .contentShape(Circle())
+            .onTapGesture { detailBlock = target }
     }
 
     /// 展开态的唯一球：图标取"多工具"语义，点开定位到第一个工具，可左右翻。
@@ -734,10 +750,16 @@ struct AssistantBlockView: View {
                     block: block,
                     isStreaming: isActiveMessage && message.blocks.last?.id == block.id
                 )
+                // 思考胶囊是主体信息，优先级最高且不参与压缩；工具球排在它后面，
+                // 数量再多也不能把胶囊挤变形。
+                .fixedSize(horizontal: true, vertical: false)
+                .layoutPriority(1)
                 if ChatInlineToolBadges.isEnabled, !toolBlocks.isEmpty {
                     ToolBadgeCluster(blocks: toolBlocks,
                                      mode: block.isThinkingExpanded ? .single : .flat,
                                      detailBlock: $detailBlock)
+                        .fixedSize(horizontal: true, vertical: false)
+                        .layoutPriority(0)
                 }
                 Spacer(minLength: 0)
             }
